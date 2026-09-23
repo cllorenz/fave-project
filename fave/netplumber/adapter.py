@@ -168,10 +168,9 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         # Tables the model DECLARES longest-prefix-match (TABLE_SEMANTICS_PLAN.md
         # S3a). NetPlumber resolves priority by rule INDEX, so honouring the
         # declaration means assigning that index longest-prefix-first here --
-        # the job `bench/np_preparation._reprioritise_fib_lpm` does at generation
-        # time today. Both run for now, and because the ordering is idempotent
-        # the result must be byte-identical; that is the step's whole safety
-        # argument (§9.5).
+        # the job a repair at generation time used to do. That repair is gone
+        # (TABLE_SEMANTICS_PLAN.md S3b), so this is now the ONLY thing that
+        # orders a declared FIB for NetPlumber.
         self._lpm_tables: Set[str] = set()
         # Declared tables already ordered, so a SECOND batch is refused rather
         # than silently mis-ordered (§9.1's open incremental question).
@@ -837,12 +836,11 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         DECLARED longest-prefix-match is given indices 1..n assigned
         longest-prefix-first -- a **stable** sort, so rules of equal prefix
         length keep the order the model gave them. That is deliberately the same
-        assignment `np_preparation._reprioritise_fib_lpm` makes at generation
-        time (`enumerate(order, start=1)` over a stable sort by descending prefix
-        length), because both run for now and the ordering has to be IDEMPOTENT:
-        applied to an already-ordered table it must be the identity, so the RPC
-        payload is byte-identical and any disagreement is a real defect rather
-        than a renumbering.
+        assignment the deleted generation-time repair made (`enumerate(order,
+        start=1)` over a stable sort by descending prefix length). Keeping the
+        two identical is what let S3a prove this ordering correct while both
+        ran, and it is why wl_stanford still computes its 165 reachable pairs
+        with the repair gone.
 
         Refuses a SECOND batch for a table it has already ordered. Rule indices
         here are dense (1..n), so a later batch has no free index below an
@@ -865,11 +863,11 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self._lpm_ordered.add(table)
 
         # Key (-prefix length, idx), not a stable sort on the list order.
-        # Relying on stability is correct only while `_reprioritise_fib_lpm`
-        # rewrites `idx` IN PLACE and leaves the list in file order; once that
-        # repair is deleted (S3b) `idx` is the file position again, and this key
-        # reproduces the generator's assignment in BOTH worlds -- longest prefix
-        # first, ties in the order the table was written.
+        # Relying on stability was correct only while the generation-time
+        # repair rewrote `idx` IN PLACE and left the list in file order. That
+        # repair is deleted (S3b), so `idx` is the file position again and this
+        # key gives longest prefix first, ties in the order the table was
+        # written -- the same assignment the repair used to make.
         order = sorted(range(len(rules)),
                        key=lambda i: (-lpm_prefix_len(rules[i]),
                                       getattr(rules[i], 'idx', i)))

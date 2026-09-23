@@ -920,7 +920,7 @@ class TestTableTranslation(unittest.TestCase):
         """ `Rule.idx` is a PRIORITY, and FaVe hands rules out in an order that
         often disagrees with it -- 4 of wl_ifi's 38 tables, 138 of wl_up's
         1,134. Lower index wins: 65535 is FaVe's max-priority default rule, and
-        np_preparation._reprioritise_fib_lpm repairs a FIB by reassigning
+        the deleted generation-time repair fixed a FIB by reassigning
         indices in descending prefix-length order. Since ad6 evaluates a table
         first-match-wins in DOCUMENT order, emitting the list as handed over
         would run a default rule before the specific rule it backs up. """

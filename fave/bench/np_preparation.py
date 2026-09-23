@@ -186,19 +186,9 @@ def _prefix_len(match_fields):
 class FibDeclarationError(ValueError):
     """ Raised when a raw-table benchmark's `config.json` does not declare which
     of its table types are FIBs, or declares one that does not exist. Loud by
-    design: see `_reprioritise_fib_lpm`. """
-
-
-def _net_of(match_fields):
-    """ The ipv4_dst network of a route, or the match-all default. """
-    for clause in match_fields:
-        if clause.startswith('ipv4_dst='):
-            return ipaddress.ip_network(clause.split('=', 1)[1], strict=False)
-    return ipaddress.ip_network('0.0.0.0/0')
-
-
-def _forwards(actions):
-    return any(a.startswith('fd=') for a in actions)
+    design: a benchmark must SAY which of its tables are FIBs, because nothing
+    infers it. The declaration now rides on the model (TABLE_SEMANTICS_PLAN.md
+    S2) and the positional backends order those tables themselves. """
 
 
 def fib_tables(routes, fib_table_types):
@@ -211,114 +201,6 @@ def fib_tables(routes, fib_table_types):
         r[0] for r in routes
         if r[0].split('.', 1)[0] in set(fib_table_types)
     }
-
-
-def _reprioritise_fib_lpm(routes, fib_table_types):
-    """ NO LONGER ON THE GENERATION PATH (TABLE_SEMANTICS_PLAN.md S3b,
-    2026-09-23). A FIB is now DECLARED on the model and each positional backend
-    orders it at translation time -- NetPlumber when it assigns the index it
-    sends, ad6 when it emits the document. Nothing calls this.
-
-    Kept, with its tests, for two reasons: it is the reference implementation
-    those adapters have to agree with (they use the same `(-prefix length, idx)`
-    key deliberately), and `_cross_class_promotions` below is the only thing in
-    this tree that has ever reported a deny-before-permit swap. Deleting both is
-    a separate decision.
-
-    FaVe-backend LPM fix (see APKEEP_STANFORD_NP_SPEC.md Phase 1d, and
-    AD6_PLAN.md §5.5 for why this function's PREDECESSOR silently skipped wl_i2).
-
-    NetPlumber resolves rule priority by rule index (lower index = higher
-    priority). A raw-table dataset that feeds its FIB in FILE ORDER
-    (shortest prefix first) therefore lets the `0.0.0.0/0` default outrank the
-    specific routes, and NP forwards by the WRONG rule -- a non-LPM artifact
-    (wl_stanford reachability collapses to ~10 pairs). Vanilla NetPlumber avoids
-    this because its `--load` front-inserts every rule, reversing file order back
-    to longest-first; the FaVe fork's list->map `--load` keys priority by the
-    stored rule id/file position instead and dropped that reversal. This restores
-    longest-prefix-match by reassigning each declared FIB table's rule index so
-    that longer dst prefixes get the lower index, stable within a prefix length.
-
-    WHICH TABLES: declared, never inferred. `fib_table_types` comes from the
-    benchmark's own `config.json` (`"fib_table_types": ["mid"]` for wl_stanford,
-    `["out"]` for wl_i2). The predecessor hardcoded `dev.startswith('mid.')`,
-    which silently did NOTHING on wl_i2 -- whose FIB is the `out` stage -- so
-    every FaVe+NetPlumber wl_i2 number was computed on a non-LPM forwarding
-    model (3,731 rules shadowed by an earlier containing prefix). An EARLIER
-    design of this function inferred FIB-ness from rule shape ("matches only
-    ipv4_dst"); that was rejected, correctly, because a packet filter can have
-    the same shape and reordering one changes its filtering semantics -- and
-    because shape-matching on match fields is blind to ACTIONS, which is where
-    permit/deny lives.
-
-    A declared FIB may still hold non-forwarding rules -- wl_stanford's `mid.*`
-    tables carry 3,372 forwarding rules and 472 no-action DROPS, including a
-    `10.0.0.0/8` discard ahead of a `10.240.0.0/12` forward. That is the normal
-    FIB idiom (a discard aggregate with more-specific routes punched through
-    it) and longest-prefix-match is exactly how a router resolves it, so those
-    are reordered like any other rule. `_cross_class_promotions` REPORTS how
-    many such swaps a table sees, for a human reviewing a new declaration; it
-    deliberately does not refuse, because the shape is indistinguishable from a
-    genuine deny-before-permit filter and refusing blocks valid FIBs.
-
-    Raises FibDeclarationError on a missing or unknown declaration -- omission
-    must be loud, since a silent skip is precisely the bug this replaces. """
-    fibs = fib_tables(routes, fib_table_types)
-    promotions = {}
-
-    by_dev = {}
-    for pos, route in enumerate(routes):
-        by_dev.setdefault(route[0], []).append(pos)
-
-    for dev in sorted(fibs):
-        positions = by_dev.get(dev, [])
-        order = sorted(positions, key=lambda p: -_prefix_len(routes[p][3]))
-        swapped = _cross_class_promotions(routes, positions, order)
-        if swapped:
-            promotions[dev] = swapped
-        for new_idx, p in enumerate(order, start=1):
-            t = routes[p]
-            routes[p] = (t[0], t[1], new_idx, t[3], t[4], t[5])
-
-    return promotions
-
-
-def _cross_class_promotions(routes, before, after):
-    """ How many overlapping (non-forwarding, forwarding) pairs this reorder
-    swaps -- REPORTED, not refused.
-
-    An earlier design raised on any such swap, on the theory that reordering a
-    table which mixes passing and denying rules changes its filtering
-    semantics. That theory is right about ACLs and WRONG about FIBs, and the
-    real wl_stanford data settles it: `mid.bbra_rtr` holds a `10.0.0.0/8` DROP
-    ahead of a `10.240.0.0/12` FORWARD. That is the standard FIB idiom -- a
-    discard route for an aggregate with more-specific routes punched through it
-    -- and a real router resolves it by longest prefix, forwarding 10.240/12
-    and dropping the rest of 10/8. Refusing it blocked the entire wl_stanford
-    regeneration, whose LPM result is independently validated at 165 pairs.
-
-    In a FIB every rule participates in longest-prefix-match, drops included,
-    so for a CORRECTLY DECLARED table such a swap is always right. And the
-    shape is indistinguishable from a genuine deny-before-permit filter, so no
-    automatic check can separate the two without also blocking valid FIBs.
-    **The declaration is therefore the contract** -- `config.json`'s
-    `fib_table_types` asserts "these tables have LPM semantics" -- and this
-    function only quantifies what changed, so a human reviewing a NEW
-    declaration can see whether it did anything surprising. """
-    rank_before = {p: routes[p][2] for p in before}
-    rank_after = {p: i for i, p in enumerate(after)}
-    fwd = [p for p in before if _forwards(routes[p][4])]
-    other = [p for p in before if not _forwards(routes[p][4])]
-    swapped = 0
-    for a in other:
-        net_a = _net_of(routes[a][3])
-        for b in fwd:
-            if not net_a.overlaps(_net_of(routes[b][3])):
-                continue
-            if (rank_before[a] < rank_before[b]) != (rank_after[a] < rank_after[b]):
-                swapped += 1
-                break
-    return swapped
 
 
 def prepare_benchmark(

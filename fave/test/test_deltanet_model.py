@@ -300,7 +300,7 @@ class TestDeltanetLPM(unittest.TestCase):
     wrong.** Inverting the ordering so the SHORTEST prefix wins still yields 256
     checks and 0 violations, because the matrix asks an existential question per
     switch pair and a misrouted prefix still leaves its 99 siblings arriving.
-    That is the same shape as the wl_i2 defect `_reprioritise_fib_lpm` records,
+    That is the same shape as the wl_i2 defect AD6_PLAN.md 5.5 records,
     where 3,731 rules sat shadowed behind a containing prefix and every number
     computed on them looked fine.
 

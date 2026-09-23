@@ -142,8 +142,8 @@ def validate_lpm_rules(
 
     WHAT THIS CANNOT DO, and it is the case that matters most: it cannot catch a
     table that is genuinely first-match but was DECLARED lpm, when its rules
-    happen to be destination-only. `np_preparation._cross_class_promotions`
-    documents why -- a FIB with a discard aggregate (`10.0.0.0/8` DROP ahead of a
+    happen to be destination-only. the generation-time LPM repair
+    documented why (`np_preparation._cross_class_promotions`, deleted with it) -- a FIB with a discard aggregate (`10.0.0.0/8` DROP ahead of a
     `10.240.0.0/12` forward) and a deny-before-permit filter have identical
     shape, which is exactly why FIB-ness was made a declaration rather than an
     inference. **A passing validation is not evidence that a table really is a

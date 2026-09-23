@@ -56,7 +56,7 @@ Three things keep that honest rather than convenient:
 
 Rule order is longest-prefix-first within each device, which is what makes this
 a FIB rather than a list: NetPlumber resolves priority by rule index (see
-`np_preparation._reprioritise_fib_lpm` for the bug that costs). Only two of the
+AD6_PLAN.md 5.5 for the bug that costs). Only two of the
 1,400 prefixes nest inside another, so the ordering is load-bearing for exactly
 those two -- which is a reason to get it right, not a reason to skip it.
 """
@@ -82,7 +82,7 @@ _OUT_OFFSET = 50
 #: One device per switch, one table per device.
 #
 #: The stage prefix every device name carries, and the declaration
-#: `_reprioritise_fib_lpm` reads to decide which tables have LPM semantics.
+#: the model DECLARES on each device to say which tables have LPM semantics.
 #: `wl_cloud` is the precedent for declaring it as a constant rather than in a
 #: `config.json`: that file belongs to the raw-table JSON path, which reads it
 #: while converting vendored Hassel tables, and this workload's input is two
@@ -97,7 +97,7 @@ _OUT_OFFSET = 50
 #: the original benchmark, which models one flat forwarding table per node.
 #:
 #: What the declaration DOES buy is that there is one LPM mechanism in the tree
-#: rather than two. A per-workload sort is how `_reprioritise_fib_lpm`'s own
+#: rather than two. A per-workload sort is how the deleted repaib_lpm`'s own
 #: predecessor came to do nothing at all on wl_i2, leaving 3,731 rules shadowed
 #: behind a containing prefix.
 STAGE_SWITCH = 'sw'
@@ -148,8 +148,8 @@ def build_model(
             {device_name(switch): index},
             # DECLARE the forwarding table longest-prefix-match on the model
             # itself (TABLE_SEMANTICS_PLAN.md S3b), so the adapters order it
-            # rather than depending on `_reprioritise_fib_lpm` having done so at
-            # generation time. Keyed `<node>.1`, SwitchModel's own table name.
+            # rather than depending on a generation-time repair having done so.
+            # Keyed `<node>.1`, SwitchModel's own table name.
             {'%s.1' % device_name(switch): LPM},
         ))
 
@@ -190,9 +190,9 @@ def build_model(
 
     routes: List[Sequence[Any]] = []
     for index, switch in enumerate(topology.switches, start=1):
-        # Emitted in a deterministic base order; `_reprioritise_fib_lpm` below
-        # does the longest-prefix-first pass. Its sort is STABLE, so the order
-        # within one prefix length is exactly this one.
+        # Emitted in a deterministic base order. The longest-prefix-first pass
+        # happens in the ADAPTERS now, keyed (-prefix length, idx), so this base
+        # order is what breaks ties within one prefix length.
         entries = sorted(table[switch], key=lambda entry: (entry[1], entry[0]))
         for rule, (ingress, prefix, egress) in enumerate(entries, start=1):
             routes.append((
@@ -206,14 +206,12 @@ def build_model(
     # backends order a declared table themselves (TABLE_SEMANTICS_PLAN.md S3a),
     # so the rule index no longer has to carry the prefix-length rank.
 
-    # `_reprioritise_fib_lpm` rewrites each rule's INDEX and leaves the list in
-    # emission order, so afterwards the two disagree. That is safe -- the
-    # adapter hands NetPlumber `rule.idx`, never a list position, which is what
-    # wl_stanford's independently validated 165 pairs rest on -- but it leaves
-    # an artifact whose order invites a reader, or a future adapter, to take
-    # position for priority. Sorting by the index costs nothing and removes the
-    # question; it also keeps `routes.json` byte-identical to the hand-sorted
-    # version this replaced, which is how the refactor was shown to be inert.
+    # Sorted by (device, index) so the emitted list and the indices agree. That
+    # used to matter because a generation-time repair rewrote each rule's INDEX
+    # and left the list in emission order, leaving an artifact whose order
+    # invited a reader -- or a future adapter -- to take position for priority.
+    # The repair is gone, so the two now agree by construction; the sort is kept
+    # because it also keeps `routes.json` stable across runs.
     order = {switch: rank for rank, switch in enumerate(topology.switches)}
     routes.sort(key=lambda route: (order[int(route[0].split('.s')[1])], route[2]))
 

@@ -469,15 +469,14 @@ def _rules_netplumber_would_receive(honour_declaration):
 @require_or_skip(os.path.isfile("%s/device_topology.json" % _STANFORD),
                  "wl_stanford inputs not generated")
 class TestNetPlumberHonoursTheDeclaration(unittest.TestCase):
-    """ S3a: the adapter orders a declared-LPM table itself.
+    """ The adapter orders a declared-LPM table itself.
 
     NetPlumber resolves priority by rule index, so honouring the declaration
-    means assigning that index longest-prefix-first -- the job
-    `_reprioritise_fib_lpm` does at generation time. BOTH run for now, and
-    because the ordering is idempotent the association between each rule and its
-    priority must be IDENTICAL either way. That equivalence is the whole safety
-    argument of the step: if the adapter's ordering is right nothing changes, and
-    if it is wrong the real workloads say so at once.
+    means assigning that index longest-prefix-first. A repair at generation time
+    used to do that instead; while BOTH ran (S3a) the two assignments had to be
+    identical, which is how this ordering was shown correct. The repair is gone
+    (S3b), so this is now the only thing that orders a FIB for NetPlumber and
+    the test asks whether the result is RIGHT rather than whether it matches.
     """
 
     def test_the_adapter_assigns_longest_prefix_first(self):
@@ -559,10 +558,13 @@ def _ad6_order(rules, lpm):
 
 
 class TestAd6HonoursTheDeclaration(unittest.TestCase):
-    """ S3a, ad6 half. ad6 evaluates a table first-match-wins in document order
-    and sorts by `idx`, which it can only do because `_reprioritise_fib_lpm`
-    reassigns indices in descending prefix-length order at generation time --
-    so ad6 CONSUMES the repair S3b deletes. """
+    """ ad6 evaluates a table first-match-wins in DOCUMENT order, so the order
+    it emits IS the priority.
+
+    It used to sort by `idx` alone, which was only correct because a repair at
+    generation time reassigned indices in descending prefix-length order -- ad6
+    CONSUMED that repair, which is why it had to learn the declaration before
+    S3b could delete it. """
 
     @staticmethod
     def _rule(idx, dst, port='dev.2'):

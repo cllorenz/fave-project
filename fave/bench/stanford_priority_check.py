@@ -36,13 +36,21 @@ demonstrated: re-prioritising lifted NP's count 10 -> ~165, confirming NP's
 canonical "10/240" was a priority artifact and APKeep's LPM forwarding the
 faithful one. See APKEEP_STANFORD_NP_SPEC.md.
 
-**BOTH COLUMNS NOW READ 165, AND THAT IS THE FIX LANDING, NOT THE CHECK GOING
-STALE.** `bench/np_preparation.py:_reprioritise_fib_lpm` re-prioritises the
-declared FIB tables when the dataset is PREPARED, so the shipped `routes.json`
-is already longest-prefix-first and the "file order" column is measuring an
-already-corrected file. The A/B therefore no longer exhibits the bug -- it
-asserts the absence of it. A DIVERGENCE between the two columns now means the
-preparation step has regressed, which is exactly the tripwire worth keeping.
+**BOTH COLUMNS READ 165, AND SINCE 2026-09-23 THIS SCRIPT NO LONGER MEASURES
+WHAT IT CLAIMS.** It used to: a repair at PREPARATION time re-prioritised the
+declared FIB tables, so the shipped `routes.json` was already
+longest-prefix-first and the "file order" column measured an already-corrected
+file. That repair is deleted (TABLE_SEMANTICS_PLAN.md S3b). A FIB is now
+DECLARED on the model and **the NetPlumber adapter orders it at translation
+time**, which means it orders BOTH columns -- the script's own `_reprioritise`
+below can no longer change the answer, and the A/B is a tautology rather than a
+tripwire.
+
+Kept for its narrative, which is still the clearest statement of why rule
+priority matters here, and because the 10 -> 165 result is a measured fact worth
+not losing. **Do not read a passing run as evidence of anything**; the live
+guard is `test_table_semantics.py`, which asserts the adapter emits a declared
+table longest-prefix-first, plus wl_stanford's 165 pairs in the tiers.
 (For the record of how easily this hides: the same fix was scoped to `mid.*`
 tables for a month, so it silently never applied to wl_i2 -- whose FIB is the
 `out` stage -- leaving 3,731 rules there shadowed by an earlier containing

@@ -232,7 +232,7 @@ class TestSourcesAndProbes(unittest.TestCase):
 class TestTheDatasetOrderIsPreserved(unittest.TestCase):
     """ wl_cloud is FIRST-MATCH, so its file order IS its semantics.
 
-    This class used to assert the opposite: that `_reprioritise_fib_lpm`
+    This class used to assert the opposite: that the generation-time repair
     reassigned indices so a longer prefix outranked a shorter one whatever the
     file order. That repair no longer runs here, and under the semantics the
     owner settled (TABLE_SEMANTICS_PLAN.md §0.6 / §2.8) it should never have:

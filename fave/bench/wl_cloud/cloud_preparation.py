@@ -28,7 +28,7 @@ the remainder onto an in/mid/out pipeline stage, and `_probe_id_to_name` /
 hardcodes an unconstrained `ipv4_dst=0.0.0.0/0` generator. The cloud dataset has
 neither a three-stage pipeline nor unconstrained sources: its generators carry
 the host's own `/30`. What IS reused, because it is generic: the LPM
-re-prioritisation (`_reprioritise_fib_lpm`), which is load-bearing here.
+re-prioritisation, which was measured a complete no-op here and is gone.
 
 THE PORT STRUCTURE IS INVENTED, AND THAT IS THE RISK. The dataset states
 forwarding as node-to-node rules: it has no interfaces and no `link$` lines
@@ -71,7 +71,7 @@ _SHORT_NAMES: List[Tuple[str, str]] = [
     ('packet.upper.tcp.flags', 'tcp_flags'),
 ]
 
-#: The stage prefix each node class becomes. `_reprioritise_fib_lpm` reads the
+#: The stage prefix each node class becomes. `fib_tables` reads the
 #: prefix of a device name to decide which tables are FIBs, so the classes that
 #: do destination routing must be separable by name from the one that does NAT.
 STAGE_CORE = 'core'

@@ -846,14 +846,30 @@ Also chased rather than trusted: a "1 inversion" measured on `gw.internet` was a
 artifact of the measuring script treating source-matching anti-spoofing rules as
 having no destination. Identical before and after.
 
-#### Left in place, deliberately
+#### Deleted 2026-09-23, on the owner's instruction
 
-`_reprioritise_fib_lpm`, `_cross_class_promotions` and `_prefix_len` are no
-longer called by any producer, but are kept with their tests: they are the
-reference implementation the adapters' ordering has to agree with, and
-`_cross_class_promotions` is the only thing that has ever reported a
-deny-before-permit swap. Deleting them is a separate decision, recorded as a
-follow-up rather than taken here.
+`_reprioritise_fib_lpm`, `_cross_class_promotions` and their two now-orphaned
+helpers `_net_of` and `_forwards` are gone, with the three test classes covering
+them (fast tier 887 -> 879, exactly the 8 deleted tests). `_prefix_len`,
+`fib_tables` and `FibDeclarationError` STAY -- the first two are used by
+`bench/stanford_priority_check.py` and the third still guards the config
+validation that produces the declaration.
+
+**The prose needed more work than the code.** 21 references named the function,
+and two were not merely dangling but stale:
+
+* `test_table_semantics`' two class docstrings still said *"BOTH run for now"* --
+  the S3a world, untrue since S3b.
+* **`bench/stanford_priority_check.py` can no longer fail.** Its docstring
+  claimed both columns reading 165 was "THE FIX LANDING, NOT THE CHECK GOING
+  STALE", which held while a preparation-time repair pre-sorted `routes.json`.
+  The NetPlumber adapter now orders declared tables at translation time, so it
+  orders BOTH columns: the script's own local `_reprioritise` cannot change the
+  answer and the A/B is a tautology. Kept for its narrative and its measured
+  10 -> 165 result, with the docstring saying plainly **do not read a passing
+  run as evidence of anything** and pointing at the live guards instead. Leaving
+  a check that cannot fail is the "a skip is NOT a pass" shape this tree has now
+  hit three times.
 
 ---
 

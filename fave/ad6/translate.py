@@ -713,9 +713,10 @@ def table_to_ad6(device: str, table: str, port: Optional[str], rules: Any,
     the two coincided. FaVe hands rules out in an order that often disagrees
     with their own indices: 4 of wl_ifi's 38 tables, 9 of wl_i2's 36, 16 of
     wl_stanford's 96 and 138 of wl_up's 1,134. Lower index wins -- 65535 is
-    FaVe's max-priority default rule, and `np_preparation._reprioritise_fib_lpm`
-    repairs a FIB by REASSIGNING indices in descending prefix-length order, so
-    the longest prefix gets the lowest index and is evaluated first.
+    FaVe's max-priority default rule. A FIB USED TO arrive with its indices
+    already reassigned in descending prefix-length order, by a repair at
+    generation time; that repair is gone (TABLE_SEMANTICS_PLAN.md S3b) and this
+    function orders a DECLARED lpm table itself -- see the `lpm` branch below.
 
     That matters more here than in most models, because ad6 evaluates a table
     first-match-wins in DOCUMENT order with an implicit fall-through
@@ -751,10 +752,10 @@ def table_to_ad6(device: str, table: str, port: Optional[str], rules: Any,
     if lpm:
         # The table DECLARES longest-prefix-match (TABLE_SEMANTICS_PLAN.md S3a).
         # Order it by prefix length here rather than trusting `idx` to already
-        # carry that rank. Both hold today -- `_reprioritise_fib_lpm` reassigns
-        # idx in descending prefix-length order at generation time, which is why
-        # the docstring above says the index IS the priority -- but that repair
-        # is what S3b deletes, and after it `idx` is the file position again.
+        # carry that rank. A generation-time repair used to reassign idx in
+        # descending prefix-length order, which is why the docstring above says
+        # the index IS the priority; that repair is deleted (S3b), so `idx` is
+        # the file position again.
         # The key reproduces the generator's assignment in BOTH worlds: longest
         # prefix first, ties in the order the table was written.
         indexed.sort(key=lambda pair: (-lpm_prefix_len(pair[1]),
