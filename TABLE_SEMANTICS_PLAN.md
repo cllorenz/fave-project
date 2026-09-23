@@ -34,6 +34,18 @@ exceptions, and move enforcement out of the model and into the adapters.
    producer has to write `first_match` anywhere.
 5. **Order-validation is OUT** (see §4). Checking early that an LPM table
    *happens* to be in longest-prefix-first order contradicts decisions 1 and 2.
+6. **`fib_table_types` and `table_semantics: lpm` stay two different things**
+   (2026-09-23, after the wl_cloud example below). The first is a *repair
+   instruction* -- "run the prefix-length re-prioritisation over these tables";
+   the second is a *semantic claim* -- "this table resolves by longest prefix".
+   They coincide for wl_stanford, wl_i2 and wl_deltanet and **diverge for
+   wl_cloud**, which declares `core`/`lin`/`lout` for the repair while 382 of
+   those rules match more than a destination. **wl_cloud declares no `lpm`
+   table.** Owner: *"I do not want to fiddle with wl_cloud's semantics... The
+   benchmark authors chose this form and we need to have faith in the
+   correctness of the authors' modeling step. We can assume first-match
+   semantics and digest the tables accordingly even though this might pose a
+   challenge for the APKeep adapter."*
 
 ---
 
@@ -179,6 +191,44 @@ Splitting the two checkable properties, measured:
   uses it (`model.type == 'router'`). The device-level metadata channel exists
   and one adapter ignores it in favour of table-name suffixes
   (`.forward_filter`) and device-name prefixes.
+
+---
+
+## 2.8 The case that settled it: wl_cloud mixes forwarding and filtering
+
+45 of wl_cloud's devices carry a table holding both. `lin.dc1_leaf0`, as it
+ships (`cloud-tf/network.tf` lines 615/676/678, node `1100001`) and as FaVe
+models it:
+
+| idx | match | action | meaning |
+|---:|---|---|---|
+| 1 | `ipv4_dst=10.0.4.0/25`, `ip_proto=6`, `tcp_dst=332` | forward | permit the one service |
+| 2 | `ipv4_dst=10.0.4.0/25` | *(none)* = drop | deny the rest of that subnet |
+| 3 | *(matches everything)* | forward | otherwise, pass on |
+
+*"Traffic to this leaf's subnet is allowed only on TCP port 332; anything else
+to that subnet is dropped; anything not for that subnet goes to the core."*
+
+**Rules 1 and 2 match the SAME prefix and do opposite things.** Longest-prefix
+-match cannot resolve that pair -- there is no longer prefix to prefer -- so only
+their ORDER decides, and the permit must come first or the service disappears.
+The table is genuinely first-match and merely happens to be written in
+destination-prefix terms: an ACL with a default route as its last line, not a
+FIB with an ACL bolted on.
+
+§9.4's two checks reject it on **two independent grounds**, and both are right:
+rule 1 matches more than a destination (declarability), and rules 1 and 2 share
+a prefix while disagreeing (ambiguity).
+
+**The repair has never reordered anything in wl_cloud.** Measured by
+instrumenting a full regeneration: **zero cross-class promotions**. Rules 1 and 2
+tie at /25 and the default sorts last anyway, so sorting by prefix length leaves
+the table exactly as written. (`cloud_preparation` discards the promotions report,
+so had there been any, nobody would have seen them.)
+
+This is the same benchmark-shape question as §2.1: wl_cloud arrives semi-modelled
+from raw configuration, and the modelling step is the authors'. The tables are
+correct as written; reordering them would be the defect, not the fix.
 
 ---
 
@@ -707,7 +757,7 @@ so nothing runs them together). Reproduced at HEAD with these changes stashed.
 
 ---
 
-### 9.6 S3b -- remove the generation-time reordering
+### 9.6 S3b -- remove the generation-time reordering. DONE 2026-09-23.
 
 Delete `_reprioritise_fib_lpm` from the generation path, and with it
 `wl_deltanet`'s `sw.` prefix and `_DEVICE_PREFIX`.
@@ -718,6 +768,79 @@ into the wl_i2 defect** -- the exact failure this plan exists to prevent.
 
 *Test:* wl_deltanet's model unchanged apart from device names, and
 `test_deltanet_model.py::TestDeltanetLPM` still passes (item 12a's guard).
+
+#### Three producers, not one
+
+§9.6 assumed `np_preparation` was the only caller. There were three, and they
+needed different treatment:
+
+| producer | treatment | evidence |
+|---|---|---|
+| `np_preparation` (wl_stanford, wl_i2) | call removed; both stages already declare | NetPlumber recomputes wl_stanford's **165** pairs and wl_i2's **61** |
+| `deltanet_preparation` | now DECLARES `lpm` on all 16 switches; call removed | backend differential passes |
+| `cloud_preparation` | call removed, declares **nothing** (§0.6) | routes **byte-identical**, 1,741 rules |
+
+#### Validation
+
+* **wl_stanford on NetPlumber: 165 reachable pairs**, the reference figure, with
+  the generation-time repair gone. The adapters now supply the ordering the rule
+  index used to carry.
+* **wl_i2 on NetPlumber: 61 pairs** -- and APKeep's 72 beside it is not a
+  disagreement but the over-approximation `test_apkeep_i2` documents by
+  construction ("it reports all 72 pairs reachable where the real data plane
+  delivers 61"). Confirmed by a CONTROL rather than by reading: the pre-S3b
+  inputs were reconstructed (repair applied, declarations stripped) and give
+  **the same 61 vs 72**. S3b changed nothing here.
+* **wl_cloud: byte-identical output**, confirming §2.8's measurement that its
+  repair had never reordered anything.
+
+#### The first NetPlumber harness was wrong, and it looked exactly like a regression
+
+It reported 240 pairs -- every pair -- which is precisely what a failed LPM
+ordering looks like. Running it against the PRE-S3b tree gave 240 as well, which
+is what exposed it: `_not_reached` records that NetPlumber reports node **ids**
+where APKeep reports names, so the violation set was empty and everything looked
+reachable. Using the differential's own helper gives 165. **A number that
+confirms the failure you are looking for deserves a control run before it is
+believed.**
+
+#### Five tests failed, and all five asserted the ABSENCE of the fix
+
+That is the expected shape of this step, and each needed a different repair:
+
+* `test_rules_are_ordered_longest_prefix_first` asserted the emitted INDEX
+  carries the prefix rank. It now asserts that indices are unique and that the
+  DECLARATION is present -- the property that replaced it.
+* the two `TestDeltanetLPM` walk tests resolved by lowest index. They now
+  resolve the way the backends do, longest prefix with the index as tiebreak.
+  **The inversion guard had to change with them**: it inverted the INDEX, which
+  the walk no longer reads, so it would have kept passing while guarding
+  nothing. It inverts the RESOLUTION instead.
+* the two S3a differentials compared the adapter's ordering against the
+  generator's. With the generator no longer ordering there is nothing to match,
+  so they assert the ordering is RIGHT -- non-increasing prefix length in the
+  index NetPlumber receives and in the document ad6 emits.
+* **wl_cloud's `TestLpmReprioritisation` is a semantic REVERSAL, not a repair.**
+  It asserted that the repair made a longer prefix outrank a shorter one
+  "regardless of file order". Under §0.6's reading that reordering is the defect:
+  the table is first-match, so its file order IS its semantics. It now asserts
+  the emitted index FOLLOWS the dataset, and its docstring carries both the
+  reversal and the byte-identical measurement behind it.
+
+Also chased rather than trusted: a "1 inversion" measured on `gw.internet` was an
+artifact of the measuring script treating source-matching anti-spoofing rules as
+having no destination. Identical before and after.
+
+#### Left in place, deliberately
+
+`_reprioritise_fib_lpm`, `_cross_class_promotions` and `_prefix_len` are no
+longer called by any producer, but are kept with their tests: they are the
+reference implementation the adapters' ordering has to agree with, and
+`_cross_class_promotions` is the only thing that has ever reported a
+deny-before-permit swap. Deleting them is a separate decision, recorded as a
+follow-up rather than taken here.
+
+---
 
 ### 9.7 S5 -- the rich models
 

@@ -229,18 +229,27 @@ class TestSourcesAndProbes(unittest.TestCase):
         self.assertEqual(model['probes']['devices'], [])
 
 
-class TestLpmReprioritisation(unittest.TestCase):
-    """ Longest-prefix-match, the defect AD6_PLAN.md §5.5 describes.
+class TestTheDatasetOrderIsPreserved(unittest.TestCase):
+    """ wl_cloud is FIRST-MATCH, so its file order IS its semantics.
 
-    Cloud resolves /30 host routes against /25 leaf routes, /22 datacenter
-    routes and a wildcard default, and NetPlumber orders by rule index -- so
-    file order alone forwards by the WRONG rule.
+    This class used to assert the opposite: that `_reprioritise_fib_lpm`
+    reassigned indices so a longer prefix outranked a shorter one whatever the
+    file order. That repair no longer runs here, and under the semantics the
+    owner settled (TABLE_SEMANTICS_PLAN.md §0.6 / §2.8) it should never have:
+    45 of this dataset's devices hold ONE table mixing forwarding and filtering,
+    where two rules share a prefix and disagree, so only their ORDER can resolve
+    them and reordering by prefix length would be the defect rather than the fix.
+
+    Measured, so this is not a story: removing the repair leaves the generated
+    routes BYTE-IDENTICAL (1,741 rules), because this dataset is already written
+    longest-prefix-first wherever prefixes nest. The guard that matters is
+    therefore that the emitted index follows the dataset, which is what a
+    first-match table needs and what every backend now receives.
     """
 
-    def test_a_longer_prefix_outranks_a_shorter_one_regardless_of_file_order(self):
-        """ Priority is the route's rule INDEX (lower wins), not its position in
-        the list -- `_reprioritise_fib_lpm` reassigns indices in place and
-        leaves file order alone. """
+    def test_the_emitted_index_follows_the_dataset_not_the_prefix_length(self):
+        """ Priority is the route's rule INDEX (lower wins). Nothing reorders
+        this workload, so the index must follow the order the dataset wrote. """
         lines = [
             _fwd(1000004, 1000001, _match(src='10.0.0.0/30'), '_tx'),
             # deliberately shortest-first, which is what the dataset does
@@ -255,8 +264,10 @@ class TestLpmReprioritisation(unittest.TestCase):
             (next((f for f in r[3] if f.startswith('ipv4_dst=')), 'default'), r[2])
             for r in ingress
         )
-        self.assertEqual(by_prefix['ipv4_dst=10.0.0.0/25'], 1)
-        self.assertEqual(by_prefix['default'], 2)
+        # The dataset writes the default FIRST here, and that is the order the
+        # model must carry -- the inverse of what the deleted repair produced.
+        self.assertEqual(by_prefix['default'], 1)
+        self.assertEqual(by_prefix['ipv4_dst=10.0.0.0/25'], 2)
 
 
 @unittest.skipUnless(os.path.isfile(_TF), "%s not present" % _TF)

@@ -67,7 +67,7 @@ import collections
 
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
-from bench.np_preparation import _reprioritise_fib_lpm
+from devices.abstract_device import LPM
 from bench.wl_deltanet.deltanet_topology import (
     EXTERNAL_PORT, Topology, parse_node)
 from bench.wl_deltanet.deltanet_trace import Insert
@@ -146,6 +146,11 @@ def build_model(
             [str(in_port(switch, p)) for p in ports]
             + [str(out_port(switch, p)) for p in ports],
             {device_name(switch): index},
+            # DECLARE the forwarding table longest-prefix-match on the model
+            # itself (TABLE_SEMANTICS_PLAN.md S3b), so the adapters order it
+            # rather than depending on `_reprioritise_fib_lpm` having done so at
+            # generation time. Keyed `<node>.1`, SwitchModel's own table name.
+            {'%s.1' % device_name(switch): LPM},
         ))
 
     links: List[Sequence[Any]] = []
@@ -197,11 +202,9 @@ def build_model(
                 [_port_name(switch, in_port(switch, port)) for port in ingress],
             ))
 
-    # LPM by rule index: NetPlumber resolves priority by the index, FaVe does
-    # not reorder a table on its own, and nothing downstream repairs a wrong
-    # order. Shared with wl_cloud and the raw-table workloads rather than sorted
-    # here, so the semantics are explained in one place.
-    _reprioritise_fib_lpm(routes, FIB_TABLE_TYPES)
+    # LPM is DECLARED on each device above, not repaired here: the positional
+    # backends order a declared table themselves (TABLE_SEMANTICS_PLAN.md S3a),
+    # so the rule index no longer has to carry the prefix-length rank.
 
     # `_reprioritise_fib_lpm` rewrites each rule's INDEX and leaves the list in
     # emission order, so afterwards the two disagree. That is safe -- the

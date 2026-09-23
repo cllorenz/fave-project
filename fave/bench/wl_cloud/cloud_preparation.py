@@ -50,7 +50,6 @@ import os
 
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from bench.np_preparation import _reprioritise_fib_lpm
 from bench.wl_cloud.cloud_endpoints import Endpoint
 from bench.wl_cloud.cloud_tf import (
     CLOUD_MAPPING,
@@ -381,10 +380,19 @@ def build_model(
                 ['%s.%d' % (table, ports.in_port(node))],
             ))
 
-    # Longest-prefix-match: NetPlumber resolves priority by rule index, and this
-    # dataset lists a device's routes shortest-prefix-first. See
-    # AD6_PLAN.md §5.5 and np_preparation._reprioritise_fib_lpm.
-    _reprioritise_fib_lpm(routes, FIB_TABLE_TYPES)
+    # NO LPM RE-PRIORITISATION HERE, and that is a decision rather than an
+    # omission (TABLE_SEMANTICS_PLAN.md §0.6 / §2.8). 45 of this dataset's
+    # devices hold ONE table mixing forwarding and filtering -- `lin.dc1_leaf0`
+    # permits `10.0.4.0/25` on tcp/332, drops the rest of `10.0.4.0/25`, then
+    # forwards everything else. Those two rules share a prefix and disagree, so
+    # longest-prefix-match cannot resolve them at all: only their ORDER can, and
+    # the permit must come first. The table is first-match, written in
+    # destination-prefix terms.
+    #
+    # The repair that used to run here was measured a COMPLETE no-op: with it
+    # removed the generated routes are byte-identical (1,741 rules), because the
+    # colliding rules tie on prefix length and the default sorts last anyway. So
+    # this workload declares no `lpm` table and orders nothing.
 
     topology: Dict[str, List[Any]] = {'devices': [], 'links': []}
     for index, node in enumerate(devices, start=1):

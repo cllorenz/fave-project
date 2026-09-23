@@ -214,7 +214,18 @@ def fib_tables(routes, fib_table_types):
 
 
 def _reprioritise_fib_lpm(routes, fib_table_types):
-    """ FaVe-backend LPM fix (see APKEEP_STANFORD_NP_SPEC.md Phase 1d, and
+    """ NO LONGER ON THE GENERATION PATH (TABLE_SEMANTICS_PLAN.md S3b,
+    2026-09-23). A FIB is now DECLARED on the model and each positional backend
+    orders it at translation time -- NetPlumber when it assigns the index it
+    sends, ad6 when it emits the document. Nothing calls this.
+
+    Kept, with its tests, for two reasons: it is the reference implementation
+    those adapters have to agree with (they use the same `(-prefix length, idx)`
+    key deliberately), and `_cross_class_promotions` below is the only thing in
+    this tree that has ever reported a deny-before-permit swap. Deleting both is
+    a separate decision.
+
+    FaVe-backend LPM fix (see APKEEP_STANFORD_NP_SPEC.md Phase 1d, and
     AD6_PLAN.md §5.5 for why this function's PREDECESSOR silently skipped wl_i2).
 
     NetPlumber resolves rule priority by rule index (lower index = higher
@@ -401,16 +412,13 @@ def prepare_benchmark(
                     rule_to_route(rule, table_id_to_name, mapping, intervals)
                 )
 
-    # FaVe-backend LPM fix: re-prioritise the DECLARED FIB tables by prefix
-    # length so NetPlumber forwards by longest-prefix-match. See
-    # _reprioritise_fib_lpm / Phase 1d / AD6_PLAN.md §5.5.
-    promotions = _reprioritise_fib_lpm(routes, fib_table_types)
-    if promotions:
-        print("[np_preparation] LPM re-prioritisation promoted a forwarding rule "
-              "past an overlapping non-forwarding one in: %s -- normal for a FIB "
-              "with discard aggregates, but worth an eye on a NEW declaration"
-              % ", ".join("%s(%d)" % kv for kv in sorted(promotions.items())[:5]),
-              file=sys.stderr)
+    # NO LPM re-prioritisation here any more. `fib_table_types` still says which
+    # stage is the FIB, but that is now DECLARED on the model (the fifth element
+    # of each device tuple below) and the positional backends order the table
+    # themselves -- NetPlumber when it assigns the index it sends, ad6 when it
+    # emits the document (TABLE_SEMANTICS_PLAN.md S3a/S3b). The rule index no
+    # longer has to carry the prefix-length rank, so the generated routes keep
+    # the order the dataset wrote them in.
 
 
     # transform policy

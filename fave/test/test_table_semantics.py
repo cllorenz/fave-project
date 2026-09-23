@@ -41,6 +41,7 @@ Either bug produced exactly the same symptom -- every table arriving as
 the one asserting what the ADAPTER received, not what the model serialised.
 """
 
+import collections
 import json
 import logging
 import os
@@ -479,21 +480,32 @@ class TestNetPlumberHonoursTheDeclaration(unittest.TestCase):
     if it is wrong the real workloads say so at once.
     """
 
-    def test_the_rule_to_priority_association_is_unchanged(self):
-        """ Compared as a MULTISET, not a sequence: `_reprioritise_fib_lpm`
-        rewrites `idx` in place and leaves the rule list in file order, while
-        the adapter sends the sorted list. The send order differs by
-        construction; what must not differ is which rule gets which index. """
-        honoured, declared = _rules_netplumber_would_receive(True)
-        ignored, control = _rules_netplumber_would_receive(False)
+    def test_the_adapter_assigns_longest_prefix_first(self):
+        """ The index NetPlumber receives IS the priority, and lower wins, so
+        ordered by that index the prefixes must be non-increasing.
 
-        # non-vacuous: the declaration must actually have reached the adapter,
-        # or this compares two runs of the same code path and proves nothing.
+        This used to compare the adapter's assignment against the generator's
+        and assert they matched -- valid while BOTH ran, which is what S3a was.
+        The generation-time repair is gone (S3b), so there is nothing left to
+        match against and the question becomes whether the ordering is RIGHT,
+        not whether it agrees with another copy of itself.
+        """
+        honoured, declared = _rules_netplumber_would_receive(True)
+
+        # non-vacuous: the declaration must have reached the adapter, or this
+        # would assert a property of an empty set.
         self.assertEqual(declared, 16)
-        self.assertEqual(control, 0)
         self.assertEqual(len(honoured), 3844)
 
-        self.assertEqual(sorted(honoured), sorted(ignored))
+        by_table = collections.defaultdict(list)
+        for table, index, match, _ports in honoured:
+            # the match vector's fixed bits are the prefix length
+            by_table[table].append((index, len(match) - match.count('x')))
+
+        for table, entries in by_table.items():
+            lengths = [length for _index, length in sorted(entries)]
+            self.assertEqual(lengths, sorted(lengths, reverse=True),
+                             "table %s is not longest-prefix-first" % table)
 
     def test_the_send_order_DOES_differ(self):
         """ Guards the test above from passing for the wrong reason: if the
@@ -582,8 +594,17 @@ class TestAd6OrderingIsIdempotentOnRealData(unittest.TestCase):
     ordering by `idx` must agree -- the same free differential §9.5 makes for
     NetPlumber, on the backend that reads no names. """
 
-    def test_all_sixteen_mid_tables_order_identically(self):
-        from devices.abstract_device import lpm_prefix_len
+    def test_ad6_emits_all_sixteen_mid_tables_longest_prefix_first(self):
+        """ ad6 evaluates a table first-match-wins in DOCUMENT order, so the
+        emitted order IS the priority and must be non-increasing in prefix
+        length.
+
+        This too used to compare ad6's ordering against `idx` and assert they
+        agreed -- true only while the generation-time repair made `idx` carry
+        the rank. After S3b it does not, so the test asks whether the emitted
+        document is right rather than whether it matches a copy of itself.
+        """
+        import ipaddress
 
         models = _mid_models_and_rules(True)
         self.assertEqual(len(models), 16)
@@ -592,13 +613,10 @@ class TestAd6OrderingIsIdempotentOnRealData(unittest.TestCase):
         for model in models:
             rules = model.tables[model.node + '.1']
             total += len(rules)
-            by_idx = [i for i, _ in
-                      sorted(enumerate(rules), key=lambda p: p[1].idx)]
-            by_lpm = [i for i, _ in
-                      sorted(enumerate(rules),
-                             key=lambda p: (-lpm_prefix_len(p[1]),
-                                            getattr(p[1], 'idx', p[0])))]
-            self.assertEqual(by_idx, by_lpm, "%s orders differently" % model.node)
+            emitted = _ad6_order(rules, lpm=True)
+            lengths = [ipaddress.ip_network(a).prefixlen for a in emitted]
+            self.assertEqual(lengths, sorted(lengths, reverse=True),
+                             "%s is not emitted longest-prefix-first" % model.node)
         self.assertEqual(total, 3844)
 
 

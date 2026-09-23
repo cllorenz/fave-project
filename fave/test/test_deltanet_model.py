@@ -74,11 +74,15 @@ class TestDeltanetModel(unittest.TestCase):
     def test_one_device_per_switch_with_two_fave_ports_per_trace_port(self):
         devices = self.model['topology']['devices']
         self.assertEqual(len(devices), len(self.topology.switches))
-        for name, kind, ports, tables in devices:
+        for name, kind, ports, tables, semantics in devices:
             self.assertEqual(kind, 'switch')
             self.assertIn(name, tables)
             switch = int(name.split('.s')[1])
             self.assertEqual(len(ports), 2 * len(self.topology.ports[switch]))
+            # Each switch DECLARES its forwarding table longest-prefix-match, so
+            # the adapters order it rather than depending on the generation-time
+            # repair having done so (TABLE_SEMANTICS_PLAN.md S3b).
+            self.assertEqual(semantics, {'%s.1' % name: 'lpm'})
 
     def test_every_link_joins_an_out_port_to_the_matching_in_port(self):
         """ The wiring is derived, so it can be checked against the topology. """
@@ -121,15 +125,33 @@ class TestDeltanetModel(unittest.TestCase):
             self.assertNotIn(
                 '%s.%d' % (device, in_port(switch, EXTERNAL_PORT)), in_ports)
 
-    def test_rules_are_ordered_longest_prefix_first(self):
-        """ NetPlumber resolves priority by rule index, so order IS the FIB. """
+    def test_the_rule_index_no_longer_has_to_carry_the_prefix_rank(self):
+        """ It used to: NetPlumber resolves priority by rule index, so the
+        generator re-prioritised the table longest-prefix-first and this test
+        asserted the result. That repair is gone (TABLE_SEMANTICS_PLAN.md S3b) --
+        the table DECLARES longest-prefix-match and each positional backend
+        orders it at translation time -- so the emitted index is now just the
+        emission order, and asserting the old property would assert the absence
+        of the fix.
+
+        What must still hold is that the rules are all there, one per (device,
+        prefix), and that the DECLARATION is what carries the semantics; the
+        walk in TestDeltanetLPM below is what checks the resulting forwarding.
+        """
         by_device = collections.defaultdict(list)
         for device, _table, index, match, _actions, _in_ports in self.model['routes']:
-            length = int(match[0].split('/')[1])
-            by_device[device].append((index, length))
+            by_device[device].append((index, int(match[0].split('/')[1])))
+
         for device, entries in by_device.items():
-            lengths = [length for _index, length in sorted(entries)]
-            self.assertEqual(lengths, sorted(lengths, reverse=True), device)
+            indices = [index for index, _length in entries]
+            self.assertEqual(len(set(indices)), len(indices),
+                             "%s has a duplicate rule index" % device)
+
+        declared = {name: semantics
+                    for name, _kind, _ports, _tables, semantics
+                    in self.model['topology']['devices']}
+        for device in by_device:
+            self.assertEqual(declared[device], {'%s.1' % device: 'lpm'}, device)
 
     def test_a_generator_and_a_probe_on_every_external_port(self):
         sources = self.model['sources']
@@ -300,13 +322,27 @@ class TestDeltanetLPM(unittest.TestCase):
         return [(a, b) for a, na in nets.items() for b, nb in nets.items()
                 if a != b and na.subnet_of(nb)]
 
-    def _walk(self, routes, address, start):
+    def _walk(self, routes, address, start, resolve='lpm'):
         """ Forward one address from a switch's external port.
 
-        NetPlumber's semantics, not a re-implementation of the workload: among
-        the rules of a device whose in-ports include the arriving port, the one
-        with the LOWEST index wins.
+        Resolves the way the BACKENDS now do. The table DECLARES
+        longest-prefix-match (TABLE_SEMANTICS_PLAN.md S3b), and each positional
+        backend orders it at translation time -- NetPlumber when it assigns the
+        index it sends, ad6 when it emits the document -- so the winning rule is
+        the one with the LONGEST matching prefix, ties broken by the emitted
+        index. This used to sort by the index alone, because the generator
+        re-prioritised the table so that the index carried the prefix rank; that
+        repair is gone, and sorting by the index now would resolve the table the
+        way nothing does.
+
+        `resolve='shortest'` inverts it, which is what makes the guard a guard.
         """
+        if resolve == 'lpm':
+            key = lambda row: (-row[1].prefixlen, row[0])
+        elif resolve == 'shortest':
+            key = lambda row: (row[1].prefixlen, row[0])
+        else:
+            raise ValueError("unknown resolution %r" % resolve)
         table = collections.defaultdict(list)
         for device, _tid, index, match, actions, in_ports in routes:
             table[device].append((
@@ -316,7 +352,7 @@ class TestDeltanetLPM(unittest.TestCase):
                 set(in_ports),
             ))
         for device in table:
-            table[device].sort(key=lambda row: row[0])
+            table[device].sort(key=key)
 
         links = {link[0]: link[1] for link in self.model['topology']['links']}
         ip = ipaddress.ip_address(address)
@@ -363,23 +399,16 @@ class TestDeltanetLPM(unittest.TestCase):
                     "%s (inside %s) must be delivered where IT homes, not "
                     "where its container does" % (specific, container))
 
-    def test_inverting_the_priority_breaks_it(self):
+    def test_inverting_the_resolution_breaks_it(self):
         """ The guard guards: shortest-prefix-first must change the answer.
 
-        Without this, a `_walk` that ignored the index would pass the test
-        above and prove nothing.
+        It used to invert the INDEX, because the index was what carried the
+        prefix rank. Now the declaration carries it and the walk resolves on
+        prefix length, so inverting the index would change nothing and this
+        would silently stop guarding anything. Inverting the RESOLUTION is the
+        equivalent, and it is what proves the longest-prefix rule is
+        load-bearing rather than incidental.
         """
-        by_device = collections.defaultdict(list)
-        for route in self.model['routes']:
-            by_device[route[0]].append(route)
-
-        inverted = []
-        for rows in by_device.values():
-            rows.sort(key=lambda r: (int(r[3][0].split('/')[1]), r[3][0]))
-            inverted.extend(
-                (r[0], r[1], index, r[3], r[4], r[5])
-                for index, r in enumerate(rows, start=1))
-
         witnesses = [(a, b) for a, b in self.nested
                      if self.homed[a] != self.homed[b]]
         specific, container = witnesses[0]
@@ -391,7 +420,8 @@ class TestDeltanetLPM(unittest.TestCase):
             self._walk(self.model['routes'], address, start),
             self.homed[specific])
         self.assertEqual(
-            self._walk(inverted, address, start), self.homed[container])
+            self._walk(self.model['routes'], address, start, resolve='shortest'),
+            self.homed[container])
 
 
 if __name__ == '__main__':
