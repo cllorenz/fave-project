@@ -2402,6 +2402,24 @@ against its conditioned policy.
 7 passed, 2 skipped, **56 s** for all three — affordable for the gating tier,
 which is the point: a gate nobody can afford to run is the gap this closes.
 
+**CORRECTION 2026-09-23 — the wl_up row was measured but NOT gated.** The table
+above is what I measured by hand; it is not what the harness enforced. The file
+sat in `FAVE_INTEGRATION_TESTS`, which does not export `FAVE_ALLOW_OUT_IFACE=1`,
+and wl_up's `pgf` carries the `-o` FORWARD rule of item 13 — so all three
+`TestBackendDifferentialUp` tests **ERRORED at setup in every integration run**
+since this workload was added, and `./test.sh integration` reported
+"112 passed, 1 skipped, 3 errors". I verified the workload with the flag
+exported in my own shell, which is precisely why the gap stayed invisible: the
+number was real, the gate was not. The file is now in `FAVE_OUT_IFACE_TESTS`
+(test.sh), where the opt-in is taken wholesale; wl_ifi and wl_deltanet carry no
+iptables ruleset, so it is a no-op for them.
+
+This is the "a skip is NOT a pass" hazard of `test/backend_gate.py` in its
+louder form — an ERROR rather than a silent skip, which the tier did propagate
+as `RESULT: integration FAILED` the first time anything ran the tier after the
+workload was added. **A measurement taken by hand is not a gate**, and this
+section asserted the second while only having done the first.
+
 **`test/gen_wl_deltanet_inputs.sh`** is new, because wl_deltanet's whole
 directory is derived from the two vendored traces and a clean checkout has none
 of it. It runs the benchmark's `_pre_preparation` plus the two policy steps and

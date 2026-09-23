@@ -96,7 +96,6 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_ndd_vlan_slot.py  # a `+ filter` rule's VLAN slot means the same to BOTH engines (TABLE_SEMANTICS_PLAN.md §8); skips if either is unavailable
     test/test_apkeep_adapter.py  # APKeepAdapter: FaVe model -> APKeep (P4); skips if unavailable
     test/test_apkeep_wl_ifi.py   # APKeepAdapter driven by the real wl_ifi models (P4); skips if unavailable
-    test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
     test/test_apkeep_i2.py       # APKeep scale validation on wl_i2 (77k dst-IP routes, P5); skips if unavailable
     test/test_apkeep_stanford.py # APKeep on wl_stanford (in/mid/out HSA, out-stage collapse, P7); skips if unavailable
     test/test_wl_ifi_stateless_gate.py  # wl_ifi's <--> policy variant end to end: zero violations; needs the JVM + generated stateless inputs
@@ -129,6 +128,14 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
 FAVE_OUT_IFACE_TESTS=(
     test/test_ad6_wl_up.py       # wl_up's gateway firewall carries one `-o` rule
     test/test_apkeep_tum.py      # wl_tum's tum-ruleset carries 3,286 of them
+    # MOVED here from FAVE_INTEGRATION_TESTS 2026-09-23, because it never ran there:
+    # TestBackendDifferentialUp replays wl_up, whose `pgf` carries that same `-o`
+    # rule, so all three of its tests ERRORED at setup in every integration run
+    # since the wl_up workload was added to this file (a46a3bd0). It was verified
+    # by hand with FAVE_ALLOW_OUT_IFACE exported, which is exactly why the gap
+    # was invisible. The wl_ifi and wl_deltanet classes in the same file carry no
+    # iptables ruleset, so taking the opt-in wholesale is a no-op for them.
+    test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
 )
 # Also integration-tier, but these must run in their OWN pytest process. JPype
 # allows exactly one JVM per process and APKeep holds its network in Java static
