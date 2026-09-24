@@ -608,6 +608,16 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._stanford = False
         self._i2_faithful = False   # wl_i2 dst x VLAN faithful mode (set in _build)
         self._out_perm: Dict[str, Dict[str, set]] = {}  # out_dev -> {inPort: {outPort}}
+        # The wl_stanford out stage, emitted as real elements by
+        # `_build_stanford_faithful` (OUT_STAGE_PLAN.md sec. 4.3). Handed to
+        # `_build` through the instance rather than through the return tuple,
+        # which `_build_i2_faithful` shares and which has nothing to say about
+        # them. `_out_stage_widened` records the rules emitted without a match
+        # no element carries -- declared, never silent.
+        self._out_stage_elems: List[str] = []
+        self._out_stage_rules: List[str] = []
+        self._out_stage_widened: List[str] = []
+        self._out_stage_surviving: List[str] = []
         # Surface the aggregator's dispatch (aggregator_service._sync_diff)
         # touches on the engine when wiring links: a `links` adjacency dict it
         # mutates directly, an `asyncore_socks` map it checks for dynamic
@@ -1660,7 +1670,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                 # element is entered. A device that could NOT be split never
                 # reaches this point -- the contract refuses it first.
                 router_fib_rules.append(_fib_rule_string(dev, egress, dst, plen))
-        filter_devices = pf_elems + ipv6_routers + sorted(first_match)
+        filter_devices = (pf_elems + ipv6_routers + sorted(first_match)
+                          + self._out_stage_elems)
         as_filter = self._filter_devices | set(ipv6_routers) | first_match
         fwd_devices = sorted(self._fwd_devices - as_filter)
         # A device modelled as a FilterElement must not also carry its (IPv4-only,
@@ -1672,9 +1683,16 @@ class APKeepAdapter(AbstractVerificationEngine):
         # filters) -- out of the graph. Fewer elements => a smaller per-split
         # multiplier in APKeeper.updateSplitAP (the C1 PPM hotspot), at zero
         # correctness cost. Operates on the combined filter-rule universe.
-        filter_rules_all = pf_rules + router_fib_rules + fm_rules
+        filter_rules_all = (pf_rules + router_fib_rules + fm_rules
+                            + self._out_stage_rules)
         edges, filter_devices, filter_rules_all = self._elide_passthrough_filters(
             edges, filter_devices, filter_rules_all)
+        # Out-stage elements SPECIFICALLY -- `_build_metrics_elided` counts every
+        # element the pass contracted, of which a packet_filter's accept-all
+        # chains are the bulk, so it cannot answer "how much of the out stage
+        # survived".
+        surviving = set(filter_devices) & set(self._out_stage_elems)
+        self._out_stage_surviving = sorted(surviving)
         # The combined, engine-neutral rule IR (identical to what the BDD engine's
         # run() receives, and to what wl_up_dump2.py captures for the NDD tests).
         all_rules = _dedup(fwd_rules) + acl_rules + nat_rules + filter_rules_all
@@ -1696,8 +1714,9 @@ class APKeepAdapter(AbstractVerificationEngine):
                 self._build_metrics = {"atoms": self._ndd.atom_count()}
             else:
                 self._ndd.build(all_rules, edges)
+                self._build_metrics = {}
             self._single_universe = True
-            self._build_metrics = {}
+            self._build_metrics.update(self._cost_metrics(all_rules))
             self._built = True
             return
         self._lib.init_in_memory("fave", edges, fwd_devices,
@@ -1715,8 +1734,38 @@ class APKeepAdapter(AbstractVerificationEngine):
         # division flag (wl_up has division_activated=True yet zero ACLElements).
         m = self._lib.element_metrics()
         self._single_universe = (m["ACLElement"] == 0 and m["NATElement"] == 0)
-        self._build_metrics = m
+        self._build_metrics = dict(m)
+        self._build_metrics.update(self._cost_metrics(all_rules))
         self._built = True
+
+    def _cost_metrics(self, all_rules: List[str]) -> Dict[str, int]:
+        """ What this translation ASKED the engine to do.
+
+        Reported because the from-zero backend comparison is only a comparison
+        while both backends are handed the same workload, and for wl_stanford
+        they were not: the P7a out-stage collapse meant APKeep received 0 of the
+        stage's 2,683 rules where NetPlumber received all of them
+        (OUT_STAGE_PLAN.md sec. 7). These counters are how that is now visible in
+        a run rather than reconstructed afterwards.
+
+        `out_stage_elements_elided` is not waste: a single accept-all rule makes
+        an element a semantic identity, and contracting it is the general
+        mechanism arriving at what the collapse used to hardcode. The point is
+        that the rules are COUNTED first.
+        """
+        return {
+            "rules_to_engine": len(all_rules),
+            "out_stage_elements": len(self._out_stage_elems),
+            "out_stage_rules": len(self._out_stage_rules),
+            "out_stage_elements_kept": len(self._out_stage_surviving),
+            "out_stage_elements_elided": (len(self._out_stage_elems)
+                                          - len(self._out_stage_surviving)),
+            "out_stage_rules_to_engine": sum(
+                1 for r in all_rules
+                if len(r.split()) > 2 and r.split()[2] in set(
+                    self._out_stage_surviving)),
+            "out_stage_rules_widened": len(self._out_stage_widened),
+        }
 
     def single_universe(self) -> bool:
         """ True iff the built network has no ACLElement/NATElement -- the
@@ -2200,15 +2249,97 @@ class APKeepAdapter(AbstractVerificationEngine):
                 out_ext.setdefault((s_dev, s_port), []).append((d_dev, d_port))
             else:
                 kept.append(edge)
-        for out_dev, perm in self._out_perm.items():
-            for in_port, out_ports in perm.items():
+        # --- the out stage as REAL ELEMENTS (OUT_STAGE_PLAN.md sec. 4.3) ------
+        #
+        # This replaces the P7a collapse, which resolved `mid -> [perm] -> ext`
+        # statically and threw the stage's match conditions away. The stage is
+        # now emitted: one FilterElement per ARRIVAL PORT, carrying that port's
+        # rules in index order at `_FILTER_PRIO_BASE - idx`, so APKeep's
+        # higher-priority-wins reproduces hassel's top-down first match (owner,
+        # 2026-09-24).
+        #
+        # WHAT THIS BUYS IS COST, NOT CORRECTNESS, and that is measured rather
+        # than hoped: wl_stanford's out-stage ACL is entirely DEAD -- a
+        # match-all sits first on all 68 conditional arrival ports, so the 2,002
+        # rules behind it never fire, and deleting them changes NetPlumber's own
+        # answer by nothing (sec. 3). Emitting them changes no verdict either;
+        # it stops APKeep being handed a workload 2,683 rules smaller than the
+        # one NetPlumber is handed, which is what made the from-zero comparison
+        # not a comparison (sec. 7).
+        #
+        # A single-rule accept-all port becomes a pass-through element that
+        # `_elide_passthrough_filters` contracts straight back out of the graph
+        # -- i.e. exactly the old collapse, but arrived at by the general
+        # mechanism and after the rules have been counted.
+        rows_by_port: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
+        for o_dev, rows in self._fwd_table.items():
+            if o_dev.split('.', 1)[0] != 'out':
+                continue
+            for row in sorted(rows, key=lambda r: int(r['idx'])):
+                for i_port in row['in_ports']:
+                    rows_by_port.setdefault((o_dev, i_port), []).append(row)
+
+        out_elems: List[str] = []
+        out_rules: List[str] = []
+        widened: List[str] = []
+        for seq, (out_dev, perm) in enumerate(sorted(self._out_perm.items())):
+            for in_port in sorted(perm):
                 mid = mid_to_out.get((out_dev, in_port))
                 if mid is None:
                     continue
                 m_dev, m_port = mid
-                for out_port in out_ports:
+                rows = rows_by_port.get((out_dev, in_port), [])
+                if not rows:
+                    # No rule names this arrival port, yet the permutation does.
+                    # Keep the old static resolution rather than emit an element
+                    # with no rules, whose implicit default-drop would delete a
+                    # path the stage does have.
+                    for out_port in sorted(perm[in_port]):
+                        for d_dev, d_port in out_ext.get((out_dev, out_port), []):
+                            kept.append("%s %s %s %s"
+                                        % (m_dev, m_port, d_dev, d_port))
+                    continue
+                elem = "oacl_%d_%s" % (seq, in_port)
+                out_elems.append(elem)
+                kept.append("%s %s %s in" % (m_dev, m_port, elem))
+                egress: Set[str] = set()
+                for row in rows:
+                    match = row['match']
+                    # `tcp_flags` is the one field no APKeep element carries.
+                    # DECLARED, not silent: sec. 4.4 leaves implementing it open,
+                    # and every rule carrying it here is one of the 24 dead
+                    # `established` permits on out.yoza/yozb.
+                    unsupported = set(match) - _FILTER_MATCH_FIELDS - {_VLAN}
+                    if unsupported:
+                        widened.append("%s rule %s (%s)" % (
+                            out_dev, row['idx'], ','.join(sorted(unsupported))))
+                    for port in (row['ports'] or [_FILTER_DROP]):
+                        if port != _FILTER_DROP:
+                            egress.add(port)
+                        out_rules.append(_filter_rule_string(
+                            elem, port,
+                            match.get(_PROTO),
+                            match.get(_SRC, match.get(_SRC6)),
+                            match.get(_DST, match.get(_DST6)),
+                            match.get(_SPORT), match.get(_DPORT),
+                            match.get(_RELATED), int(row['idx']),
+                            vlan=match.get(_VLAN)))
+                for out_port in sorted(egress):
                     for d_dev, d_port in out_ext.get((out_dev, out_port), []):
-                        kept.append("%s %s %s %s" % (m_dev, m_port, d_dev, d_port))
+                        kept.append("%s %s %s %s" % (elem, out_port, d_dev, d_port))
+        if widened:
+            self.logger.warning(
+                "apkeep: %d out-stage rule(s) carry a match no element can "
+                "express and are emitted WITHOUT it (an over-approximation, "
+                "declared): %s%s", len(widened), '; '.join(widened[:3]),
+                ' ...' if len(widened) > 3 else '')
+        self._out_stage_widened = list(widened)
+        self._out_stage_elems = list(out_elems)
+        self._out_stage_rules = list(out_rules)
+        self.logger.info(
+            "apkeep: out stage emitted as %d element(s) carrying %d rule(s) "
+            "-- the cost the P7a collapse used to avoid", len(out_elems),
+            len(out_rules))
 
         # Which out device belongs to which mid device -- read off the TOPOLOGY,
         # which already states it, rather than rebuilt by constructing the name

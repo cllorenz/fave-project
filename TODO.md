@@ -1018,6 +1018,26 @@ Owner's framing: *"the sanity question concerning LPM needs to be addressed in f
 
 ---
 
+### 27. The faithful path applies an out-stage VLAN reset that the reference model never performs (found 2026-09-24)
+
+**Found while building OUT_STAGE_PLAN.md step 3. Pre-existing, deliberately left in place there.**
+
+`_build_stanford_faithful` folds the out-stage `rw=vlan:0` rules into the mid-stage NAT (`_out_reset` -> the `effective` egress VLAN), so a route whose out stage "resets" leaves the mid with vlan 0. **All 45 of those reset rules are shadowed by their port's match-all** — 45 of 45 instances, e.g. `out.bbra_rtr.130013` resets vlan 864 at idx 49 behind a match-all at idx 36 — and hassel is top-down first-match (owner, 2026-09-24), so none of them ever fires. The adapter models an event the reference model does not have.
+
+Measured, dropping the 45 reset rules from the model:
+
+| backend | intact | without the resets |
+|---|---|---|
+| NetPlumber | 165 | 165 |
+| APKeep faithful/NDD | 165 | 165 |
+
+- [ ] **Why it is harmless TODAY, and only on one engine.** NDD existentially quantifies VLAN out of any `probe.*` device *before* `target_vlan` is applied, so the faithful path's `target_vlan=0` at probes is vacuous there (item 23 step 0). The fold therefore cannot change an NDD verdict either way.
+- [ ] **Its BDD behaviour is NOT measured.** A faithful-BDD wl_stanford run was started for exactly this and did not finish — the deferred scalability item. On BDD the probe constraint is real, so the fold is the one thing that could be making `vlan=0` reachable at a probe at all. Whether removing it takes BDD from 165 to near-0, or changes nothing, is unknown.
+- [ ] **Do not remove the fold before that is known.** Removing it is a change whose only possible effect is on the path that currently cannot be measured, which is why step 3 left it alone. It belongs with the BDD-scalability work.
+- [ ] Note the asymmetry this exposes: the two engines disagree about what a probe's VLAN filter *means*, and three separate findings now rest on it (this, item 25's last checkbox, item 23 step 0's "newly open").
+
+---
+
 ### 26. NetPlumber answers a CONDITIONED check differently from the SEEDED form of the same question (found 2026-09-24)
 
 **Found while building the OUT_STAGE_PLAN.md step-0 oracle; unrelated to the out stage.**

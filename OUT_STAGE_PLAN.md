@@ -1,7 +1,6 @@
 # Closing P7c gap 2: the wl_stanford out stage as a modelled device
 
-**Status: step 0 DONE (negative result), step 1 DONE; steps 2-5 proceed under the
-revised sec. 7 rationale (2026-09-24).** Covers TODO items 24 and 25, which are
+**Status: steps 0-3 DONE; steps 4-5 open (2026-09-24).** Covers TODO items 24 and 25, which are
 two views of the same gap.
 
 > **Read sec. 3 first.** The oracle step 0 asked for was built
@@ -389,46 +388,78 @@ tables to the LPM path). Tests: `test_apkeep_first_match.py`
 `test_ndd_vlan_slot.py` (`TestVlanSlotInANatMatchBody`). All of them were checked
 to FAIL against the pre-step-2 adapter and the pre-fix jar respectively.
 
-### 4.3 Step 3 — `_build_out_stage`: the 68 conditional ports become elements
+### 4.3 Step 3 — the out stage is EMITTED — **DONE**, and in three ways not as sketched
 
-Mirrors the `iacl_<idx>` pattern `_build_stanford_faithful` already uses for
-ingress VLAN admission, and the `<elem>.inP` prefilter pattern
-`_build_pf_pipeline` uses for in-port-qualified chain rules.
+**Built:** `_build_stanford_faithful` no longer resolves `mid.X -> [perm] ->
+neighbour` statically. Every out-stage ARRIVAL PORT becomes a `FilterElement`
+`oacl_<seq>_<in_port>` carrying that port's rules in index order at
+`_FILTER_PRIO_BASE - idx`, wired `mid_dev mid_port <elem> in` and
+`<elem> <egress> <neighbour_dev> <neighbour_port>`, with `__drop__` for a rule
+that forwards nowhere. The counters land in `_build_metrics` via `_cost_metrics`.
 
-For each of the 68 conditional arrival ports `(out_dev, in_port)`:
+**Measured on wl_stanford:**
 
-- emit one `FilterElement` `oacl_<idx>`, carrying that port's rules in index
-  order at `_FILTER_PRIO_BASE - idx` (first-match), with the egress port in the
-  action slot and `__drop__` for the 16 denies;
-- re-route the collapsed edge through it:
-  `mid_dev mid_port oacl_<idx> inport` and
-  `oacl_<idx> <egress_port> <neighbour_dev> <neighbour_port>`;
-- move that port's VLAN reset out of the mid NAT and onto the element's egress
-  as `+ nat oacl_<idx> <egress_port> vlan ...`.
+```
+out_stage_elements          681      (one per arrival port)
+out_stage_elements_elided   613      -> single accept-all pass-throughs
+out_stage_elements_kept      68
+out_stage_rules           2,731      rule instances emitted
+out_stage_rules_to_engine 2,118
+out_stage_rules_widened      24      declared (tcp_flags)
+rules_to_engine           9,446      was 7,328
+NDD build                 1.22 s     was 0.60 s   (median of 3, each)
+```
 
-The **613 unconditional ports keep the collapse**, which §2.1/§2.3 measured to be
-exactly right for them.
+Reachability unchanged: **165/165 vs NetPlumber, EXTRA=0, MISSING=0**, exactly as
+sec. 3 predicted — the emitted ACL is correctly *dead*, because the match-all
+carries the highest priority and APKeep is higher-priority-wins, which reproduces
+hassel's top-down first match. `test_apkeep_stanford.py`,
+`test_apkeep_stanford_admission.py` and `test_apkeep_i2*` unchanged.
 
-**Why the reset has to move, and it is the crux.** Today the mid NAT writes the
-*effective* egress VLAN — already reset to 0 where the out stage resets. An
-element spliced after the mid would then match on the post-reset VLAN, not the
-transit VLAN its rules are written against, and every VLAN-qualified condition
-would miss. Unfolding gives the correct order: **mid NAT sets N → `oacl` matches
-N → `oacl` NAT resets to 0.** All three primitives exist. §2.2 is what makes this
-a clean cut: the fold applies to exactly the 68 ports being unfolded, so
-`_out_reset` is consumed entirely by this step and no port is left half-folded.
+**Three departures from the sketch above, each for a measured reason:**
 
-**Alternative considered, and why not first:** un-collapse *uniformly* and let
-`_demux_ingress` split all 681 ports, which is what plain mode already does
-(`apkeep_vs_netplumber.py`: "all 48 switches survive as 719 elements"). It is
-more uniform and would delete `_out_perm`/`_out_reset` outright. It is not the
-recommendation because (a) `_build_first_match_tables` reads `_fwd_table`, which
-`_demux_ingress` does **not** re-key, and it runs *before* the demux — so uniform
-un-collapse needs a re-keying and a reordering that selective un-collapse does
-not; and (b) it takes the faithful path from ~48 elements to ~700 *with*
-NATElements and ACLElements, which is the deferred BDD-scalability question, not
-this one. Keep it as the fallback if the selective builder turns out to need more
-special-casing than it saves.
+1. **All 681 ports become elements, not only the 68 conditional ones.** The
+   sketch kept the collapse for the 613 to avoid the element count. It is not
+   needed: a port whose only rule is an accept-all forward *is* a pass-through,
+   and `_elide_passthrough_filters` contracts it straight back into a direct edge
+   — the general mechanism arriving at exactly what the collapse hardcoded. The
+   613 are therefore counted and then elided, which is the honest form of
+   "charge APKeep the full workload" (sec. 7.4): the rules exist at build time
+   and the elision is a documented optimisation rather than a translation gap.
+2. **The VLAN reset does NOT move, and the sketch's reason for moving it turned
+   out to be moot.** See sec. 4.3.1.
+3. **`tcp_flags` is emitted as a DECLARED widening**, not refused. Refusing would
+   abort wl_stanford; dropping the 24 rules would understate the workload, which
+   is the thing this step exists to stop doing. They are recorded in
+   `_out_stage_widened`, logged at WARNING, and counted in `_cost_metrics`.
+   Implementing the field stays open as sec. 4.4.
+
+### 4.3.1 The VLAN resets are dead too, and the fold outlives its justification
+
+The sketch said the reset *had* to move onto the out element, because a mid NAT
+writing the already-reset VLAN would leave the element matching a tag the packet
+no longer carries. Measuring the order dissolved the argument:
+
+> **All 45 out-stage VLAN-reset rules are shadowed by their port's match-all** —
+> 45 of 45 instances, e.g. `out.bbra_rtr.130013` resets vlan 864 at idx 49 behind
+> a match-all at idx 36. Under hassel's first-match they never fire.
+
+So the reset is not a step the reference model performs, and moving it onto the
+element would model it in a second place rather than the right one. Confirmed
+both ways: dropping the 45 reset rules from the model leaves **NetPlumber at 165
+and APKeep at 165**.
+
+**`_build_stanford_faithful` folds them anyway** (`_out_reset` -> the mid NAT's
+`effective` VLAN), which means the adapter applies a reset the reference never
+applies. That is a real fidelity defect and it is **deliberately left alone
+here**, for two reasons: it is pre-existing, and it is measured to change no
+verdict on the production path — NDD existentially quantifies VLAN out of
+`probe.*` devices before `target_vlan` applies, so the probes' `vlan=0` filter is
+vacuous there (item 23 step 0). Its BDD behaviour is **not** measured: the run
+was started and faithful-BDD wl_stanford did not finish, which is the deferred
+scalability item. Removing the fold is therefore a change whose only possible
+effect is on a path that currently cannot be measured, and it belongs with that
+item rather than here.
 
 ### 4.4 Step 4 — `packet.upper.tcp.flags` in both engines, or a declared approximation
 
@@ -460,7 +491,7 @@ primitive gap is general.
 | 0 | a header-level oracle that **fails** on the pre-fix tree | **DONE — negative result, sec. 3** |
 | 1 | fast + integration; qualified-device set unchanged on 4 workloads | ready |
 | 2 | fast + integration; no non-exempt table gains a VLAN match | **DONE** |
-| 3 | reachability unchanged (guard) **+ a reported cost delta** — sec. 7.3 | gated on the sec. 7.4 questions |
+| 3 | reachability unchanged (guard) **+ a reported cost delta** — sec. 7.3 | **DONE** — 165/165; 7,328 → 9,446 rules, 0.60 s → 1.22 s |
 | 4 | both engines agree on the same rule string (extend `test/test_ndd_vlan_slot.py`'s pattern) | ready, but subordinate to 3 |
 | 5 | fast + integration | ready |
 
