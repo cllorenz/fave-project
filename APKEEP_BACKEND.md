@@ -1365,11 +1365,25 @@ ports (in_port 1530053: match-all at position 7, the 158 ACL rules at 82+). FaVe
 preserves that order rather than creating it. The operator did not write it
 either -- the real `access-list 178` is a well-formed 91-line ACL beginning
 `permit tcp any any established` -- so the dead-rule structure comes from the HSA
-compilation emitting the forward ahead of the ACL. **Open, and not small: if
-hassel's tf semantics is not first-match-by-position, the ACL is live upstream
-and FaVe's reading is what kills it, in BOTH backends.** Three consistent
-encodings argue against that but do not prove it; the test is an hour's work and
-is written up in OUT_STAGE_PLAN.md sec. 3.3.
+compilation emitting the forward ahead of the ACL.
+
+**Settled (owner, 2026-09-24): hassel reads the tf files top-down with
+first-match semantics**, so FaVe's reading is correct and the dead ACL is a
+property of the shipped dataset. Applying that per stage -- and the per-stage part
+matters, because a leading match-all shadows only in a FIRST-MATCH table, never in
+an LPM one where it is just the default route:
+
+```
+stage  arrival ports  with >1 rule  leading match-all  semantics    verdict
+in        252            149              0            first-match  LIVE
+mid        16             16             16            LPM          the default route, not shadowing
+out       681             68             68            first-match  DEAD
+```
+
+(`fib_table_types: ['mid']`.) So **wl_stanford's only live filtering is the
+in-stage VLAN admission, and its entire out-stage ACL is dead**: 2,002 of the out
+stage's 2,683 rules are unreachable (1,986 narrower permits + 16 denies), the 681
+live ones being one match-all per arrival port.
 
 **The fix proceeds anyway, for COST rather than correctness** (OUT_STAGE_PLAN.md
 sec. 7, revised). A shadowed rule still costs a verification tool, and the

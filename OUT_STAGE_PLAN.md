@@ -11,6 +11,11 @@ two views of the same gap.
 > nothing. The cause is that a high-priority match-all shadows the whole out-stage
 > ACL, upstream of FaVe (sec. 3.3).
 >
+> The cause is a shadowing match-all, confirmed upstream: hassel reads tf files
+> top-down, first-match (owner, 2026-09-24), so **wl_stanford's entire out-stage
+> ACL is dead** -- 2,002 of 2,683 rules unreachable -- while its in-stage VLAN
+> admission is live (sec. 3.3.1).
+>
 > **Sec. 7 is revised (owner, 2026-09-24): step 3 proceeds, for COST rather than
 > correctness.** A shadowed rule still costs a verification tool, and APKeep is
 > currently charged 0 of the out stage's 2,683 rules where NetPlumber is charged
@@ -269,14 +274,42 @@ the HSA transfer function, where the forward-out-the-interface rule is emitted
 *ahead* of the ACL. So the suboptimality this benchmark exercises is the
 compilation's, not the network's.
 
-**One thing this does not settle, and it is not small.** If hassel's transfer
-functions are not first-match-by-position, the ACL is live upstream and FaVe's
-reading is what kills it -- which would mean FaVe ignores every Stanford output
-ACL, in both backends. Three consistent encodings of the order argue against
-that, but they are three encodings of the same artefact and do not prove the
-semantics. The cheap test: find an interface whose out ACL denies something a
-wl_stanford source can actually emit, seed exactly that, and see whether
-NetPlumber drops it. Worth an hour before any conclusion in sec. 7 is acted on.
+**SETTLED (owner, 2026-09-24): hassel reads the tf files top-down with
+first-match semantics.** This was left open here as the one thing that could have
+made the problem much larger -- if the ACL were live upstream, FaVe's reading
+would be what kills it, in both backends. It is not: FaVe's reading is correct,
+and the dead ACL is a property of the shipped dataset.
+
+### 3.3.1 Which stages that applies to, and the trap in the inference
+
+"A leading match-all shadows what follows" holds only for a **first-match** table.
+It is wrong for an LPM table, where a leading default route is just the /0 entry
+and longer prefixes win regardless of file order. wl_stanford declares
+`fib_table_types: ['mid']` (`stanford-json/config.json`), so `mid` is LPM and
+`in`/`out` take the implicit first-match default. Applying the test per stage:
+
+```
+stage  arrival ports   with >1 rule   leading match-all   semantics   verdict
+in         252             149               0            first-match LIVE
+mid         16              16              16            LPM         not shadowing -- the default route
+out        681              68              68            first-match DEAD
+```
+
+The mid column is exactly the trap: read without the declaration it says the
+entire 3,844-rule FIB is dead, which is plainly false -- forwarding works, and
+seeding a destination changes the pair count. It is the `table_semantics`
+distinction item 23 built, doing its job.
+
+So the conclusion is stage-specific and sharper than "wl_stanford has dead rules":
+
+> **wl_stanford's only live filtering is the in-stage VLAN admission. Its entire
+> out-stage ACL is dead** -- 2,002 of the out stage's 2,683 rules (1,986 narrower
+> permits + 16 denies) are unreachable, and the 681 live ones are one match-all
+> per arrival port.
+
+That the in stage is live matters for sec. 7.2: APKeep's 2,265 -> 52 there is a
+re-encoding of semantics that really are in force, not a compression of rules
+that were dead anyway.
 
 ### 3.4 What this does and does not mean
 
@@ -528,17 +561,23 @@ which will not move. Sec. 4.3's design is unchanged: 68 conditional ports become
 `FilterElement`s, 613 keep the collapse, the VLAN reset unfolds from the mid NAT
 onto the out element.
 
-Two things to settle first, in this order:
+**The hassel-semantics question is SETTLED** (owner: top-down, first-match), so
+nothing blocks step 3 on correctness grounds. One decision remains:
 
-1. **The hassel-semantics question of sec. 3.3.** If the ACL is live upstream and
-   FaVe's reading kills it, the problem is much larger than the out stage and
-   step 3 is not the right first move. An hour's work; it gates everything below.
-2. **Decide whether to charge APKeep the full 2,683 or the ~2,050 that are
-   shadowed.** Carrying them all is the honest cost of the workload as shipped.
-   Carrying only the live ones would measure a workload nobody has.
+**Charge APKeep the full 2,683, or only the 681 live ones?** Now that the split is
+known exactly -- 681 live match-alls, one per arrival port, and 2,002 dead
+(1,986 narrower permits + 16 denies) -- this is the whole cost question in one
+number. Carrying all 2,683 is the honest cost of the workload as shipped and is
+what premise 1 asks for; carrying only the live ones would measure a network
+nobody operates. **Recommendation: all 2,683**, with the live/dead split reported
+alongside so the number can be read either way.
 
-**A by-product worth taking separately:** wl_stanford contains roughly 2,050
-shadowed rule instances and no FaVe backend currently reports them -- NetPlumber
-could (`check_anomalies`), APKeep cannot. "This benchmark's out-stage ACLs are
-entirely dead" is a benchmark result in its own right, and finding it required an
-out-of-band investigation rather than a FaVe run. That is its own gap.
+**A by-product worth taking separately:** wl_stanford contains 2,002 unreachable
+rules and no FaVe backend currently reports them -- NetPlumber could
+(`check_anomalies`), APKeep raises `NotImplementedError`. "This benchmark's
+out-stage ACL is entirely dead, and its only live filtering is the in-stage VLAN
+admission" is a benchmark result in its own right, and establishing it took an
+out-of-band investigation plus an owner ruling on hassel's semantics rather than
+a FaVe run. That is its own gap, and it is the one a user of the suite would most
+want closed: a workload's *live* rule count is what its cost numbers should be
+read against.
