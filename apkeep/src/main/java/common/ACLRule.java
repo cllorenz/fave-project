@@ -81,6 +81,7 @@ public class ACLRule implements Serializable {
 	// FaVe fork (P9a): optional VLAN match (802.1Q id), null when unconstrained.
 	public String vlan;
 	public String related;
+	public String tcpFlags;
 	public String precedenceKeyword;
 	public String precedence;
 	public String tosKeyword;
@@ -227,6 +228,18 @@ public class ACLRule implements Serializable {
 		if(tokens.length >= 16 && !tokens[15].equals("null")
 				&& !tokens[15].equalsIgnoreCase("any")) {
 			related = tokens[15];
+		}
+		// FaVe fork (OUT_STAGE_PLAN.md step 4): an optional 17th token carries a
+		// TERNARY TCP-flags match, MSB-first over 8 bits with 'x' = don't care
+		// (e.g. "1xxxxxxx" for Cisco's `established`). It sits after the
+		// `related` slot (token[15]), so every earlier format is unchanged.
+		//
+		// Ternary, not a value: `established` fixes ONE bit and leaves seven
+		// free, and encoding it as an exact value would match one of the 128
+		// headers it should match.
+		if(tokens.length >= 17 && !tokens[16].equals("null")
+				&& !tokens[16].equalsIgnoreCase("any")) {
+			tcpFlags = tokens[16];
 		}
 	}
 

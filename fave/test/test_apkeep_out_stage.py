@@ -122,33 +122,49 @@ class TestTheOutStageBecomesElements(unittest.TestCase):
 
 
 class TestAnUnexpressibleMatchIsDECLARED(unittest.TestCase):
-    """ `tcp_flags` is the one field no APKeep element carries.
+    """ A match no APKeep element carries is RECORDED and logged, never passed
+    over in silence, and the rule is still emitted with what it CAN carry --
+    dropping it would understate the workload, which is the thing this step
+    exists to stop doing.
 
-    Emitting the rule without it is an over-approximation, so it is RECORDED and
-    logged rather than passed over -- OUT_STAGE_PLAN.md sec. 4.4 leaves
-    implementing the field itself open. On wl_stanford every such rule is one of
-    the 24 dead `established` permits on out.yoza/yozb.
+    **`tcp_flags` used to be the example here and no longer is**: step 4 gave
+    both engines the field (`test_apkeep_tcp_flags.py`), so the widening it
+    produced is gone and `_out_stage_widened` is empty on wl_stanford. The
+    mechanism still matters for the next field the stage meets, so the case is
+    kept with a field nothing carries.
     """
+
+    _ETHER_SRC = 'packet.ether.source'
 
     def test_the_widening_is_recorded(self):
         adapter = _adapter([
             _row(1, {}, ['120001']),
-            _row(2, {_VLAN: 78, _PROTO: 6, _FLAGS: '1xxxxxxx'}, ['120001']),
+            _row(2, {_VLAN: 78, self._ETHER_SRC: '00:11:22:33:44:55'},
+                 ['120001']),
         ])
         adapter._build_stanford_faithful(list(_EDGES))
         self.assertEqual(len(adapter._out_stage_widened), 1)
-        self.assertIn(_FLAGS, adapter._out_stage_widened[0])
+        self.assertIn(self._ETHER_SRC, adapter._out_stage_widened[0])
 
     def test_the_rule_is_still_emitted_with_what_it_CAN_carry(self):
-        """ Dropping the rule instead would understate the workload, which is
-        the thing this whole step exists to stop doing. """
+        adapter = _adapter([
+            _row(1, {}, ['120001']),
+            _row(2, {_VLAN: 78, self._ETHER_SRC: '00:11:22:33:44:55'},
+                 ['120001']),
+        ])
+        adapter._build_stanford_faithful(list(_EDGES))
+        self.assertEqual(len(adapter._out_stage_rules), 2)
+        self.assertEqual(adapter._out_stage_rules[1].split()[17], '78')
+
+    def test_tcp_flags_is_NO_LONGER_widened(self):
+        """ The regression guard for step 4, from this side: the field that
+        motivated this mechanism must not come back through it. """
         adapter = _adapter([
             _row(1, {}, ['120001']),
             _row(2, {_VLAN: 78, _PROTO: 6, _FLAGS: '1xxxxxxx'}, ['120001']),
         ])
         adapter._build_stanford_faithful(list(_EDGES))
-        self.assertEqual(len(adapter._out_stage_rules), 2)
-        self.assertEqual(adapter._out_stage_rules[1].split()[17], '78')
+        self.assertEqual(adapter._out_stage_widened, [])
 
 
 class TestAnArrivalPortNoRuleNamesKeepsTheStaticResolution(unittest.TestCase):

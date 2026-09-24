@@ -1,6 +1,6 @@
 # Closing P7c gap 2: the wl_stanford out stage as a modelled device
 
-**Status: steps 0-3 DONE; steps 4-5 open (2026-09-24).** Covers TODO items 24 and 25, which are
+**Status: steps 0-4 DONE; step 5 open (2026-09-24).** Covers TODO items 24 and 25, which are
 two views of the same gap.
 
 > **Read sec. 3 first.** The oracle step 0 asked for was built
@@ -464,20 +464,51 @@ did not execute the same code; it needs redoing on a quiesced tree. Removing the
 fold is therefore a change whose only possible effect is on a path that currently
 has no trustworthy measurement, and it belongs with that item rather than here.
 
-### 4.4 Step 4 — `packet.upper.tcp.flags` in both engines, or a declared approximation
+### 4.4 Step 4 — `packet.upper.tcp.flags` in both engines — **DONE**
 
-24 rules, 12 ports. Two acceptable outcomes, and the choice is the owner's:
+Implemented rather than declared. Step 3 emitted the 24 rules without the
+conjunct and recorded the widening; `out_stage_rules_widened` is now **0**.
 
-- **Implement it**: a trailing token on the `+ filter`/`+ acl` string, parsed in
-  `ACLRule`/`ConvertACLRule` (BDD) and `ruleToNDD`/`withVlanSlot` (NDD). **Both
-  engines must change together** or they silently answer different questions —
-  that is item 23 step 0's finding, and it is the reason this is one step.
-- **Declare it**: register the 12 ports as `ACCOUNT_APPROXIMATE` with the §2.5
-  consequence stated in the declaration — that the vlan-78 TCP deny is inert. The
-  repo's discipline permits a declared approximation; it does not permit a silent
-  one.
+**Slot 19**, after `related` at 18, on the `+ filter` layout:
 
-Everything else in step 3 lands either way.
+```
++ filter <dev> filter 0 <out> <plo> <phi> <sip> <swild> <slo> <shi>
+         <dip> <dwild> <dlo> <dhi> <prio> [vlan] [related] [tcp_flags]
+```
+
+- **BDD**: `ACLRule.tcpFlags` parses `tokens[16]` of the body; `BDDACLWrapper`
+  gains an 8-bit field **declared LAST of all** (after `DeclareRelated`), so no
+  existing field's variables shift and the P6 layout-lock still holds --
+  confirmed by `mvn package` (which runs `BDDACLWrapperTest`) and by
+  `apkeep_smoke.sh` matching its golden 20 loops. `ConvertTcpFlags` AND-s the
+  fixed bits into `ConvertACLRule`.
+- **NDD**: field `FLAGS = 9`, width 8, **appended** so indices 0..8 are
+  untouched. `withFlagsSlot` sits beside `withVlanSlot` and is applied at the
+  same three readers -- `+ filter`, `+ acl`, and the `+ nat ... match` body --
+  because sec. 4.2 showed what happens when one reader is missed.
+- **Adapter**: `_filter_rule_string(..., flags=...)`, `_FILTER_MATCH_FIELDS`
+  gains the field, and `_is_acceptall_filter_rule` treats a flags-qualified
+  pass-through as NOT an identity (the sec. 4.2 elision trap, same shape).
+
+**Ternary, not a value.** Cisco's `established` fixes ONE bit and leaves seven
+free. Encoding it as an exact value would match 1 of the 128 headers it should
+match -- an under-approximation, the direction that loses traffic. Both engines
+take an MSB-first pattern where `1`/`0` fix a bit and `x` leaves it free.
+
+**Cost: none measurable.** NDD build 1.16 s median of 5, against 1.22 s for step
+3 without the field; `rules_to_engine` unchanged at 9,446. Reachability unchanged
+at 165/165 -- expected, since these 24 rules are among the 2,002 the out stage
+shadows.
+
+**A finding about the tests themselves, measured on deliberately rebuilt
+pre-step-4 jars:** both per-engine classes failed and the **differential
+passed**, because both engines ignored slot 19 in exactly the same way. A
+differential only sees what the two engines disagree about, so a field neither
+carries is invisible to it. The absolute verdicts are what caught this; the
+differential guards the other failure mode, one engine gaining a slot the other
+drops. Recorded in `test_apkeep_tcp_flags.py`, because the previous two defects
+of this class (item 23 step 0, sec. 4.2) were both caught BY the differential and
+it would be easy to conclude that it is the assertion that always matters.
 
 ### 4.5 Step 5 — item 25's rewrite residue
 
@@ -495,7 +526,7 @@ primitive gap is general.
 | 1 | fast + integration; qualified-device set unchanged on 4 workloads | ready |
 | 2 | fast + integration; no non-exempt table gains a VLAN match | **DONE** |
 | 3 | reachability unchanged (guard) **+ a reported cost delta** — sec. 7.3 | **DONE** — 165/165; 7,328 → 9,446 rules, 0.60 s → 1.22 s |
-| 4 | both engines agree on the same rule string (extend `test/test_ndd_vlan_slot.py`'s pattern) | ready, but subordinate to 3 |
+| 4 | both engines carry the field, and agree | **DONE** — widened count 2,731 → 0 |
 | 5 | fast + integration | ready |
 
 **Step 3 has no CORRECTNESS gate, and that is the finding rather than an

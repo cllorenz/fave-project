@@ -103,6 +103,7 @@ def _acl_rule_string(element: str, permit: bool, src: Optional[str],
 
 
 _SPORT = 'packet.upper.sport'
+_FLAGS = 'packet.upper.tcp.flags'   # step 4: ternary TCP-flags match (Cisco `established`)
 _OUT_PORT = 'out_port'
 _RELATED = 'related'                 # Phase 5: connection-state match (0=NEW, 1=ESTABLISHED)
 _IPV6HDR = 'module.ipv6header'       # RH0 anti-spoofing (extension-header) match fields
@@ -168,7 +169,8 @@ _NAT_IP_FIELDS = {_SRC: 'src', _DST: 'dst'}
 #: table that needs first-match and carries anything else is refused, not
 #: approximated.
 _FILTER_MATCH_FIELDS = frozenset({
-    _PROTO, _SRC, _SRC6, _DST, _DST6, _SPORT, _DPORT, _RELATED, _VLAN})
+    _PROTO, _SRC, _SRC6, _DST, _DST6, _SPORT, _DPORT, _RELATED, _VLAN,
+    _FLAGS})
 
 
 class UntranslatedSemantics(Exception):
@@ -347,7 +349,8 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
                         src: Optional[str], dst: Optional[str],
                         sport: Optional[Any], dport: Optional[Any],
                         related: Optional[Any], idx: int,
-                        vlan: Optional[Any] = None) -> str:
+                        vlan: Optional[Any] = None,
+                        flags: Optional[Any] = None) -> str:
     """ One packet_filter chain rule -> an APKeep "+ filter <device> ..." update
     string for a FilterElement. Token layout matches an ACL rule (accessList number
     action protoLo protoHi src srcWild sPortLo sPortHi dst dstWild dPortLo dPortHi
@@ -369,9 +372,10 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
     dlo, dhi = ("null", "null") if dport is None else tuple(str(p) for p in _ternary_port_range(dport))
     rel = "null" if related is None else str(related)
     vln = "null" if vlan is None else str(vlan)
-    return "+ filter %s filter 0 %s %s %s %s %s %s %s %s %s %s %s %d %s %s" % (
+    flg = "null" if flags is None else str(flags)
+    return "+ filter %s filter 0 %s %s %s %s %s %s %s %s %s %s %s %d %s %s %s" % (
         device, out_port, plo, phi, sip, swild, slo, shi, dip, dwild, dlo, dhi,
-        _FILTER_PRIO_BASE - int(idx), vln, rel
+        _FILTER_PRIO_BASE - int(idx), vln, rel, flg
     )
 
 
@@ -388,12 +392,13 @@ def _is_acceptall_filter_rule(tokens: List[str]) -> bool:
     could fill it. It can now (`_filter_rule_string`'s `vlan`), and a
     VLAN-qualified pass-through matches one tag rather than the whole space --
     so eliding it as a semantic identity would widen every path through it to
-    every VLAN. `_elide_passthrough_filters` is the only caller, and that is
+    every VLAN. The same holds for the TCP-flags slot (19). `_elide_passthrough_filters` is the only caller, and that is
     exactly the silent widening it must not do. """
     if len(tokens) < 17 or tokens[1] != "filter":
         return False
     out = tokens[5]
     vlan = tokens[17] if len(tokens) > 17 else "null"
+    flags = tokens[19] if len(tokens) > 19 else "null"
     plo, phi = tokens[6], tokens[7]
     sip, swild = tokens[8], tokens[9]
     slo, shi = tokens[10], tokens[11]
@@ -404,7 +409,7 @@ def _is_acceptall_filter_rule(tokens: List[str]) -> bool:
             and plo == "0" and phi == "255"
             and slo == "null" and shi == "null"
             and dlo == "null" and dhi == "null" and rel == "null"
-            and vlan == "null"
+            and vlan == "null" and flags == "null"
             and sip == "0.0.0.0" and swild == "255.255.255.255"
             and dip == "0.0.0.0" and dwild == "255.255.255.255")
 
@@ -2305,11 +2310,11 @@ class APKeepAdapter(AbstractVerificationEngine):
                 egress: Set[str] = set()
                 for row in rows:
                     match = row['match']
-                    # `tcp_flags` is the one field no APKeep element carries.
-                    # DECLARED, not silent: sec. 4.4 leaves implementing it open,
-                    # and every rule carrying it here is one of the 24 dead
-                    # `established` permits on out.yoza/yozb.
-                    unsupported = set(match) - _FILTER_MATCH_FIELDS - {_VLAN}
+                    # Anything no element carries is DECLARED, never dropped in
+                    # silence. `tcp_flags` used to be the whole of this list and
+                    # is now expressible (step 4), so on wl_stanford it is empty
+                    # -- the guard stays for the field this stage has not met.
+                    unsupported = set(match) - _FILTER_MATCH_FIELDS
                     if unsupported:
                         widened.append("%s rule %s (%s)" % (
                             out_dev, row['idx'], ','.join(sorted(unsupported))))
@@ -2323,7 +2328,7 @@ class APKeepAdapter(AbstractVerificationEngine):
                             match.get(_DST, match.get(_DST6)),
                             match.get(_SPORT), match.get(_DPORT),
                             match.get(_RELATED), int(row['idx']),
-                            vlan=match.get(_VLAN)))
+                            vlan=match.get(_VLAN), flags=match.get(_FLAGS)))
                 for out_port in sorted(egress):
                     for d_dev, d_port in out_ext.get((out_dev, out_port), []):
                         kept.append("%s %s %s %s" % (elem, out_port, d_dev, d_port))

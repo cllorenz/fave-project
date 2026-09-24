@@ -84,6 +84,11 @@ public class BDDACLWrapper implements Serializable{
       // adding it does not shift their variable indices.
       public final static int vlanBits = 12;
       int[] vlan;
+      // FaVe fork (OUT_STAGE_PLAN.md step 4): a TERNARY TCP-flags match field.
+      // Declared LAST of all (see the ctor) so no existing field's variables
+      // shift and the P6 layout-lock still holds.
+      public final static int tcpFlagsBits = 8;
+      int[] tcpFlags;
       int[] dstIP6;
       // FaVe fork (P9b): source IPv6 (128b). APKeep shipped only a dst IPv6 field
       // (dstIP6, and mis-declared -- see the ctor); a firewall ACL needs both. Both
@@ -144,6 +149,7 @@ public class BDDACLWrapper implements Serializable{
             dstIP6 = new int[ip6Bits];
             srcIP6 = new int[ip6Bits];
             vlan = new int[vlanBits];
+            tcpFlags = new int[tcpFlagsBits];
 
             /**
              * will try more orders of variables
@@ -163,6 +169,8 @@ public class BDDACLWrapper implements Serializable{
             DeclareSrcIP6();
             // FaVe fork (Phase 5): the connection-state bit, declared LAST.
             DeclareRelated();
+            // FaVe fork (step 4): TCP flags, declared after it -- same reason.
+            DeclareTcpFlags();
 
             mplsLabelField = AndInBatch(mplsLabel);
             mplsLabelFieldDecoration = 
@@ -1004,6 +1012,11 @@ public class BDDACLWrapper implements Serializable{
             mplsLabelBit = aclBDD.createVar();
       }
 
+      private void DeclareTcpFlags()
+      {
+            DeclareVars(tcpFlags, tcpFlagsBits);
+      }
+
       private void DeclareVLAN()
       {
             DeclareVars(vlan, vlanBits);
@@ -1337,9 +1350,19 @@ public class BDDACLWrapper implements Serializable{
                               : aclBDD.ref(aclBDD.not(relatedVar));
             }
 
+            /**
+             * TCP flags (FaVe fork, step 4): a TERNARY match, unconstrained
+             * unless the rule carries one.
+             */
+            int tcpFlagsNode = BDDTrue;
+            if(aclr.tcpFlags != null && !aclr.tcpFlags.equalsIgnoreCase("any"))
+            {
+                  tcpFlagsNode = ConvertTcpFlags(aclr.tcpFlags);
+            }
+
             //put them together
             int [] fields = {protocolNode,srcPortNode,dstPortNode,
-                        srcIPNode,dstIPNode,vlanNode,relatedNode};
+                        srcIPNode,dstIPNode,vlanNode,relatedNode,tcpFlagsNode};
             int tempnode = AndInBatch(fields);
             //clean up internal nodes
             DerefInBatch(fields);
@@ -1551,6 +1574,31 @@ public class BDDACLWrapper implements Serializable{
       /**
        * convert an exact VLAN id to a bdd representation (FaVe fork, P9a).
        */
+      /**
+       * A TERNARY TCP-flags pattern -> a bdd node (FaVe fork, step 4).
+       *
+       * MSB-first over {@link #tcpFlagsBits} bits; '1' and '0' fix a bit and any
+       * other character ('x') leaves it free. A pattern shorter than the field
+       * constrains only the bits it names.
+       */
+      public int ConvertTcpFlags(String pattern)
+      {
+            int node = aclBDD.ref(BDDTrue);
+            int n = Math.min(pattern.length(), tcpFlagsBits);
+            for(int i = 0; i < n; i++)
+            {
+                  char c = pattern.charAt(i);
+                  if(c != '0' && c != '1') continue;
+                  int bit = c == '1' ? aclBDD.ref(tcpFlags[i])
+                                     : aclBDD.ref(aclBDD.not(tcpFlags[i]));
+                  int next = aclBDD.ref(aclBDD.and(node, bit));
+                  aclBDD.deref(node);
+                  aclBDD.deref(bit);
+                  node = next;
+            }
+            return node;
+      }
+
       public int ConvertVLAN(int vlanId)
       {
             return ConvertRange(new Range(vlanId, vlanId), vlan, vlanBits);

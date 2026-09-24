@@ -47,8 +47,8 @@ public final class NddReachabilityEngine {
     // APPENDED. A benchmark constrains only the fields it uses (IPv4 xor IPv6 per
     // rule; the untouched fields stay TRUE, so unused fields cost nothing).
     static final int SRC = 0, DST = 1, PROTO = 2, SPORT = 3, DPORT = 4, REL = 5;
-    static final int SRC4 = 6, DST4 = 7, VLAN = 8;
-    static final int[] W = {128, 128, 8, 16, 16, 1, 32, 32, 16};
+    static final int SRC4 = 6, DST4 = 7, VLAN = 8, FLAGS = 9;
+    static final int[] W = {128, 128, 8, 16, 16, 1, 32, 32, 16, 8};
     static final String DROP = "__drop__";
 
     // NDD's node tables are process-global statics; initialise the field layout
@@ -121,6 +121,41 @@ public final class NddReachabilityEngine {
     }
 
     /** {VLAN == v} over the 16-bit VLAN field (comma-separated set -> OR). */
+    /**
+     * Conjoin the optional TERNARY TCP-flags token that slot 19 carries in the
+     * `+ filter` layout; absent or "null" leaves the predicate unconstrained.
+     *
+     * <p>Kept beside {@link #withVlanSlot} and applied at the same three call
+     * sites for the same reason: a slot honoured by one engine and dropped by
+     * the other makes one rule string mean two things (OUT_STAGE_PLAN.md
+     * sec. 4.2 found exactly that for the VLAN slot in the NAT branch).
+     */
+    private static int withFlagsSlot(int hit, String[] t) {
+        if (t.length > 19 && !t[19].equals("null")) {
+            return NDD.and(hit, flagsPred(t[19]));
+        }
+        return hit;
+    }
+
+    /**
+     * A TERNARY TCP-flags pattern -> a predicate. MSB-first over {@code W[FLAGS]}
+     * bits; '1' and '0' fix a bit, anything else ('x') leaves it free.
+     *
+     * <p>Ternary and not a value, because Cisco's `established` fixes ONE bit
+     * and leaves seven free: encoding it as an exact value would match one of
+     * the 128 headers it should match.
+     */
+    private static int flagsPred(String pattern) {
+        int r = NDD.getTrue();
+        int n = Math.min(pattern.length(), W[FLAGS]);
+        for (int i = 0; i < n; i++) {
+            char c = pattern.charAt(i);
+            if (c == '1') r = NDD.and(r, NDD.getVar(FLAGS, i));
+            else if (c == '0') r = NDD.and(r, NDD.getNotVar(FLAGS, i));
+        }
+        return r;
+    }
+
     private static int vlanPred(String vlanSet) {
         int r = NDD.getFalse();
         for (String v : vlanSet.split(",")) {
@@ -162,7 +197,7 @@ public final class NddReachabilityEngine {
                 // a pre-fix jar -- and note its warning that a test pinning the
                 // arrival VLAN at a `probe.*` device cannot observe this at all,
                 // because the flood quantifies VLAN out of probes first.
-                r.hit = NDD.ref(withVlanSlot(ruleToNDD(t), t));
+                r.hit = NDD.ref(withFlagsSlot(withVlanSlot(ruleToNDD(t), t), t));
                 r.out = t[5];
                 r.prio = Long.parseLong(t[16]);
                 dev = t[2];
@@ -187,7 +222,7 @@ public final class NddReachabilityEngine {
                 // deny drops. The element node appears in the topology as
                 // "<elem>_..._{in,out}" (resolved in the flood). A trailing VLAN
                 // token (VLAN-admission ACL, faithful wl_stanford) constrains VLAN.
-                r.hit = NDD.ref(withVlanSlot(ruleToNDD(t), t));
+                r.hit = NDD.ref(withFlagsSlot(withVlanSlot(ruleToNDD(t), t), t));
                 r.out = t[5].equals("permit") ? "permit" : DROP;
                 r.prio = Long.parseLong(t[16]);
                 dev = t[2];
@@ -233,7 +268,8 @@ public final class NddReachabilityEngine {
                 // cover. It became reachable when `_filter_rule_string` gained a
                 // `vlan` argument (OUT_STAGE_PLAN.md sec. 4.2), because a
                 // first-match NAT reuses its own rule's body as the match.
-                int matchPred = withVlanSlot(ruleToNDD(body), body);
+                int matchPred = withFlagsSlot(
+                        withVlanSlot(ruleToNDD(body), body), body);
                 nat.computeIfAbsent(key(t[2], t[3]), k -> new ArrayList<>())
                    .add(new int[]{NDD.ref(matchPred), fld, NDD.ref(rwPred)});
                 continue;
