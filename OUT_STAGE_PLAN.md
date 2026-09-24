@@ -1,16 +1,22 @@
 # Closing P7c gap 2: the wl_stanford out stage as a modelled device
 
-**Status: step 0 DONE, and it returned a NEGATIVE RESULT that suspends steps 3-5
-pending an owner decision (2026-09-24).** Covers TODO items 24 and 25, which are
+**Status: step 0 DONE (negative result), step 1 DONE; steps 2-5 proceed under the
+revised sec. 7 rationale (2026-09-24).** Covers TODO items 24 and 25, which are
 two views of the same gap.
 
 > **Read sec. 3 first.** The oracle step 0 asked for was built
 > (`bench/apkeep_out_stage_oracle.py`) and it established that **no source->probe
 > reachability question can observe this gap, in the REFERENCE model**: deleting
 > all 16 out-stage deny rules from wl_stanford changes NetPlumber's own answer by
-> nothing. The gap is real as a fidelity gap and the fix in sec. 4 is still the
-> right shape -- but it cannot be gated on this benchmark, and on this benchmark
-> it buys nothing. Steps 1 and 2 stand on their own and are unaffected. Companion to [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md)
+> nothing. The cause is that a high-priority match-all shadows the whole out-stage
+> ACL, upstream of FaVe (sec. 3.3).
+>
+> **Sec. 7 is revised (owner, 2026-09-24): step 3 proceeds, for COST rather than
+> correctness.** A shadowed rule still costs a verification tool, and APKeep is
+> currently charged 0 of the out stage's 2,683 rules where NetPlumber is charged
+> all of them — so the published from-zero comparison is not over the same
+> workload. That gives step 3 the gate sec. 5 said it lacked. Two questions in
+> sec. 7.4 gate it in turn. Companion to [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md)
 (item 23, built) and [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md) §P7.
 
 ---
@@ -226,7 +232,53 @@ data say the same thing:
    could possibly matter; it does not by itself prove they cannot. The proof is
    (1) plus the measurement, not (2).
 
-### 3.3 What this does and does not mean
+### 3.3 Why: the rules are SHADOWED (owner, 2026-09-24)
+
+The measurement says the denies do nothing; it does not say why. The owner's
+reading does, and it is the better statement of the same fact: **a high-priority
+match-all rule shadows everything behind it**, so the out stage's filtering
+behaviour cannot depend on which packet class is sent through it.
+
+Verified at three independent encodings of the order, and at the source rather
+than in FaVe's output:
+
+```
+FaVe routes.json   the match-all is FIRST by rule index on all 68 conditional ports;
+                   all 1,986 narrower permits and all 64 deny instances follow it
+stanford-json/152.tf.json (a TRACKED upstream artefact):
+                   array order == `id`-counter order == `position` order, and the
+                   match-all holds the lowest of each on 32 of 32 out-stage ports
+                   with more than one rule -- e.g. in_port 1530053: match-all at
+                   position 7, the 158 ACL rules at 82 and beyond
+```
+
+So FaVe preserves the upstream order; it does not create the shadowing.
+
+**But the operator did not write it either**, and that is the part worth being
+careful about. The real Cisco ACL behind those rules is well formed:
+
+```
+access-list 178 remark CSDCF: ACL for Theory Lab, vlan 78
+access-list 178 permit tcp any any established
+access-list 178 permit ip 171.64.78.0 0.0.0.255 172.24.78.0 0.0.0.255
+...                                                            (91 lines)
+```
+
+Nothing in it is dead. The match-all that kills it is introduced one layer up, in
+the HSA transfer function, where the forward-out-the-interface rule is emitted
+*ahead* of the ACL. So the suboptimality this benchmark exercises is the
+compilation's, not the network's.
+
+**One thing this does not settle, and it is not small.** If hassel's transfer
+functions are not first-match-by-position, the ACL is live upstream and FaVe's
+reading is what kills it -- which would mean FaVe ignores every Stanford output
+ACL, in both backends. Three consistent encodings of the order argue against
+that, but they are three encodings of the same artefact and do not prove the
+semantics. The cheap test: find an interface whose out ACL denies something a
+wl_stanford source can actually emit, seed exactly that, and see whether
+NetPlumber drops it. Worth an hour before any conclusion in sec. 7 is acted on.
+
+### 3.4 What this does and does not mean
 
 - It does **not** say the collapse is correct in general. It says the collapse is
   reachability-EQUIVALENT to the faithful out stage *on wl_stanford*, which is
@@ -240,7 +292,7 @@ data say the same thing:
 **This is an owner decision, not a technical blocker.** The options are laid out
 in sec. 7.
 
-### 3.4 A separate defect found on the way (TODO item 26)
+### 3.5 A separate defect found on the way (TODO item 26)
 
 For **NetPlumber**, a dst-CONDITIONED check and a dst-SEEDED check give different
 answers -- 35 vs 30 on the full model, 2 vs 1 on the `yoza_rtr,bbra_rtr`
@@ -347,19 +399,21 @@ primitive gap is general.
 | 0 | a header-level oracle that **fails** on the pre-fix tree | **DONE — negative result, sec. 3** |
 | 1 | fast + integration; qualified-device set unchanged on 4 workloads | ready |
 | 2 | fast + integration; no non-exempt table gains a VLAN match | ready |
-| 3 | *no wl_stanford gate exists* — see below | **SUSPENDED** |
+| 3 | reachability unchanged (guard) **+ a reported cost delta** — sec. 7.3 | gated on the sec. 7.4 questions |
 | 4 | both engines agree on the same rule string (extend `test/test_ndd_vlan_slot.py`'s pattern) | ready, but subordinate to 3 |
 | 5 | fast + integration | ready |
 
-**Step 3 has no gate, and that is the finding rather than an omission.** The
-original entry read "the step-0 differential passes; 165/165 unchanged". Sec. 3
-showed the first clause is unreachable — NetPlumber cannot see the denies either,
-so no reachability differential can distinguish the fixed model from the broken
-one — and the second is satisfied by doing nothing at all. Shipping step 3 under
-those two gates would be shipping an unverified change to the production path.
+**Step 3 has no CORRECTNESS gate, and that is the finding rather than an
+omission.** The original entry read "the step-0 differential passes; 165/165
+unchanged". Sec. 3 showed the first clause is unreachable — NetPlumber cannot see
+the denies either, so no reachability differential can distinguish the fixed
+model from the broken one — and the second is satisfied by doing nothing at all.
 
-If step 3 is to proceed, it needs a gate that does not exist yet. The candidates,
-cheapest first:
+**Sec. 7.3 supplies a different gate: a reported COST delta.** That is what the
+benchmark exists to measure, it is achievable, and it does not pretend to be a
+correctness proof. The candidates below remain the options for a correctness gate
+should one ever be wanted; none is a prerequisite for step 3 under the cost
+framing.
 
 1. **A purpose-built fixture.** A small model in `test/` with an out-stage-shaped
    device whose deny IS observable — a probe that accepts the denied VLAN. Tests
@@ -395,34 +449,96 @@ a prediction into a measurement:
 
 ---
 
-## 7. The decision sec. 3 hands back
+## 7. Why step 3 is worth doing anyway: cost, not correctness
 
-Steps 1 and 2 are unaffected and worth doing regardless: step 1 closes a latent
-hole in the ingress contract (measured: 0 devices affected today, load-bearing
-the moment any out-stage port becomes a `FilterElement`), and step 2 is a
-capability the `FilterElement` path is missing anyway. **Proceeding with those
-two is the default and needs no decision.**
+**Revised 2026-09-24 after the owner's reading of sec. 3.3.** The earlier version
+of this section recommended closing item 24 as measured-inert, on the grounds
+that the fix bought nothing. That was premised on correctness being the only
+thing at stake. It is not.
 
-What needs one is step 3, and the options are:
+### 7.1 The argument
 
-**(a) Build the fixture (sec. 5 candidate 1) and do step 3 anyway.** The gap is
-real; wl_stanford just cannot show it. A future workload with an observable
-egress ACL would be modelled correctly rather than silently widened, and the
-refusal machinery would cover the out stage instead of exempting it.
+Two premises, both the owner's:
 
-**(b) Do steps 1, 2, 5 and close item 24 as MEASURED-INERT.** Record that on
-wl_stanford the collapse is reachability-equivalent to the faithful stage, with
-the two proofs from sec. 3.2, and keep `tcp_flags` filed as the one genuinely
-missing primitive. Cheapest, and it replaces a standing "known gap" with a
-measured statement — but it leaves the adapter approximating a stage it now has
-the machinery to model.
+1. **An unreachable rule still costs a verification tool.** It occupies storage,
+   it is parsed and encoded, and in an atomic-predicate engine it can split
+   predicates whether or not any packet ever reaches it. "Dead" is a property of
+   the packet space, not of the work.
+2. **Benchmarking FaVe exists to quantify what to expect on an unknown
+   workload.** A tool is useful only if it processes real configurations
+   including their suboptimalities, and the benchmark is only informative if it
+   charges the tool for them.
 
-**(c) Defer until a workload needs it.** Same as (b) but without the fixture
-work, and with the expectation that the next semi-modelled benchmark with a real
-egress ACL forces the issue on data where it is observable.
+The out-stage collapse means APKeep is not charged. Measured, wl_stanford:
 
-The recommendation is **(b)**, with step 4's `tcp_flags` sub-item kept open: it
-converts an open-ended fidelity gap into a bounded, measured one, and it does not
-spend a day building a fixture whose only consumer is a change that buys nothing
-on any benchmark in the suite today. (a) becomes right the moment a workload
-lands whose egress ACL is observable.
+| stage | FaVe model | NetPlumber | APKeep faithful | APKeep plain |
+|---|---|---|---|---|
+| `in` | 2,265 | 2,265 | **52** | **52** |
+| `mid` | 3,844 | 3,844 | 7,216 | 3,844 |
+| `out` | 2,683 | 2,683 | **0** | 1,576 |
+| total to the engine | 8,792 | 8,792 | 7,328 (+60 ACL) | 5,472 |
+
+So `bench/apkeep_vs_netplumber.py` reports a from-zero comparison in which one
+backend was handed 2,683 rules the other declined. Whatever that difference is
+worth, it is currently attributed to engine speed.
+
+### 7.2 Two corrections to that argument, so it does not prove too much
+
+**The in-stage number is NOT the same kind of gap.** 2,265 → 52 is the larger
+compression, but it is a re-encoding, not a discard: the faithful path expresses
+per-port VLAN admission as 60 `iacl_*` ACL rules, each matching a whole admitted
+VLAN set at once rather than one rule per tag, and the result was measured sound.
+Turning 2,265 rules into 112 is a legitimate translation result -- arguably a
+finding to report rather than a distortion to fix. **The out-stage 0 is
+different: semantics dropped, not compressed.** Only the second belongs in the
+cost complaint.
+
+**Eliding dead rules is a FEATURE, not a cheat** -- when a tool detects them.
+That is shadow/anomaly detection, and NetPlumber implements it (`check_anomalies`)
+while APKeep raises `NotImplementedError`. The defect in `_capture_out_perm` is
+not that it elides, it is that it elides **without checking**: it ignores the
+match unconditionally, so it would return the identical answer if positions 7 and
+82 in sec. 3.3 were swapped and the ACL were live. Right answer, wrong reason.
+
+**That is the correctness argument for step 3, and it is the only one that
+survives sec. 3.** Not "the current numbers are wrong" -- they are not -- but
+"the current numbers do not depend on the rules being shadowed, so they would not
+change if they were not."
+
+### 7.3 The gate this supplies
+
+Sec. 5 records that step 3 had no gate: no reachability oracle can distinguish
+the fixed model from the broken one. Cost can, and cost is what the benchmark is
+for. Step 3's acceptance criterion becomes:
+
+- **regression guard**: 165/165 vs NetPlumber unchanged, EXTRA=0 MISSING=0,
+  faithful *and* plain; wl_i2's 61 pairs unchanged. Necessary, never sufficient.
+- **the actual result**: a REPORTED cost delta from carrying the 2,683 rules --
+  build time, element count, NDD atom count, and BDD build time measured
+  separately. Reported, not bounded: a large delta is the finding, not a failure.
+
+This is achievable, unlike a correctness gate, and it answers the question the
+benchmark exists to ask.
+
+### 7.4 Therefore
+
+**Do step 3** (with steps 1, 2, 4 and 5 around it), for the cost measurement and
+for the translation robustness of sec. 7.2 -- not for a reachability number,
+which will not move. Sec. 4.3's design is unchanged: 68 conditional ports become
+`FilterElement`s, 613 keep the collapse, the VLAN reset unfolds from the mid NAT
+onto the out element.
+
+Two things to settle first, in this order:
+
+1. **The hassel-semantics question of sec. 3.3.** If the ACL is live upstream and
+   FaVe's reading kills it, the problem is much larger than the out stage and
+   step 3 is not the right first move. An hour's work; it gates everything below.
+2. **Decide whether to charge APKeep the full 2,683 or the ~2,050 that are
+   shadowed.** Carrying them all is the honest cost of the workload as shipped.
+   Carrying only the live ones would measure a workload nobody has.
+
+**A by-product worth taking separately:** wl_stanford contains roughly 2,050
+shadowed rule instances and no FaVe backend currently reports them -- NetPlumber
+could (`check_anomalies`), APKeep cannot. "This benchmark's out-stage ACLs are
+entirely dead" is a benchmark result in its own right, and finding it required an
+out-of-band investigation rather than a FaVe run. That is its own gap.

@@ -1355,10 +1355,35 @@ and cannot reach a probe.
 
 So **P7c gap 2 is reachability-inert on wl_stanford, and that is now measured
 rather than assumed** -- the collapse is reachability-equivalent to the faithful
-out stage here. The gap remains real as a transfer-function fidelity gap, and
-`tcp_flags` remains the one primitive APKeep genuinely lacks, but no reachability
-oracle on this benchmark can gate a fix for it. OUT_STAGE_PLAN.md sec. 7 puts the
-options to the owner.
+out stage here.
+
+**Cause (owner, 2026-09-24): the out-stage rules are SHADOWED.** A high-priority
+match-all precedes the whole ACL. Verified upstream in the tracked
+`stanford-json/152.tf.json`, where array order, `id`-counter order and `position`
+order agree and the match-all holds the lowest of each on 32 of 32 out-stage
+ports (in_port 1530053: match-all at position 7, the 158 ACL rules at 82+). FaVe
+preserves that order rather than creating it. The operator did not write it
+either -- the real `access-list 178` is a well-formed 91-line ACL beginning
+`permit tcp any any established` -- so the dead-rule structure comes from the HSA
+compilation emitting the forward ahead of the ACL. **Open, and not small: if
+hassel's tf semantics is not first-match-by-position, the ACL is live upstream
+and FaVe's reading is what kills it, in BOTH backends.** Three consistent
+encodings argue against that but do not prove it; the test is an hour's work and
+is written up in OUT_STAGE_PLAN.md sec. 3.3.
+
+**The fix proceeds anyway, for COST rather than correctness** (OUT_STAGE_PLAN.md
+sec. 7, revised). A shadowed rule still costs a verification tool, and the
+measured asymmetry is stark: for wl_stanford's 8,792 model rules NetPlumber is
+handed all of them, while APKeep faithful receives `in`=52, `mid`=7,216,
+`out`=**0** (+60 ACL) and APKeep plain 5,472. So the from-zero comparison in
+`bench/apkeep_vs_netplumber.py` is not over the same workload, and the difference
+is currently attributed to engine speed. Two caveats keep that from proving too
+much: the `in` 2,265 -> 52 figure is a legitimate re-encoding (per-port VLAN
+admission as 60 set-matching ACL rules), not a discard; and eliding dead rules is
+a feature when a tool *detects* them, which is what `check_anomalies` is for. The
+defect is that `_capture_out_perm` elides without checking -- it would give the
+same answer if the ACL were live. `tcp_flags` remains the one primitive APKeep
+genuinely lacks.
 
 **Still open — the exact out-stage field.** The condition is confirmed to be an
 out-stage *header-overlap* failure, but the precise discriminating field/value is **not
