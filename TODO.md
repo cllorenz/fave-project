@@ -1020,6 +1020,8 @@ Owner's framing: *"the sanity question concerning LPM needs to be addressed in f
 
 ### 24. The out-stage collapse discards the egress ACL — P7c gap 2, reframed (2026-09-24)
 
+**PLAN: [`OUT_STAGE_PLAN.md`](OUT_STAGE_PLAN.md)** (2026-09-24). It sizes the work: only **68 of 681** out-stage arrival ports carry a condition at all, and all 45 VLAN resets sit on those same 68 — so 613 ports keep the collapse, which is exactly right for them. It also establishes that **reachability cannot move** (on all 68 ports the unioned permutation reaches no more egress ports than the catch-all), which is why the plan's step 0 is an oracle that must FAIL on the current tree.
+
 **This supersedes the first draft of this item ("APKeep cannot express a TCP-flags match"), which described a symptom of an experimental path and missed the real gap. It is also not a new finding: the commit that created it named it.**
 
 **History — why the out stage was collapsed.** Commit `2a36d4af` (2026-07-01, "P7"): the Stanford HSA model splits each router into `in.`/`mid.`/`out.` switches, and the out stage is an **input-port → output-port permutation**. APKeep's only forwarding primitive then was a destination-prefix trie, which is in-port-blind, so feeding it the out stage collapsed every rule to one `/0` default and forwarding broke — **204 missing pairs**. Resolving the `mid.X → out.X → neighbour` chain statically and wiring `mid` egress straight to the external neighbour restored `missing=0 extra=0`. It was a sound trade at the time, not an oversight.
@@ -1053,6 +1055,8 @@ out-stage rules              2,683
 ---
 
 ### 25. VLAN is a CROSS-STAGE protocol, and honouring it per table is unsound (found 2026-09-24)
+
+**PLAN: [`OUT_STAGE_PLAN.md`](OUT_STAGE_PLAN.md)** §4.2 (the `_FILTER_MATCH_FIELDS` VLAN slot, without retiring the stage exemption) and §4.5 (the rewrite residue).
 
 **Same root as item 24: the out stage is not modelled as a device.** Kept separate because the evidence is independent and the warning below is actionable on its own.
 

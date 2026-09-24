@@ -1305,6 +1305,27 @@ can be blind to a dropped constraint. **Reopened as TODO item 24**, with the
 observation that `_demux_ingress` now expresses the in-port qualification whose
 absence forced the collapse in the first place.
 
+**PLAN 2026-09-24: [`OUT_STAGE_PLAN.md`](OUT_STAGE_PLAN.md).** Sizing it changed
+the shape of the problem. Only **68 of the 681** out-stage arrival ports carry a
+condition at all -- the other 613 are unconditional permutations the collapse
+models *exactly*, not approximately -- and all **45 VLAN resets** sit on those
+same 68 ports, so the `_out_reset` fold and the discarded conditions cover
+identical ground and can be unfolded together. The plan therefore keeps the
+collapse for 613 ports and gives the 68 a dedicated `FilterElement` builder.
+
+Two findings from that sizing bear on the note below. First, on **all 68**
+conditional ports the unioned permutation reaches **no more egress ports** than
+the port's own catch-all, and every catch-all forwards -- so the collapse is
+over-permissive purely in the HEADER dimension and **reachability cannot move**
+when it is fixed. That is a stronger statement than "costs nothing observable
+today": no pair-set oracle can ever evaluate this work, which is why the plan's
+step 0 is a conditioned differential with the acceptance criterion that it must
+FAIL on the current tree. Second, the `tcp_flags` rules are all **permits** in
+front of the `ip_proto=6 + vlan=78` deny (an established-only egress filter), so
+dropping that conjunct does not merely widen one rule -- it makes 2 of the 16
+denies inert. The `vlan=68` denies and the 12 `ipv4_src` anti-spoofing denies are
+expressible today.
+
 **Still open — the exact out-stage field.** The condition is confirmed to be an
 out-stage *header-overlap* failure, but the precise discriminating field/value is **not
 yet isolated**: decoding NP's packed 48-bit header vectors was unreliable, and the
