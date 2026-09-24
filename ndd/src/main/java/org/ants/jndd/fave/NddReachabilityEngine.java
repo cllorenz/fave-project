@@ -223,7 +223,17 @@ public final class NddReachabilityEngine {
                 String[] body = new String[t.length - 8 + 3];
                 body[0] = "+"; body[1] = "filter"; body[2] = t[2];
                 System.arraycopy(t, 8, body, 3, t.length - 8);
-                int matchPred = ruleToNDD(body);
+                // ... INCLUDING the VLAN slot, which lands at body[17] like any
+                // other filter rule. `ruleToNDD` alone would drop it, and the BDD
+                // engine would not: this body is handed to `common.ACLRule`
+                // there, whose token[14] IS that slot, so it has always been
+                // honoured. Omitting it here made one NAT rule mean two things
+                // depending on the engine -- the same defect item 23's step 0
+                // fixed for `+ filter`/`+ acl`, at the one reader step 0 did not
+                // cover. It became reachable when `_filter_rule_string` gained a
+                // `vlan` argument (OUT_STAGE_PLAN.md sec. 4.2), because a
+                // first-match NAT reuses its own rule's body as the match.
+                int matchPred = withVlanSlot(ruleToNDD(body), body);
                 nat.computeIfAbsent(key(t[2], t[3]), k -> new ArrayList<>())
                    .add(new int[]{NDD.ref(matchPred), fld, NDD.ref(rwPred)});
                 continue;

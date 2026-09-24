@@ -168,7 +168,7 @@ _NAT_IP_FIELDS = {_SRC: 'src', _DST: 'dst'}
 #: table that needs first-match and carries anything else is refused, not
 #: approximated.
 _FILTER_MATCH_FIELDS = frozenset({
-    _PROTO, _SRC, _SRC6, _DST, _DST6, _SPORT, _DPORT, _RELATED})
+    _PROTO, _SRC, _SRC6, _DST, _DST6, _SPORT, _DPORT, _RELATED, _VLAN})
 
 
 class UntranslatedSemantics(Exception):
@@ -346,22 +346,32 @@ _FILTER_DROP = "__drop__"   # FilterElement's drop sink (matches FilterElement.D
 def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
                         src: Optional[str], dst: Optional[str],
                         sport: Optional[Any], dport: Optional[Any],
-                        related: Optional[Any], idx: int) -> str:
+                        related: Optional[Any], idx: int,
+                        vlan: Optional[Any] = None) -> str:
     """ One packet_filter chain rule -> an APKeep "+ filter <device> ..." update
     string for a FilterElement. Token layout matches an ACL rule (accessList number
     action protoLo protoHi src srcWild sPortLo sPortHi dst dstWild dPortLo dPortHi
     priority [vlan] [related]) except the action slot carries the out_port (ACCEPT)
-    or __drop__. The trailing VLAN slot is unused here (null); the `related`
-    connection-state bit (Phase 5) follows it. """
+    or __drop__; the `related` connection-state bit (Phase 5) follows the VLAN.
+
+    `vlan` fills slot 17, which used to be hardcoded `null` here. Both engines
+    have read that slot since TABLE_SEMANTICS_PLAN.md step 0 -- the BDD one
+    always did (FilterElement encodes through `ACLRule`, whose token[14] IS this
+    slot), the NDD one since `withVlanSlot`. Passing a value is therefore an
+    adapter change only, not an element change. A comma-separated set is
+    accepted: APKeep ORs the tags, which is what the faithful VLAN-admission
+    ACLs already rely on.
+    """
     sip, swild = _addr_tokens(src)
     dip, dwild = _addr_tokens(dst)
     plo, phi = ("0", "255") if proto is None else (str(proto), str(proto))
     slo, shi = ("null", "null") if sport is None else tuple(str(p) for p in _ternary_port_range(sport))
     dlo, dhi = ("null", "null") if dport is None else tuple(str(p) for p in _ternary_port_range(dport))
     rel = "null" if related is None else str(related)
-    return "+ filter %s filter 0 %s %s %s %s %s %s %s %s %s %s %s %d null %s" % (
+    vln = "null" if vlan is None else str(vlan)
+    return "+ filter %s filter 0 %s %s %s %s %s %s %s %s %s %s %s %d %s %s" % (
         device, out_port, plo, phi, sip, swild, slo, shi, dip, dwild, dlo, dhi,
-        _FILTER_PRIO_BASE - int(idx), rel
+        _FILTER_PRIO_BASE - int(idx), vln, rel
     )
 
 
@@ -369,12 +379,21 @@ def _is_acceptall_filter_rule(tokens: List[str]) -> bool:
     """ True iff a parsed "+ filter ..." rule matches the ENTIRE header space and
     forwards (does not drop) -- i.e. an accept-all pass-through rule. Token layout
     (see _filter_rule_string): + filter <dev> filter 0 <out> <plo> <phi> <sip>
-    <swild> <slo> <shi> <dip> <dwild> <dlo> <dhi> <prio> [null] [rel]. All match
+    <swild> <slo> <shi> <dip> <dwild> <dlo> <dhi> <prio> [vlan] [rel]. All match
     fields wildcard (proto 0-255; src/dst 0.0.0.0/255.255.255.255 -- our IPv6
-    wildcard is emitted in that IPv4 form too; ports/rel null) and out != drop. """
+    wildcard is emitted in that IPv4 form too; ports/vlan/rel null) and
+    out != drop.
+
+    **The VLAN slot is part of "wildcard" and used not to be**, because nothing
+    could fill it. It can now (`_filter_rule_string`'s `vlan`), and a
+    VLAN-qualified pass-through matches one tag rather than the whole space --
+    so eliding it as a semantic identity would widen every path through it to
+    every VLAN. `_elide_passthrough_filters` is the only caller, and that is
+    exactly the silent widening it must not do. """
     if len(tokens) < 17 or tokens[1] != "filter":
         return False
     out = tokens[5]
+    vlan = tokens[17] if len(tokens) > 17 else "null"
     plo, phi = tokens[6], tokens[7]
     sip, swild = tokens[8], tokens[9]
     slo, shi = tokens[10], tokens[11]
@@ -385,6 +404,7 @@ def _is_acceptall_filter_rule(tokens: List[str]) -> bool:
             and plo == "0" and phi == "255"
             and slo == "null" and shi == "null"
             and dlo == "null" and dhi == "null" and rel == "null"
+            and vlan == "null"
             and sip == "0.0.0.0" and swild == "255.255.255.255"
             and dip == "0.0.0.0" and dwild == "255.255.255.255")
 
@@ -1800,6 +1820,14 @@ class APKeepAdapter(AbstractVerificationEngine):
         the whole prefix, and only the order distinguishes that from denying
         everything.
 
+        Carries a VLAN match (slot 17) since OUT_STAGE_PLAN.md sec. 4.2. That is
+        an adapter change, not an element one: both engines have read the slot
+        since item 23's step 0. It does NOT retire the `in.`/`mid.`/`out.`
+        exemption in `_first_match_devices` -- doing that as well is item 25's
+        measured unsoundness (wl_stanford 165 -> 150 pairs, BELOW NetPlumber),
+        because VLAN admission is a property of the pipeline and not of any one
+        table in it.
+
         REFUSES a match or a rewrite it cannot express, rather than emitting the
         rule without it. A silently dropped match field answers a broader
         question and returns a confident number -- the failure mode this file's
@@ -1839,7 +1867,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                         match.get(_SRC, match.get(_SRC6)),
                         match.get(_DST, match.get(_DST6)),
                         match.get(_SPORT), match.get(_DPORT),
-                        match.get(_RELATED), int(row['idx']))
+                        match.get(_RELATED), int(row['idx']),
+                        vlan=match.get(_VLAN))
                     rules.append(rule_str)
                     # The NAT reuses this rule's own match, so it rewrites
                     # exactly the packets the rule matched -- see

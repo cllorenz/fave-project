@@ -48,7 +48,8 @@ import unittest
 from types import SimpleNamespace
 
 from rule.rule_model import Rule, Match, RuleField, Forward, Rewrite
-from apkeep.adapter import APKeepAdapter, available, _is_dst_lpm_table
+from apkeep.adapter import (APKeepAdapter, available, _is_dst_lpm_table,
+                           _is_acceptall_filter_rule)
 from test.backend_gate import require_or_skip
 
 _DST = 'packet.ipv4.destination'
@@ -57,6 +58,7 @@ _PROTO = 'packet.ipv6.proto'
 _DPORT = 'packet.upper.dport'
 _SPORT = 'packet.upper.sport'
 _RELATED = 'related'
+_VLAN = 'packet.ether.vlan'
 
 
 def _logger():
@@ -260,6 +262,77 @@ class TestAnAddressRewriteBecomesANAT(unittest.TestCase):
         """ The gateway's anti-spoofing rule rewrites nothing and forwards
         nowhere; a NAT on the drop sink would rewrite traffic that is gone. """
         self.assertNotIn('__drop__', [r.split()[3] for r in self.nat_rules])
+
+
+def _vlan_table():
+    """ A first-match table whose rules are VLAN-qualified -- the shape the
+    wl_stanford out stage has, and the one this path used to refuse. """
+    return SimpleNamespace(node='eg', tables={'eg.1': [
+        _rule('eg', 1, [RuleField(_VLAN, 78), RuleField(_PROTO, 6),
+                        RuleField(_DPORT, 80)], [Forward(['eg.2'])]),
+        _rule('eg', 2, [RuleField(_VLAN, 78), RuleField(_PROTO, 6)], []),
+        _rule('eg', 3, [], [Forward(['eg.2'])]),
+    ]})
+
+
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
+class TestAVlanMatchIsCarried(unittest.TestCase):
+    """ OUT_STAGE_PLAN.md sec. 4.2: slot 17 of a `+ filter` rule.
+
+    An adapter change, not an element one -- both engines have read that slot
+    since item 23 step 0, and `_filter_rule_string` simply stopped hardcoding
+    `null` into it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        adapter = _adapter(_vlan_table())
+        cls.rules, _nats, cls.nat_rules = adapter._build_first_match_tables(
+            {'eg'})
+
+    def test_a_vlan_qualified_table_is_no_longer_REFUSED(self):
+        """ It used to raise: `packet.ether.vlan` was not in the expressible
+        set, and the contract is to refuse rather than emit the rule without
+        the field. """
+        self.assertEqual(len(self.rules), 3)
+
+    def test_the_tag_lands_in_slot_17(self):
+        self.assertEqual([r.split()[17] for r in self.rules],
+                         ['78', '78', 'null'])
+
+    def test_the_other_fields_still_travel_with_it(self):
+        permit = self.rules[0].split()
+        self.assertEqual((permit[6], permit[7]), ('6', '6'))        # proto
+        self.assertEqual((permit[14], permit[15]), ('80', '80'))    # dport
+
+    def test_the_unqualified_rule_keeps_null(self):
+        """ The control: absent a VLAN match the slot must stay `null`, or every
+        rule would suddenly constrain a tag nothing asked for. """
+        self.assertEqual(self.rules[2].split()[17], 'null')
+
+
+class TestAVlanQualifiedPassThroughIsNotAnIdentity(unittest.TestCase):
+    """ `_elide_passthrough_filters` contracts accept-all elements out of the
+    graph as semantic identities. A rule that wildcards every 5-tuple field but
+    names a VLAN is NOT one: it forwards one tag and drops the rest, so eliding
+    it would widen every path through it to every VLAN.
+
+    Pure logic, so it needs no JVM -- and it is the half of sec. 4.2 that could
+    have gone wrong silently, since the widening shows up as extra reachability
+    rather than as an error.
+    """
+
+    @staticmethod
+    def _tokens(vlan):
+        return ("+ filter fw filter 0 p2 0 255 0.0.0.0 255.255.255.255 null "
+                "null 0.0.0.0 255.255.255.255 null null 1000 %s null"
+                % vlan).split()
+
+    def test_an_unqualified_pass_through_still_IS_an_identity(self):
+        self.assertTrue(_is_acceptall_filter_rule(self._tokens('null')))
+
+    def test_a_vlan_qualified_pass_through_is_NOT(self):
+        self.assertFalse(_is_acceptall_filter_rule(self._tokens('78')))
 
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")

@@ -20,7 +20,7 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 """ The VLAN slot of a `+ filter` rule means the same thing to both engines
-(TABLE_SEMANTICS_PLAN.md §8, step 0).
+(TABLE_SEMANTICS_PLAN.md §8, step 0; extended by OUT_STAGE_PLAN.md sec. 4.2).
 
 A FilterElement rule string carries an optional VLAN token in slot 17:
 
@@ -36,6 +36,16 @@ So the same rule string meant two different things depending on the engine.
 It cost nothing while `_filter_rule_string` always wrote `null` there, which is
 why it went unnoticed; it would have cost a silently over-permissive NDD model
 the moment anyone emitted a real tag. Both branches now share `withVlanSlot`.
+
+**The `+ nat ... match` branch was a THIRD reader of the same slot and step 0
+did not cover it** (OUT_STAGE_PLAN.md sec. 4.2). An address-rewrite NAT carries
+the 5-tuple it is keyed on as a FilterElement body, and the NDD branch re-headed
+that body and called bare `ruleToNDD` -- while the BDD side hands the same body
+to `common.ACLRule`, whose `token[14]` IS the slot, and has therefore always
+honoured it. So a NAT rewrote traffic on every VLAN under NDD and only the
+matching one under BDD. Latent until `_filter_rule_string` gained a `vlan`
+argument, because a first-match NAT reuses its own rule's body as the match --
+which is exactly what sec. 4.2 turned on.
 
 THE TRAP THAT MADE THE FIRST MEASUREMENT OF THIS WRONG, recorded because it will
 catch the next person too: the NDD engine existentially quantifies VLAN out of
@@ -83,6 +93,73 @@ def _bdd_verdicts(vlan_token):
         bool(lib.is_reachable("src", "p1", "dst", "p1", target_vlan=tv))
         for tv in (None, 10, 20)
     )
+
+
+# --- the same slot, read through a NAT's match body -------------------------
+#
+# src -> nd(p1..p2) -> fw -> dst.  `nd` forwards only dst 10.0.0.0/8 and rewrites
+# it onto 192.168.0.0/16; `fw` forwards only the REWRITTEN prefix. So the rewrite
+# is what makes the destination reachable at all, and whether it applies under a
+# given VLAN is directly observable.
+_NAT_EDGES = ["src p1 nd p1", "nd p2 fw p1", "fw p2 dst p1"]
+
+
+def _body(vlan_token):
+    """ A FilterElement body matching dst 10.0.0.0/8, with slot 17 set. """
+    return ("filter 0 p2 0 255 0.0.0.0 255.255.255.255 null null "
+            "10.0.0.0 0.255.255.255 null null 1000 %s null" % vlan_token)
+
+
+def _nat_rules(vlan_token):
+    return [
+        "+ filter nd " + _body("null"),
+        "+ nat nd p2 match dst 192.168.0.0 16 " + _body(vlan_token),
+        ("+ filter fw filter 0 p2 0 255 0.0.0.0 255.255.255.255 null null "
+         "192.168.0.0 0.0.255.255 null null 1000 null null"),
+    ]
+
+
+def _ndd_nat_verdicts(vlan_token):
+    eng = LibNDD()
+    eng.build(_nat_rules(vlan_token), _NAT_EDGES)
+    return tuple(
+        bool(eng.is_reachable("src", "p1", "dst", "p1", target_vlan=tv))
+        for tv in (None, 78, 20)
+    )
+
+
+def _bdd_nat_verdicts(vlan_token):
+    lib = LibAPKeep()
+    lib.init_in_memory("natvlanslot", _NAT_EDGES,
+                       device_filters=["nd", "fw"], device_nats={"nd": ["p2"]})
+    lib.run(_nat_rules(vlan_token))
+    return tuple(
+        bool(lib.is_reachable("src", "p1", "dst", "p1", target_vlan=tv))
+        for tv in (None, 78, 20)
+    )
+
+
+@require_or_skip(ndd_available() and bdd_available(),
+                 "both engines are needed for the differential")
+class TestVlanSlotInANatMatchBody(unittest.TestCase):
+    """ The third reader of slot 17: a NAT keyed on a FilterElement body. """
+
+    def test_an_unqualified_nat_rewrites_on_every_vlan(self):
+        """ The control. Without it, an engine that rewrote nothing would pass
+        the test below. """
+        self.assertEqual(_ndd_nat_verdicts("null"), (True, True, True))
+        self.assertEqual(_bdd_nat_verdicts("null"), (True, True, True))
+
+    def test_a_vlan_qualified_nat_rewrites_only_that_vlan(self):
+        """ Measured on a pre-fix jar: NDD (True, True, True), BDD
+        (True, True, False) -- the NAT applied on every VLAN under one engine
+        and only vlan 78 under the other. """
+        self.assertEqual(_ndd_nat_verdicts("78"), (True, True, False))
+
+    def test_both_engines_agree(self):
+        """ As above, the differential is what makes it a defect rather than a
+        design choice. """
+        self.assertEqual(_ndd_nat_verdicts("78"), _bdd_nat_verdicts("78"))
 
 
 @require_or_skip(ndd_available(), "the NDD jar is unavailable")

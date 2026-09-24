@@ -348,18 +348,46 @@ wl_tum, wl_deltanet (predicted: unchanged, §2.6).
 
 Independently worth having, and it is what will refuse step 3 if step 3 is wrong.
 
-### 4.2 Step 2 — let a `FilterElement` rule carry its VLAN match
+### 4.2 Step 2 — let a `FilterElement` rule carry its VLAN match — **DONE**
 
-`_filter_rule_string` gains a `vlan` parameter for slot 17 (today hardcoded
-`null`); `_VLAN` joins `_FILTER_MATCH_FIELDS`.
+`_filter_rule_string` gained a `vlan` parameter for slot 17 (previously hardcoded
+`null`); `_VLAN` joined `_FILTER_MATCH_FIELDS`; `_build_first_match_tables`
+passes `match.get(_VLAN)`. An adapter change, not an element one: both engines
+have read that slot since item 23's step 0.
 
 **Do NOT also retire the `in.`/`mid.`/`out.` exemption in
 `_first_match_devices`.** That is item 25's trap, measured: carrying VLAN into
 every table drops wl_stanford to **150 pairs — below NetPlumber, i.e. unsound**.
 The exemption stays; step 3 claims the out stage by a dedicated builder instead.
 
-Gate: unchanged everywhere, because no non-exempt table carries a VLAN match
-today (`_is_dst_lpm_table` already routes dst+vlan tables to the LPM path).
+**Two things turning the slot on made reachable, neither of them in the original
+sketch of this step:**
+
+1. **`_is_acceptall_filter_rule` had to learn about slot 17.** It decides what
+   `_elide_passthrough_filters` contracts out of the graph as a semantic
+   identity, and it tested every field *except* the VLAN — correct only while
+   nothing could fill it. A rule that wildcards the whole 5-tuple but names a tag
+   forwards one VLAN and drops the rest, so eliding it would widen every path
+   through it to every VLAN. This is the half of the step that could have gone
+   wrong silently: the symptom is extra reachability, not an error.
+2. **A THIRD reader of the slot, which item 23 step 0 did not cover.** An
+   address-rewrite NAT carries the 5-tuple it is keyed on as a FilterElement
+   body (`_nat_ip_rule_string`). The NDD engine re-headed that body and called
+   bare `ruleToNDD`, dropping the VLAN; the BDD engine hands the same body to
+   `common.ACLRule`, whose `token[14]` IS the slot, and has always honoured it.
+   So one NAT rule string meant two different things per engine — **measured on
+   a pre-fix jar: NDD `(True, True, True)` where BDD said `(True, True, False)`**.
+   Latent until now, because a first-match NAT reuses its own rule's body as the
+   match and that body could not carry a tag. Fixed with `withVlanSlot` in the
+   `+ nat ... match` branch, i.e. both engines together, as step 0's lesson
+   requires.
+
+Gate: fast + integration green, and no current workload changes — no non-exempt
+table carries a VLAN match today (`_is_dst_lpm_table` already routes dst+vlan
+tables to the LPM path). Tests: `test_apkeep_first_match.py`
+(`TestAVlanMatchIsCarried`, `TestAVlanQualifiedPassThroughIsNotAnIdentity`) and
+`test_ndd_vlan_slot.py` (`TestVlanSlotInANatMatchBody`). All of them were checked
+to FAIL against the pre-step-2 adapter and the pre-fix jar respectively.
 
 ### 4.3 Step 3 — `_build_out_stage`: the 68 conditional ports become elements
 
@@ -431,7 +459,7 @@ primitive gap is general.
 |---|---|---|
 | 0 | a header-level oracle that **fails** on the pre-fix tree | **DONE — negative result, sec. 3** |
 | 1 | fast + integration; qualified-device set unchanged on 4 workloads | ready |
-| 2 | fast + integration; no non-exempt table gains a VLAN match | ready |
+| 2 | fast + integration; no non-exempt table gains a VLAN match | **DONE** |
 | 3 | reachability unchanged (guard) **+ a reported cost delta** — sec. 7.3 | gated on the sec. 7.4 questions |
 | 4 | both engines agree on the same rule string (extend `test/test_ndd_vlan_slot.py`'s pattern) | ready, but subordinate to 3 |
 | 5 | fast + integration | ready |
@@ -564,13 +592,11 @@ onto the out element.
 **The hassel-semantics question is SETTLED** (owner: top-down, first-match), so
 nothing blocks step 3 on correctness grounds. One decision remains:
 
-**Charge APKeep the full 2,683, or only the 681 live ones?** Now that the split is
-known exactly -- 681 live match-alls, one per arrival port, and 2,002 dead
-(1,986 narrower permits + 16 denies) -- this is the whole cost question in one
-number. Carrying all 2,683 is the honest cost of the workload as shipped and is
-what premise 1 asks for; carrying only the live ones would measure a network
-nobody operates. **Recommendation: all 2,683**, with the live/dead split reported
-alongside so the number can be read either way.
+**DECIDED (owner, 2026-09-24): charge APKeep the full 2,683.** The split is known
+exactly -- 681 live match-alls, one per arrival port, and 2,002 dead (1,986
+narrower permits + 16 denies) -- and the whole workload is what premise 1 asks
+for; carrying only the live ones would measure a network nobody operates. The
+live/dead split is reported alongside so the number can be read either way.
 
 **A by-product worth taking separately:** wl_stanford contains 2,002 unreachable
 rules and no FaVe backend currently reports them -- NetPlumber could
