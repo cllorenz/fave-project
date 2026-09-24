@@ -408,24 +408,113 @@ caught the wl_i2 shadowing at the time rather than years later.
 
 ---
 
-## 7. Open questions
+## 7. Open questions -- ANSWERED 2026-09-24 by experiment
 
-1. **Does the declaration carry a group identity too?** `'out.' + router`
-   recovers the mid<->out correspondence by constructing a name. A role tag
-   cannot express a *relationship*. Carrying `{'role': ..., 'group': 'bbra_rtr'}`
-   would turn the string surgery into a lookup and retire four more name tests —
-   but it makes the mechanism richer than "table semantics", and that is a
-   decision to take up front rather than bolt on.
-2. **What is the vocabulary?** `first_match` and `lpm` are needed. `admission`
-   and `permutation` are implied by wl_stanford's other two stages but have no
-   consumer until the APKeep `FilterElement` can carry VLAN on both engines
-   (the NDD gap of §8). Adding a term with no
-   consumer risks a declaration nothing honours.
-3. **Who writes it for rich models?** `np_preparation` is the obvious producer
-   for raw-table benchmarks. For `RouterModel`/`PacketFilterModel` the model
-   itself knows its `routing` table is a FIB and could set it unconditionally —
-   which is takeaway (1) of the discussion, applied where §2.5 says the coverage
-   actually is.
+All three are closed, and two of them closed as **"no"**. The experiment that
+settled them is §7.4.
+
+### 7.1 Does the declaration carry a group identity? -- NO
+
+`'out.' + router` recovers the mid<->out correspondence by constructing a name,
+and a role tag cannot express a relationship -- so the question was whether to
+carry `{'role': ..., 'group': 'bbra_rtr'}`.
+
+It is not needed, because **the topology already states the relationship**.
+`_build_stanford_faithful` builds `mid_to_out` from the edges forty lines before
+it constructs the name. Measured on wl_stanford: all **16** mid devices have an
+edge-derived out partner, every one single-valued, agreeing with the
+name-constructed one in **16 of 16**, none unmapped. It is also the only name
+construction left in any of the three adapters.
+
+Adding `group` would be a second source of truth for something the model already
+states, and the topology is the better source: derived rather than asserted
+beside it, so it cannot drift. **Delete the name construction instead** -- one
+site, no new mechanism. A replacement should refuse a non-singleton rather than
+assume one, since single-valuedness is a property of this dataset, not a
+guarantee.
+
+### 7.2 What is the vocabulary? -- `first_match` and `lpm`, and NOTHING ELSE
+
+`admission` and `permutation` were pencilled in for wl_stanford's other two
+stages. Both are now rejected, for different reasons.
+
+**`permutation` names an adapter's lossy extraction, not a meaning.** Owner's
+objection -- *"too descriptive on what it does instead of what it means"* -- and
+measuring makes it sharper than that. wl_stanford's out stage is not a
+permutation at all:
+
+```
+out stage, 3,383 rules
+  982  match ip_proto, ipv4_dst, tcp_dst, vlan      <- a 5-tuple ACL
+  681  match nothing                                <- pure port permutation
+  273  match ip_proto, ipv4_dst, ipv4_src, tcp_dst, vlan
+  192  match ip_proto, tcp_dst, vlan
+```
+
+It is an egress ACL that also does layer-2 forwarding, and
+`_capture_out_perm`'s own docstring concedes the adapter ignores the ACL half.
+Naming the table after the part one backend chose to keep would freeze that
+approximation into the model's semantics.
+
+**The same stage name already means different things across benchmarks**, which
+kills role-derivation of any kind:
+
+| benchmark | `out` stage is |
+|---|---|
+| wl_i2 | a pure destination FIB -- 77,451 rules matching `ipv4_dst` ALONE, action `fd`+`rw` |
+| wl_stanford | an egress ACL plus layer-2 forwarding |
+
+**And roles/features are not needed at all** (§7.4): the rules state them, and
+`_is_dst_lpm_table` already reads them. What the rules cannot state is
+LPM-vs-first-match -- a FIB with a discard aggregate and a deny-before-permit
+filter are shape-identical -- which is exactly the one declaration built.
+
+### 7.3 Who writes it for rich models? -- ANSWERED by S5
+
+`np_preparation` for the raw-table benchmarks, and `RouterModel` for itself.
+`PacketFilterModel` deliberately does not: measuring showed its `routing` rules
+select the egress with an `out_port` MATCH, so the table is not a
+destination-prefix trie (§9.7).
+
+### 7.4 The experiment that settled it
+
+Remove the `in.`/`mid.`/`out.` exemption from `_first_match_devices` and let the
+shape decide. Measured on wl_stanford, plain mode, against NetPlumber's 165:
+
+| configuration | pairs | |
+|---|---:|---|
+| baseline, exemption kept | 165 | the reference |
+| exemption removed, VLAN carried per table | **150** | **UNSOUND -- 15 pairs lost** |
+| exemption removed, VLAN-touching devices exempt | **165** | exact |
+
+Shape-driven classification puts **15 devices / 4,042 rules** on the first-match
+path, and the inexpressible residue is small and exact:
+
+* **match: `packet.upper.tcp.flags` -- 24 rules on 2 devices.** The only match
+  field APKeep genuinely cannot carry. An extension request, not a declaration.
+* **rewrite: `packet.ether.vlan` -- 22 rules**, for which the engine ALREADY has
+  the primitive (`+ nat <dev> <port> vlan ...`, used by the faithful path); it is
+  simply not wired into the first-match builder.
+
+Two refusals hit along the way were **stale adapter knowledge, not real limits**:
+`_FILTER_MATCH_FIELDS` omits VLAN although both engines have honoured the rule
+string's slot 17 since §8. Same staleness as the `_first_match_devices` docstring
+that §8 corrected.
+
+**But the exemption has a real reason underneath the stale one, and this is the
+finding.** Honouring the VLAN *match* per table drops the model to 150 --
+*below* NetPlumber, so **unsound**. VLAN in wl_stanford is a CROSS-STAGE
+protocol: the in-stage admits a tag that an upstream mid-stage rewrite assigns.
+Enforcing the admission table-locally, without modelling the rewrites coherently,
+yields a model that is merely more restrictive rather than more correct -- which
+is precisely the whole-pipeline job `_build_stanford_faithful` exists to do.
+**A per-table declaration could not have expressed this either**, because it is
+not a property of any one table.
+
+So the residue that a role or feature vocabulary would have had to cover is: one
+header field APKeep lacks, and one pipeline-wide concern that is not per-table.
+Neither is a role. Neither is a per-table feature. Both are filed as their own
+work (TODO items 24 and 25).
 
 ---
 
