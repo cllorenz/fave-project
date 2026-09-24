@@ -1334,6 +1334,15 @@ deny, 39/39 under one aimed at the goza/gozb anti-spoofing deny.** The seeded
 backend differential agrees everywhere too (APKeep 30 = NetPlumber 30 for both
 `ip_proto=6` and `ip_proto=17` on the TCP-deny route).
 
+Then the same test over each deny's WHOLE targeted header space. The 16 denies
+match on exactly seven source-controllable classes -- six `ipv4_src` values and
+`ip_proto=6` -- and seeding each with the destination left FREE (the most
+favourable existential question a deny could answer) gives **165/165 seven times
+out of seven**. The only other field they carry is `vlan`, which a source cannot
+set, so leaving it free strengthens the question rather than weakening it. No
+traffic a wl_stanford source can emit has its reachability changed by any of the
+16 denies.
+
 The data says why, twice over. (1) All 68 conditional arrival ports have a
 SINGLE-egress catch-all and no narrower permit routes anywhere else, so the 1,986
 discarded permits are redundant with their own catch-all -- HSA decomposition

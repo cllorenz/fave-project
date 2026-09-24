@@ -184,6 +184,28 @@ Not unconditioned, not under a seed aimed squarely at each deny. And the seeded
 backend differential agrees everywhere: APKeep 30 = NetPlumber 30 for both
 `ip_proto=6` and `ip_proto=17` on the TCP-deny route.
 
+**Then the same test over each deny's WHOLE targeted header space.** The 16
+denies match on exactly seven source-controllable header classes -- six `ipv4_src`
+values and `ip_proto=6` -- so seeding each one with the destination left FREE asks
+the most favourable existential question a deny could possibly answer: *is there
+any route, to any destination, on which this traffic's fate depends on the deny?*
+
+```
+seed=ipv4_src=217.78.63.15/32    intact=165  without-denies=165   INERT
+seed=ipv4_src=210.132.185.87/32  intact=165  without-denies=165   INERT
+seed=ipv4_src=221.132.67.163/32  intact=165  without-denies=165   INERT
+seed=ipv4_src=202.181.206.18/32  intact=165  without-denies=165   INERT
+seed=ipv4_src=200.87.13.14/32    intact=165  without-denies=165   INERT
+seed=ipv4_src=172.17.0.0/16      intact=165  without-denies=165   INERT
+seed=ip_proto=6                  intact=165  without-denies=165   INERT
+```
+
+Seven for seven. The remaining field each deny carries is `vlan`, which a source
+cannot set -- the mid stage assigns it per route -- so leaving it free is the
+strongest form of the question, not a gap in it. This is as near exhaustive as a
+pair-level test can be: **no traffic a wl_stanford source can emit has its
+reachability changed by any of the 16 denies.**
+
 So the gap is unobservable through a probe, and two independent readings of the
 data say the same thing:
 
