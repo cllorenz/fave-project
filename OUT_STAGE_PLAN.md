@@ -191,14 +191,18 @@ data say the same thing:
    catch-all, and no narrower permit routes anywhere else. The 2,118 discarded
    permits are therefore redundant with their catch-all -- HSA decomposition
    artefacts, not policy. **Only the 16 denies remove anything at all.**
-2. **VLAN.** The denies are written against VLANs 68, 78, 730 and 570. No
-   out-stage rule *on the devices carrying them* ever resets those to 0 -- the
-   only vlan-570 resets are on `out.yoza` in-ports 1530047/1530043, while the
-   vlan-570 denies are on `out.goza`/`out.gozb`. All 16 probes filter `vlan=0`.
-   **So no denied packet can ever satisfy a probe.**
+2. **VLAN, and this one is narrower than it first looks.** The denies are
+   written against VLANs 68, 78, 730 and 570, and no out-stage rule *on the
+   device carrying the deny* ever resets those to 0 -- the only vlan-570 resets
+   are on `out.yoza` in-ports 1530047/1530043, while the vlan-570 denies are on
+   `out.goza`/`out.gozb`. All 16 probes filter `vlan=0`. So denied traffic can
+   never reach **that router's own** probe.
 
-The denied traffic is transit-only by construction. That is not an accident of
-the check set; it is a property of the model.
+   It does **not** follow that it can reach no probe at all: absent the deny the
+   packet would continue to the next router, whose mid stage could rewrite the
+   VLAN and whose out stage could reset it to 0. So (2) narrows where the denies
+   could possibly matter; it does not by itself prove they cannot. The proof is
+   (1) plus the measurement, not (2).
 
 ### 3.3 What this does and does not mean
 

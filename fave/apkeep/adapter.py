@@ -495,6 +495,13 @@ class APKeepAdapter(AbstractVerificationEngine):
         # buffered FaVe model -> APKeep input
         self._fwd_devices: set = set()       # ForwardElement device names
         self._filter_devices: set = set()    # packet_filter device names (FilterElement)
+        # Forwarding devices `_build` moved OFF the ForwardElement path onto a
+        # first-match FilterElement (`_first_match_devices`). Kept because
+        # `_build` removes them from `_fwd_devices`, and `_ingress_qualified`
+        # keys on that set -- so without this record a first-match device would
+        # be invisible to the very refusal that exists to catch an element type
+        # which cannot carry an ingress port. See `_ingress_qualified`.
+        self._fm_devices: set = set()
         # A FaVe packet_filter is an internal pipeline of filter chains
         # (input/output/forward) + a routing table, wired via internal ports (see
         # devices/packet_filter.py). We reproduce it as a small subgraph of APKeep
@@ -980,6 +987,25 @@ class APKeepAdapter(AbstractVerificationEngine):
         internal pipeline port is a different question -- the pipeline is
         modelled as separate elements (`_build_pf_pipeline`, `_splice_acls`) --
         and is out of scope here rather than silently in it.
+
+        **FIRST-MATCH devices are in scope too** (`_fm_devices`), and used not to
+        be. `_build` moves a forwarding table that is not a destination-prefix
+        trie onto a `FilterElement` and removes it from `_fwd_devices` BEFORE
+        `_demux_ingress` and `_assert_ingress_accounted` run, so keying this loop
+        on `_fwd_devices` alone made those devices invisible to the refusal --
+        and a `FilterElement` is no more able to carry an arrival port than a
+        `ForwardElement` is (`_build_pf_pipeline` works around it with per-port
+        `<elem>.inP` prefilters, which is a different mechanism reading a
+        different field). Measured when this was closed, across the six shipped
+        workloads: devices that DO discriminate exist -- wl_deltanet 7, wl_up 2,
+        wl_stanford 32 -- but not one of them is realised first-match, and every
+        one is already accounted for (demux, the `_filter_devices` branch, the
+        declared in-stage approximation). The devices that ARE first-match are
+        wl_cloud's, and although 1,722 of its 1,741 rules name an in-port, none
+        names a DISCRIMINATING subset. So the intersection is empty and this
+        widening refuses nothing today: it is a guard for a shape no workload has
+        yet, and it becomes load-bearing the moment any staged
+        (`in.`/`mid.`/`out.`) table is realised this way.
         """
         arriving = self._ingress_ports(edges)
         qualified: Dict[str, List[int]] = {}
@@ -999,8 +1025,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         # refuses nothing today and stands as a guard for a shape no workload
         # has yet.
         for device, rows in self._fwd_table.items():
-            if device not in self._fwd_devices:
-                continue                      # not realised as a ForwardElement
+            if device not in (self._fwd_devices | self._fm_devices):
+                continue                      # this table is realised as neither
             ingress = arriving.get(device, set())
             restricted = []
             for row in rows:
@@ -1127,6 +1153,18 @@ class APKeepAdapter(AbstractVerificationEngine):
                     "apkeep: %s discriminates among its ingress ports and is a "
                     "packet_filter, whose chain rules this pass cannot re-key; "
                     "leaving it to the refusal", device)
+                continue
+            # Same shape, one store further along: a first-match device's rules
+            # live in `_fwd_table` (read by `_build_first_match_tables`, already
+            # emitted by the time this runs), which this pass does not re-key.
+            # Splitting one here would rename the element and leave its rules
+            # filed under the old name -- the silent rule-dropping this contract
+            # is about. It falls through to the refusal instead.
+            if device in self._fm_devices:
+                self.logger.warning(
+                    "apkeep: %s discriminates among its ingress ports and is "
+                    "realised as a first-match FilterElement, whose rules this "
+                    "pass cannot re-key; leaving it to the refusal", device)
                 continue
             classes = self._ingress_classes(
                 device, arriving.get(device, set()),
@@ -1543,6 +1581,8 @@ class APKeepAdapter(AbstractVerificationEngine):
             fm_rules, fm_nats, fm_nat_rules = self._build_first_match_tables(
                 first_match)
             self._fwd_devices -= first_match
+            # ... but keep them visible to the ingress contract below.
+            self._fm_devices = set(first_match)
             fwd_rules = [r for r in fwd_rules if r.split()[2] not in first_match]
             if fm_nats:
                 # The stanford/i2 paths hand back sorted LISTS; normalise before

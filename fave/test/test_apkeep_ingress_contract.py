@@ -115,11 +115,42 @@ class TestIngressContract(unittest.TestCase):
             adapter._assert_ingress_accounted(edges)
         self.assertIn('APPROXIMATELY', ' '.join(captured.output))
 
-    def test_a_device_not_realised_as_a_ForwardElement_is_not_checked(self):
-        """ A first-match table or a collapsed stage is somebody else's problem. """
+    def test_a_table_realised_as_NEITHER_element_is_not_checked(self):
+        """ A collapsed stage is somebody else's problem.
+
+        Not a first-match table, though -- that used to fall in here too and no
+        longer does; see the next two tests.
+        """
         adapter, edges = _adapter(
             {'d': [_row(1, ['1'])]}, [], ['x 9 d 1', 'y 9 d 2'])
         self.assertEqual(adapter._ingress_qualified(edges), {})
+
+    def test_a_FIRST_MATCH_device_IS_checked(self):
+        """ `_build` moves a table that is not a dst-prefix trie onto a
+        `FilterElement` and removes it from `_fwd_devices` BEFORE the demux and
+        this refusal run. Keying the check on `_fwd_devices` alone therefore made
+        such a device invisible to it -- and a `FilterElement` carries an arrival
+        port no better than a `ForwardElement` does.
+
+        Latent when it was closed (no shipped workload is both first-match and
+        discriminating), and load-bearing for any staged table realised this way.
+        """
+        adapter, edges = _adapter(
+            {'d': [_row(1, ['1'])]}, [], ['x 9 d 1', 'y 9 d 2'])
+        adapter._fm_devices = {'d'}
+        self.assertEqual(adapter._ingress_qualified(edges), {'d': [1]})
+        self.assertRaises(UntranslatedSemantics,
+                          adapter._assert_ingress_accounted, edges)
+
+    def test_a_FIRST_MATCH_device_with_a_declared_account_is_accepted(self):
+        """ The refusal is about an UNDECLARED approximation, not about the
+        element type: declare a mechanism and the device passes, exactly as a
+        ForwardElement device does. """
+        adapter, edges = _adapter(
+            {'d': [_row(1, ['1'])]}, [], ['x 9 d 1', 'y 9 d 2'],
+            accounted={'d': (ACCOUNT_COMPLETE, 'a test')})
+        adapter._fm_devices = {'d'}
+        adapter._assert_ingress_accounted(edges)          # must not raise
 
     def test_a_packet_filter_device_IS_checked(self):
         """ It used to be excluded wholesale, which was a scope statement rather
@@ -225,6 +256,24 @@ class TestIngressDemux(unittest.TestCase):
         self.assertEqual(new_rules, [rule])
         self.assertEqual(adapter._fwd_devices, {'d'})
         # and therefore still refused, which is the honest outcome
+        self.assertRaises(UntranslatedSemantics,
+                          adapter._assert_ingress_accounted, edges)
+
+    def test_a_FIRST_MATCH_device_is_NOT_split_by_the_demux(self):
+        """ Same shape as the packet_filter case, one store further along: a
+        first-match device's rules live in `_fwd_table`, which
+        `_build_first_match_tables` has already emitted by the time the demux
+        runs and which the demux does not re-key. Splitting one would rename the
+        element and leave its rules filed under the old name. """
+        rule = '+ fwd d 0 0 9 0'
+        adapter = self._adapter_with({'d': [_row(1, ['1'])]}, [rule], {}, set())
+        adapter._fwd_ingress = {rule: {'1'}}
+        adapter._fm_devices = {'d'}
+        edges = ['x 9 d 1', 'y 9 d 2', 'd 9 z 1']
+        new_edges, new_rules = adapter._demux_ingress(edges, [rule])
+
+        self.assertEqual(new_edges, edges)        # untouched
+        self.assertEqual(new_rules, [rule])
         self.assertRaises(UntranslatedSemantics,
                           adapter._assert_ingress_accounted, edges)
 
