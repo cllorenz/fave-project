@@ -1018,31 +1018,52 @@ Owner's framing: *"the sanity question concerning LPM needs to be addressed in f
 
 ---
 
-### 24. APKeep cannot express a TCP-flags match — 24 rules, 2 devices (found 2026-09-24)
+### 24. The out-stage collapse discards the egress ACL — P7c gap 2, reframed (2026-09-24)
 
-**The one header field APKeep genuinely lacks**, isolated by the §7.4 experiment in [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md). Letting rule SHAPE classify wl_stanford's staged tables (instead of exempting them by device name) puts 15 devices / 4,042 rules on the first-match `FilterElement` path. Everything is expressible except `packet.upper.tcp.flags`: **24 rules across 2 devices** (`out.yoza_rtr` among them). `_filter_rule_string`'s token layout has no slot for it and neither engine has a field, so `_build_first_match_tables` refuses — correctly, since a dropped match field widens the rule and the run still reports a confident number.
+**This supersedes the first draft of this item ("APKeep cannot express a TCP-flags match"), which described a symptom of an experimental path and missed the real gap. It is also not a new finding: the commit that created it named it.**
 
-This is an **APKeep extension request**, not a modelling question: the rules state the requirement plainly, the adapter simply has no primitive. The shape of the fix is known, because `related` and `vlan` were both added the same way — a trailing token in the `+ filter`/`+ acl` rule string, parsed in `ACLRule` and conjoined in `ConvertACLRule` (BDD) plus `ruleToNDD`/`withVlanSlot` (NDD). Item 23's step 0 is the worked example, including the trap that the two engines must be changed together or they silently answer different questions.
+**History — why the out stage was collapsed.** Commit `2a36d4af` (2026-07-01, "P7"): the Stanford HSA model splits each router into `in.`/`mid.`/`out.` switches, and the out stage is an **input-port → output-port permutation**. APKeep's only forwarding primitive then was a destination-prefix trie, which is in-port-blind, so feeding it the out stage collapsed every rule to one `/0` default and forwarding broke — **204 missing pairs**. Resolving the `mid.X → out.X → neighbour` chain statically and wiring `mid` egress straight to the external neighbour restored `missing=0 extra=0`. It was a sound trade at the time, not an oversight.
 
-- [ ] **Decide whether it is worth it.** 24 rules on 2 devices of one workload. Cheap to add by the established pattern; the question is whether anything depends on those rules discriminating. **Measure that first** — §2.5's LPM lesson is that a reachability matrix may be unable to see a field it drops, so "reachability is unchanged" would not settle it.
-- [ ] If added: both engines, plus a differential asserting they agree (the `test_ndd_vlan_slot.py` pattern), or the divergence step 0 fixed comes straight back.
+**The same commit flagged the cost, tcp_flags included:** *"reachable.json is fully connected (240/240), an existential role-level oracle … it does not exercise the ingress/egress ACLs, VLAN rewrites, or tcp_flags that this collapse ignores. … Faithful ACL modelling … is deferred to P8."* `APKEEP_BACKEND.md` tracks the deferral as **P7c gap 2 (out-stage / transfer-function fidelity)**, which is still open.
+
+**What is actually discarded** (measured 2026-09-24, wl_stanford):
+
+```
+out-stage rules              2,683
+  forwarding                 2,667
+  forwarding UNDER a match   1,986   <- the condition is discarded
+  drops (no action)             16   <- the deny is lost too
+  fields: vlan 1986, ip_proto 1624, ipv4_dst 1592,
+          tcp_dst 1453, ipv4_src 460, tcp_flags 24
+```
+
+`_capture_out_perm` takes `in_port → out_ports` for every forwarding rule and ignores the match, so an **ACL-conditioned permit becomes an unconditional permutation entry** — over-permissive — and 16 explicit denies contribute nothing. Its own docstring says so: *"the egress ACL/VLAN-rewrite are ignored here."* In the PRODUCTION configuration (faithful, the aggregator default) the out stage contributes **zero rules to the engine**: measured `in`=52, `mid`=7,216, `out`=**0**.
+
+**Two things have changed since the trade was made, and they are why this is worth reopening:**
+
+1. **`_demux_ingress` now expresses exactly what the collapse worked around.** The reason for collapsing was that no primitive could carry an in-port-qualified table; demux splits an element per ingress class, and CLOUD_BENCH_PLAN.md §2.10 already used it to delete the **plain**-mode collapse. The faithful path kept its own collapse only because it also models the egress VLAN reset.
+2. **`FilterElement` can carry the ACL fields** — proto/src/sport/dst/dport, plus VLAN since item 23's step 0 taught the NDD engine the rule string's slot 17. All but one of the six discarded fields are expressible today.
+
+**The localised symptom is GONE, and that is measured, not assumed.** P7c gap 2 cites a `bbra → rozb` false positive from the collapse. Today both APKeep modes are **pair-identical to NetPlumber** on wl_stanford — 165/165, EXTRA=0, MISSING=0, in faithful *and* plain. So the structural gap currently costs nothing observable on this check set, which is exactly the §2.5 hazard: a reachability matrix can be blind to a dropped constraint, and "reachability is unchanged" does not settle it.
+
+- [ ] **The question worth answering: can the faithful path keep the out stage as a DEMULTIPLEXED device** rather than collapsing it, carrying the ACL, the VLAN reset and the port permutation together? That would close P7c gap 2 and subsume item 25.
+- [ ] **Sub-item: `packet.upper.tcp.flags`** — 24 rules on 2 devices (`out.yoza_rtr`, `out.yozb_rtr`), all `tcp_flags=1xxxxxxx` + `ip_proto=6` + `vlan=78`. The one discarded field APKeep has no primitive for. Necessary but nowhere near sufficient: adding it changes nothing while the stage is collapsed before any element could carry it. The shape of the fix is known — a trailing token in the `+ filter`/`+ acl` string, parsed in `ACLRule`/`ConvertACLRule` (BDD) and `ruleToNDD`/`withVlanSlot` (NDD) — and both engines must change together or they silently answer different questions (item 23 step 0).
+- [ ] **Do not gate any of this on the reachability matrix alone.** A deny-case oracle or a NetPlumber flow-tree differential is needed, per `APKEEP_BACKEND.md`'s own P7c note (*"Do not assert a specific VLAN value until this is decoded"*).
 
 ---
 
 ### 25. VLAN is a CROSS-STAGE protocol, and honouring it per table is unsound (found 2026-09-24)
 
-**Measured, and it is the substantive result of the §7.4 experiment.** Removing the stage exemption and carrying the VLAN *match* into each table's `FilterElement` drops wl_stanford from **165 reachable pairs to 150** — *below* NetPlumber, i.e. **unsound**, not merely approximate. Exempting the VLAN-touching devices and letting shape decide the rest reproduces 165 exactly.
+**Same root as item 24: the out stage is not modelled as a device.** Kept separate because the evidence is independent and the warning below is actionable on its own.
 
-**Why:** wl_stanford's in-stage admits a VLAN tag that an upstream mid-stage rewrite assigns. Enforcing the admission table-locally, without modelling the rewrites coherently across the pipeline, yields a model that is more RESTRICTIVE rather than more CORRECT. That whole-pipeline treatment is exactly what `_build_stanford_faithful` does (per-port admission ACLs + inline NATs for the mid rewrites), and it is why the plain path drops VLAN entirely rather than half-modelling it.
+**Measured**, in the §7.4 experiment of [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md): removing the stage exemption and carrying the VLAN *match* into each table's `FilterElement` drops wl_stanford from **165 reachable pairs to 150** — *below* NetPlumber, i.e. **unsound**, not merely approximate. Exempting the VLAN-touching devices and letting shape decide the rest reproduces 165 exactly.
 
-**Consequences worth recording:**
-- **A per-table declaration cannot express this.** It is not a property of any one table, which is half the reason item 23 closed the role/feature vocabulary question as "no".
-- **`_FILTER_MATCH_FIELDS` is stale**: it omits VLAN although both engines have honoured the rule string's slot 17 since item 23's step 0. That staleness is what made the first experiment refuse before it could produce a number — the same shape as the `_first_match_devices` docstring step 0 corrected.
-- The VLAN *rewrite* residue (22 rules) needs no new primitive at all: `+ nat <dev> <port> vlan ...` exists and the faithful path uses it; it is simply not wired into `_build_first_match_tables`.
+**Why:** the in-stage admits a VLAN tag that an upstream mid-stage rewrite assigns. Enforcing the admission table-locally, without modelling the rewrites coherently across the pipeline, yields a model that is more RESTRICTIVE rather than more CORRECT. That whole-pipeline treatment is exactly what `_build_stanford_faithful` does (per-port admission ACLs + inline NATs for the mid rewrites).
 
-- [ ] **Do NOT "fix" `_FILTER_MATCH_FIELDS` by just adding VLAN.** On its own that is the 150-pair model — a soundness regression that no current test would catch, since wl_stanford's APKeep test compares against a stored expectation rather than a live NetPlumber run. Any change here must be gated on reproducing 165.
-- [ ] **The real question is whether plain mode should model VLAN at all**, or keep deferring to the faithful path. That is a scope decision about the plain/faithful split, not a bug.
-- [ ] Related and still open from item 23's step 0: **BDD does not untag probe VLANs and NDD does**, so the adapter's `target_vlan=0` at faithful-wl_stanford probes is a real constraint on one engine and vacuous on the other. Same pipeline-wide-VLAN theme; needs its own measurement.
+- [ ] **Do NOT "fix" `_FILTER_MATCH_FIELDS` by just adding VLAN.** On its own that is the 150-pair model — a soundness regression that **no current test would catch**, because wl_stanford's APKeep test compares against a stored expectation rather than a live NetPlumber run. Any change here must be gated on reproducing 165 pair-for-pair.
+- [ ] **A per-table declaration cannot express this**, which is half the reason item 23 closed the role/feature vocabulary question as "no". VLAN here is a property of the pipeline, not of any table in it.
+- [ ] The VLAN *rewrite* residue (22 rules) needs **no new primitive**: `+ nat <dev> <port> vlan ...` exists and the faithful path uses it; it is simply not wired into `_build_first_match_tables`.
+- [ ] Still open from item 23 step 0, same theme: **BDD does not untag probe VLANs and NDD does**, so the adapter's `target_vlan=0` at faithful-wl_stanford probes is a real constraint on one engine and vacuous on the other. Production uses NDD (owner, 2026-09-24), so this is a BDD-path question.
 
 ---
 

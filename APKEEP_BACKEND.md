@@ -1289,6 +1289,22 @@ so it forwards `bbra`'s transit across to rozb and reports the false positive. *
 P7c gap 2 (out-stage / transfer-function fidelity), now localized to the out-stage
 crossing by NP's flows.**
 
+**UPDATE 2026-09-24 — the localised symptom is GONE, the structural gap is not.**
+Both APKeep modes are now **pair-identical to NetPlumber** on wl_stanford:
+165/165, EXTRA=0, MISSING=0, faithful *and* plain. So the `bbra -> rozb` false
+positive described above no longer reproduces, and the field below no longer has
+a live symptom to be isolated from.
+
+What remains is structural and measured: the collapse still discards **1,986
+out-stage forwarding rules' match conditions** and **16 explicit denies**
+(fields: vlan 1986, ip_proto 1624, ipv4_dst 1592, tcp_dst 1453, ipv4_src 460,
+tcp_flags 24), and in the production faithful configuration the out stage
+contributes **zero rules** to the engine. It costs nothing observable on this
+240-pair check set -- which is precisely the hazard, since a reachability matrix
+can be blind to a dropped constraint. **Reopened as TODO item 24**, with the
+observation that `_demux_ingress` now expresses the in-port qualification whose
+absence forced the collapse in the first place.
+
 **Still open — the exact out-stage field.** The condition is confirmed to be an
 out-stage *header-overlap* failure, but the precise discriminating field/value is **not
 yet isolated**: decoding NP's packed 48-bit header vectors was unreliable, and the
