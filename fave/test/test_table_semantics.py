@@ -646,5 +646,71 @@ class TestRichModelsDeclareTheirOwnFib(unittest.TestCase):
         self.assertEqual(model.to_json()['table_semantics'], {'r.routing': LPM})
 
 
+class TestMidToOutComesFromTheTopology(unittest.TestCase):
+    """ §7.1: the mid<->out correspondence is READ from the edges, not rebuilt
+    by constructing `'out.' + router`.
+
+    That construction was the last place in any of the three adapters that built
+    a device name from a string. It was redundant -- `_build_stanford_faithful`
+    already derives `mid_to_out` from the topology twenty lines earlier, and on
+    wl_stanford the two agreed 16 of 16 -- so carrying a `group` identity in the
+    declaration would have been a second source of truth for something the model
+    already states.
+    """
+
+    def _engine(self):
+        from apkeep.adapter import APKeepAdapter
+        log = logging.getLogger("mid_to_out")
+        log.setLevel(logging.ERROR)
+        return APKeepAdapter(log, faithful_vlan=True, engine='ndd')
+
+    def test_the_partner_need_not_share_the_mid_device_s_NAME(self):
+        """ The discriminating case: `mid.alpha` feeding `out.beta`. The deleted
+        construction looked up `'out.' + 'alpha'`, missed, and silently used no
+        VLAN reset; reading the topology finds `out.beta`. """
+        engine = self._engine()
+        engine._out_perm = {'out.beta': {'1': {'2'}}}
+        engine._mid_rw = {'mid.alpha': [('10.0.0.0/8', 'e1', '7')]}
+        engine._out_reset = {'out.beta': {('1', '7')}}
+
+        edges = ['mid.alpha e1 out.beta 1', 'out.beta 2 probe.p 1']
+        _edges, _nats, nat_rules, _acl_devs, _acls = \
+            engine._build_stanford_faithful(edges)
+
+        # the reset applies, so the effective egress VLAN is 0 rather than 7
+        self.assertTrue(nat_rules, "no NAT emitted, so nothing was resolved")
+        self.assertTrue(nat_rules[0].endswith(' 0'), nat_rules[0])
+
+    def test_a_mid_feeding_TWO_out_stages_is_REFUSED(self):
+        """ Single-valuedness is a property of wl_stanford, not a guarantee. A
+        constructed name would silently pick one partner; this says so. """
+        from apkeep.adapter import UntranslatedSemantics
+        engine = self._engine()
+        engine._out_perm = {}
+        engine._mid_rw = {'mid.alpha': [('10.0.0.0/8', 'e1', '7')]}
+        engine._out_reset = {}
+
+        edges = ['mid.alpha e1 out.beta 1', 'mid.alpha e2 out.gamma 1']
+        with self.assertRaises(UntranslatedSemantics) as caught:
+            engine._build_stanford_faithful(edges)
+        self.assertIn('out.beta', str(caught.exception))
+        self.assertIn('out.gamma', str(caught.exception))
+
+    def test_no_adapter_constructs_a_device_name_any_more(self):
+        """ The property the deletion bought, pinned so it stays bought. """
+        import re
+        roots = ('apkeep/adapter.py', 'netplumber/adapter.py', 'ad6/translate.py')
+        pattern = re.compile(r"""['"](?:in|mid|out)\.['"]\s*\+""")
+        for path in roots:
+            full = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))), path)
+            with open(full) as handle:
+                for number, line in enumerate(handle, start=1):
+                    if line.lstrip().startswith('#'):
+                        continue          # the comment recording the deletion
+                    self.assertIsNone(pattern.search(line),
+                                      "%s:%d constructs a device name" % (path, number))
+
+
 if __name__ == '__main__':
     unittest.main()

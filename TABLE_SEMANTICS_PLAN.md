@@ -428,10 +428,20 @@ construction left in any of the three adapters.
 
 Adding `group` would be a second source of truth for something the model already
 states, and the topology is the better source: derived rather than asserted
-beside it, so it cannot drift. **Delete the name construction instead** -- one
-site, no new mechanism. A replacement should refuse a non-singleton rather than
-assume one, since single-valuedness is a property of this dataset, not a
-guarantee.
+beside it, so it cannot drift.
+
+**DONE 2026-09-24.** `out_of_mid` is built from the same `mid_to_out` the
+function already derives, and a mid device feeding more than one out stage is
+REFUSED rather than silently resolved to one of them -- single-valuedness is a
+property of this dataset, not a guarantee. Verified a no-op with a control:
+faithful wl_stanford gives **165 pairs before and after**.
+
+Three tests, each checked to FAIL on the pre-change adapter so none of them
+passes by construction. The pointed one is `mid.alpha` feeding `out.beta`: the
+deleted code looked up `'out.' + 'alpha'`, missed, and silently applied no VLAN
+reset. A third greps all three adapters for the pattern, so the property stays
+bought -- and it too was confirmed to fail before, because a grep-based guard
+that passes trivially is the vacuous shape this tree has hit repeatedly.
 
 ### 7.2 What is the vocabulary? -- `first_match` and `lpm`, and NOTHING ELSE
 

@@ -2141,11 +2141,36 @@ class APKeepAdapter(AbstractVerificationEngine):
                     for d_dev, d_port in out_ext.get((out_dev, out_port), []):
                         kept.append("%s %s %s %s" % (m_dev, m_port, d_dev, d_port))
 
+        # Which out device belongs to which mid device -- read off the TOPOLOGY,
+        # which already states it, rather than rebuilt by constructing the name
+        # `'out.' + mid_dev.split('.', 1)[1]`. That construction was the last
+        # place in any of the three adapters that built a device name from a
+        # string, and it was redundant with `mid_to_out` twenty lines above:
+        # measured on wl_stanford, all 16 mid devices have an edge-derived
+        # partner, every one single-valued, agreeing with the constructed name in
+        # 16 of 16 (TABLE_SEMANTICS_PLAN.md §7.1).
+        #
+        # A set, and a REFUSAL if it is not a singleton: single-valuedness is a
+        # property of this dataset, not a guarantee. A constructed name would
+        # silently pick one partner for a mid stage that fanned out to two; this
+        # says so instead.
+        out_of_mid: Dict[str, Set[str]] = {}
+        for (out_dev, _in_port), (m_dev, _m_port) in mid_to_out.items():
+            out_of_mid.setdefault(m_dev, set()).add(out_dev)
+
         device_nats: Dict[str, set] = {}
         nat_rules: List[str] = []
         for mid_dev, rws in self._mid_rw.items():
-            router = mid_dev.split('.', 1)[1]
-            reset = self._out_reset.get('out.' + router, set())
+            partners = out_of_mid.get(mid_dev, set())
+            if len(partners) > 1:
+                raise UntranslatedSemantics(
+                    "%s feeds %d out-stage devices (%s). The egress VLAN reset "
+                    "is read from ONE of them, so which reset applies would be "
+                    "an accident of iteration order."
+                    % (mid_dev, len(partners), ', '.join(sorted(partners)))
+                )
+            reset = self._out_reset.get(
+                next(iter(partners)), set()) if partners else set()
             for dst, egress_port, vlan_n in rws:
                 out_inport = mid_port_to_outin.get((mid_dev, egress_port))
                 effective = '0' if (out_inport is not None
