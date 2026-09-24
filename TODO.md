@@ -1018,9 +1018,38 @@ Owner's framing: *"the sanity question concerning LPM needs to be addressed in f
 
 ---
 
+### 26. NetPlumber answers a CONDITIONED check differently from the SEEDED form of the same question (found 2026-09-24)
+
+**Found while building the OUT_STAGE_PLAN.md step-0 oracle; unrelated to the out stage.**
+
+The same question can be asked two ways, and for a header field nothing rewrites they are the same question:
+
+* **seeded** — constrain what the generator EMITS (`sources.json` device fields);
+* **conditioned** — constrain what may ARRIVE at the probe (`check_compliance`'s `cond`, i.e. `NetPlumberAdapter._create_compliance_rules` -> `_build_vector`).
+
+wl_stanford rewrites **only `vlan`** (checked: the sole `rw=` kind in `routes.json`), so a `dst` condition and a `dst` seed must agree. They do not:
+
+| model | question | NetPlumber | APKeep (faithful/ndd) |
+|---|---|---|---|
+| full 16-router | `dst = 172.24.68.0/23`, conditioned | **35** | 30 |
+| full 16-router | `ipv4_dst=172.24.68.0/23`, seeded | **30** | 30 |
+| `yoza_rtr,bbra_rtr` | `dst = 172.24.68.0/23`, conditioned | **2** (= its own unconditioned answer) | 1 |
+| `yoza_rtr,bbra_rtr` | `ipv4_dst=172.24.68.0/23`, seeded | **1** | 1 |
+
+APKeep's two answers agree with each other and with NetPlumber's seeded answer, so two of the three readings agree and **NetPlumber's conditioned check is the odd one out** — and it is consistently the LOOSER of the two, which is the direction that reports reachability that the seeded question does not.
+
+A no-op control passes on both backends (`dst:0.0.0.0/0` and `src:0.0.0.0/0` both give 165/165), so the condition plumbing is not simply inert.
+
+- [ ] **Reproduce**: `python bench/apkeep_out_stage_oracle.py --routers yoza_rtr,bbra_rtr --cond dst:172.24.68.0/23 --cond none` — two routers, ~20 s, one divergent pair (`yoza_rtr -> bbra_rtr`), and the unconditioned row alongside it as the control.
+- [ ] **Decide which form is right before touching anything.** If the conditioned answer is wrong, every conditioned benchmark result on the NetPlumber backend is affected — wl_up and wl_cloud both ship `cchecks.json`. If the seeded answer is wrong, APKeep agrees with it and the problem is wider.
+- [ ] `_build_vector(cond, preset='x')` looks right on inspection (all-x, then set each named field), so the divergence is more likely in how the vector is applied at the probe than in how it is built. Not chased further.
+- [ ] Until it is settled, **prefer seeding** for any differential that has to mean one specific thing.
+
+---
+
 ### 24. The out-stage collapse discards the egress ACL — P7c gap 2, reframed (2026-09-24)
 
-**PLAN: [`OUT_STAGE_PLAN.md`](OUT_STAGE_PLAN.md)** (2026-09-24). It sizes the work: only **68 of 681** out-stage arrival ports carry a condition at all, and all 45 VLAN resets sit on those same 68 — so 613 ports keep the collapse, which is exactly right for them. It also establishes that **reachability cannot move** (on all 68 ports the unioned permutation reaches no more egress ports than the catch-all), which is why the plan's step 0 is an oracle that must FAIL on the current tree.
+**PLAN: [`OUT_STAGE_PLAN.md`](OUT_STAGE_PLAN.md)** (2026-09-24). **Step 0 is DONE and returned a NEGATIVE RESULT that suspends the rest: deleting all 16 out-stage deny rules changes NetPlumber's OWN answer by nothing** — 165/165 unconditioned, 30/30 under a seed aimed at the TCP deny, 39/39 under one aimed at the anti-spoofing deny (`bench/apkeep_out_stage_oracle.py --drop-out-denies`). Two independent readings say why: every one of the 68 conditional arrival ports has a *single-egress* catch-all that no narrower permit departs from, so the 1,986 discarded permits are redundant with it and only the 16 denies remove anything; and those denies are written against VLANs 68/78/730/570, none of which is ever reset to 0 *on the device carrying the deny*, while all 16 probes filter `vlan=0` — so denied traffic is transit-only and can never reach a probe. **The collapse is reachability-equivalent to the faithful out stage on wl_stanford, proved structurally and empirically rather than assumed.** The counts below still stand as counts; what changed is their consequence. See OUT_STAGE_PLAN.md sec. 7 for the options. It also sizes the work: only **68 of 681** out-stage arrival ports carry a condition at all, and all 45 VLAN resets sit on those same 68 — so 613 ports keep the collapse, which is exactly right for them. It also establishes that **reachability cannot move** (on all 68 ports the unioned permutation reaches no more egress ports than the catch-all), which is why the plan's step 0 is an oracle that must FAIL on the current tree.
 
 **This supersedes the first draft of this item ("APKeep cannot express a TCP-flags match"), which described a symptom of an experimental path and missed the real gap. It is also not a new finding: the commit that created it named it.**
 

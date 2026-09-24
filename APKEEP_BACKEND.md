@@ -1326,6 +1326,31 @@ dropping that conjunct does not merely widen one rule -- it makes 2 of the 16
 denies inert. The `vlan=68` denies and the 12 `ipv4_src` anti-spoofing denies are
 expressible today.
 
+**RESULT 2026-09-24 — step 0 of that plan closed the question, negatively.**
+`bench/apkeep_out_stage_oracle.py --drop-out-denies` deletes the 16 out-stage
+deny rules and asks NetPlumber whether its own answer moves. It does not:
+**165/165 unconditioned, 30/30 under a generator seed aimed at the vlan-68 TCP
+deny, 39/39 under one aimed at the goza/gozb anti-spoofing deny.** The seeded
+backend differential agrees everywhere too (APKeep 30 = NetPlumber 30 for both
+`ip_proto=6` and `ip_proto=17` on the TCP-deny route).
+
+The data says why, twice over. (1) All 68 conditional arrival ports have a
+SINGLE-egress catch-all and no narrower permit routes anywhere else, so the 1,986
+discarded permits are redundant with their own catch-all -- HSA decomposition
+artefacts, not policy -- and only the 16 denies remove anything. (2) The denies
+are written against VLANs 68, 78, 730 and 570, and no out-stage rule *on the
+device carrying the deny* ever resets those to 0 (the only vlan-570 resets are on
+`out.yoza` in-ports 1530047/1530043; the vlan-570 denies are on `out.goza`/
+`out.gozb`), while all 16 probes filter `vlan=0`. Denied traffic is transit-only
+and cannot reach a probe.
+
+So **P7c gap 2 is reachability-inert on wl_stanford, and that is now measured
+rather than assumed** -- the collapse is reachability-equivalent to the faithful
+out stage here. The gap remains real as a transfer-function fidelity gap, and
+`tcp_flags` remains the one primitive APKeep genuinely lacks, but no reachability
+oracle on this benchmark can gate a fix for it. OUT_STAGE_PLAN.md sec. 7 puts the
+options to the owner.
+
 **Still open — the exact out-stage field.** The condition is confirmed to be an
 out-stage *header-overlap* failure, but the precise discriminating field/value is **not
 yet isolated**: decoding NP's packed 48-bit header vectors was unreliable, and the

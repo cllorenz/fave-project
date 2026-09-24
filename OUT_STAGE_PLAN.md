@@ -1,7 +1,16 @@
 # Closing P7c gap 2: the wl_stanford out stage as a modelled device
 
-**Status: PLAN (2026-09-24).** Covers TODO items 24 and 25, which are two views of
-the same gap. Companion to [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md)
+**Status: step 0 DONE, and it returned a NEGATIVE RESULT that suspends steps 3-5
+pending an owner decision (2026-09-24).** Covers TODO items 24 and 25, which are
+two views of the same gap.
+
+> **Read sec. 3 first.** The oracle step 0 asked for was built
+> (`bench/apkeep_out_stage_oracle.py`) and it established that **no source->probe
+> reachability question can observe this gap, in the REFERENCE model**: deleting
+> all 16 out-stage deny rules from wl_stanford changes NetPlumber's own answer by
+> nothing. The gap is real as a fidelity gap and the fix in sec. 4 is still the
+> right shape -- but it cannot be gated on this benchmark, and on this benchmark
+> it buys nothing. Steps 1 and 2 stand on their own and are unaffected. Companion to [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md)
 (item 23, built) and [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md) §P7.
 
 ---
@@ -125,34 +134,97 @@ load-bearing the moment out-stage ports become `FilterElement`s. Step 1.
 
 ---
 
-## 3. The oracle problem — this comes FIRST
+## 3. Step 0 — the oracle, and its negative result
 
-§2.3 measured that reachability cannot move. `test_apkeep_stanford.py` compares
-against a *stored* expectation, and the NetPlumber differential compares
-pair sets. **None of the three current gates can tell the fixed model from the
-broken one.** Building the fix first and looking for a green tier would repeat
-the ad6 mistake from item 23 (a test that passed against any implementation).
+Sec. 2.3 measured that reachability cannot move, so step 0 built a header-level
+differential before touching the adapter, with one acceptance criterion:
 
-So step 0 is the oracle, and it has an acceptance criterion of its own:
+> **The differential must FAIL on the pre-fix tree.** If it passes before the
+> fix, it is not measuring the gap.
 
-> **The differential must FAIL on the current tree.** If it passes before the fix,
-> it is not measuring the gap.
+It does fail -- and then the investigation of *why* it fails invalidated it as a
+gate. Both halves are below, because the second is the result.
 
-The material is already there: `_COND_SLOTS` carries `ip_proto`, `ipv4_src`,
-`ipv4_dst`, `tcp_src`, `tcp_dst` as arrival constraints built from the same
-5-tuple encoding the model's own rules use, and `cchecks.json` /
-`reach_csv_to_checks.py --cchecks` already express conditioned checks (wl_up and
-wl_cloud use them). The 16 denies of §2.5 are all conditionable on
-`ipv4_src` / `ip_proto`.
+### 3.1 What was built
 
-**Note the one thing the condition path cannot carry: `vlan` is not in
-`_COND_SLOTS`.** Every deny is VLAN-qualified, so a conditioned check asks a
-*broader* question than the deny. That is fine for a differential — both backends
-get the identical broader question, and they must still agree — but it is the
-reason the check is a *differential against NetPlumber* and not an assertion of a
-hand-computed expected answer.
+`bench/apkeep_out_stage_oracle.py`. It drives wl_stanford through both backends
+in the PRODUCTION configuration (APKeep faithful + NDD, the aggregator default)
+and diffs the pair sets for a question narrowed two ways:
 
----
+- `--seed` constrains what the GENERATORS emit;
+- `--cond` constrains what may ARRIVE at the probe (`_COND_SLOTS` /
+  `_create_compliance_rules`).
+
+Nothing in wl_stanford rewrites anything but `vlan` (checked: the only `rw=` kind
+in `routes.json`), so for `proto`/`src`/`dst` the two are the same question.
+
+Aiming a question at a deny needs both halves at once. Every out-stage deny is
+VLAN-qualified and no engine-portable condition can name a VLAN, so a single
+field leaves reachability existential over every VLAN and never reaches the deny.
+Pinning the DESTINATION pins the VLAN, because the mid stage assigns the egress
+VLAN per dst route. That is how the battery was derived -- from the discarded
+rules, not guessed: `mid.yoza/yozb` route `172.24.68.0/23` with `rw=vlan:68` onto
+the out in-ports carrying `ip_proto=6 + vlan=68 -> DROP`.
+
+### 3.2 The result: the reference model cannot see its own denies
+
+```
+$ python bench/apkeep_out_stage_oracle.py --drop-out-denies \
+      --seed none \
+      --seed 'ipv4_dst=172.24.68.0/23+ip_proto=6' \
+      --seed 'ipv4_dst=171.64.158.0/23+ipv4_src=217.78.63.15/32'
+
+seed=none                                      intact=165  without-denies=165   INERT
+seed=ipv4_dst=172.24.68.0/23+ip_proto=6        intact=30   without-denies=30    INERT
+seed=ipv4_dst=171.64.158.0/23+ipv4_src=...     intact=39   without-denies=39    INERT
+```
+
+**Deleting all 16 out-stage deny rules changes NetPlumber's answer by nothing.**
+Not unconditioned, not under a seed aimed squarely at each deny. And the seeded
+backend differential agrees everywhere: APKeep 30 = NetPlumber 30 for both
+`ip_proto=6` and `ip_proto=17` on the TCP-deny route.
+
+So the gap is unobservable through a probe, and two independent readings of the
+data say the same thing:
+
+1. **Egress (sec. 2.3).** All 68 conditional arrival ports have a SINGLE-egress
+   catch-all, and no narrower permit routes anywhere else. The 2,118 discarded
+   permits are therefore redundant with their catch-all -- HSA decomposition
+   artefacts, not policy. **Only the 16 denies remove anything at all.**
+2. **VLAN.** The denies are written against VLANs 68, 78, 730 and 570. No
+   out-stage rule *on the devices carrying them* ever resets those to 0 -- the
+   only vlan-570 resets are on `out.yoza` in-ports 1530047/1530043, while the
+   vlan-570 denies are on `out.goza`/`out.gozb`. All 16 probes filter `vlan=0`.
+   **So no denied packet can ever satisfy a probe.**
+
+The denied traffic is transit-only by construction. That is not an accident of
+the check set; it is a property of the model.
+
+### 3.3 What this does and does not mean
+
+- It does **not** say the collapse is correct in general. It says the collapse is
+  reachability-EQUIVALENT to the faithful out stage *on wl_stanford*, which is
+  now proved structurally and empirically rather than assumed.
+- It does say that closing the gap **cannot be gated on wl_stanford**, by any
+  reachability oracle, and that on wl_stanford it buys nothing observable.
+- The 1,986-rule and 16-deny figures in TODO item 24 and `APKEEP_BACKEND.md`
+  stand as counts of what is discarded. What changes is their *consequence*: the
+  1,986 were already redundant, and the 16 are inert.
+
+**This is an owner decision, not a technical blocker.** The options are laid out
+in sec. 7.
+
+### 3.4 A separate defect found on the way (TODO item 26)
+
+For **NetPlumber**, a dst-CONDITIONED check and a dst-SEEDED check give different
+answers -- 35 vs 30 on the full model, 2 vs 1 on the `yoza_rtr,bbra_rtr`
+subnetwork -- although nothing but `vlan` is rewritten, which makes them the same
+question. APKeep's two answers agree with each other and with NetPlumber's seeded
+one, so two of the three readings agree and NetPlumber's conditioned check is the
+odd one out. The divergence is in the unsound direction for whichever is wrong,
+and `--cond` reproduces it in ~20 s on a two-router model. Filed separately
+because it has nothing to do with the out stage, and it is the reason `--seed` is
+the trustworthy instrument above.
 
 ## 4. The build
 
@@ -244,30 +316,87 @@ primitive gap is general.
 
 ## 5. Gates
 
-| step | gate |
-|---|---|
-| 0 | the conditioned differential **fails** on the current tree |
-| 1 | fast + integration; qualified-device set unchanged on 4 workloads |
-| 2 | fast + integration; no non-exempt table gains a VLAN match |
-| 3 | the step-0 differential **passes**; 165/165 vs NetPlumber unchanged, EXTRA=0 MISSING=0, faithful *and* plain; wl_i2 61 pairs unchanged |
-| 4 | both engines agree on the same rule string (extend `test/test_ndd_vlan_slot.py`'s pattern) |
-| 5 | fast + integration |
+| step | gate | status |
+|---|---|---|
+| 0 | a header-level oracle that **fails** on the pre-fix tree | **DONE — negative result, sec. 3** |
+| 1 | fast + integration; qualified-device set unchanged on 4 workloads | ready |
+| 2 | fast + integration; no non-exempt table gains a VLAN match | ready |
+| 3 | *no wl_stanford gate exists* — see below | **SUSPENDED** |
+| 4 | both engines agree on the same rule string (extend `test/test_ndd_vlan_slot.py`'s pattern) | ready, but subordinate to 3 |
+| 5 | fast + integration | ready |
 
-Two standing constraints, both from item 24:
+**Step 3 has no gate, and that is the finding rather than an omission.** The
+original entry read "the step-0 differential passes; 165/165 unchanged". Sec. 3
+showed the first clause is unreachable — NetPlumber cannot see the denies either,
+so no reachability differential can distinguish the fixed model from the broken
+one — and the second is satisfied by doing nothing at all. Shipping step 3 under
+those two gates would be shipping an unverified change to the production path.
 
-- **Do not gate on the reachability matrix alone.** §2.3 predicts it cannot move.
-  It is a regression guard here, never the proof.
+If step 3 is to proceed, it needs a gate that does not exist yet. The candidates,
+cheapest first:
+
+1. **A purpose-built fixture.** A small model in `test/` with an out-stage-shaped
+   device whose deny IS observable — a probe that accepts the denied VLAN. Tests
+   the mechanism honestly and costs a day; does not tell us anything about
+   wl_stanford.
+2. **Rule-string unit tests.** Assert the emitted `+ filter` strings for the 68
+   conditional ports. Pins the implementation, not the semantics — and on its own
+   it is the ad6 mistake again (green against any model that emits those strings).
+3. **A NetPlumber flow-tree differential.** Compare the header space ARRIVING at
+   each probe rather than a yes/no, via `dump_flow_trees`. The only gate that
+   would measure the real thing, and APKeep has no equivalent dump — so it is
+   substantial work in the Java engines before it could be a gate at all.
+
+Two standing constraints, both from item 24, and sec. 3 sharpened the first from
+a prediction into a measurement:
+
+- **Do not gate on the reachability matrix.** Not "not alone" — not at all, for
+  this gap, on this benchmark.
 - **Production is NDD** (owner, 2026-09-24). Gate on NDD; measure BDD build time
   separately and report it — if it regresses, that is evidence for the deferred
-  BDD-scalability item, not a reason to hold step 3.
+  BDD-scalability item, not a reason to hold a step.
 
 ---
 
 ## 6. What this does not do
 
 - It does not touch the `in.`/`mid.`/`out.` exemption in `_first_match_devices`
-  (§4.2), so the last device-name test in that decision survives this plan.
+  (sec. 4.2), so the last device-name test in that decision survives this plan.
 - It does not address wl_i2, whose out stage is a real dst FIB and is already
   modelled (`_build_i2_faithful`).
 - It does not settle BDD scalability, which the owner deferred until after items
   24 and 25.
+
+---
+
+## 7. The decision sec. 3 hands back
+
+Steps 1 and 2 are unaffected and worth doing regardless: step 1 closes a latent
+hole in the ingress contract (measured: 0 devices affected today, load-bearing
+the moment any out-stage port becomes a `FilterElement`), and step 2 is a
+capability the `FilterElement` path is missing anyway. **Proceeding with those
+two is the default and needs no decision.**
+
+What needs one is step 3, and the options are:
+
+**(a) Build the fixture (sec. 5 candidate 1) and do step 3 anyway.** The gap is
+real; wl_stanford just cannot show it. A future workload with an observable
+egress ACL would be modelled correctly rather than silently widened, and the
+refusal machinery would cover the out stage instead of exempting it.
+
+**(b) Do steps 1, 2, 5 and close item 24 as MEASURED-INERT.** Record that on
+wl_stanford the collapse is reachability-equivalent to the faithful stage, with
+the two proofs from sec. 3.2, and keep `tcp_flags` filed as the one genuinely
+missing primitive. Cheapest, and it replaces a standing "known gap" with a
+measured statement — but it leaves the adapter approximating a stage it now has
+the machinery to model.
+
+**(c) Defer until a workload needs it.** Same as (b) but without the fixture
+work, and with the expectation that the next semi-modelled benchmark with a real
+egress ACL forces the issue on data where it is observable.
+
+The recommendation is **(b)**, with step 4's `tcp_flags` sub-item kept open: it
+converts an open-ended fidelity gap into a bounded, measured one, and it does not
+spend a day building a fixture whose only consumer is a change that buys nothing
+on any benchmark in the suite today. (a) becomes right the moment a workload
+lands whose egress ACL is observable.
