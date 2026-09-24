@@ -455,11 +455,14 @@ applies. That is a real fidelity defect and it is **deliberately left alone
 here**, for two reasons: it is pre-existing, and it is measured to change no
 verdict on the production path — NDD existentially quantifies VLAN out of
 `probe.*` devices before `target_vlan` applies, so the probes' `vlan=0` filter is
-vacuous there (item 23 step 0). Its BDD behaviour is **not** measured: the run
-was started and faithful-BDD wl_stanford did not finish, which is the deferred
-scalability item. Removing the fold is therefore a change whose only possible
-effect is on a path that currently cannot be measured, and it belongs with that
-item rather than here.
+vacuous there (item 23 step 0). Its BDD behaviour is **not** measured: an intact-vs-noreset
+faithful-BDD run was attempted and neither half produced a pair count within 25
+minutes, which is the deferred scalability item. **That run is not citable even
+as a timing observation** — it sat in the background across edits to
+`apkeep/adapter.py` (including two `git checkout` reverts of it), so its halves
+did not execute the same code; it needs redoing on a quiesced tree. Removing the
+fold is therefore a change whose only possible effect is on a path that currently
+has no trustworthy measurement, and it belongs with that item rather than here.
 
 ### 4.4 Step 4 — `packet.upper.tcp.flags` in both engines, or a declared approximation
 
