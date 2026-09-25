@@ -1,0 +1,79 @@
+{
+  "bench": "wl_cloud",
+  "engine": "bdd",
+  "deadline_s": 14400,
+  "status": "error",
+  "started_utc": "2026-09-25T12:59:14Z",
+  "xmx": "8g",
+  "profile": "bench/wl_cloud/eval/bdd_build_run2.json.profile.jsonl",
+  "regenerated_inputs": true,
+  "inputs_sha256": {
+    "topology.json": "b30bcf548a269006539280191cb0ee740ee04fdba9cf5d77b30998bece2f5ba9",
+    "routes.json": "ca010732939e4d58c39553ae5a2369ca23d3f279def0bee73bc43ac2ed3cd950",
+    "policies.json": "5877c2306fa59869e8f7d808ee7c1778ba9f89c7d81b645f37027727ea23e33d",
+    "sources.json": "eff244716a2058023dbfdb9ba1e3b7f077e70ba718d407d732a3f0cfda3e8252",
+    "mapping.json": "df71b5feca8e5381a3c1c60c915e8776e403c07f4fc1ae9d5bfdcef8751b1c78"
+  },
+  "jar_sha256": "b53665ecd18bf2b8052590e99be546270b244daf76d8c277e6b7ecedb6f995b1",
+  "ndd_jar_sha256": "e01faa25945464057f715e30f3961971b33a5405d847f9093f6ee88b5bfcbca1",
+  "replay_s": 0.23,
+  "sources": 8,
+  "probes": 8,
+  "error": "apkeep.exception.APNotFoundException: apkeep.exception.APNotFoundException: AP 300498 not exist",
+  "wall_s": 607.913,
+  "trend": {
+    "samples": 22,
+    "elapsed_s": 607.3,
+    "rules": 1226,
+    "total_rules": 1773,
+    "pct_rules": 69.15,
+    "ap_num": 53978,
+    "elements": 119,
+    "ppm_entries": 6422166,
+    "bdd_mem_mib": 130.2,
+    "encode_ms": 45,
+    "insert_ms": 38,
+    "ppm_ms": 601949,
+    "merge_ms": 829,
+    "split_count": 54053,
+    "windows": {
+      "300s": {
+        "d_rules": 16,
+        "span_s": 277.3,
+        "rate_per_s": 0.0577,
+        "d_ap": 30127,
+        "ap_per_rule": 1882.938,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 1226,
+        "span_s": 607.3,
+        "rate_per_s": 2.0188,
+        "d_ap": 53977,
+        "ap_per_rule": 44.027,
+        "is_tail": false
+      },
+      "1800s": {
+        "d_rules": 1226,
+        "span_s": 607.3,
+        "rate_per_s": 2.0188,
+        "d_ap": 53977,
+        "ap_per_rule": 44.027,
+        "is_tail": false
+      },
+      "3600s": {
+        "d_rules": 1226,
+        "span_s": 607.3,
+        "rate_per_s": 2.0188,
+        "d_ap": 53977,
+        "ap_per_rule": 44.027,
+        "is_tail": false
+      }
+    },
+    "rules_left": 547,
+    "bound_h": 2.63,
+    "bound_basis": "tail rate 0.0577 rules/s over the window it is keyed to",
+    "ap_num_projected": 1083945,
+    "rate_falling": true
+  }
+}

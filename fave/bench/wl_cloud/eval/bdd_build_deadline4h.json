@@ -1,0 +1,78 @@
+{
+  "bench": "wl_cloud",
+  "engine": "bdd",
+  "deadline_s": 14400,
+  "status": "error",
+  "started_utc": "2026-09-25T12:44:56Z",
+  "xmx": "8g",
+  "profile": "bench/wl_cloud/eval/bdd_build_deadline4h.json.profile.jsonl",
+  "regenerated_inputs": true,
+  "inputs_sha256": {
+    "topology.json": "b30bcf548a269006539280191cb0ee740ee04fdba9cf5d77b30998bece2f5ba9",
+    "routes.json": "ca010732939e4d58c39553ae5a2369ca23d3f279def0bee73bc43ac2ed3cd950",
+    "policies.json": "5877c2306fa59869e8f7d808ee7c1778ba9f89c7d81b645f37027727ea23e33d",
+    "sources.json": "eff244716a2058023dbfdb9ba1e3b7f077e70ba718d407d732a3f0cfda3e8252",
+    "mapping.json": "df71b5feca8e5381a3c1c60c915e8776e403c07f4fc1ae9d5bfdcef8751b1c78"
+  },
+  "jar_sha256": "b53665ecd18bf2b8052590e99be546270b244daf76d8c277e6b7ecedb6f995b1",
+  "ndd_jar_sha256": "e01faa25945464057f715e30f3961971b33a5405d847f9093f6ee88b5bfcbca1",
+  "replay_s": 0.204,
+  "sources": 8,
+  "probes": 8,
+  "error": "apkeep.exception.APNotFoundException: apkeep.exception.APNotFoundException: AP 300498 not exist",
+  "wall_s": 672.927,
+  "trend": {
+    "samples": 24,
+    "elapsed_s": 672.4,
+    "rules": 1226,
+    "total_rules": 1773,
+    "pct_rules": 69.15,
+    "ap_num": 53978,
+    "elements": 119,
+    "ppm_entries": 6422166,
+    "bdd_mem_mib": 130.2,
+    "encode_ms": 63,
+    "insert_ms": 39,
+    "ppm_ms": 666734,
+    "merge_ms": 631,
+    "split_count": 54053,
+    "windows": {
+      "300s": {
+        "d_rules": 16,
+        "span_s": 282.3,
+        "rate_per_s": 0.0567,
+        "d_ap": 29961,
+        "ap_per_rule": 1872.562,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 1226,
+        "span_s": 672.4,
+        "rate_per_s": 1.8234,
+        "d_ap": 53977,
+        "ap_per_rule": 44.027,
+        "is_tail": false
+      },
+      "1800s": {
+        "d_rules": 1226,
+        "span_s": 672.4,
+        "rate_per_s": 1.8234,
+        "d_ap": 53977,
+        "ap_per_rule": 44.027,
+        "is_tail": false
+      },
+      "3600s": {
+        "d_rules": 1226,
+        "span_s": 672.4,
+        "rate_per_s": 1.8234,
+        "d_ap": 53977,
+        "ap_per_rule": 44.027,
+        "is_tail": false
+      }
+    },
+    "rules_left": 547,
+    "bound_h": 0.08,
+    "bound_basis": "tail rate 1.8234 rules/s over the window it is keyed to",
+    "ap_num_projected": 78060
+  }
+}
