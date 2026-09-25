@@ -768,29 +768,62 @@ runs happened to die first, by which exception escaped -- not by design. No
 APKeep-BDD answer on a model whose NAT elements participate in AP splits should
 be trusted until this is fixed.
 
-**Root cause -- located, not yet proven.** `updateSplitAP` calls
-`bddengine.ref(parta)` / `ref(partb)` **after** the element loop
-(`APKeeper.java:239-241`), so the very node handles `NATElement.updateAPSplit`
-hands to `nat()` inside that loop are still unreferenced. `nat()` allocates
-(`exists` then `and`), and a JDD node-table GC triggered by those allocations is
-free to collect an unreferenced node -- which is exactly the invalid handle
-`getVar` reports. That also explains the determinism (same allocation sequence,
-same GC point) and why it bites here: wl_cloud rewrites a 32-bit **address**,
-where faithful-stanford rewrites a 12-bit VLAN, so each `nat()` allocates far
-more nodes inside the split loop.
+**ROOT CAUSE CONFIRMED, FIXED, AND RE-MEASURED -- and the conclusion inverts.**
+The cause is a use-after-free of an unreferenced BDD node.
+`APKeeper.addPredicate` computes `parta = and(pred, oldap)` and leaves it
+**unreferenced** across the following `and` *and* across all of
+`updateSplitAP`; in JDD an allocation reaches `NodeTable.grow()` (`:256`) which
+calls `gc()` (`:199`), which frees unreferenced nodes. The split loop then hands
+a dead handle to `nat()`, `getVar` returns -1, and `quant_rec` throws.
+`addPredicate` now takes a temporary ref on each part at computation and drops it
+once `updateSplitAP` has taken its permanent one -- net reference count per AP
+unchanged from upstream (`apkeep/FAVE_CHANGES.md`, TODO item 29).
 
-**Both defects are upstream APKeep**, not the FaVe fork (`git log -L`: APKeeper
-`394fe3c7`, 2024-03-15; the catch block `aa9822d9`, 2024-03-18). What the fork
-contributed is the `srcIPField` source-NAT path that makes wl_cloud exercise
-them. A related consistency failure was already seen and partly addressed here --
-`NATElement.tryMergeIfNATElement` carries a P7b comment about *"stale-AP crashes
-that just moved when patched"* from eager merging.
+*The first attempt patched the wrong frame and that negative result is what
+localised it:* hoisting the `ref`s that already sat at the END of
+`updateSplitAP` to above its element loop changed nothing, because the handle is
+already dead on entry (`bdd_build_reffix_wrongsite.*`).
 
-**The decisive experiment is two lines**: hoist `ref(parta)`/`ref(partb)` above
-the element loop and re-run. If the crash disappears, the cause is confirmed.
-Not done here -- it patches vendored APKeep and rebuilds the jar every other test
-uses, so it is an owner call (`APKEEP_BDD_BASELINE.md` §6: engine fixes are
-branch-scoped and do not backport).
+**Re-measured with the fix, full 4 h declared deadline** (`bdd_build_reffix2.*`):
+
+| | value |
+|---|---|
+| status | **`deadline`** -- a declared stop, wall 14 400.01 s |
+| exceptions | **0**, across the whole four hours |
+| rules applied | **1 702 / 1 773 = 96.0 %** |
+| `ap_num` | **85 085** |
+| `merge_ms` / `ppm_ms` | 212.1 min / 26.9 min (**7.9x**) |
+| BDD table | 61 -> 168 MiB |
+
+**wl_cloud on BDD is NOT intractable, and this section said it was for months.**
+At the deadline only **71 rules remained**, and the rule rate was *accelerating*
+monotonically -- 0.0371/s over the final 2 h, 0.0457 over 1 h, 0.0520 over 30 min,
+0.0586 over 15 min, **0.0667 over the final 5 min**. Every one of those rates puts
+completion **0.30-0.53 h away**, i.e. the build was roughly **20-30 minutes from
+finishing a ~4.3-4.5 h job**. That is an estimate and not a bound in either
+direction (a rising rate makes it neither), but all six windows agree.
+
+**`ap_num` growth is NOT stationary here**, unlike the faithful models. Windowed
+slopes over the run ranged from **3.75 to 123 AP/rule**, reversing direction
+several times; the crawl-phase average (rule 1 276 onward) is **41.8 AP/rule**.
+So wl_cloud's AP growth belongs in any write-up as a range with its variance
+stated -- an extrapolated endpoint from any single window would have been wrong,
+which is why the 85 085 above is the measured value and no projection is quoted.
+Contrast `APKEEP_NDD_EVAL.md` §2.6b, where faithful-i2's 2.16-2.60 AP/rule *was*
+window-stable.
+
+**What this costs the engine comparison:** 85 085 atomic predicates is the
+largest partition measured anywhere in this tree (faithful-stanford reached
+22 242, faithful-i2 21 012), reached from only 1 773 rules, and **AP merge rather
+than PPM is where the time goes** -- 7.9x, climbing monotonically all run.
+NDD answers the same model in **1.9 s**.
+
+**Still open (item 29):** the upstream `// TODO Auto-generated catch block` is
+untouched, and it is the more serious defect -- the crash was the *good* outcome.
+The faithful-VLAN runs of §2.6b also drive `NATElement`s through AP splits, ran
+54 min each, and **their stderr was never preserved**, so it cannot now be
+established whether those builds were silently corrupt. Their bounds carry that
+caveat.
 
 **What is NOT claimed.** That this is what the original "40 minutes" observation
 was. That run left no artifact, which is why it was downgraded in the first

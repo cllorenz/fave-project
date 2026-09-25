@@ -1,0 +1,77 @@
+{
+  "bench": "wl_cloud",
+  "engine": "bdd",
+  "deadline_s": 14400,
+  "status": "deadline",
+  "started_utc": "2026-09-25T13:51:53Z",
+  "xmx": "8g",
+  "profile": "bench/wl_cloud/eval/bdd_build_reffix2.json.profile.jsonl",
+  "regenerated_inputs": true,
+  "inputs_sha256": {
+    "topology.json": "b30bcf548a269006539280191cb0ee740ee04fdba9cf5d77b30998bece2f5ba9",
+    "routes.json": "ca010732939e4d58c39553ae5a2369ca23d3f279def0bee73bc43ac2ed3cd950",
+    "policies.json": "5877c2306fa59869e8f7d808ee7c1778ba9f89c7d81b645f37027727ea23e33d",
+    "sources.json": "eff244716a2058023dbfdb9ba1e3b7f077e70ba718d407d732a3f0cfda3e8252",
+    "mapping.json": "df71b5feca8e5381a3c1c60c915e8776e403c07f4fc1ae9d5bfdcef8751b1c78"
+  },
+  "jar_sha256": "cd0ae56d11b851b74290520224975af3479c7d56a391f7c952c66d94fe7bbd75",
+  "ndd_jar_sha256": "e01faa25945464057f715e30f3961971b33a5405d847f9093f6ee88b5bfcbca1",
+  "replay_s": 0.206,
+  "sources": 8,
+  "probes": 8,
+  "wall_s": 14400.01,
+  "trend": {
+    "samples": 480,
+    "elapsed_s": 14370.9,
+    "rules": 1702,
+    "total_rules": 1773,
+    "pct_rules": 96.0,
+    "ap_num": 85085,
+    "elements": 119,
+    "ppm_entries": 10125115,
+    "bdd_mem_mib": 168.0,
+    "encode_ms": 172,
+    "insert_ms": 149,
+    "ppm_ms": 1616359,
+    "merge_ms": 12728260,
+    "split_count": 106796,
+    "windows": {
+      "300s": {
+        "d_rules": 18,
+        "span_s": 270.0,
+        "rate_per_s": 0.0667,
+        "d_ap": 388,
+        "ap_per_rule": 21.556,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 51,
+        "span_s": 870.0,
+        "rate_per_s": 0.0586,
+        "d_ap": 2682,
+        "ap_per_rule": 52.588,
+        "is_tail": true
+      },
+      "1800s": {
+        "d_rules": 92,
+        "span_s": 1770.0,
+        "rate_per_s": 0.052,
+        "d_ap": 3398,
+        "ap_per_rule": 36.935,
+        "is_tail": true
+      },
+      "3600s": {
+        "d_rules": 163,
+        "span_s": 3570.1,
+        "rate_per_s": 0.0457,
+        "d_ap": 6526,
+        "ap_per_rule": 40.037,
+        "is_tail": true
+      }
+    },
+    "rules_left": 71,
+    "bound_h": 0.43,
+    "bound_basis": "tail rate 0.0457 rules/s over the window it is keyed to",
+    "ap_num_projected": 87927
+  }
+}

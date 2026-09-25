@@ -1,0 +1,77 @@
+{
+  "bench": "wl_cloud",
+  "engine": "bdd",
+  "deadline_s": 14400,
+  "status": "building",
+  "started_utc": "2026-09-25T13:40:05Z",
+  "xmx": "8g",
+  "profile": "bench/wl_cloud/eval/bdd_build_reffix.json.profile.jsonl",
+  "regenerated_inputs": true,
+  "inputs_sha256": {
+    "topology.json": "b30bcf548a269006539280191cb0ee740ee04fdba9cf5d77b30998bece2f5ba9",
+    "routes.json": "ca010732939e4d58c39553ae5a2369ca23d3f279def0bee73bc43ac2ed3cd950",
+    "policies.json": "5877c2306fa59869e8f7d808ee7c1778ba9f89c7d81b645f37027727ea23e33d",
+    "sources.json": "eff244716a2058023dbfdb9ba1e3b7f077e70ba718d407d732a3f0cfda3e8252",
+    "mapping.json": "df71b5feca8e5381a3c1c60c915e8776e403c07f4fc1ae9d5bfdcef8751b1c78"
+  },
+  "jar_sha256": "609e06caf13ef759103dafaaee9365b8ef18a57a0d92bb09abe529ae3429f603",
+  "ndd_jar_sha256": "e01faa25945464057f715e30f3961971b33a5405d847f9093f6ee88b5bfcbca1",
+  "replay_s": 0.184,
+  "sources": 8,
+  "probes": 8,
+  "trend": {
+    "samples": 22,
+    "elapsed_s": 630.0,
+    "rules": 1218,
+    "total_rules": 1773,
+    "pct_rules": 68.7,
+    "ap_num": 41584,
+    "elements": 119,
+    "ppm_entries": 4945599,
+    "bdd_mem_mib": 111.4,
+    "encode_ms": 42,
+    "insert_ms": 30,
+    "ppm_ms": 578440,
+    "merge_ms": 173,
+    "split_count": 41653,
+    "windows": {
+      "300s": {
+        "d_rules": 8,
+        "span_s": 270.0,
+        "rate_per_s": 0.0296,
+        "d_ap": 17860,
+        "ap_per_rule": 2232.5,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 1218,
+        "span_s": 630.0,
+        "rate_per_s": 1.9333,
+        "d_ap": 41583,
+        "ap_per_rule": 34.14,
+        "is_tail": false
+      },
+      "1800s": {
+        "d_rules": 1218,
+        "span_s": 630.0,
+        "rate_per_s": 1.9333,
+        "d_ap": 41583,
+        "ap_per_rule": 34.14,
+        "is_tail": false
+      },
+      "3600s": {
+        "d_rules": 1218,
+        "span_s": 630.0,
+        "rate_per_s": 1.9333,
+        "d_ap": 41583,
+        "ap_per_rule": 34.14,
+        "is_tail": false
+      }
+    },
+    "rules_left": 555,
+    "bound_h": 5.21,
+    "bound_basis": "tail rate 0.0296 rules/s over the window it is keyed to",
+    "ap_num_projected": 1280621,
+    "rate_falling": true
+  }
+}
