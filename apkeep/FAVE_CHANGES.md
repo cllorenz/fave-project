@@ -242,6 +242,37 @@ correctness cost (NP-parity 0 diffs on cs+jura). The `.sf` path remains for the
 ACL-division / IPv4 case (wl_stanford). FaVe-side context:
 `../APKEEP_TUM_UP_PLAN.md` Phase C (C1 Lever B).
 
+**BUGFIX -- protect `parta`/`partb` against JDD's GC in `APKeeper.addPredicate`
+(FaVe TODO item 29).** Upstream computes `parta = and(pred, oldap)` and leaves it
+**unreferenced** across the following `and(predneg, oldap)` and across the whole
+of `updateSplitAP`. In JDD an allocation reaches `NodeTable.grow()`, which calls
+`gc()`, which frees unreferenced nodes -- so a sufficiently large build collects
+`parta` mid-split and the element loop then hands a dead handle to
+`BDDACLWrapper.nat()`, where `getVar` returns -1 and `quant_rec` throws
+`ArrayIndexOutOfBoundsException` on `varset_vec[var]`. `NATElement.
+updateRewriteTableIfPresent`'s upstream `// TODO Auto-generated catch block` then
+swallows it and retries, so the build continues over a **half-updated AP
+partition** (`updateSplitAP` mutates the global `AP` set before iterating
+elements, and is not transactional) -- a soundness hazard, not merely a crash.
+`addPredicate` now takes a temporary ref on each part on computation and drops it
+after `updateSplitAP` has taken its own permanent ref, so the net reference count
+per AP is unchanged from upstream.
+
+Measured on wl_cloud (the first FaVe workload whose NAT rewrites a 32-bit
+*address* rather than a 12-bit VLAN, so each `nat()` allocates enough to trigger
+the GC inside the split loop): unpatched, the build dies at **1 226 of 1 773
+rules, `ap_num` 53 978**, reproduced twice with every structural quantity
+identical. Patched, it runs past that point with **zero exceptions**, reaches
+`ap_num` 66 656 at 1 244 rules, and `merge_ms` becomes non-zero (235 238 vs 631)
+-- AP merging works again, which it cannot over a corrupted partition. Java core
+suite green (`mvn package` runs it). FaVe-side context: `../CLOUD_BENCH_PLAN.md`
+§1.7.3, `../TODO.md` item 29.
+
+**A first attempt patched the wrong frame and is recorded because it is the
+useful half of the evidence:** hoisting the `ref`s that already existed at the
+END of `updateSplitAP` to above its element loop changed nothing -- the handle is
+already dead on entry. That is what localised the defect to the caller.
+
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the

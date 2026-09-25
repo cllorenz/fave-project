@@ -170,10 +170,23 @@ public class APKeeper {
 		for (int oldap : oldList) {
 			int parta = thebdd.and(pred, oldap);
 			if(parta != BDDACLWrapper.BDDFalse) {
+				// FaVe fork (TODO item 29): parta must be PROTECTED here. Upstream left
+				// it unreferenced across the `and` below and across updateSplitAP, both
+				// of which allocate -- and in JDD an allocation reaches NodeTable.grow(),
+				// which calls gc(), which frees unreferenced nodes. The split loop inside
+				// updateSplitAP then hands a dead handle to BDDACLWrapper.nat(), where
+				// getVar returns -1 and quant_rec throws on varset_vec[var].
+				// These refs are TEMPORARY: updateSplitAP takes its own permanent ref on
+				// each surviving AP, so they are dropped again below and the net
+				// reference count per AP is unchanged from upstream.
+				thebdd.ref(parta);
 				int partb = thebdd.and(predneg, oldap);
 				if (partb != BDDACLWrapper.BDDFalse) {
+					thebdd.ref(partb);
 					updateSplitAP(oldap, parta, partb);
+					thebdd.deref(partb);
 				}
+				thebdd.deref(parta);
 			}
 		}
 	}
