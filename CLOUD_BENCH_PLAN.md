@@ -2048,15 +2048,19 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       neither of which is a reachability matrix, and §4.3.2 stays the sharper
       experiment for later.
 - [x] **D4 — DONE. The static run on all three backends (§2.6, 2026-09-22), and
-      all three now agree at 0 violations.** NetPlumber and ad6 answered 0 on the
-      first run; APKeep answered **14**. So §1.7's expectation — that both other
-      families would find something — held for one of the two, and what APKeep
-      found was not in the workload but in its own translation, which drops
-      `in_ports`. The
-      14 were resolved by §2.7's declaration contract and §2.8's ingress demux,
-      both changes to the TRANSLATION: the benchmark keeps its 16 realistic
-      switches, because shaping the model around the weakest backend would void
-      the cross-family comparison the suite exists for.
+      all three now agree at 0 violations.** On **airtel1**, which is the whole
+      of D4: the second trace has never been through an engine (§2.3's
+      correction), and under this property it would not be a differential if it
+      were.
+
+      NetPlumber and ad6 answered 0 on the first run; APKeep answered **14**. So
+      §1.7's expectation — that both other families would find something — held
+      for one of the two, and what APKeep found was not in the workload but in
+      its own translation, which drops `in_ports`. The 14 were resolved by
+      §2.7's declaration contract and §2.8's ingress demux, both changes to the
+      TRANSLATION: the benchmark keeps its 16 realistic switches, because
+      shaping the model around the weakest backend would void the cross-family
+      comparison the suite exists for.
 
       **Re-verified 2026-09-25**, rather than carried forward from the run:
       `test_backend_differential.py -k Deltanet` → 3 passed (both APKeep engines
@@ -2173,10 +2177,44 @@ three engines agreeing on one model is consensus on an answer, while three
 engines agreeing on the DELTA between two models is consensus on a behaviour,
 and the second is what an incremental claim (§0's third gap) actually needs.
 
-It costs nothing extra — both files are already vendored, and D4 runs them both
-regardless. It does not, however, manufacture an oracle: the differential is
-still a consensus between implementations in this tree, which is §0's first gap
-and only `wl_cloud` closes it.
+**CORRECTED 2026-09-25.** This paragraph read *"It costs nothing extra — both
+files are already vendored, and D4 runs them both regardless."* Both halves of
+that were wrong, and the second is the one worth reading.
+
+**D4 did not run them both.** `benchmark.py` reads `FAVE_DELTANET_TRACE` and
+defaults to `TRACES[0]`, airtel1. Nothing sets that variable — not a test, not
+`test.sh`'s bench loop, not CI; its only occurrence in the tree is its own
+definition. The selector exists and has never once been used, so every engine
+figure in §2.5 and §2.6 is airtel1's alone. Only the pure-Python shape tests
+(`test_both_traces_build_a_model_of_the_same_shape`,
+`test_both_traces_state_the_same_matrix`) touch the second trace, and neither
+runs an engine.
+
+**And running it would not buy the differential described above.** The delta
+between the two traces is entirely in PATHS: 3,300 `(router, prefix)` keys
+forward somewhere different, while the topology, the prefix set and the homing
+are identical — and the reachability matrix is derived from the homing, so it is
+identical *by construction*, which is what
+`test_both_traces_state_the_same_matrix` asserts. §2.5's pre-selection table
+measured the finer question too: per-prefix edge-to-edge delivery is
+21,000/21,000 on **both** traces. So under this property there is no delta for
+three engines to agree on.
+
+The pair remains a real asset and the reasoning above stands — consensus on a
+behaviour is worth more than consensus on an answer — but it can only be cashed
+by a property that **observes paths**. That is a second argument for §4.3.2,
+alongside the LPM one at the end of §2.5, and the two are the same argument:
+a switch-granularity reachability matrix asks an existential question per pair,
+and a misrouted prefix still leaves its 99 siblings arriving.
+
+What a second run would buy as things stand is narrower and worth having anyway:
+confirmation that a second real forwarding state answers the same matrix the same
+way. That is a robustness check, not a differential, and it should be written up
+as one.
+
+It does not, however, manufacture an oracle: the differential is still a
+consensus between implementations in this tree, which is §0's first gap and only
+`wl_cloud` closes it.
 
 ---
 
@@ -2396,6 +2434,11 @@ path-sensitive and would notice; a switch-granularity reachability matrix
 structurally cannot.
 
 ## 2.6 D4 — all three engines, 2026-09-22
+
+**Trace: `airtel1-only-inserts.csv`** — stamped 2026-09-25, on item 0a's rule
+that a measurement-affecting choice is a result field and never an undocumented
+habit. It is the workload's default (`FAVE_DELTANET_TRACE`, unset everywhere)
+and the only trace any engine has run; §2.3's correction has the rest.
 
 Same 256 checks (210 must-reach + 46 must-NOT-reach), same model, one policy.
 Every run carries `completed task check_compliance` in the log and produced a
