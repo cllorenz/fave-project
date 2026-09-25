@@ -203,6 +203,31 @@ def _is_full_space(value: Any) -> bool:
     return text.endswith('/0') or text in ('0.0.0.0', '::', '0::0')
 
 
+def _shadowed(rows: List[Dict[str, Any]], index: int) -> Optional[Any]:
+    """ The higher-priority rule that makes `rows[index]` unreachable, or None.
+
+    `rows` must be ONE first-match list in priority order (lowest index wins).
+    Conservative and sound rather than complete: a rule subsumes a later one
+    when every field it names, the later one names with the SAME value -- then
+    its matched set contains the later rule's and the later rule never fires.
+    Prefix containment is not chased, so this under-reports; it never claims a
+    live rule is dead.
+
+    **Only meaningful for a FIRST-MATCH table.** In an LPM table a preceding
+    match-all is the default route and a longer prefix still wins, so the same
+    test would call almost every FIB entry dead -- measured on wl_stanford's
+    `mid` stage, 3,356 of 3,372 rewrites "subsumed" and none of them shadowed.
+    That is the OUT_STAGE_PLAN.md sec. 3.3.1 trap; callers must have established
+    first-match semantics before asking.
+    """
+    lo = rows[index]['match']
+    for earlier in rows[:index]:
+        hi = earlier['match']
+        if all(k in lo and lo[k] == v for k, v in hi.items()):
+            return earlier
+    return None
+
+
 def _is_dst_lpm_table(rows: List[Dict[str, Any]]) -> bool:
     """ True iff every rule in this forwarding table fits a dst-prefix trie.
 
@@ -622,6 +647,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._out_stage_elems: List[str] = []
         self._out_stage_rules: List[str] = []
         self._out_stage_widened: List[str] = []
+        self._out_stage_dead_rewrites: List[str] = []
+        self._fm_dead_rewrites: List[str] = []
         self._out_stage_surviving: List[str] = []
         # Surface the aggregator's dispatch (aggregator_service._sync_diff)
         # touches on the engine when wiring links: a `links` adjacency dict it
@@ -1770,6 +1797,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                 if len(r.split()) > 2 and r.split()[2] in set(
                     self._out_stage_surviving)),
             "out_stage_rules_widened": len(self._out_stage_widened),
+            "out_stage_dead_rewrites": len(self._out_stage_dead_rewrites),
+            "first_match_dead_rewrites": len(self._fm_dead_rewrites),
         }
 
     def single_universe(self) -> bool:
@@ -1891,9 +1920,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         rules: List[str] = []
         nats: Dict[str, set] = {}
         nat_rules: List[str] = []
+        dead_rewrites: List[str] = []
         for device in sorted(devices):
-            for row in sorted(self._fwd_table[device],
-                              key=lambda r: int(r['idx'])):
+            ordered = sorted(self._fwd_table[device],
+                             key=lambda r: int(r['idx']))
+            for pos, row in enumerate(ordered):
                 match = row['match']
                 unsupported = set(match) - _FILTER_MATCH_FIELDS
                 if unsupported:
@@ -1931,9 +1962,29 @@ class APKeepAdapter(AbstractVerificationEngine):
                     for field, token in sorted(_NAT_IP_FIELDS.items()):
                         if field not in row['rw'] or port == _FILTER_DROP:
                             continue
+                        # A NATElement is keyed on (device, port) and applies to
+                        # everything leaving that port, with no notion of which
+                        # filter rule won the first-match race -- so a SHADOWED
+                        # rule's rewrite must not be emitted at all. wl_cloud has
+                        # three (gw.internet idx 14/16/19, each an exact-duplicate
+                        # match of an earlier rule rewriting elsewhere); they were
+                        # inert only because the shadowed rule's egress differs
+                        # from the winner's, which is an accident of the data and
+                        # not a property of the translation.
+                        shadow = _shadowed(ordered, pos)
+                        if shadow is not None:
+                            dead_rewrites.append("%s rule %s (shadowed by %s)"
+                                                 % (device, row['idx'],
+                                                    shadow['idx']))
+                            continue
                         nats.setdefault(device, set()).add(port)
                         nat_rules.append(_nat_ip_rule_string(
                             device, port, token, str(row['rw'][field]), body))
+        if dead_rewrites:
+            self.logger.info(
+                "apkeep: %d first-match rewrite(s) dropped as PROVABLY DEAD: "
+                "%s", len(dead_rewrites), '; '.join(dead_rewrites))
+        self._fm_dead_rewrites = list(dead_rewrites)
         return rules, nats, nat_rules
 
     def _build_pf_pipeline(self, edges: List[str], filter_devices: List[str]):
@@ -2287,6 +2338,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         out_elems: List[str] = []
         out_rules: List[str] = []
         widened: List[str] = []
+        dead_rewrites: List[str] = []
         for seq, (out_dev, perm) in enumerate(sorted(self._out_perm.items())):
             for in_port in sorted(perm):
                 mid = mid_to_out.get((out_dev, in_port))
@@ -2308,8 +2360,38 @@ class APKeepAdapter(AbstractVerificationEngine):
                 out_elems.append(elem)
                 kept.append("%s %s %s in" % (m_dev, m_port, elem))
                 egress: Set[str] = set()
-                for row in rows:
+                for pos, row in enumerate(rows):
                     match = row['match']
+                    # A REWRITE on a first-match table is expressible only when
+                    # the rule can actually fire. A NATElement is keyed on
+                    # (device, port) and applies to whatever leaves that port --
+                    # it has no notion of which filter rule won the race, so a
+                    # shadowed rule's rewrite would be applied to the winner's
+                    # traffic. Measured on both engines: a match-all forward at
+                    # higher priority plus a NAT keyed on the shadowed rule's
+                    # match rewrites everything leaving the port.
+                    #
+                    # wl_stanford's out stage is every case of this: all 45
+                    # `rw=vlan:0` resets sit behind their port's match-all AND
+                    # share its single egress, so emitting them would apply a
+                    # reset the reference model never performs (TODO item 27).
+                    # Dropping them is therefore EXACT, and saying so is the
+                    # difference between this and step 3, which dropped them
+                    # without checking.
+                    if row['rw']:
+                        shadow = _shadowed(rows, pos)
+                        if shadow is None:
+                            raise UntranslatedSemantics(
+                                "%s rule %s rewrites %s on a reachable "
+                                "out-stage rule. The only primitive for it is a "
+                                "NATElement keyed on (device, port), which "
+                                "applies to everything leaving that port rather "
+                                "than to what this rule matched -- so emitting "
+                                "it would rewrite traffic other rules forward. "
+                                "Refused rather than approximated."
+                                % (out_dev, row['idx'], sorted(row['rw'])))
+                        dead_rewrites.append("%s rule %s (shadowed by %s)" % (
+                            out_dev, row['idx'], shadow['idx']))
                     # Anything no element carries is DECLARED, never dropped in
                     # silence. `tcp_flags` used to be the whole of this list and
                     # is now expressible (step 4), so on wl_stanford it is empty
@@ -2338,6 +2420,14 @@ class APKeepAdapter(AbstractVerificationEngine):
                 "express and are emitted WITHOUT it (an over-approximation, "
                 "declared): %s%s", len(widened), '; '.join(widened[:3]),
                 ' ...' if len(widened) > 3 else '')
+        if dead_rewrites:
+            self.logger.info(
+                "apkeep: %d out-stage rewrite(s) dropped as PROVABLY DEAD -- the "
+                "rule is shadowed by a higher-priority one, so the rewrite can "
+                "never apply: %s%s", len(dead_rewrites),
+                '; '.join(dead_rewrites[:3]),
+                ' ...' if len(dead_rewrites) > 3 else '')
+        self._out_stage_dead_rewrites = list(dead_rewrites)
         self._out_stage_widened = list(widened)
         self._out_stage_elems = list(out_elems)
         self._out_stage_rules = list(out_rules)

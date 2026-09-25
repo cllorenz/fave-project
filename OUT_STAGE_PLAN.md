@@ -1,6 +1,6 @@
 # Closing P7c gap 2: the wl_stanford out stage as a modelled device
 
-**Status: steps 0-4 DONE; step 5 open (2026-09-24).** Covers TODO items 24 and 25, which are
+**Status: steps 0-5 DONE (2026-09-25).** Covers TODO items 24 and 25, which are
 two views of the same gap.
 
 > **Read sec. 3 first.** The oracle step 0 asked for was built
@@ -510,11 +510,55 @@ drops. Recorded in `test_apkeep_tcp_flags.py`, because the previous two defects
 of this class (item 23 step 0, sec. 4.2) were both caught BY the differential and
 it would be easy to conclude that it is the assertion that always matters.
 
-### 4.5 Step 5 — item 25's rewrite residue
+### 4.5 Step 5 — the rewrite residue — **DONE**, and the sketched fix was wrong
 
-Wire the existing `+ nat <dev> <port> vlan ...` into `_build_first_match_tables`
-(22 rules). Subsumed by step 3 for wl_stanford; kept as its own step because the
-primitive gap is general.
+The sketch said: "wire the existing `+ nat <dev> <port> vlan ...` into
+`_build_first_match_tables`". **That would have been a defect.** Two measurements
+say why.
+
+**(a) A NATElement cannot be subject to the first-match race.** It is keyed on
+(device, port) and applies to whatever leaves that port; nothing tells it which
+filter rule chose the port. Measured on BOTH engines, with a match-all forward at
+higher priority and a NAT keyed on a shadowed rule's match:
+
+```
+arrival vlan (0, 864):  NDD=(True, False)  BDD=(True, False)
+                        -- everything leaving the port was rewritten to 0,
+                           although the match-all is what forwarded it
+```
+
+**(b) Every rewrite the out stage carries is on a SHADOWED rule.** All 45
+`rw=vlan:0` resets sit behind their port's match-all *and* share its single
+egress. So emitting them as NATs would apply a reset the reference model never
+performs -- introducing TODO item 27's defect rather than fixing it. The correct
+emission is none at all.
+
+**What was built instead:** `_shadowed(rows, i)` -- a conservative, sound
+subsumption test over one first-match list -- and both rewrite sites now use it:
+
+- **the out stage**: a shadowed rule's rewrite is DROPPED and counted
+  (`out_stage_dead_rewrites`); a rewrite on a rule that can actually fire is
+  **refused**, because the NAT would rewrite traffic other rules forward.
+  wl_stanford: 45 dropped, 0 refused.
+- **`_build_first_match_tables`**: a shadowed rule contributes no NAT.
+  wl_cloud: **3** (`gw.internet` idx 14/16/19, each an exact-duplicate match of
+  an earlier rule that rewrites elsewhere). They were inert before only because
+  the shadowed rule's egress differs from the winner's -- an accident of the
+  data, not a property of the translation.
+
+This is what step 3 should have done. Step 3 dropped the out-stage rewrites by
+never reading `row['rw']` at all: correct in effect, unjustified in code, and a
+silent drop of the kind this file's contract forbids. It is now a *proved* drop.
+
+`_shadowed` carries the sec. 3.3.1 warning in its docstring: it is only
+meaningful for a FIRST-MATCH table. Applied to wl_stanford's LPM `mid` stage it
+calls 3,356 of 3,372 rewrites subsumed and none of them is shadowed.
+
+**Item 25's checkbox is answered, not implemented:** no workload has a VLAN
+rewrite on a first-match table (wl_ifi's 10 are on a dst-LPM FIB, which the
+ForwardElement path already carries), and the `+ nat ... vlan` form matches a dst
+prefix only -- so wiring it in would key the rewrite on less than the rule
+matched. The refusal stays.
 
 ---
 
@@ -527,7 +571,7 @@ primitive gap is general.
 | 2 | fast + integration; no non-exempt table gains a VLAN match | **DONE** |
 | 3 | reachability unchanged (guard) **+ a reported cost delta** — sec. 7.3 | **DONE** — 165/165; 7,328 → 9,446 rules, 0.60 s → 1.22 s |
 | 4 | both engines carry the field, and agree | **DONE** — widened count 2,731 → 0 |
-| 5 | fast + integration | ready |
+| 5 | fast + integration | **DONE** — 45 + 3 dead rewrites proved, not guessed |
 
 **Step 3 has no CORRECTNESS gate, and that is the finding rather than an
 omission.** The original entry read "the step-0 differential passes; 165/165

@@ -43,7 +43,7 @@ generation. The end-to-end evidence (165/165 vs NetPlumber, unchanged) lives in
 import logging
 import unittest
 
-from apkeep.adapter import APKeepAdapter
+from apkeep.adapter import APKeepAdapter, UntranslatedSemantics, _shadowed
 
 _VLAN = 'packet.ether.vlan'
 _PROTO = 'packet.ipv6.proto'
@@ -54,9 +54,9 @@ _FLAGS = 'packet.upper.tcp.flags'
 _EDGES = ["mid.a 110001 out.a 130001", "out.a 120001 in.b 100001"]
 
 
-def _row(idx, match, ports, in_ports=('130001',)):
+def _row(idx, match, ports, in_ports=('130001',), rw=None):
     return {'idx': idx, 'ports': list(ports), 'in_ports': list(in_ports),
-            'match': dict(match), 'rw': {}}
+            'match': dict(match), 'rw': dict(rw or {})}
 
 
 def _adapter(rows):
@@ -165,6 +165,67 @@ class TestAnUnexpressibleMatchIsDECLARED(unittest.TestCase):
         ])
         adapter._build_stanford_faithful(list(_EDGES))
         self.assertEqual(adapter._out_stage_widened, [])
+
+
+class TestShadowing(unittest.TestCase):
+    """ `_shadowed`: conservative, sound, and only valid for a FIRST-MATCH list. """
+
+    def test_a_match_all_shadows_everything_after_it(self):
+        rows = [_row(1, {}, ['120001']), _row(2, {_VLAN: 78}, ['120001'])]
+        self.assertIsNone(_shadowed(rows, 0))
+        self.assertIs(_shadowed(rows, 1), rows[0])
+
+    def test_a_narrower_earlier_rule_shadows_nothing(self):
+        """ The direction that matters: an earlier rule constraining MORE than a
+        later one does not subsume it, and claiming otherwise would call a live
+        rule dead. """
+        rows = [_row(1, {_VLAN: 78, _PROTO: 6}, ['120001']),
+                _row(2, {_VLAN: 78}, ['120001'])]
+        self.assertIsNone(_shadowed(rows, 1))
+
+    def test_a_different_value_shadows_nothing(self):
+        rows = [_row(1, {_VLAN: 70}, ['120001']),
+                _row(2, {_VLAN: 78}, ['120001'])]
+        self.assertIsNone(_shadowed(rows, 1))
+
+    def test_a_dropping_rule_shadows_too(self):
+        """ Shadowing is about the MATCH race, not the action. """
+        rows = [_row(1, {_VLAN: 78}, []), _row(2, {_VLAN: 78, _PROTO: 6}, ['1'])]
+        self.assertIs(_shadowed(rows, 1), rows[0])
+
+
+class TestARewriteIsProvedDeadOrREFUSED(unittest.TestCase):
+    """ A NATElement is keyed on (device, port) and applies to everything leaving
+    that port -- it cannot be made subject to the first-match race that chose the
+    port. Measured on BOTH engines: a match-all forward at higher priority plus a
+    NAT keyed on a shadowed rule's match rewrites everything leaving the port.
+
+    So a shadowed rule's rewrite must be DROPPED, and dropping it is exact rather
+    than approximate -- which is the whole difference from step 3, which dropped
+    it without checking. A rewrite that can actually fire is refused instead.
+    """
+
+    def test_a_shadowed_rewrite_is_dropped_and_COUNTED(self):
+        adapter = _adapter([
+            _row(1, {}, ['120001']),                                   # match-all
+            _row(2, {_VLAN: 864}, ['120001'], rw={_VLAN: 0}),          # the reset
+        ])
+        adapter._build_stanford_faithful(list(_EDGES))
+        self.assertEqual(len(adapter._out_stage_dead_rewrites), 1)
+        self.assertIn('shadowed by 1', adapter._out_stage_dead_rewrites[0])
+        self.assertEqual(len(adapter._out_stage_rules), 2)   # both rules kept
+
+    def test_a_REACHABLE_rewrite_is_refused(self):
+        """ Nothing in the shipped workloads reaches this -- all 45 wl_stanford
+        resets are shadowed -- and it must stay a refusal rather than become a
+        silent NAT that rewrites the winner's traffic. """
+        adapter = _adapter([
+            _row(1, {_PROTO: 6}, ['120001']),
+            _row(2, {_VLAN: 864}, ['120001'], rw={_VLAN: 0}),
+        ])
+        with self.assertRaises(UntranslatedSemantics) as caught:
+            adapter._build_stanford_faithful(list(_EDGES))
+        self.assertIn('NATElement', str(caught.exception))
 
 
 class TestAnArrivalPortNoRuleNamesKeepsTheStaticResolution(unittest.TestCase):

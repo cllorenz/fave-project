@@ -336,6 +336,57 @@ class TestAVlanQualifiedPassThroughIsNotAnIdentity(unittest.TestCase):
 
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
+class TestAShadowedRewriteEmitsNoNAT(unittest.TestCase):
+    """ A NATElement is keyed on (device, port) and applies to everything leaving
+    that port, with no notion of which filter rule won the first-match race. So
+    a rule that can never fire must not contribute one.
+
+    wl_cloud has exactly three (`gw.internet` idx 14/16/19, each an
+    exact-duplicate match of an earlier rule that rewrites somewhere else). They
+    were inert before this only because the shadowed rule's egress differs from
+    the winner's -- an accident of the data, not a property of the translation.
+    Where the two share an egress, as all 45 of wl_stanford's out-stage VLAN
+    resets do, the dead rewrite WOULD have been applied.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        model = SimpleNamespace(node='gw', tables={'gw.1': [
+            _rule('gw', 1, [RuleField(_DST, '121.140.254.1/32'),
+                            RuleField(_PROTO, 6), RuleField(_DPORT, 332)],
+                  [Rewrite([RuleField(_DST, '10.0.4.0/22')]),
+                   Forward(['gw.8001'])]),
+            # identical match, later -> never fires
+            _rule('gw', 2, [RuleField(_DST, '121.140.254.1/32'),
+                            RuleField(_PROTO, 6), RuleField(_DPORT, 332)],
+                  [Rewrite([RuleField(_DST, '10.0.18.0/25')]),
+                   Forward(['gw.8005'])]),
+        ]})
+        adapter = _adapter(model)
+        cls.rules, cls.nats, cls.nat_rules = adapter._build_first_match_tables(
+            {'gw'})
+        # getattr, so the assertions below -- not a missing attribute --
+        # are what discriminate against a tree without this change.
+        cls.dead = getattr(adapter, '_fm_dead_rewrites', [])
+
+    def test_both_forwarding_rules_are_still_emitted(self):
+        """ The rule is kept -- priority makes it dead, which is the engine's
+        job. Only its REWRITE is withheld. """
+        self.assertEqual(len(self.rules), 2)
+
+    def test_only_the_reachable_rewrite_becomes_a_nat(self):
+        self.assertEqual(len(self.nat_rules), 1)
+        self.assertEqual(self.nat_rules[0].split()[6], '10.0.4.0')
+
+    def test_the_dead_one_is_counted_not_silently_skipped(self):
+        self.assertEqual(len(self.dead), 1)
+        self.assertIn('shadowed by 1', self.dead[0])
+
+    def test_the_shadowed_port_gets_no_nat_element_at_all(self):
+        self.assertEqual(self.nats, {'gw': {'8001'}})
+
+
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 class TestWhatItCannotExpressIsRefused(unittest.TestCase):
     """ Never emitted without the part that could not be carried. """
 
