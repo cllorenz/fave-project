@@ -30,7 +30,7 @@ by something nobody here wrote.
 THE VERDICTS ARE NOT SO CORROBORATED, and nothing in a result from this
 workload may be written as though they were. The paper publishes query TIMES,
 never answers, and it ships no statement of intent at all. So the reachability
-matrix this benchmark checks is an expectation WE wrote (`deltanet_policy.py`),
+matrix this benchmark checks is an expectation WE wrote (`deltanet/policy.py`),
 derived from the same traces as the model -- a consistency property. It catches
 a converter bug or a disagreement between engines; it cannot catch a misreading
 of the trace that the model and the expectation share. §0's external-oracle gap
@@ -56,11 +56,11 @@ import os
 import sys
 
 from bench.generic_benchmark import GenericBenchmark
-from bench.wl_deltanet.deltanet_policy import (
+from bench.deltanet.policy import (
     emit_inventory, emit_policy, homing_switches, role_endpoints)
-from bench.wl_deltanet.deltanet_preparation import build_model
-from bench.wl_deltanet.deltanet_topology import derive_topology, homes
-from bench.wl_deltanet.deltanet_trace import RAW, TRACES, read_trace
+from bench.deltanet.preparation import build_model
+from bench.deltanet.topology import derive_topology, homes
+from bench.deltanet.trace import RAW, TRACES, read_trace
 from util.raw_data import verify_raw
 
 

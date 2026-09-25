@@ -75,7 +75,7 @@ import re
 
 from typing import Dict, FrozenSet, Iterable, List, NamedTuple, Set, Tuple
 
-from bench.wl_deltanet.deltanet_trace import Insert
+from bench.deltanet.trace import Insert
 
 
 #: The port every switch reserves for its external border router.

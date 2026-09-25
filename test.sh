@@ -306,7 +306,7 @@ run_integration() {
     # a clean checkout has none of it and the backend differential would skip
     # the workload that exposed APKeep's ingress gap in the first place
     # (CLOUD_BENCH_PLAN.md §2.6). No live backend: the model, the FPL and
-    # reachable.json all come out of deltanet-traces/.
+    # reachable.json all come out of bench/deltanet/traces/.
     echo "== integration: generate wl_deltanet inputs (for test_backend_differential) =="
     bash "$ROOT/fave/test/gen_wl_deltanet_inputs.sh" || rc=1
 

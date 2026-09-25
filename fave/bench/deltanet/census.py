@@ -26,7 +26,7 @@ Same reasoning as `bench/wl_cloud/cloud_census.py`, and the same mechanism:
 `test/test_deltanet_census.py`. Editing it by hand is a test failure.
 
 The reason it exists here is sharper than "consistency", because these figures
-had ALREADY rotted. `deltanet-traces/README.md` and CLOUD_BENCH_PLAN.md §2 both
+had ALREADY rotted. `traces/README.md` and CLOUD_BENCH_PLAN.md §2 both
 carried three measurements taken by hand at vendoring time, and all three were
 wrong:
 
@@ -48,7 +48,7 @@ asserted here -- `render` counts it.
 
 `plen_histogram` is the one table here that is EVIDENCE rather than description:
 it is the D1 finding, rendered from the data, and the parser asserts the same
-identity on every row it reads (`deltanet_trace.lpm_priority`).
+identity on every row it reads (`trace.lpm_priority`).
 """
 
 from __future__ import annotations
@@ -60,9 +60,9 @@ import os
 from typing import Dict, List, Sequence
 
 from util.raw_data import verify_raw
-from bench.wl_deltanet.deltanet_topology import (
+from bench.deltanet.topology import (
     EXTERNAL_PORT, derive_topology, homes)
-from bench.wl_deltanet.deltanet_trace import (
+from bench.deltanet.trace import (
     PRIORITY_BASE,
     PRIORITY_SLOPE,
     RAW,
@@ -206,11 +206,11 @@ def render(c: Dict) -> str:
     w('# The Delta-net traces — what the vendored data actually contains')
     w('')
     w('**GENERATED — do not edit.** Regenerate with `python3 -m')
-    w('bench.wl_deltanet.deltanet_census` from `fave/`;')
+    w('bench.deltanet.census` from `fave/`;')
     w('`test/test_deltanet_census.py` pins this file byte for byte against a')
-    w('fresh derivation from `deltanet-traces/`. Scope, provenance and the')
+    w('fresh derivation from `traces/`. Scope, provenance and the')
     w('reason only two of the archive\'s eleven CSVs are here are in')
-    w('[`deltanet-traces/README.md`](deltanet-traces/README.md), which states')
+    w('[`traces/README.md`](traces/README.md), which states')
     w('what cannot be derived; everything below is derived.')
     w('')
     w('Background and the D1-D5 build plan: `CLOUD_BENCH_PLAN.md` §2.')
@@ -245,7 +245,7 @@ def render(c: Dict) -> str:
     w('')
     w('**The column therefore carries no information of its own** — everything')
     w('it states is already in the prefix. A converter reads the prefix and')
-    w('ignores the column, and `deltanet_trace.parse_trace` asserts the')
+    w('ignores the column, and `trace.parse_trace` asserts the')
     w('identity on every row so that a trace encoding something ELSE in that')
     w('field is refused rather than silently misread.')
     w('')
@@ -271,7 +271,7 @@ def render(c: Dict) -> str:
     w('### Three figures this replaces')
     w('')
     w('All three were measured by hand at vendoring time and stated in')
-    w('`deltanet-traces/README.md` and `CLOUD_BENCH_PLAN.md` §2:')
+    w('`traces/README.md` and `CLOUD_BENCH_PLAN.md` §2:')
     w('')
     out.extend(_table(
         ('stated', 'derived', 'what happened'),
@@ -403,7 +403,7 @@ def render(c: Dict) -> str:
     w('enters the modelled network.')
     w('')
     w('The invariants that make the model exact, all measured and all REFUSED')
-    w('by `deltanet_topology.py` rather than assumed — each is a property of')
+    w('by `topology.py` rather than assumed — each is a property of')
     w('these two files, not of the format:')
     w('')
     out.extend(_table(
@@ -520,7 +520,7 @@ def render(c: Dict) -> str:
     w('')
     w('The paper also settles two things this repository recorded as unknown:')
     w('the data set\'s home, `%s` (reference [14]) —' % PAPER_URL)
-    w('`deltanet-traces/README.md` had the download URL as never recorded —')
+    w('`traces/README.md` had the download URL as never recorded —')
     w('and the `s<i>-<j>` naming. The topology is AS 9498 (Airtel) emulated as')
     w('**%d Open vSwitches**, and the paper splits a switch into several graph'
       % PAPER_SWITCHES)

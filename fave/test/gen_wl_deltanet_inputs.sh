@@ -6,7 +6,7 @@
 # the FPL inventory and policy the translator turns into reachability.csv.
 #
 # Everything here is DERIVED from the two vendored traces under
-# deltanet-traces/ (CLOUD_BENCH_PLAN.md §2) -- there is no hand-written half to
+# bench/deltanet/traces/ (CLOUD_BENCH_PLAN.md §2) -- there is no hand-written half
 # preserve, which is why the whole directory is gitignored. A clean checkout has
 # none of it, and the deterministic integration tier needs it without starting a
 # backend, so this runs the benchmark's _pre_preparation and policy steps and

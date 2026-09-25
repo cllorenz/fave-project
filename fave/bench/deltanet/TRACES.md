@@ -1,11 +1,11 @@
 # The Delta-net traces — what the vendored data actually contains
 
 **GENERATED — do not edit.** Regenerate with `python3 -m
-bench.wl_deltanet.deltanet_census` from `fave/`;
+bench.deltanet.census` from `fave/`;
 `test/test_deltanet_census.py` pins this file byte for byte against a
-fresh derivation from `deltanet-traces/`. Scope, provenance and the
+fresh derivation from `traces/`. Scope, provenance and the
 reason only two of the archive's eleven CSVs are here are in
-[`deltanet-traces/README.md`](deltanet-traces/README.md), which states
+[`traces/README.md`](traces/README.md), which states
 what cannot be derived; everything below is derived.
 
 Background and the D1-D5 build plan: `CLOUD_BENCH_PLAN.md` §2.
@@ -36,7 +36,7 @@ priority-ordered rule list.
 
 **The column therefore carries no information of its own** — everything
 it states is already in the prefix. A converter reads the prefix and
-ignores the column, and `deltanet_trace.parse_trace` asserts the
+ignores the column, and `trace.parse_trace` asserts the
 identity on every row so that a trace encoding something ELSE in that
 field is refused rather than silently misread.
 
@@ -69,7 +69,7 @@ takes 18 distinct values over a 19-length span and not 19.
 ### Three figures this replaces
 
 All three were measured by hand at vendoring time and stated in
-`deltanet-traces/README.md` and `CLOUD_BENCH_PLAN.md` §2:
+`traces/README.md` and `CLOUD_BENCH_PLAN.md` §2:
 
 | stated | derived | what happened |
 |---|---|---|
@@ -173,7 +173,7 @@ external, border-router-facing port (the paper connects each of the
 enters the modelled network.
 
 The invariants that make the model exact, all measured and all REFUSED
-by `deltanet_topology.py` rather than assumed — each is a property of
+by `topology.py` rather than assumed — each is a property of
 these two files, not of the format:
 
 | invariant | why FaVe needs it |
@@ -254,7 +254,7 @@ and 158 is how many node-level edges this snapshot's rules use, over
 
 The paper also settles two things this repository recorded as unknown:
 the data set's home, `https://github.com/delta-net/datasets` (reference [14]) —
-`deltanet-traces/README.md` had the download URL as never recorded —
+`traces/README.md` had the download URL as never recorded —
 and the `s<i>-<j>` naming. The topology is AS 9498 (Airtel) emulated as
 **16 Open vSwitches**, and the paper splits a switch into several graph
 nodes when its rules match on several input ports ("we report the number

@@ -60,7 +60,7 @@ from typing import Dict, Iterable, List, NamedTuple, Set, Tuple
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RAW = os.path.join(HERE, 'deltanet-traces')
+RAW = os.path.join(HERE, 'traces')
 
 #: The two traces in scope, in the order the plan names them (§2).
 TRACES = ('airtel1-only-inserts.csv', 'airtel2-only-inserts.csv')

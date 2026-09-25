@@ -6,7 +6,7 @@ pybison
 # Third-party benchmark source archives. These are NOT kept at all any more
 # (owner decision 2026-09-18: ~10 GB between them, far too large) -- the scoped
 # parts are vendored extracted instead, under fave/bench/wl_cloud/cloud-tf/ and
-# fave/bench/wl_deltanet/deltanet-traces/, where git reveals any change to them.
+# fave/bench/deltanet/traces/, where git reveals any change to them.
 # The patterns stay as a guard, so that re-supplying an archive to re-derive
 # something cannot end with it committed by accident.
 cloud_bench.tar.bz2

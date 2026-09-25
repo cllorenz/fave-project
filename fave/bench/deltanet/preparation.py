@@ -26,7 +26,7 @@
 AND THAT IS THE RISK", because the NoD transfer function states forwarding as
 node-to-node rules with no interfaces at all. This dataset states them as
 `s<switch>-<port>`, so every device, port and link below is read off the data
-(`deltanet_topology.py`), and a mis-wiring is a derivation bug rather than a
+(`topology.py`), and a mis-wiring is a derivation bug rather than a
 modelling choice nothing can contradict.
 
 Each switch becomes one device with two FaVe ports per Delta-net port -- an
@@ -38,7 +38,7 @@ leaving it at switch j" are exactly what a check about roles i and j asks.
 
 **THE DELIVERY RULES ARE SYNTHESISED, AND THEY ARE THE ONE INVENTION.** The
 trace carries inter-switch forwarding and nothing else: a prefix's rules thin
-towards its home switch and simply stop, which is how `deltanet_topology.homes`
+towards its home switch and simply stop, which is how `topology.homes`
 identifies the home in the first place. A packet therefore arrives at the home
 switch and dies, and no probe anywhere can see it. So for each prefix this
 module adds one rule at its home switch forwarding it out port 1, which is what
@@ -68,9 +68,9 @@ import collections
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 from devices.abstract_device import LPM
-from bench.wl_deltanet.deltanet_topology import (
+from bench.deltanet.topology import (
     EXTERNAL_PORT, Topology, parse_node)
-from bench.wl_deltanet.deltanet_trace import Insert
+from bench.deltanet.trace import Insert
 
 
 #: Ports are numbered `switch * _PORT_SPAN (+ _OUT_OFFSET) + port`, so every

@@ -35,7 +35,7 @@ is the one that matters:
     the cross-checks do not go through `census()`.
 
 This workload had a head start on that failure mode: three figures in
-`deltanet-traces/README.md` were wrong from the day they were written, and
+`traces/README.md` were wrong from the day they were written, and
 survived because nothing read them.
 """
 
@@ -43,7 +43,7 @@ import collections
 import os
 import unittest
 
-from bench.wl_deltanet.deltanet_census import (
+from bench.deltanet.census import (
     DOCUMENT,
     PAPER_NODES,
     PAPER_SNAPSHOT_LINKS,
@@ -53,7 +53,7 @@ from bench.wl_deltanet.deltanet_census import (
     pair_census,
     trace_census,
 )
-from bench.wl_deltanet.deltanet_trace import (
+from bench.deltanet.trace import (
     PRIORITY_BASE,
     PRIORITY_SLOPE,
     RAW,
@@ -65,7 +65,7 @@ from bench.wl_deltanet.deltanet_trace import (
     parse_trace,
     read_trace,
 )
-from bench.wl_deltanet.deltanet_topology import (
+from bench.deltanet.topology import (
     EXTERNAL_PORT,
     TopologyError,
     derive_topology,
@@ -90,7 +90,7 @@ class TestDeltanetCensusDocument(unittest.TestCase):
             tracked, build(),
             "TRACES.md no longer matches the raw data it claims to describe. "
             "It is GENERATED -- regenerate it with `python3 -m "
-            "bench.wl_deltanet.deltanet_census` from fave/ rather than editing "
+            "bench.deltanet.census` from fave/ rather than editing "
             "it, and read the diff before committing: a change here means the "
             "reading of the traces moved.")
 
@@ -136,7 +136,7 @@ class TestDeltanetD1(unittest.TestCase):
             len({lpm_priority(plen) for plen in lengths}), len(lengths))
 
     def test_the_lengths_are_14_to_32_without_31(self):
-        """ The figure `deltanet-traces/README.md` had as 14-25. """
+        """ The figure `traces/README.md` had as 14-25. """
         lengths = set()
         for inserts in _load():
             lengths |= {i.plen for i in inserts}

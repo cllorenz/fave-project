@@ -16,7 +16,7 @@ Format is `+<prefix>,<router>,<next_hop>,<priority>`, e.g.
 
 **What the traces CONTAIN is not documented here.** Every figure about them —
 the census, the prefix-length profile, the topology names, the fourth field —
-is derived from the files themselves by `../deltanet_census.py` into
+is derived from the files themselves by `../census.py` into
 [`../TRACES.md`](../TRACES.md), and pinned byte for byte by
 `fave/test/test_deltanet_census.py`.
 

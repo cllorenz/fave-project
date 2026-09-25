@@ -2140,13 +2140,38 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       been used — §2.3 established that its sole occurrence in the tree is its
       own definition.
 
-      **NO behaviour change, and three checks rather than one say so**, because
-      a large mechanical diff is where a silent change hides: identical `fast`
-      and `integration` counts before and after; the backend differential
-      producing the same MATRIX, not merely the same pass count; and a
-      regenerated `TRACES.md` differing by **exactly one line** —
-      `deltanet_census.py:209` writes its own regeneration command into the
-      document, so that line must change and nothing else may.
+      **NO behaviour change, and the check is stated as a REVERSIBLE diff**,
+      because a large mechanical diff is where a silent one hides. Measured on
+      A1, the tier-2 relocation (2026-09-25):
+
+      * **identical tier counts** — `fast` 919 = 919; integration 151 / 8 / 16
+        with the same 2 skips and the same 73 subtests.
+      * **the generated model is byte-identical in 10 of 12 files**,
+        `routes.json` and `reachable.json` among them, so what the engines are
+        fed did not move. This also subsumes the matrix check this entry
+        originally planned: the differential asserts both engines equal
+        `reachable.json`, and `reachable.json` did not change, so both computed
+        the same matrix as before — and hashing a file is cheaper than dumping
+        one. The two that differ are `roles_and_services.txt` and `reach.txt`,
+        whose GENERATED header names the generator; undoing that single
+        substitution reproduces the baseline sha256 exactly.
+      * **`TRACES.md` differs in 7 lines, every one a path string** — not the
+        one line this entry first claimed, which was written from
+        `deltanet_census.py:209` alone without looking for the other six.
+        Undoing the path renames reproduces the baseline byte for byte, so no
+        derived FIGURE moved.
+
+      The FORM matters more than the counts. A rename may change path strings
+      and nothing else, so the check is *revert the renames and compare* — which
+      is decidable — rather than *few lines changed*, which is a judgement call
+      and is how the "exactly one line" claim got written.
+
+      **The integration tier is run WITHOUT its five ad6 files** (owner
+      direction 2026-09-25: ad6 is costly and is wanted as an arbiter only if
+      NetPlumber and NDD disagree). Measurement-affecting, so it is stated:
+      before and after are the same ad6-free command twice, the jar builds are
+      skipped with it because no part of D6 can reach Java, and D7's ad6 run is
+      a separate measurement this does not touch.
 
       **Out of scope, deliberately**: collapsing the other ten `np.conf` copies.
       Six carry `DEBUG`, and normalising them as a side effect of an airtel

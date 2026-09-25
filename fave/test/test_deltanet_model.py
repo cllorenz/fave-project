@@ -38,7 +38,7 @@ import ipaddress
 import os
 import unittest
 
-from bench.wl_deltanet.deltanet_policy import (
+from bench.deltanet.policy import (
     directed_pairs,
     emit_inventory,
     emit_policy,
@@ -46,16 +46,16 @@ from bench.wl_deltanet.deltanet_policy import (
     role_endpoints,
     role_name,
 )
-from bench.wl_deltanet.deltanet_preparation import (
+from bench.deltanet.preparation import (
     build_model,
     device_name,
     endpoint_name,
     in_port,
     out_port,
 )
-from bench.wl_deltanet.deltanet_topology import (
+from bench.deltanet.topology import (
     EXTERNAL_PORT, derive_topology, homes, parse_node)
-from bench.wl_deltanet.deltanet_trace import RAW, TRACES, read_trace
+from bench.deltanet.trace import RAW, TRACES, read_trace
 
 
 def _load(which=0):

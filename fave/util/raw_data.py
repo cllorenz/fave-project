@@ -27,7 +27,7 @@ made while debugging are how wrong inputs get in and stay in.
 
 This lives in `util/` rather than beside one workload because it now guards
 two of them -- `bench/wl_cloud/cloud-tf/` and
-`bench/wl_deltanet/deltanet-traces/` -- and a second copy of a guard is a guard
+`bench/deltanet/traces/` -- and a second copy of a guard is a guard
 that can disagree with itself. `bench.wl_cloud.benchmark` re-exports both names
 so its own callers did not have to move.
 """
