@@ -427,14 +427,8 @@ public final class NddReachabilityEngine {
     public boolean isReachable(String srcDev, String srcPort, String cidr,
                                String dstDev, String dstPort, int targetVlan,
                                int related) {
-        Integer h = reachedHeaders(srcDev, srcPort, cidr).get(dstDev);
-        if (h == null) return false;
-        int arriving = h;
-        if (targetVlan >= 0)
-            arriving = NDD.and(arriving, exact(VLAN, targetVlan, W[VLAN]));
-        if (related >= 0)
-            arriving = NDD.and(arriving, exact(REL, related, W[REL]));
-        return arriving != NDD.getFalse();
+        return isReachable(srcDev, srcPort, cidr, dstDev, dstPort,
+                           targetVlan, related, null);
     }
 
     /**
@@ -453,6 +447,17 @@ public final class NddReachabilityEngine {
     public boolean isReachable(String srcDev, String srcPort, String cidr,
                                String dstDev, String dstPort, int targetVlan,
                                int related, java.util.List<String> conds) {
+        // THE ONLY implementation (item 28, step 3). The 7-argument form used to
+        // carry a second copy of this arrival logic, differing only by the
+        // absence of the conds loop -- the same "add a field to one and not the
+        // other" hazard that step 1 removed from rule parsing, one level up. The
+        // other forms now delegate here.
+        //
+        // Every constraint is the same operation: intersect what ARRIVES with a
+        // predicate. `targetVlan` and `related` are ordinary header fields and
+        // could equally be passed as conditions; they keep their parameters only
+        // because `lib_apkeep` presents the same two to the BDD engine and the
+        // adapter calls both from one site.
         Integer h = reachedHeaders(srcDev, srcPort, cidr).get(dstDev);
         if (h == null) return false;
         int arriving = h;
