@@ -386,8 +386,12 @@ def measure(args):
             result["query_s"] = round(time.time() - t_query, 3)
 
         not_reach = {(s, p) for (s, p, _m, _c) in eng.get_compliance_results()}
-        result["reachable_pairs"] = sum(
-            1 for p in probes for s in sources if (s, p) not in not_reach)
+        reach = [[s, p] for p in probes for s in sources if (s, p) not in not_reach]
+        result["reachable_pairs"] = len(reach)
+        # Record WHICH pairs, not just how many. The first completed BDD build of
+        # wl_cloud returned 53 where NDD returns 59, and the pair SETS had not been
+        # saved -- so the six could not be named without another 2.8 h build.
+        result["reachable_pair_list"] = sorted(reach)
         result["status"] = "completed"
     except BaseException as exc:                     # noqa: BLE001 - recorded, not swallowed
         result["status"] = "error"

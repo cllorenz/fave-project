@@ -1,0 +1,86 @@
+{
+  "bench": "wl_cloud",
+  "engine": "bdd",
+  "deadline_s": 21600,
+  "status": "completed",
+  "started_utc": "2026-09-25T20:24:23Z",
+  "xmx": "8g",
+  "profile": "bench/wl_cloud/eval/bdd_build_6h.json.profile.jsonl",
+  "regenerated_inputs": true,
+  "inputs_sha256": {
+    "topology.json": "b30bcf548a269006539280191cb0ee740ee04fdba9cf5d77b30998bece2f5ba9",
+    "routes.json": "ca010732939e4d58c39553ae5a2369ca23d3f279def0bee73bc43ac2ed3cd950",
+    "policies.json": "5877c2306fa59869e8f7d808ee7c1778ba9f89c7d81b645f37027727ea23e33d",
+    "sources.json": "eff244716a2058023dbfdb9ba1e3b7f077e70ba718d407d732a3f0cfda3e8252",
+    "mapping.json": "df71b5feca8e5381a3c1c60c915e8776e403c07f4fc1ae9d5bfdcef8751b1c78"
+  },
+  "jar_sha256": "7d5c8fa024372ec2ef8ae5c029c825665638b94d491a5a604b55bb3cedf960ba",
+  "ndd_jar_sha256": "67b2673c1a5e4926d3a374c3906bafb99817c1427034056b3549c44efbc98188",
+  "replay_s": 0.17,
+  "sources": 8,
+  "probes": 8,
+  "build_s": 9976.269,
+  "ap_num": 90153,
+  "element_metrics": {
+    "elements": 119,
+    "ports": 1500,
+    "ForwardElement": 56,
+    "FilterElement": 53,
+    "ACLElement": 0,
+    "NATElement": 10
+  },
+  "query_s": 1.962,
+  "reachable_pairs": 53,
+  "wall_s": 9978.613,
+  "trend": {
+    "samples": 334,
+    "elapsed_s": 9976.2,
+    "rules": 1773,
+    "total_rules": 1773,
+    "pct_rules": 100.0,
+    "ap_num": 90153,
+    "elements": 119,
+    "ppm_entries": 10728207,
+    "bdd_mem_mib": 180.6,
+    "encode_ms": 94,
+    "insert_ms": 94,
+    "ppm_ms": 1368052,
+    "merge_ms": 8596742,
+    "split_count": 113120,
+    "windows": {
+      "300s": {
+        "d_rules": 23,
+        "span_s": 285.9,
+        "rate_per_s": 0.0804,
+        "d_ap": 1953,
+        "ap_per_rule": 84.913,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 69,
+        "span_s": 885.9,
+        "rate_per_s": 0.0779,
+        "d_ap": 5084,
+        "ap_per_rule": 73.681,
+        "is_tail": true
+      },
+      "1800s": {
+        "d_rules": 143,
+        "span_s": 1786.0,
+        "rate_per_s": 0.0801,
+        "d_ap": 8196,
+        "ap_per_rule": 57.315,
+        "is_tail": true
+      },
+      "3600s": {
+        "d_rules": 267,
+        "span_s": 3586.0,
+        "rate_per_s": 0.0745,
+        "d_ap": 13702,
+        "ap_per_rule": 51.318,
+        "is_tail": true
+      }
+    },
+    "rules_left": 0
+  }
+}

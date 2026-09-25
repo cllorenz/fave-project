@@ -62,7 +62,14 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 import time
+
+# BDD_MEASUREMENT_PLAN.md 3: every run in the campaign carries a DECLARED
+# deadline, a per-minute durable status dump and a preserved trace. That
+# machinery is already written and proven in cloud_bdd_measure; reuse it rather
+# than grow a second copy that drifts (TODO item 28's whole lesson).
+from bench.cloud_bdd_measure import _dump, _read_samples, _trend
 
 
 _STANFORD_PREFIX = "bench/wl_stanford/stanford-json"
@@ -119,12 +126,16 @@ def _prepare_replay_dir(bench, routers):
     raise SystemExit("unknown bench %r" % bench)
 
 
-def measure(bench, routers, out_path):
+def measure(bench, routers, out_path, deadline_s=0, status_every_s=60):
     from apkeep.adapter import APKeepAdapter
     from util.in_process_driver import InProcessFaVe
 
     log = logging.getLogger("faithful_bdd"); log.setLevel(logging.WARNING)
     replay_dir, files, cleanup = _prepare_replay_dir(bench, routers)
+
+    profile = os.environ.get("APKEEP_BUILD_PROFILE")
+    status_jsonl = out_path + ".status.jsonl" if out_path else None
+    status_txt = out_path + ".status.txt" if out_path else None
 
     eng = APKeepAdapter(log, faithful_vlan=True, engine='bdd')
     wall0 = time.time()
@@ -134,8 +145,43 @@ def measure(bench, routers, out_path):
         "faithful_vlan": True,
         "routers": sorted(routers) if routers else None,
         "xmx": os.environ.get("FAVE_JVM_XMX"),
-        "profile": os.environ.get("APKEEP_BUILD_PROFILE"),
+        "profile": profile,
+        "deadline_s": deadline_s or None,
+        "status": "starting",
+        "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
+
+    stop_threads = threading.Event()
+
+    def _tick():
+        """ Durable per-minute snapshot. Reads ONLY the profiler's JSONL -- never
+        the JVM, which the build thread owns. """
+        while not stop_threads.wait(status_every_s):
+            trend = _trend(_read_samples(profile)) if profile else {"samples": 0}
+            _dump(result, trend, out_path, status_jsonl, status_txt)
+            sys.stderr.write("[%6.1f min] rules=%s/%s ap_num=%s bound>=%sh\n" % (
+                (time.time() - wall0) / 60.0, trend.get("rules"),
+                trend.get("total_rules"), trend.get("ap_num"), trend.get("bound_h")))
+            sys.stderr.flush()
+
+    def _watchdog():
+        """ The DECLARED deadline. The build is one synchronous JPype call, so
+        there is nothing to interrupt politely: dump and hard-exit. """
+        if stop_threads.wait(deadline_s):
+            return
+        result["status"] = "deadline"
+        result["wall_s"] = round(time.time() - wall0, 3)
+        trend = _trend(_read_samples(profile)) if profile else {"samples": 0}
+        _dump(result, trend, out_path, status_jsonl, status_txt)
+        sys.stderr.write("DEADLINE %ss reached; partial result written to %s\n"
+                         % (deadline_s, out_path))
+        sys.stderr.flush()
+        os._exit(2)
+
+    threading.Thread(target=_tick, name="tick", daemon=True).start()
+    if deadline_s:
+        threading.Thread(target=_watchdog, name="watchdog", daemon=True).start()
+
     try:
         with InProcessFaVe(eng) as fave:
             fave.replay(replay_dir, files=files)
@@ -161,10 +207,19 @@ def measure(bench, routers, out_path):
         reach_nonself = {(s, p) for (s, p) in reach if _base(s) != _base(p)}
         result["reachable_pairs"] = len(reach)
         result["reachable_pairs_nonself"] = len(reach_nonself)
+        # Which pairs, not just how many -- see cloud_bdd_measure for why.
+        result["reachable_pair_list"] = sorted([s, p] for (s, p) in reach)
         result["peak_heap_mb"] = round(_peak_heap_bytes() / 2**20, 1)
         result["status"] = "completed"
+    except BaseException as exc:                  # noqa: BLE001 - recorded, not swallowed
+        result["status"] = "error"
+        result["error"] = "%s: %s" % (type(exc).__name__, exc)
+        raise
     finally:
+        stop_threads.set()
         result["wall_s"] = round(time.time() - wall0, 3)
+        trend = _trend(_read_samples(profile)) if profile else {"samples": 0}
+        _dump(result, trend, out_path, status_jsonl, status_txt)
         if cleanup:
             import shutil
             shutil.rmtree(cleanup, ignore_errors=True)
@@ -183,9 +238,13 @@ def main(argv=None):
     p.add_argument("--routers", help="comma-separated router bases -> reduced "
                                      "induced slice (stanford only)")
     p.add_argument("--out", help="write the result JSON here")
+    p.add_argument("--deadline-s", type=int, default=0,
+                   help="DECLARED deadline in seconds (0 = none, the old behaviour)")
+    p.add_argument("--status-every-s", type=int, default=60,
+                   help="how often to dump a durable status snapshot")
     args = p.parse_args(argv)
     routers = [r for r in args.routers.split(",") if r] if args.routers else None
-    measure(args.bench, routers, args.out)
+    measure(args.bench, routers, args.out, args.deadline_s, args.status_every_s)
     return 0
 
 
