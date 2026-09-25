@@ -1914,7 +1914,7 @@ forwarding with **no ACLs**, so any compliance property has to be invented. That
 makes it a reuse of the *data*, not a reproduction of the *experiment* — a
 weaker claim than the cloud dataset's, and it should be written up as such.
 
-### 2.2 Build plan — deferred until `wl_cloud` reaches C5
+### 2.2 Build plan — the deferral is spent (`wl_cloud` reached C7 2026-09-21)
 
 - [x] **D0** **The raw traces are vendored and checksummed** (2026-09-18).
       They had been extracted with ad-hoc `tar` commands existing nowhere in the
@@ -1991,8 +1991,9 @@ weaker claim than the cloud dataset's, and it should be written up as such.
 
       Left open by this, and belonging to D3 rather than D2: rules per router
       run 100–1,400 (mean 668), so the model is markedly non-uniform.
-- [~] **D3 — the INTERFACE half is DONE 2026-09-22 (§2.4). The property choice
-      is what remains.** The topology is recoverable, exactly and with nothing
+- [x] **D3 — DONE 2026-09-22. The INTERFACE half (§2.4), and the property
+      choice, which landed the same day (§2.5, at the end of this entry).** The
+      topology is recoverable, exactly and with nothing
       invented, and the question as filed rested on a misreading of the data —
       mine, recorded here because it is the kind that survives by sounding
       obvious.
@@ -2046,11 +2047,32 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       paper's own goals were forwarding loops and the link-failure "what if",
       neither of which is a reachability matrix, and §4.3.2 stays the sharper
       experiment for later.
-- [ ] **D4** Static run on all three backends.
-- [~] **D4 — NetPlumber DONE 2026-09-22 (§2.5): 256 checks, 0 violations, non-vacuous.**
-      ad6 and APKeep are next, and §1.7's history says to expect both to find
-      something.
-- [ ] **D5** *Then* revisit the incremental benchmark, with D4's costs known.
+- [x] **D4 — DONE. The static run on all three backends (§2.6, 2026-09-22), and
+      all three now agree at 0 violations.** NetPlumber and ad6 answered 0 on the
+      first run; APKeep answered **14**. So §1.7's expectation — that both other
+      families would find something — held for one of the two, and what APKeep
+      found was not in the workload but in its own translation, which drops
+      `in_ports`. The
+      14 were resolved by §2.7's declaration contract and §2.8's ingress demux,
+      both changes to the TRANSLATION: the benchmark keeps its 16 realistic
+      switches, because shaping the model around the weakest backend would void
+      the cross-family comparison the suite exists for.
+
+      **Re-verified 2026-09-25**, rather than carried forward from the run:
+      `test_backend_differential.py -k Deltanet` → 3 passed (both APKeep engines
+      agree with NetPlumber, and each matches the oracle). **ad6's zero is NOT
+      gated** — no `test_ad6_*` covers this workload, so that third of D4 remains
+      the one-off measurement of §2.6. That is the distinction §2.9 exists to
+      enforce, and it applies to this plan's own entries too.
+
+      **This replaced two boxes, and the pair is the lesson.** A bare "D4 Static
+      run on all three backends" sat above a "D4 — NetPlumber DONE … ad6 and
+      APKeep are next" that §2.6 overtook *the same day* and that then stood for
+      three more. One item carrying two checkboxes is how a plan comes to
+      contradict its own results section.
+- [ ] **D5** *Then* revisit the incremental benchmark, with D4's costs known —
+      a condition now met: §2.6 records them (NetPlumber 0.007 s, APKeep 1.6 s,
+      ad6 56.9 s of solving, on 256 checks).
       **D2 bounds what it can claim.** An insert-only trace that never
       overwrites a rule measures incremental FIB *construction*, not churn:
       nothing is ever withdrawn and nothing is ever revised. The members that
