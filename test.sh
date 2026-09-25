@@ -440,6 +440,54 @@ check_import_advisory() {
     fi
 }
 
+# Java build artifacts. apkeep/ and ndd/ are Maven subtrees whose target/ is
+# gitignored, so the three states below are genuinely different and only one of
+# them is worth failing on:
+#
+#   absent  the normal state of a clean checkout or a reset container. The
+#           integration tier BUILDS both jars (apkeep_smoke.sh, ndd_build.sh)
+#           and the jar-backed tests skip until it has, so this is a [warn] and
+#           never the verdict -- unlike the NetPlumber artifacts above, which no
+#           tier builds and whose absence therefore blocks one.
+#   stale   a jar older than its own sources. It still LOADS, so every jar-backed
+#           test runs, against an engine that predates the source change. This
+#           state is the reason this check exists.
+#   fresh   [ok].
+#
+# Why stale is fatal: the two test_apkeep_tcp_flags cases failed exactly this way
+# against jars built before `tcp_flags` became slot 19 of the `+ filter` layout,
+# and they read as an engine computing a WRONG ANSWER rather than as an unbuilt
+# artifact -- while this doctor reported "environment complete for every tier",
+# because its apt and pip halves were complete and this section checked only the
+# two NetPlumber artifacts. The differential class in that same file
+# (TestBothEnginesAgree) kept PASSING throughout, since both engines agreed on a
+# field neither jar had: agreement is not correctness when the agreement is on
+# nothing, and a green differential beside two red per-engine classes is not a
+# signature anyone reads as "rebuild the jar".
+#
+# The paths are the CONSUMERS' own -- lib_apkeep.py and lib_ndd.py hardcode these
+# two -- on the rule stated for net_plumber above: check what the scripts use,
+# never something merely equivalent to it.
+check_jar() {
+    local label="$1" jar="$2" src="$3" pom="$4" build="$5" newer
+    if [ ! -f "$jar" ]; then
+        printf '  [warn]    %-30s %s\n' "$label" \
+            "not built -- jar-backed tests SKIP; built by ./test.sh integration, or: bash $build"
+        return 0
+    fi
+    # mtime, which is what a rebuild moves. The pom counts as a source: a
+    # dependency or a compiler-target change makes a jar stale exactly as an edit
+    # to a .java does.
+    newer="$(find "$src" "$pom" \( -name '*.java' -o -name 'pom.xml' \) \
+                  -newer "$jar" -print -quit 2>/dev/null)"
+    if [ -n "$newer" ]; then
+        printf '  [STALE]   %-30s %s\n' "$label" \
+            "older than ${newer#"$ROOT"/} -> bash $build   [fast: WRONG failures; integration rebuilds it]"
+        return 1
+    fi
+    printf '  [ok]      %-30s\n' "$label"
+}
+
 run_doctor() {
     local rc=0 missing_apt=() advisory_apt=() advisory_pip=() pkg status
 
@@ -524,6 +572,14 @@ run_doctor() {
             "-> bash net_plumber/python/build_libnetplumber.sh"
         rc=1
     fi
+    # The two Java engine jars, checked for FRESHNESS and not merely existence --
+    # they are the same class of artifact as the .so above and fail the same way,
+    # as a wrong answer rather than as a missing file. See check_jar's notes for
+    # why only STALE is fatal here.
+    check_jar "APKeep engine jar" "$ROOT/apkeep/target/apkeep-1.0.0.jar" \
+        "$ROOT/apkeep/src" "$ROOT/apkeep/pom.xml" "fave/test/apkeep_smoke.sh" || rc=1
+    check_jar "NDD engine jar" "$ROOT/ndd/target/ndd-1.0.1-jar-with-dependencies.jar" \
+        "$ROOT/ndd/src" "$ROOT/ndd/pom.xml" "fave/test/ndd_build.sh" || rc=1
 
     echo "== env doctor: runtime limits (advisory, never fatal) =="
     local shm mem
@@ -566,8 +622,8 @@ run_doctor() {
             echo "  environment complete for every tier"
         fi
     else
-        echo "  see the [MISSING] lines above; each names the tier it blocks."
-        echo "  Nothing above is a code defect -- these are container-state gaps."
+        echo "  see the [MISSING]/[STALE] lines above; each names the tier it blocks."
+        echo "  Nothing above is a code defect -- these are container- and build-state gaps."
     fi
     return $rc
 }
@@ -587,6 +643,11 @@ run_doctor() {
 #     FileNotFoundError, which reads like a code regression, not a container
 #     one. `which minisat` printing nothing is easy to misread as success --
 #     check the exit status.
+#   * a STALE apkeep/ndd jar -> the jar still loads, so the jar-backed tests RUN
+#     and assert against an engine that predates the source change; they fail as
+#     if an engine had computed a wrong answer. target/ is gitignored, so nothing
+#     in git keeps jar and sources in step -- a jar built before a source change
+#     simply survives it.
 #   * apt-get update not run first -> `apt-get install minisat` fails with
 #     "Unable to locate package minisat" on a container whose package lists
 #     were never populated, which reads like the package does not exist.

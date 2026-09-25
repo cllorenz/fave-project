@@ -476,6 +476,33 @@ share. **Decision needed before building anything.**
   cross-checked against the Dockerfile, so a fresh sandbox starts complete.
 - [x] **README** — a "Checking the environment first" section with the three
   misleading-symptom cases in a table.
+- [x] **EXTENDED 2026-09-25: the doctor checks the two Java engine jars for FRESHNESS,
+  not existence.** A fourth misleading symptom, and the first one that is a *build*-state
+  gap rather than a container-state one: `apkeep/target/` and `ndd/target/` are gitignored,
+  so a checkout or a container reset easily leaves a jar older than the sources it was
+  built from — and a stale jar still **loads**, so the jar-backed tests RUN and fail as
+  though an engine had computed a wrong answer. Measured instance: both
+  `test_apkeep_tcp_flags` flag-qualified cases were red in the `fast` tier against jars
+  predating `e0ef6d08` (tcp_flags as slot 19), while `./test.sh doctor` reported
+  "environment complete for every tier" — its apt and pip halves were complete and the
+  native-artifacts section checked only the two NetPlumber artifacts. The signature is
+  worse than silence: `TestBothEnginesAgree` in that same file kept **passing**, because
+  both engines agreed on a field neither jar had. Agreement is not correctness when the
+  agreement is on nothing, and a green differential beside two red per-engine classes
+  reads as anything but "rebuild the jar".
+  - `check_jar()` distinguishes three states, and only one is fatal: **absent** is a
+    `[warn]` (the `integration` tier builds both jars, and the jar-backed tests skip
+    until it has — unlike the NetPlumber artifacts, which no tier builds, so their
+    absence stays `[MISSING]`); **stale** is `[STALE]` + `rc=1`, naming the source file
+    that outran the jar and the script that rebuilds it; **fresh** is `[ok]`.
+  - Staleness is mtime against every `*.java` under the subtree **plus its `pom.xml`**
+    (a dependency or compiler-target change stales a jar exactly as a source edit does).
+    The two jar paths are the consumers' own — `lib_apkeep.py` and `lib_ndd.py` hardcode
+    them — on the rule already stated for `net_plumber` in that section: check what the
+    scripts actually use, never something merely equivalent to it.
+  - All three branches exercised before landing (fresh → `[ok]`/exit 0; backdated jar →
+    `[STALE]`/exit 1; moved-aside jar → `[warn]`/exit 0), and the verdict's failure line
+    now reads "see the `[MISSING]`/`[STALE]` lines above".
 - **Effect, measured:** the `integration` tier went from *entirely unavailable* (pybison
   segfault killed the process) to **51 passed / 2 skipped + 8 NDD tests**, and
   `test_ad6_wl_up.py` from a core dump to 3 passed — with no code change, only container

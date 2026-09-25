@@ -129,6 +129,14 @@ one surfaces as something that looks unrelated:
 | `liblog4cxx15` | `libnetplumber` fails to *load*, and the harness reports "libnetplumber is not built; run `build_libnetplumber.sh`" even though the `.so` is present and correct — so every live-NetPlumber differential test silently skips |
 | `minisat` / `clasp` | `ad6 make test` shows four red suites with `FileNotFoundError`, which reads like a code regression rather than a container one |
 
+It also checks the two Java engine jars (`apkeep/`, `ndd/`) for **freshness**,
+not merely existence. `target/` is gitignored in both, so a jar can easily be
+older than the sources it was built from — and a stale jar still *loads*, so the
+jar-backed tests run and fail as though an engine had computed a wrong answer.
+An absent jar is only a `[warn]` (the `integration` tier builds both, and the
+tests skip until it has); a **stale** one fails the doctor and names the source
+file that outran it, plus the script that rebuilds it.
+
 Note also that `apt-get update` must run *before* installing on a container
 whose package lists were never populated — otherwise `apt-get install minisat`
 fails with "Unable to locate package minisat", which reads like the package no
