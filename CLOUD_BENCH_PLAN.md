@@ -2239,7 +2239,8 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       a stamp naming the wrong trace, and a generated input edited after
       stamping, each fail it, and the restored tree is green. A gate landed with
       the thing it gates is a gate nothing has tried to break.
-- [ ] **D7 — `wl_airtel2` on NetPlumber, NDD-APKeep and ad6**, in that order
+- [x] **D7 — DONE 2026-09-25 (§2.13). `wl_airtel2` on NetPlumber, NDD-APKeep
+      and ad6**, in that order
       (owner direction 2026-09-25: highest confidence first, then the fastest,
       then the slowest). **BDD-APKeep is untouched** — parallel work. Driven
       through FaVe so that every backend receives the same inputs, and that is
@@ -2283,6 +2284,29 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       not. §2.5's measurement says it will not — but that is one
       implementation's claim, and checking it against three engines is a fair
       part of the point. Results go to §2.13, stamped by engine AND trace.
+
+      **DONE, and the acceptance test passed.** Adding the workload cost
+      **one registry line and a twelve-line driver** — no `test.sh` change, no
+      generator change, no `.gitignore` change, because the glob is `wl_airtel*`
+      and both loops read the registry. That is what D6 was for, and it is now
+      measured rather than hoped for.
+
+      **All three engines answer 0 on 256 checks**, each verified non-vacuous by
+      the `s1 ---> s8` mutation, and `check_stamp()` reported no drift after any
+      run — so "the three got the same inputs" is an observation. §2.13 has it.
+
+      **The unplanned finding is in the COSTS, not the verdicts**: NetPlumber is
+      ~13× slower on airtel2, NDD-APKeep is flat, ad6 is ~11% faster. §2.3 said
+      the pair could only be cashed by a property that observes paths;
+      compliance time turns out to be one, and it separates the engines without
+      separating the answer.
+
+      **Two things this surfaced that D7 did not set out to look for**, both
+      recorded in §2.13 rather than acted on: §2.6's archived ad6 figure
+      (56.9 s) does not reproduce today (102.6, 105.0 s), which is why every
+      airtel1 number was re-measured instead of carried forward; and the LPM
+      guard on a second trace costs the fast tier 65 s → 105 s, which is a lot
+      for one guard and is the owner's call to keep or move.
 
 ---
 
@@ -2380,8 +2404,11 @@ and the second is what an incremental claim (§0's third gap) actually needs.
 files are already vendored, and D4 runs them both regardless."* Both halves of
 that were wrong, and the second is the one worth reading.
 
-**D4 did not run them both.** `benchmark.py` reads `FAVE_DELTANET_TRACE` and
-defaults to `TRACES[0]`, airtel1. Nothing sets that variable — not a test, not
+**D4 did not run them both.** (Superseded by D7 the same day — §2.13 runs
+airtel2 on all three engines — and by D6, which deleted the variable named
+below. Kept because the reasoning after it is what D7 acts on, and because the
+defect it records is the one worth not repeating.) `benchmark.py` reads
+`FAVE_DELTANET_TRACE` and defaults to `TRACES[0]`, airtel1. Nothing sets that variable — not a test, not
 `test.sh`'s bench loop, not CI; its only occurrence in the tree is its own
 definition. The selector exists and has never once been used, so every engine
 figure in §2.5 and §2.6 is airtel1's alone. Only the pure-Python shape tests
@@ -2636,8 +2663,16 @@ structurally cannot.
 
 **Trace: `airtel1-only-inserts.csv`** — stamped 2026-09-25, on item 0a's rule
 that a measurement-affecting choice is a result field and never an undocumented
-habit. It is the workload's default (`FAVE_DELTANET_TRACE`, unset everywhere)
-and the only trace any engine has run; §2.3's correction has the rest.
+habit. It was the workload's default (`FAVE_DELTANET_TRACE`, unset everywhere)
+and, when this stamp was written, the only trace any engine had run; §2.3's
+correction has the rest.
+
+**Both halves of that are now historical**, within the same day. D6 deleted
+`FAVE_DELTANET_TRACE` and gave each trace its own directory (this section's
+workload is `bench/wl_airtel1/`), and D7 ran airtel2 on all three engines —
+§2.13. The figures below remain airtel1's, and note that the ad6 one does NOT
+reproduce today: §2.13 measures 102.6 s and 105.0 s where this table says
+56.9 s.
 
 Same 256 checks (210 must-reach + 46 must-NOT-reach), same model, one policy.
 Every run carries `completed task check_compliance` in the log and produced a
@@ -3146,20 +3181,119 @@ re-measured under the harness that produces the rest of them.
 
 ---
 
-## 2.13 D7 — `wl_airtel2` on all three backends
+## 2.13 D7 — `wl_airtel2` on all three backends, 2026-09-25
 
-**NOT YET RUN.** Reserved 2026-09-25, when D7 was filed, so that the results
-have a home before they exist and nothing is tempted to write them into §2.6 —
-which is airtel1's, and stamped as such.
+**Trace: `airtel2-only-inserts.csv`**, sha256 `a2c233554f51…`, recorded by the
+workload itself in `bench/wl_airtel2/SOURCE.json` rather than by this sentence.
+Engines: NetPlumber; APKeep with **`--apkeep-engine ndd`**, passed explicitly
+rather than defaulted; ad6 with `--solver minisat22 --grounding rank`. BDD-APKeep
+was not run at all — concurrent work elsewhere (owner, 2026-09-25).
 
-What belongs here when there is something to put in it: the trace stamp, the
-three engine verdicts with their compliance times, the per-engine non-vacuity
-mutation, the input-identity check against `SOURCE.json`, and the framing §2.3
-requires — a **robustness check, not a differential**.
+### The verdicts: all three agree, at 0
 
-A section that exists before its measurement is not bookkeeping for its own
-sake. §2.6 stood for three days describing a run of an unnamed trace, because
-the place to record which one was not there to be left empty.
+| engine | violations | checks |
+|---|---:|---:|
+| **NetPlumber** (HSA) | **0** | 256 |
+| **NDD-APKeep** (per-field NDD) | **0** | 256 |
+| **ad6** (SAT, minisat22/rank) | **0** | 256 |
+
+Every run produced a `report.md` and carries `completed task check_compliance`
+in its log (§3's guardrail), and **each zero is verified non-vacuous
+per engine** by §2.6's mutation: claiming `s1 ---> s8`, a destination that homes
+no prefix, yields exactly one violation naming `source.s1`/`probe.s8` with the
+check total still 256, on all three.
+
+### The inputs were the same ones, and that is observed rather than assumed
+
+`GenericBenchmark.run()` calls `_pre_preparation` itself, so driving one model
+through three backends regenerates it three times. `SOURCE.json` (D6) is what
+turns "they got the same inputs" into a measurement: **`check_stamp()` reported
+no drift after every run**, so the three engines answered byte-identical files.
+
+### What the second trace actually changes
+
+Only **`routes.json`**. `topology.json`, `sources.json`, `policies.json`,
+`reachable.json`, `checks.json`, `cchecks.json`, `inventory.json`, `roles.json`,
+`reachability.csv`, `roles_and_services.txt` and `reach.txt` are byte-identical
+between the two workloads. That is §2.3's argument made concrete at the file
+level: the two runs ask **the same 256 questions of the same oracle** against
+different forwarding, which is exactly why this is a robustness check and not a
+differential.
+
+Inside `routes.json`, at the granularity the engines see: **1,800 of 22,400
+`(switch, prefix)` forwarding decisions differ**, and no key is unique to either
+side. That figure is not §2.3's 3,300 and both are right — §2.3 counts trace
+keys, which are per `(switch, PORT)`; collapsing ports gives 16 × 1,400 = 22,400
+model keys.
+
+### The finding: one verdict, three different costs
+
+Compliance time, same machine, same day, same command, repeated:
+
+| engine | airtel1 | airtel2 | |
+|---|---|---|---|
+| NetPlumber | 0.0086, 0.0095 s | 0.114, 0.118, 0.124 s | airtel2 **~13× slower** |
+| NDD-APKeep | 3.40, 3.59 s | 3.41, 3.47 s | **no difference this can resolve** |
+| ad6 | 102.6, 105.0 s | 94.4, 91.4 s | airtel2 ~11% **faster** |
+
+Three engines compute the same answer and the cost of the second trace goes
+**up 13×, stays flat, and goes down**. The spread within each cell is far
+smaller than the gap between cells in the NetPlumber and ad6 rows, so the
+direction is not noise; the NDD row is the weaker claim, an absence of effect at
+this sample size rather than a demonstrated equality. (NDD's first airtel2 run
+was 4.12 s and is excluded as JVM warm-up — stated, not dropped silently.)
+
+**Why this is the interesting part.** §2.3 concluded that the pair's difference
+is entirely in PATHS, and that it could only be cashed by a property that
+observes paths — which the reachability matrix does not. Compliance *time* turns
+out to be such an observable. NetPlumber's `check_compliance` inspects each
+probe's incoming source flows, so it is sensitive to the flow graph even where
+the verdict is not; APKeep's atomic predicates are not; ad6's SAT instance is,
+in the other direction. **The pair distinguishes the ENGINES without
+distinguishing the ANSWER**, which is a use for it that §2.3 did not anticipate.
+
+It is not a correctness signal and must not be written up as one. It is also
+not, on its own, an explanation: no flow count was measured, and attributing the
+13× to path length rather than to flow fan-out would be a guess. That
+measurement is the obvious next thing and is not part of D7.
+
+### §2.6's ad6 figure does not reproduce, and that is why airtel1 was re-measured
+
+§2.6 records ad6 at **56.9 s** on airtel1. The same workload on the same
+configuration measures **102.6 s and 105.0 s** today. So airtel2's 94.4 s
+against the archived 56.9 s would have read as a large regression, and against a
+freshly measured airtel1 it reads as a small improvement. Every airtel1 figure
+in the table above was therefore re-measured rather than carried forward — §3's
+"state the denominator", applied to time. What changed between September 22nd
+and today is not established here and is worth its own look.
+
+### What is gated, and what is not
+
+* **Gated, pure Python.** `TestDeltanetLPMAirtel2` extends the LPM guard to the
+  second trace. This is the **only check in the suite that can tell the traces
+  apart** — it follows a packet, so it reads the 1,800 differing decisions,
+  where the matrix cannot. It passes, and non-vacuously: airtel2 carries the
+  same two nested prefix pairs and the same single witness,
+  `117.53.131.0/24` inside `117.53.128.0/20`, homed apart. Cost: the fast tier
+  goes 919 → **922** tests but **65 s → 105 s**, which is a lot for one guard
+  and is flagged rather than absorbed.
+* **Gated, engines.** `TestBackendDifferentialAirtel2`, `ENGINES = ('ndd',)`.
+  Integration's second group goes 8 → **11** passed and 84 s → 146 s.
+* **NOT gated: ad6.** Exactly as for airtel1 — no `test_ad6_*` covers this
+  workload, so ad6's zero on both traces is a one-off measurement. D7 does not
+  change that and does not pretend to; the gap is now recorded twice rather than
+  closed once, which is an argument for closing it.
+
+### What is NOT claimed
+
+Single machine, few runs, no JVM warm-up control beyond excluding one first run,
+wall-clock. §2.12's caveat applies unchanged: these justify a claim about
+*direction and order of magnitude*, and they are not benchmark figures. The
+verdicts, by contrast, are exact and repeated.
+
+And none of it manufactures an oracle. Three engines agreeing on a second trace
+is still a consensus between implementations in this tree — §0's first gap, which
+only `wl_cloud` closes.
 
 ---
 

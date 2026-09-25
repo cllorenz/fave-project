@@ -238,6 +238,30 @@ class TestBackendDifferentialAirtel1(_Differential):
 
 
 @_gate
+class TestBackendDifferentialAirtel2(_Differential):
+    """ wl_airtel2: the same 16 switches under a different forwarding state.
+
+    D7's gated half. The value is NOT a differential -- the matrix is derived
+    from the homing, the homing is identical across the two traces, so the
+    expectation is the same by construction (CLOUD_BENCH_PLAN.md §2.3). What
+    this gates is that two engine TRANSLATIONS still agree when 1,800 of the
+    22,400 `(switch, prefix)` forwarding decisions move, which is the one thing
+    about airtel2 that airtel1 does not already cover.
+
+    **`ndd` alone, and for two reasons.** BDD-APKeep is under concurrent work
+    elsewhere (owner, 2026-09-25) and this must not touch it; and `ndd` is what
+    the aggregator runs by default, so it is the engine the benchmark figures in
+    §2.13 come from. `wl_up` is the precedent for a one-engine class.
+    """
+
+    __test__ = True
+    PREFIX = "bench/wl_airtel2"
+    GENERATOR = "gen_deltanet_inputs.sh"
+
+    ENGINES = ('ndd',)
+
+
+@_gate
 class TestBackendDifferentialUp(_Differential):
     """ wl_up: IPv6 routers, packet filters, in-port-qualified switch defaults.
 

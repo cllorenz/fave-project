@@ -36,9 +36,10 @@ which network: both Airtel traces are AS 9498 under two failure regimes, and
 from typing import Dict
 
 
-#: workload directory -> vendored trace. `wl_airtel2` lands with D7.
+#: workload directory -> vendored trace.
 WORKLOADS: Dict[str, str] = {
     'wl_airtel1': 'airtel1-only-inserts.csv',
+    'wl_airtel2': 'airtel2-only-inserts.csv',
 }
 
 

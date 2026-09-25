@@ -424,5 +424,28 @@ class TestDeltanetLPM(unittest.TestCase):
             self.homed[container])
 
 
+class TestDeltanetLPMAirtel2(TestDeltanetLPM):
+    """ The same guard on the second trace (CLOUD_BENCH_PLAN.md D7).
+
+    **This is the only check in the suite that can tell the two traces apart.**
+    The reachability matrix cannot: it is derived from the homing, the homing is
+    identical, and `test_both_traces_state_the_same_matrix` asserts so. The LPM
+    guard follows a packet, so it reads the 1,800 `(switch, prefix)` pairs that
+    forward somewhere different -- which makes it the one place where airtel2
+    could have failed where airtel1 passes.
+
+    Measured 2026-09-25: it does not. Both nested prefix pairs are present in
+    airtel2 and the same single one witnesses anything -- `117.53.131.0/24`
+    inside `117.53.128.0/20`, homed apart -- so the guard is non-vacuous on this
+    trace for the same reason it is on the first.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.inserts, cls.topology, cls.homed = _load(1)
+        cls.model = build_model(cls.inserts, cls.topology, cls.homed)
+        cls.nested = cls._nested_pairs(cls.homed)
+
+
 if __name__ == '__main__':
     unittest.main()
