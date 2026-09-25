@@ -135,7 +135,7 @@ FAVE_OUT_IFACE_TESTS=(
     # rule, so all three of its tests ERRORED at setup in every integration run
     # since the wl_up workload was added to this file (a46a3bd0). It was verified
     # by hand with FAVE_ALLOW_OUT_IFACE exported, which is exactly why the gap
-    # was invisible. The wl_ifi and wl_deltanet classes in the same file carry no
+    # was invisible. The wl_ifi and wl_airtel1 classes in the same file carry no
     # iptables ruleset, so taking the opt-in wholesale is a no-op for them.
     test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
 )
@@ -302,13 +302,15 @@ run_integration() {
     echo "== integration: generate wl_up inputs (for test_ad6_wl_up, test_apkeep_ndd_wlup) =="
     bash "$ROOT/fave/test/gen_wl_up_inputs.sh" || rc=1
 
-    # wl_deltanet's whole directory is derived from the two vendored traces, so
-    # a clean checkout has none of it and the backend differential would skip
+    # Every Delta-net workload's directory is derived from the vendored traces,
+    # so a clean checkout has none of it and the backend differential would skip
     # the workload that exposed APKeep's ingress gap in the first place
     # (CLOUD_BENCH_PLAN.md §2.6). No live backend: the model, the FPL and
-    # reachable.json all come out of bench/deltanet/traces/.
-    echo "== integration: generate wl_deltanet inputs (for test_backend_differential) =="
-    bash "$ROOT/fave/test/gen_wl_deltanet_inputs.sh" || rc=1
+    # reachable.json all come out of bench/deltanet/traces/. No workload is
+    # named here -- the script loops over bench/deltanet/registry.py, so a newly
+    # registered workload is generated without this line being touched (D6).
+    echo "== integration: generate Delta-net workload inputs (for test_backend_differential) =="
+    bash "$ROOT/fave/test/gen_deltanet_inputs.sh" || rc=1
 
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
@@ -343,7 +345,7 @@ run_e2e() {
 run_bench() {
     local rc=0 wl
     local envs
-    for wl in wl_up wl_tum wl_stanford wl_i2 wl_deltanet; do
+    for wl in wl_up wl_tum wl_stanford wl_i2 wl_airtel1; do
         echo "== bench: $wl =="
         # TODO.md item 13a, as in run_smoke. wl_up's gateway firewall carries
         # one `-o` rule and wl_tum's tum-ruleset carries 3,286; wl_stanford and

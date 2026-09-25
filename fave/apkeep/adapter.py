@@ -194,7 +194,7 @@ class UntranslatedSemantics(Exception):
     forwarding model still answers every query -- just wrongly, and in the
     direction that looks like a result. Every APKeep gap this project has spent
     time on has that shape (the out-stage in-port permutation, the dead-ingress
-    admission, and now the in-port-qualified forwarding wl_deltanet exposed).
+    admission, and now the in-port-qualified forwarding wl_airtel1 exposed).
 
     The contract is NOT "APKeep must express everything". It is that an
     approximation must be DECLARED: `_ingress_accounted` records, per device,
@@ -1117,7 +1117,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         `ForwardElement` is (`_build_pf_pipeline` works around it with per-port
         `<elem>.inP` prefilters, which is a different mechanism reading a
         different field). Measured when this was closed, across the six shipped
-        workloads: devices that DO discriminate exist -- wl_deltanet 7, wl_up 2,
+        workloads: devices that DO discriminate exist -- wl_airtel1 7, wl_up 2,
         wl_stanford 32 -- but not one of them is realised first-match, and every
         one is already accounted for (demux, the `_filter_devices` branch, the
         declared in-stage approximation). The devices that ARE first-match are
@@ -1238,7 +1238,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         links to the right one.
 
         **This is a translation, not a model change** (owner, 2026-09-22). The
-        FaVe model keeps its devices: 16 realistic switches for wl_deltanet, not
+        FaVe model keeps its devices: 16 realistic switches for wl_airtel1, not
         68. Splitting the BENCHMARK model would have shaped the data around the
         weakest backend and voided the cross-family comparison the suite exists
         for. Splitting the TRANSLATION is the adapter's own business, and this
@@ -1250,7 +1250,7 @@ class APKeepAdapter(AbstractVerificationEngine):
 
         The element count is a REAL cost of the atomic-predicate model and is
         logged rather than absorbed: 16 devices become 68 elements on
-        wl_deltanet, which is exactly the node count Delta-net's own paper
+        wl_airtel1, which is exactly the node count Delta-net's own paper
         reports for this network.
         """
         qualified = self._ingress_qualified(edges)
@@ -1380,7 +1380,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             result instead of being rediscovered;
           * qualified and UNDECLARED -- refused.
 
-        wl_deltanet is the third case and is why this exists: its 14 false
+        wl_airtel1 is the third case and is why this exists: its 14 false
         positives were exactly the devices carrying an ingress-restricted rule.
         """
         qualified = self._ingress_qualified(edges)

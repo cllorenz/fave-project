@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" wl_deltanet's model and its FPL (CLOUD_BENCH_PLAN.md §2.5).
+""" wl_airtel1's model and its FPL (CLOUD_BENCH_PLAN.md §2.5).
 
 `cloud_preparation` needs its port structure pinned because that structure is
 INVENTED -- the NoD transfer function has no interfaces, so a mis-wiring yields

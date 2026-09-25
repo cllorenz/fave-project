@@ -25,11 +25,13 @@ CLOUD_BENCH_PLAN.md §1.8, the owner's standing principle: every benchmark and
 every measurement must be recreatable from the raw data, because manual edits
 made while debugging are how wrong inputs get in and stay in.
 
-This lives in `util/` rather than beside one workload because it now guards
-two of them -- `bench/wl_cloud/cloud-tf/` and
-`bench/deltanet/traces/` -- and a second copy of a guard is a guard
-that can disagree with itself. `bench.wl_cloud.benchmark` re-exports both names
-so its own callers did not have to move.
+This lives in `util/` rather than beside one workload because it guards two
+vendored directories -- `bench/wl_cloud/cloud-tf/` and `bench/deltanet/traces/`
+-- and a second copy of a guard is a guard that can disagree with itself. That
+argument is also why the Delta-net traces sit in a family tier rather than in
+each workload that reads them (D6): one manifest, one guard, however many
+workloads. `bench.wl_cloud.benchmark` re-exports both names so its own callers
+did not have to move.
 """
 
 from __future__ import annotations

@@ -19,7 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" Benchmarks FaVe on the Delta-net snapshot (CLOUD_BENCH_PLAN.md §2).
+""" The benchmark that every Delta-net workload IS (CLOUD_BENCH_PLAN.md §2).
+
+One class for the whole family, parameterised by the trace. What differs
+between `wl_airtel1` and `wl_airtel2` is the CSV and the output directory;
+nothing about the model, the property or the run differs at all, which is why
+this lives here and a driver is fifteen lines.
 
 WHAT THIS WORKLOAD IS, AND WHAT IT IS NOT. The model is corroborated from
 outside this repository: the Delta-net paper publishes 38,100 rules, 158 links
@@ -30,9 +35,9 @@ by something nobody here wrote.
 THE VERDICTS ARE NOT SO CORROBORATED, and nothing in a result from this
 workload may be written as though they were. The paper publishes query TIMES,
 never answers, and it ships no statement of intent at all. So the reachability
-matrix this benchmark checks is an expectation WE wrote (`deltanet/policy.py`),
-derived from the same traces as the model -- a consistency property. It catches
-a converter bug or a disagreement between engines; it cannot catch a misreading
+matrix this benchmark checks is an expectation WE wrote (`policy.py`), derived
+from the same traces as the model -- a consistency property. It catches a
+converter bug or a disagreement between engines; it cannot catch a misreading
 of the trace that the model and the expectation share. §0's external-oracle gap
 stays `wl_cloud`'s alone.
 
@@ -48,37 +53,42 @@ must-NOT-reach, which is what keeps the matrix from being the all-reachable mesh
 `AD6_PLAN.md` §5.5 records as satisfiable by any over-approximating engine. 30
 of those 46 end at s8 or s9, which home no prefix; the other 16 are the
 diagonal.
+
+**The trace is a constructor argument and not an environment variable.** It was
+one -- `FAVE_DELTANET_TRACE` -- and in the whole life of that selector nothing
+ever set it, while the directory it wrote into said nothing about which trace
+had produced it (§2.3's correction, and D6). A workload directory now names its
+trace, and the registry is the only place that mapping exists.
 """
 
 import json
 import logging
 import os
-import sys
 
 from bench.generic_benchmark import GenericBenchmark
 from bench.deltanet.policy import (
     emit_inventory, emit_policy, homing_switches, role_endpoints)
 from bench.deltanet.preparation import build_model
+from bench.deltanet.registry import WORKLOADS, prefix_of
 from bench.deltanet.topology import derive_topology, homes
-from bench.deltanet.trace import RAW, TRACES, read_trace
+from bench.deltanet.trace import RAW, read_trace
 from util.raw_data import verify_raw
-
-
-_PREFIX = 'bench/wl_deltanet'
-
-#: Which vendored trace to model. airtel1 is the one the paper publishes
-#: figures for (§2.3), so it is the default; airtel2 is the same network under
-#: a different failure regime and is what §2.3's differential compares against.
-TRACE = os.environ.get('FAVE_DELTANET_TRACE', TRACES[0])
 
 
 class DeltanetBenchmark(GenericBenchmark):
     """ The Delta-net snapshot under a reachability matrix we wrote. """
 
+    def __init__(self, prefix, trace, **kwargs):
+        #: The vendored CSV this run models, resolved under `traces/`. Stored
+        #: before the base constructor, because a subclass method may run
+        #: during it.
+        self.trace = trace
+        super().__init__(prefix, **kwargs)
+
     def _pre_preparation(self):
         verify_raw(RAW)
 
-        inserts = read_trace(os.path.join(RAW, TRACE))
+        inserts = read_trace(os.path.join(RAW, self.trace))
         topology = derive_topology(inserts)
         homed = homes(inserts)
 
@@ -106,7 +116,7 @@ class DeltanetBenchmark(GenericBenchmark):
             "deltanet model from %s: %d devices, %d links, %d rules "
             "(%d read from the trace + %d SYNTHESISED delivery rules), "
             "%d roles of which %d are addressable",
-            TRACE, self.census['devices'], self.census['links'],
+            self.trace, self.census['devices'], self.census['links'],
             self.census['rules'], self.census['transit_rules'],
             self.census['delivery_rules'], len(topology.switches),
             len(homing_switches(homed)))
@@ -119,22 +129,19 @@ class DeltanetBenchmark(GenericBenchmark):
         self._convert_policy_to_checks()
 
 
-def main():
-    logging.basicConfig(level=logging.INFO)
+def build(name, logger=None):
+    """ The benchmark for a registered workload -- the ONLY construction site.
 
-    run = DeltanetBenchmark(
-        _PREFIX,
-        logger=logging.getLogger('deltanet'),
-        # No Internet role: every border network is named, and an unnamed
-        # outside would be a source this data set says nothing about.
+    `use_internet` and `strict` are family properties, not per-workload ones, so
+    they are set here: a driver that could forget them is a driver that can
+    silently benchmark a different question. `--no-internet` because every
+    border network is named and an unnamed outside would be a source this data
+    set says nothing about; `--strict` because a border network reaching itself
+    is not something this data plane states, and the model deliberately installs
+    no rule that would let it.
+    """
+    return DeltanetBenchmark(
+        prefix_of(name), WORKLOADS[name],
+        logger=logger if logger else logging.getLogger(name),
         use_internet=False,
-        # No implicit self-policy -- `reach_csv_to_checks --strict`. A border
-        # network reaching itself is not something this data plane states, and
-        # the model deliberately installs no rule that would let it.
-        strict=True,
-    )
-    run.run()
-
-
-if __name__ == '__main__':
-    sys.exit(main())
+        strict=True)

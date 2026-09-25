@@ -67,19 +67,23 @@ bench/wl_cloud/*.csv
 # rather than comparing against a file in the tree.
 bench/wl_cloud/matrix/
 
-# wl_deltanet: EVERYTHING in the workload directory is derived, including the
-# FPL itself. Unlike wl_cloud, this workload has no hand-written half at all --
-# the inventory and the policy are emitted by `bench/deltanet/policy.py` from
-# the vendored traces on every run, so there is no pair of same-named files to
-# keep apart and the whole lot is ignored. What stays tracked in the directory
-# is eval/, which a single `*` does not reach because it does not cross `/`.
-# Since D6 the code that derives the model, `TRACES.md` and the raw traces live
-# one level up in `bench/deltanet/`, which is tracked in full and which nothing
-# here matches.
-bench/wl_deltanet/*.json
-bench/wl_deltanet/*.csv
-bench/wl_deltanet/roles_and_services.txt
-bench/wl_deltanet/reach.txt
+# The Delta-net workloads (`wl_airtel1`, and `wl_airtel2` with D7): EVERYTHING
+# in a workload directory is derived, including the FPL itself. Unlike wl_cloud,
+# these have no hand-written half at all -- the inventory and the policy are
+# emitted by `bench/deltanet/policy.py` from the vendored traces on every run,
+# so there is no pair of same-named files to keep apart and the whole lot is
+# ignored. What stays tracked in a workload directory is its driver, its
+# `__init__.py` and eval/, which a single `*` does not reach because it does not
+# cross `/`. Since D6 the code that derives the model, `TRACES.md` and the raw
+# traces live one tier up in `bench/deltanet/`, which is tracked in full and
+# which nothing here matches.
+#
+# The glob covers every `wl_airtel*`, so D7's second workload needs no line
+# here -- the same reason the input generator loops over the registry.
+bench/wl_airtel*/*.json
+bench/wl_airtel*/*.csv
+bench/wl_airtel*/roles_and_services.txt
+bench/wl_airtel*/reach.txt
 
 
 *.pdf

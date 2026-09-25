@@ -47,7 +47,7 @@ workload.
   * `wl_ifi` -- forwarding + ACLs, the original gate.
   * `wl_up` -- IPv6, packet filters, and the in-port-qualified switch defaults
     that exposed the gap. The reason it is here.
-  * `wl_deltanet` -- 16 switches whose forwarding is in-port-qualified
+  * `wl_airtel1` -- 16 switches whose forwarding is in-port-qualified
     throughout, and the workload that made the gap visible at all.
 """
 
@@ -223,17 +223,18 @@ class TestBackendDifferential(_Differential):
 
 
 @_gate
-class TestBackendDifferentialDeltanet(_Differential):
-    """ wl_deltanet: in-port-qualified forwarding on all 16 switches.
+class TestBackendDifferentialAirtel1(_Differential):
+    """ wl_airtel1: in-port-qualified forwarding on all 16 switches.
 
     The workload that exposed APKeep's per-device ForwardElement dropping the
     ingress qualification (CLOUD_BENCH_PLAN.md §2.6), and the one whose fix
-    (§2.8's ingress demultiplexing) this pins.
+    (§2.8's ingress demultiplexing) this pins. Named `wl_deltanet` until D6;
+    `deltanet` is the distribution, and this is one trace out of it.
     """
 
     __test__ = True
-    PREFIX = "bench/wl_deltanet"
-    GENERATOR = "gen_wl_deltanet_inputs.sh"
+    PREFIX = "bench/wl_airtel1"
+    GENERATOR = "gen_deltanet_inputs.sh"
 
 
 @_gate

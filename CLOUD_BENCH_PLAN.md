@@ -15,7 +15,7 @@ building the policy (§1.9.6). **Delta-net: D1 and D2 done 2026-09-22** — the
 fourth CSV column is a priority encoding LPM (`5*plen+100`, exact on all
 76,200 rows), the trace needs no replay because no insert overwrites another,
 and three figures this document stated about the traces were wrong (§2.2 D1).
-What they contain is now derived into `fave/bench/wl_deltanet/TRACES.md` and
+What they contain is now derived into `fave/bench/deltanet/TRACES.md` and
 pinned, rather than described here. D3-D5 open.
 
 **C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
@@ -38,7 +38,7 @@ Two third-party datasets arrived in the tree as untracked archives
 document records what they contain, what each is good for, and the build plan
 for the new workloads. **The archives themselves are no longer kept** — the
 parts in scope are vendored, extracted, under
-`fave/bench/wl_cloud/cloud-tf/` and `fave/bench/wl_deltanet/deltanet-traces/`,
+`fave/bench/wl_cloud/cloud-tf/` and `fave/bench/deltanet/traces/`,
 and git is what reveals a change to them (§1.8). It is the sibling of [`AD6_PLAN.md`](AD6_PLAN.md) for the
 *benchmark* axis rather than the *backend* axis.
 
@@ -1846,6 +1846,21 @@ overlapping the service roles).
 
 ## 2. The Delta-net traces (`deltanet-NSDI17-dataset.tar.gz`)
 
+> **RENAMED 2026-09-25 (D6).** The workload directory `bench/wl_deltanet/` is
+> now `bench/wl_airtel1/`, and the derivation it held moved up a tier to
+> `bench/deltanet/`. Two kinds of mention are treated differently below, and in
+> `TODO.md`, `TABLE_SEMANTICS_PLAN.md` and `OUT_STAGE_PLAN.md`, which were not
+> touched at all:
+>
+> * a **path that resolves to a file** is a pointer, and was updated — a
+>   reader who follows one should arrive somewhere;
+> * a **sentence about what was measured or decided** keeps `wl_deltanet`,
+>   because that is the name the directory had when the measurement was taken.
+>   Rewriting those would make this document claim a history it does not have.
+>
+> `deltanet` survives as the name of the DISTRIBUTION and of the code that
+> reads it; it is no longer the name of a workload.
+
 11 CSVs of forwarding-rule updates, format `+<prefix>,<router>,<next_hop>,<N>`:
 
     +100.3.0.0/16,s10-1,s2-9,180
@@ -1867,7 +1882,7 @@ physically out of reach:
 in size, supporting the reading that the latter is a churn-randomised derivative
 of the former.
 
-**In scope, and VENDORED** under `fave/bench/wl_deltanet/deltanet-traces/`
+**In scope, and VENDORED** under `fave/bench/deltanet/traces/`
 (2.4 MB, with its own `SHA256SUMS` and a README recording the scope and what is
 known about the format): `airtel1-only-inserts.csv`, `airtel2-only-inserts.csv`.
 They were copied out of the archive before it was deleted; nothing else from the
@@ -1875,8 +1890,8 @@ archive survives in the repository, and re-deriving anything else would need
 Claas to supply the archive again.
 
 **What the two traces contain is no longer stated here.** It is derived from
-them by `fave/bench/wl_deltanet/deltanet_census.py` into
-[`fave/bench/wl_deltanet/TRACES.md`](fave/bench/wl_deltanet/TRACES.md) and
+them by `fave/bench/deltanet/census.py` into
+[`fave/bench/deltanet/TRACES.md`](fave/bench/deltanet/TRACES.md) and
 pinned byte for byte by `fave/test/test_deltanet_census.py`, on §1.8's principle.
 The headline: **38,100 inserts, 57 routers, 52 next-hops, 1,400 distinct
 prefixes** — the same figures for *both* traces, not airtel2 alone — and prefix
@@ -2022,7 +2037,7 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       **The egress port is the one figure no row carries, and it does not need
       to.** The port `i` sends out of to reach `k` is the port `i` receives from
       `k` on, and the switch-level edge set is symmetric, so the map is total.
-      `bench/wl_deltanet/deltanet_topology.py` derives all of it and REFUSES
+      `bench/deltanet/topology.py` derives all of it and REFUSES
       each invariant rather than assuming it — one link per switch pair,
       injective neighbour-to-port, symmetry, ports exactly `1..degree+1`, no
       intra-switch forwarding, no U-turn — because every one is a property of
@@ -2365,8 +2380,8 @@ consensus between implementations in this tree, which is §0's first gap and onl
 
 ## 2.4 The topology, derived (D3's interface half)
 
-Derived by `bench/wl_deltanet/deltanet_topology.py`, rendered into
-[`fave/bench/wl_deltanet/TRACES.md`](fave/bench/wl_deltanet/TRACES.md) and
+Derived by `bench/deltanet/topology.py`, rendered into
+[`fave/bench/deltanet/TRACES.md`](fave/bench/deltanet/TRACES.md) and
 asserted by `fave/test/test_deltanet_census.py`. Identical from both traces.
 
 | | |
@@ -2446,7 +2461,7 @@ fails them.
 
 ### The inventory and the policy
 
-`bench/wl_deltanet/deltanet_policy.py` emits both from the traces on every run;
+`bench/deltanet/policy.py` emits both from the traces on every run;
 neither is hand-written, so both are gitignored and there is no tracked/derived
 pair to keep apart the way §1.9.6 needs for `wl_cloud`.
 
@@ -2922,7 +2937,7 @@ as `RESULT: integration FAILED` the first time anything ran the tier after the
 workload was added. **A measurement taken by hand is not a gate**, and this
 section asserted the second while only having done the first.
 
-**`test/gen_wl_deltanet_inputs.sh`** is new, because wl_deltanet's whole
+**`test/gen_deltanet_inputs.sh`** is new, because wl_deltanet's whole
 directory is derived from the two vendored traces and a clean checkout has none
 of it. It runs the benchmark's `_pre_preparation` plus the two policy steps and
 stops before anything that needs a live engine, so the deterministic integration

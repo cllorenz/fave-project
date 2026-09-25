@@ -185,6 +185,22 @@ class GenericBenchmark(object):
             k : "%s/%s" % (prefix, v) for k, v in list(files.items())
         }
 
+        # A workload without its own np.conf gets `bench/np.conf` (D6). The
+        # log4j config is not workload data -- it says where NetPlumber writes
+        # its logs -- and copying it per workload is how `bench/` came to hold
+        # TWELVE copies with FIVE distinct contents, six of them raising
+        # NetPlumber to DEBUG where the rest leave it at INFO. That is a
+        # measurement-affecting difference (on a small /dev/shm the logs are not
+        # free) that nobody chose; it is sediment from `cp -r`.
+        #
+        # An override still works and still wins, so the existing copies are
+        # untouched and a workload that genuinely needs different logging keeps
+        # saying so. The difference is that saying so now requires a FILE TO
+        # EXIST, which is a choice a reader can see, where twelve
+        # identical-looking copies are not.
+        if not os.path.isfile(self.files['np_config']):
+            self.files['np_config'] = 'bench/np.conf'
+
         if extra_files:
             self.files.update(extra_files)
 

@@ -29,7 +29,7 @@ result rather than as a failure.
 
 These are pure logic and need no JVM: the contract is a property of the
 captured model, so it is asserted where it can be asserted cheaply. The
-end-to-end evidence is separate -- wl_deltanet refuses, wl_stanford/wl_i2/
+end-to-end evidence is separate -- wl_airtel1 refuses, wl_stanford/wl_i2/
 wl_ifi/wl_cloud stay green -- and lives in the integration tier and §2.7.
 """
 

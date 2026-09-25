@@ -103,7 +103,7 @@ from bench.wl_cloud.cloud_tf import FAVE_MAPPING, classify_nodes, parse_tf
 
 # Re-exported, not merely imported: `test_cloud_result_stamp.py` and this
 # module's own callers look for both names here, and the guard itself moved to
-# util/ only because wl_deltanet needs it too.
+# util/ only because the Delta-net traces need it too.
 # pylint: disable=unused-import
 from util.raw_data import RawDataError, verify_raw  # noqa: F401
 # pylint: enable=unused-import
@@ -111,7 +111,7 @@ from util.raw_data import RawDataError, verify_raw  # noqa: F401
 
 _PREFIX = 'bench/wl_cloud'
 
-# CLOUD_BENCH_PLAN.md §1.8's raw-data guard now guards wl_deltanet's
+# CLOUD_BENCH_PLAN.md §1.8's raw-data guard now guards the Delta-net
 # vendored traces too, so it lives in `util/raw_data.py`. Re-exported
 # here because this module is where its callers already look for it.
 
