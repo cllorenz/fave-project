@@ -2099,8 +2099,8 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       random.csv`) went with the archive, so the churn axis needs Claas to
       re-supply it. Worth settling before D4 is costed, because it changes
       whether D5 is a benchmark or a sentence.
-- [ ] **D6 — the three-tier layout, and `wl_deltanet` becomes `wl_airtel1`**
-      (filed 2026-09-25, owner direction the same day). A second trace cannot be
+- [x] **D6 — DONE 2026-09-25. The three-tier layout, and `wl_deltanet` became
+      `wl_airtel1`** (filed and landed the same day, owner direction). A second trace cannot be
       built in place. `_PREFIX` is one directory, so generating airtel2
       overwrites airtel1's model and leaves no record of which trace is in
       there — and between that moment and the next `./test.sh integration`,
@@ -2200,6 +2200,45 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       RECORD, so it is not: §2.6 saying `wl_deltanet` is a true statement about
       a measurement of a directory that had that name. §2 gets one dated line
       saying the directory was renamed and that earlier prose names the old path.
+
+      **WHAT LANDED, in three commits, and where it departed from the above.**
+
+      * **A1** `3e41514c` — the five modules and the vendored traces to
+        `bench/deltanet/`, the `deltanet_` prefix dropped with the move. A
+        relocation: `fast` 919 = 919, integration unchanged, 10 of 12 model
+        files byte-identical.
+      * **A2** `7e64499c` — `wl_airtel1`, a fifteen-line driver, and
+        `bench/deltanet/registry.py`. Same counts again, and **all 12 model
+        files byte-identical to A1**. Verified end to end on NetPlumber as well:
+        256 checks, 0 violations, `report.md` written,
+        `completed task check_compliance` in the log.
+      * **A3** `45965459` — `SOURCE.json`. Integration goes 151 → **162**, which
+        is the 11 new tests and nothing else; unlike A1 and A2 this ADDS
+        behaviour, so the count is expected to move and moves by exactly what
+        was added.
+
+      Four departures, each for a reason worth keeping:
+
+      1. **The `np.conf` fallback moved from A3 into A2**, because A2 was the
+         commit that would otherwise have created copies 13 and 14.
+      2. **`input_stamp.py` landed in D6, not D7.** It was filed as D7's
+         machinery, but recording WHICH TRACE produced a directory is this
+         item's entire motivation — per-trace directories answer that by
+         convention, and a stamp answers it in a way that survives someone
+         generating into the wrong one. Landing it here also gave it a consumer
+         and a test immediately, instead of a module waiting for its first user.
+      3. **A4 and A5 were not separate steps**; a reference that is not updated
+         in the same commit as the thing it names is a broken reference in the
+         interval.
+      4. **The "exactly one line" claim above was wrong** and is corrected in
+         place — 7 lines, all path strings. Recorded rather than quietly fixed,
+         because the reason it was wrong is the generalisable part: it was
+         written from one `w(...)` call without grepping for the rest.
+
+      **Both halves of the new gate were mutation-checked** rather than asserted:
+      a stamp naming the wrong trace, and a generated input edited after
+      stamping, each fail it, and the restored tree is green. A gate landed with
+      the thing it gates is a gate nothing has tried to break.
 - [ ] **D7 — `wl_airtel2` on NetPlumber, NDD-APKeep and ad6**, in that order
       (owner direction 2026-09-25: highest confidence first, then the fastest,
       then the slowest). **BDD-APKeep is untouched** — parallel work. Driven
