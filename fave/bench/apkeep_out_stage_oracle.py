@@ -102,6 +102,13 @@ _FIELDS = {
     'dst':   'packet.ipv4.destination',
     'sport': 'packet.upper.sport',
     'dport': 'packet.upper.dport',
+    # item 28 step 4. Both engines read these slots through one parser now, so
+    # the adapter can force them -- but `_query_conditions` still refuses a
+    # condition on a field THIS MODEL REWRITES, and faithful wl_stanford rewrites
+    # `vlan` in its mid stage. So `--cond vlan:N` on wl_stanford is expected to
+    # RAISE, not to answer: the refusal is the correct outcome, not a gap.
+    'vlan':  'packet.ether.vlan',
+    'flags': 'packet.upper.tcp.flags',
 }
 
 

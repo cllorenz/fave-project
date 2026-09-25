@@ -59,6 +59,7 @@ _DPORT = 'packet.upper.dport'
 _SPORT = 'packet.upper.sport'
 _RELATED = 'related'
 _VLAN = 'packet.ether.vlan'
+_FLAGS = 'packet.upper.tcp.flags'
 
 
 def _logger():
@@ -499,12 +500,51 @@ class TestACheckConditionIsForcedOrRefused(unittest.TestCase):
             adapter._query_conditions([RuleField(_DST, '10.0.4.1/32')], 's', 'p')
         self.assertIn('REWRITES', str(caught.exception))
 
-    def test_a_field_neither_engine_carries_is_refused(self):
+    def test_a_field_THE_ADAPTER_DOES_NOT_FORCE_is_refused(self):
+        """ The refusal is about `_COND_SLOTS` -- which slot the adapter can put
+        a condition into -- NOT about engine capability.
+
+        This test used to name `packet.ether.vlan` and claim "a field neither
+        engine carries", which was wrong twice over: the BDD engine has carried
+        a VLAN condition since P9a, and item 28 step 4 added VLAN and tcp_flags
+        to `_COND_SLOTS` once step 1 made both engines read every slot through
+        one parser. An ethernet source address is the real case -- no slot, no
+        field, refused. """
         adapter = _adapter(_fib())
         with self.assertRaises(ValueError) as caught:
             adapter._query_conditions(
-                [RuleField('packet.ether.vlan', 7)], 's', 'p')
-        self.assertIn('packet.ether.vlan', str(caught.exception))
+                [RuleField('packet.ether.source', '00:11:22:33:44:55')], 's', 'p')
+        self.assertIn('packet.ether.source', str(caught.exception))
+
+    def test_a_VLAN_condition_is_now_HONOURED(self):
+        """ The step-4 capability: "is X reachable from Y on VLAN 78" was
+        refused, and is now expressible. """
+        adapter = _adapter(_fib())
+        _related, conditions = adapter._query_conditions(
+            [RuleField(_VLAN, 78)], 's', 'p')
+        self.assertEqual(len(conditions), 1)
+        self.assertEqual(conditions[0][0].split()[17], '78')
+
+    def test_a_TCP_FLAGS_condition_is_now_HONOURED(self):
+        adapter = _adapter(_fib())
+        _related, conditions = adapter._query_conditions(
+            [RuleField(_FLAGS, '1xxxxxxx')], 's', 'p')
+        self.assertEqual(conditions[0][0].split()[19], '1xxxxxxx')
+
+    def test_a_VLAN_condition_on_a_model_that_REWRITES_vlan_is_refused(self):
+        """ The precondition that makes an arrival constraint equal to seeding
+        the source: nothing may rewrite the field. Faithful wl_stanford rewrites
+        `vlan` in its mid stage, so a VLAN-conditioned check there asks a
+        different question and is refused -- by machinery that already existed,
+        which is why widening `_COND_SLOTS` did not need a new guard. """
+        model = SimpleNamespace(node='mid', tables={'mid.1': [
+            _rule('mid', 1, [RuleField(_DST, '10.0.0.0/8')],
+                  [Rewrite([RuleField(_VLAN, 7)]), Forward(['mid.2'])]),
+        ]})
+        adapter = _adapter(model)
+        with self.assertRaises(ValueError) as caught:
+            adapter._query_conditions([RuleField(_VLAN, 78)], 's', 'p')
+        self.assertIn('REWRITES', str(caught.exception))
 
 
 if __name__ == '__main__':

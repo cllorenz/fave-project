@@ -131,6 +131,19 @@ _COND_SLOTS = {
     _DPORT: 'dport',
     _SRC: 'src', _SRC6: 'src',
     _DST: 'dst', _DST6: 'dst',
+    # Added by item 28 step 4, and only safe because of step 1: until then the
+    # NDD engine's condition path called bare `ruleToNDD`, which read neither
+    # slot, so a VLAN- or flags-conditioned check would have been answered
+    # UNCONDITIONED on one engine and honoured on the other. Now both read every
+    # slot through one parser.
+    #
+    # `_rewritten_fields` still guards the real precondition: a condition is
+    # forced on the traffic ARRIVING at the probe, which equals seeding the
+    # source only while nothing REWRITES the field. Faithful wl_stanford rewrites
+    # `vlan` in its mid stage, so a VLAN-conditioned check there is refused --
+    # correctly, and by machinery that already existed.
+    _VLAN: 'vlan',
+    _FLAGS: 'flags',
 }
 
 # --- what a dst-LPM ForwardElement can and cannot say ------------------------
@@ -2807,13 +2820,14 @@ class APKeepAdapter(AbstractVerificationEngine):
             slot = _COND_SLOTS[name]
             args: Dict[str, Any] = {
                 'proto': None, 'src': None, 'dst': None,
-                'sport': None, 'dport': None,
+                'sport': None, 'dport': None, 'vlan': None, 'flags': None,
             }
             args[slot] = _cond_field(field, "value")
             conditions.append((
                 _filter_rule_string(
                     'cond', 'cond', args['proto'], args['src'], args['dst'],
-                    args['sport'], args['dport'], None, 0),
+                    args['sport'], args['dport'], None, 0,
+                    vlan=args['vlan'], flags=args['flags']),
                 bool(_cond_field(field, "negated"))))
         return related, conditions
 
