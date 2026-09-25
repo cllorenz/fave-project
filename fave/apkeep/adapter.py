@@ -647,7 +647,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._out_stage_elems: List[str] = []
         self._out_stage_rules: List[str] = []
         self._out_stage_widened: List[str] = []
-        self._out_stage_dead_rewrites: List[str] = []
+        self._out_stage_shadowed: List[str] = []
+        self._out_stage_rw_ports: List[str] = []
         self._fm_dead_rewrites: List[str] = []
         self._out_stage_surviving: List[str] = []
         # Surface the aggregator's dispatch (aggregator_service._sync_diff)
@@ -1797,7 +1798,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                 if len(r.split()) > 2 and r.split()[2] in set(
                     self._out_stage_surviving)),
             "out_stage_rules_widened": len(self._out_stage_widened),
-            "out_stage_dead_rewrites": len(self._out_stage_dead_rewrites),
+            "out_stage_shadowed_rules": len(self._out_stage_shadowed),
+            "out_stage_rewrite_ports": len(self._out_stage_rw_ports),
             "first_match_dead_rewrites": len(self._fm_dead_rewrites),
         }
 
@@ -2338,7 +2340,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         out_elems: List[str] = []
         out_rules: List[str] = []
         widened: List[str] = []
-        dead_rewrites: List[str] = []
+        shadowed_rules: List[str] = []
+        out_nats: Dict[str, set] = {}
+        out_nat_rules: List[str] = []
         for seq, (out_dev, perm) in enumerate(sorted(self._out_perm.items())):
             for in_port in sorted(perm):
                 mid = mid_to_out.get((out_dev, in_port))
@@ -2360,38 +2364,12 @@ class APKeepAdapter(AbstractVerificationEngine):
                 out_elems.append(elem)
                 kept.append("%s %s %s in" % (m_dev, m_port, elem))
                 egress: Set[str] = set()
+                # (egress, rewrite) -> the dedicated port that rewrite leaves by.
+                rw_port: Dict[Tuple[str, Any], str] = {}
                 for pos, row in enumerate(rows):
                     match = row['match']
-                    # A REWRITE on a first-match table is expressible only when
-                    # the rule can actually fire. A NATElement is keyed on
-                    # (device, port) and applies to whatever leaves that port --
-                    # it has no notion of which filter rule won the race, so a
-                    # shadowed rule's rewrite would be applied to the winner's
-                    # traffic. Measured on both engines: a match-all forward at
-                    # higher priority plus a NAT keyed on the shadowed rule's
-                    # match rewrites everything leaving the port.
-                    #
-                    # wl_stanford's out stage is every case of this: all 45
-                    # `rw=vlan:0` resets sit behind their port's match-all AND
-                    # share its single egress, so emitting them would apply a
-                    # reset the reference model never performs (TODO item 27).
-                    # Dropping them is therefore EXACT, and saying so is the
-                    # difference between this and step 3, which dropped them
-                    # without checking.
-                    if row['rw']:
-                        shadow = _shadowed(rows, pos)
-                        if shadow is None:
-                            raise UntranslatedSemantics(
-                                "%s rule %s rewrites %s on a reachable "
-                                "out-stage rule. The only primitive for it is a "
-                                "NATElement keyed on (device, port), which "
-                                "applies to everything leaving that port rather "
-                                "than to what this rule matched -- so emitting "
-                                "it would rewrite traffic other rules forward. "
-                                "Refused rather than approximated."
-                                % (out_dev, row['idx'], sorted(row['rw'])))
-                        dead_rewrites.append("%s rule %s (shadowed by %s)" % (
-                            out_dev, row['idx'], shadow['idx']))
+                    if _shadowed(rows, pos) is not None:
+                        shadowed_rules.append("%s rule %s" % (out_dev, row['idx']))
                     # Anything no element carries is DECLARED, never dropped in
                     # silence. `tcp_flags` used to be the whole of this list and
                     # is now expressible (step 4), so on wl_stanford it is empty
@@ -2400,11 +2378,62 @@ class APKeepAdapter(AbstractVerificationEngine):
                     if unsupported:
                         widened.append("%s rule %s (%s)" % (
                             out_dev, row['idx'], ','.join(sorted(unsupported))))
+                    # A REWRITE gets its OWN egress port (owner, 2026-09-25).
+                    #
+                    # A NATElement is keyed on (device, port) and rewrites
+                    # whatever leaves that port; it has no priority and no link
+                    # to a rule, so it cannot ask whether the rule it came from
+                    # won the first-match race. Hanging it on the rule's REAL
+                    # egress therefore rewrites traffic other rules forwarded --
+                    # measured on both engines, and live here because all 45
+                    # out-stage resets share their port's single egress with the
+                    # match-all that shadows them.
+                    #
+                    # Giving the rewriting rule a dedicated port fixes that by
+                    # construction: the race is decided at the FilterElement, so
+                    # only traffic that won VIA THIS RULE ever leaves by this
+                    # port, and a NAT there is keyed on exactly the right set.
+                    # A shadowed rule then contributes an element nothing reaches
+                    # -- inert without needing to be detected, and still counted,
+                    # which is what sec. 7 asks for. The port carries the match,
+                    # which is also why the dst-prefix form of `+ nat ... vlan`
+                    # suffices: "everything leaving this port" IS the rule's
+                    # traffic, so no richer NAT grammar is needed.
+                    #
+                    # This is the house pattern -- `_build_pf_pipeline`'s per-port
+                    # `<elem>.inP` prefilters, `_splice_acls`, `_demux_ingress`:
+                    # express with topology what one element cannot hold.
+                    unsupported_rw = set(row['rw']) - {_VLAN}
+                    if unsupported_rw:
+                        raise UntranslatedSemantics(
+                            "%s rule %s rewrites %s, which the out stage has no "
+                            "primitive for. Emitting the rule without it would "
+                            "leave the header unchanged and the answer wrong in "
+                            "whichever direction the rewrite mattered."
+                            % (out_dev, row['idx'], sorted(unsupported_rw)))
                     for port in (row['ports'] or [_FILTER_DROP]):
-                        if port != _FILTER_DROP:
+                        out_tok = port
+                        if row['rw'] and port != _FILTER_DROP:
+                            key = (port, str(row['rw'][_VLAN]))
+                            out_tok = rw_port.get(key)
+                            if out_tok is None:
+                                # Grouped by (egress, rewritten value): two rules
+                                # writing the same VLAN out the same port can
+                                # share one port and one NAT.
+                                out_tok = "%sr%d" % (port, len(rw_port))
+                                rw_port[key] = out_tok
+                                out_nats.setdefault(elem, set()).add(out_tok)
+                                out_nat_rules.append(
+                                    "+ nat %s %s vlan 0.0.0.0 0 %s"
+                                    % (elem, out_tok, key[1]))
+                                for d_dev, d_port in out_ext.get(
+                                        (out_dev, port), []):
+                                    kept.append("%s %s %s %s"
+                                                % (elem, out_tok, d_dev, d_port))
+                        elif port != _FILTER_DROP:
                             egress.add(port)
                         out_rules.append(_filter_rule_string(
-                            elem, port,
+                            elem, out_tok,
                             match.get(_PROTO),
                             match.get(_SRC, match.get(_SRC6)),
                             match.get(_DST, match.get(_DST6)),
@@ -2420,14 +2449,18 @@ class APKeepAdapter(AbstractVerificationEngine):
                 "express and are emitted WITHOUT it (an over-approximation, "
                 "declared): %s%s", len(widened), '; '.join(widened[:3]),
                 ' ...' if len(widened) > 3 else '')
-        if dead_rewrites:
+        if shadowed_rules:
+            # REPORTED, not acted on. Nothing in the translation depends on this
+            # now that a rewrite gets its own port -- a shadowed rule is inert by
+            # construction. It is reported because "this benchmark's out-stage
+            # ACL is entirely dead" is a benchmark result, and no FaVe backend
+            # currently says so (OUT_STAGE_PLAN.md sec. 7.4).
             self.logger.info(
-                "apkeep: %d out-stage rewrite(s) dropped as PROVABLY DEAD -- the "
-                "rule is shadowed by a higher-priority one, so the rewrite can "
-                "never apply: %s%s", len(dead_rewrites),
-                '; '.join(dead_rewrites[:3]),
-                ' ...' if len(dead_rewrites) > 3 else '')
-        self._out_stage_dead_rewrites = list(dead_rewrites)
+                "apkeep: %d out-stage rule(s) can never fire -- shadowed by a "
+                "higher-priority rule on the same arrival port",
+                len(shadowed_rules))
+        self._out_stage_shadowed = list(shadowed_rules)
+        self._out_stage_rw_ports = list(out_nat_rules)
         self._out_stage_widened = list(widened)
         self._out_stage_elems = list(out_elems)
         self._out_stage_rules = list(out_rules)
@@ -2453,8 +2486,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         for (out_dev, _in_port), (m_dev, _m_port) in mid_to_out.items():
             out_of_mid.setdefault(m_dev, set()).add(out_dev)
 
-        device_nats: Dict[str, set] = {}
-        nat_rules: List[str] = []
+        device_nats: Dict[str, set] = dict(out_nats)
+        nat_rules: List[str] = list(out_nat_rules)
         for mid_dev, rws in self._mid_rw.items():
             partners = out_of_mid.get(mid_dev, set())
             if len(partners) > 1:

@@ -404,11 +404,20 @@ out_stage_elements          681      (one per arrival port)
 out_stage_elements_elided   613      -> single accept-all pass-throughs
 out_stage_elements_kept      68
 out_stage_rules           2,731      rule instances emitted
-out_stage_rules_to_engine 2,118
-out_stage_rules_widened      24      declared (tcp_flags)
-rules_to_engine           9,446      was 7,328
-NDD build                 1.22 s     was 0.60 s   (median of 3, each)
+out_stage_rules_to_engine 2,163      (2,118 filter rules + 45 rewrite NATs)
+out_stage_rewrite_ports      45      sec. 4.5
+out_stage_shadowed_rules  2,050      reported, not acted on
+out_stage_rules_widened       0      (was 24 before step 4)
+rules_to_engine           9,491      was 7,328
+NDD build                 0.78 s     was 0.36 s   (median of 5, back to back)
 ```
+
+**The build times are corrected (2026-09-25).** Steps 3 and 4 reported 1.22 s
+against 0.60 s, measured while other jobs were running; re-measured back to back
+on a quiet machine the pair is 0.78 s against 0.36 s. The **ratio** this step
+claimed -- about 2x -- survives; the absolutes were inflated by roughly 1.6x and
+should not be quoted. Any future cost figure here needs the same back-to-back
+treatment, for the reason sec. 4.5's own re-measurement makes concrete.
 
 Reachability unchanged: **165/165 vs NetPlumber, EXTRA=0, MISSING=0**, exactly as
 sec. 3 predicted — the emitted ACL is correctly *dead*, because the match-all
@@ -495,8 +504,9 @@ free. Encoding it as an exact value would match 1 of the 128 headers it should
 match -- an under-approximation, the direction that loses traffic. Both engines
 take an MSB-first pattern where `1`/`0` fix a bit and `x` leaves it free.
 
-**Cost: none measurable.** NDD build 1.16 s median of 5, against 1.22 s for step
-3 without the field; `rules_to_engine` unchanged at 9,446. Reachability unchanged
+**Cost: none measurable** (and see sec. 4.3 on why the absolute figures first
+reported here were too high -- the comparison was against an equally inflated
+baseline, so "no measurable cost" stands). Reachability unchanged
 at 165/165 -- expected, since these 24 rules are among the 2,002 the out stage
 shadows.
 
@@ -510,55 +520,79 @@ drops. Recorded in `test_apkeep_tcp_flags.py`, because the previous two defects
 of this class (item 23 step 0, sec. 4.2) were both caught BY the differential and
 it would be easy to conclude that it is the assertion that always matters.
 
-### 4.5 Step 5 — the rewrite residue — **DONE**, and the sketched fix was wrong
+### 4.5 Step 5 — a rewrite gets its own egress port — **DONE** (owner, 2026-09-25)
 
-The sketch said: "wire the existing `+ nat <dev> <port> vlan ...` into
-`_build_first_match_tables`". **That would have been a defect.** Two measurements
-say why.
+**The sketch, and then my first implementation of it, were both wrong.** The
+sketch said "wire `+ nat <dev> <port> vlan ...` into `_build_first_match_tables`".
+I replaced that with a shadowing analysis that DROPPED a provably dead rewrite and
+REFUSED a reachable one. The owner's construction is better than either.
 
-**(a) A NATElement cannot be subject to the first-match race.** It is keyed on
-(device, port) and applies to whatever leaves that port; nothing tells it which
-filter rule chose the port. Measured on BOTH engines, with a match-all forward at
-higher priority and a NAT keyed on a shadowed rule's match:
+**The problem.** A `NATElement` is keyed on **(device, port)** and rewrites
+whatever leaves that port. It has no priority and no link to a rule, so it cannot
+ask whether the rule it came from won the first-match race. Hanging it on the
+rule's real egress therefore rewrites traffic *other* rules forwarded. Live here,
+on `out.bbra_rtr.130013`:
 
 ```
-arrival vlan (0, 864):  NDD=(True, False)  BDD=(True, False)
-                        -- everything leaving the port was rewritten to 0,
-                           although the match-all is what forwarded it
+idx=36  (match-all)  -> fd 120013            <- always wins
+idx=49  vlan=864     -> rw vlan:0, fd 120013 <- same egress, never fires
 ```
 
-**(b) Every rewrite the out stage carries is on a SHADOWED rule.** All 45
-`rw=vlan:0` resets sit behind their port's match-all *and* share its single
-egress. So emitting them as NATs would apply a reset the reference model never
-performs -- introducing TODO item 27's defect rather than fixing it. The correct
-emission is none at all.
+```
+                                    can a vlan-864 packet still arrive?
+                                        NDD      BDD
+rules only                              True     True    <- reference
+rules + idx49's rewrite on 120013       False    False   <- wrong
+rules + idx49's rewrite on 120013r0     True     True    <- the split
+```
 
-**What was built instead:** `_shadowed(rows, i)` -- a conservative, sound
-subsumption test over one first-match list -- and both rewrite sites now use it:
+**The construction.** The rewriting rule forwards to a **dedicated port**, the
+NAT sits there, and that port is wired to the same neighbour as the real egress.
+The race is decided at the FilterElement, so only traffic that won *via this rule*
+ever leaves by this port -- the NAT is then keyed on exactly the right set, by
+construction and without any analysis.
 
-- **the out stage**: a shadowed rule's rewrite is DROPPED and counted
-  (`out_stage_dead_rewrites`); a rewrite on a rule that can actually fire is
-  **refused**, because the NAT would rewrite traffic other rules forward.
-  wl_stanford: 45 dropped, 0 refused.
-- **`_build_first_match_tables`**: a shadowed rule contributes no NAT.
-  wl_cloud: **3** (`gw.internet` idx 14/16/19, each an exact-duplicate match of
-  an earlier rule that rewrites elsewhere). They were inert before only because
-  the shadowed rule's egress differs from the winner's -- an accident of the
-  data, not a property of the translation.
+Three consequences worth stating:
 
-This is what step 3 should have done. Step 3 dropped the out-stage rewrites by
-never reading `row['rw']` at all: correct in effect, unjustified in code, and a
-silent drop of the kind this file's contract forbids. It is now a *proved* drop.
+- **A shadowed rule needs no detection.** Nothing reaches its port, so its NAT is
+  inert -- and the rule is still emitted and still charged, which is what sec. 7
+  asks for and what my drop violated.
+- **The reachable case is carried, not refused.** That is a capability my version
+  did not have.
+- **No richer NAT grammar is needed.** The dedicated port supplies the match, so
+  `+ nat ... vlan`'s dst-prefix (`0.0.0.0/0` = "everything leaving this port") is
+  exactly the rule's traffic. Sec. 4.5's earlier claim that this form is too weak
+  was true only while the port was shared.
 
-`_shadowed` carries the sec. 3.3.1 warning in its docstring: it is only
-meaningful for a FIRST-MATCH table. Applied to wl_stanford's LPM `mid` stage it
-calls 3,356 of 3,372 rewrites subsumed and none of them is shadowed.
+This is the house pattern: `_build_pf_pipeline`'s per-port `<elem>.inP`
+prefilters, `_splice_acls`, `_demux_ingress` -- express with topology what one
+element cannot hold.
 
-**Item 25's checkbox is answered, not implemented:** no workload has a VLAN
-rewrite on a first-match table (wl_ifi's 10 are on a dst-LPM FIB, which the
-ForwardElement path already carries), and the `+ nat ... vlan` form matches a dst
-prefix only -- so wiring it in would key the rewrite on less than the rule
-matched. The refusal stays.
+**Grouping** is keyed on (egress, rewritten value), which is the only sound key
+since the dedicated port must reach the same destination. Sound, and it collapses
+nothing here: **45 rules -> 45 ports** on wl_stanford, because each reset has its
+own egress. Kept for the mechanism, not for a footprint win.
+
+**`_shadowed` survives as REPORTING only.** `out_stage_shadowed_rules` = **2,050**
+on wl_stanford -- the whole dead out-stage ACL, now visible in a run rather than
+reconstructed out of band (sec. 7.4's by-product). Nothing in the translation
+depends on it.
+
+**`_build_first_match_tables` is NOT split, and that is measured, not assumed.**
+Its NAT is keyed on the rule's **whole 5-tuple body**, not a dst prefix, so a
+shared egress is already discriminated by the match. The residual hazard is an
+*earlier* rule that forwards to the same port and overlaps a live rewriting rule
+without subsuming it; measured across wl_cloud and wl_ifi, that is **0**. The
+`_shadowed` guard stays there for the subsumption case (wl_cloud: 3, `gw.internet`
+idx 14/16/19).
+
+**One hazard this construction creates, and the guard for it.**
+`_elide_passthrough_filters` knows nothing about NATs, and `device_nats` is built
+before elision and passed to `init_in_memory` after it. An element whose only rule
+is an accept-all rewrite would be elided and its NAT orphaned. Not reachable today
+-- wl_cloud's NAT-carrying devices have many rules, and the mid-stage NATs sit on
+ForwardElements, which elision never touches -- but it is one rule shape away, and
+it is recorded here rather than left to be discovered.
 
 ---
 
@@ -569,9 +603,9 @@ matched. The refusal stays.
 | 0 | a header-level oracle that **fails** on the pre-fix tree | **DONE — negative result, sec. 3** |
 | 1 | fast + integration; qualified-device set unchanged on 4 workloads | ready |
 | 2 | fast + integration; no non-exempt table gains a VLAN match | **DONE** |
-| 3 | reachability unchanged (guard) **+ a reported cost delta** — sec. 7.3 | **DONE** — 165/165; 7,328 → 9,446 rules, 0.60 s → 1.22 s |
+| 3 | reachability unchanged (guard) **+ a reported cost delta** — sec. 7.3 | **DONE** — 165/165; 7,328 → 9,491 rules, 0.36 s → 0.78 s |
 | 4 | both engines carry the field, and agree | **DONE** — widened count 2,731 → 0 |
-| 5 | fast + integration | **DONE** — 45 + 3 dead rewrites proved, not guessed |
+| 5 | fast + integration | **DONE** — 45 rewrites carried on dedicated ports |
 
 **Step 3 has no CORRECTNESS gate, and that is the finding rather than an
 omission.** The original entry read "the step-0 differential passes; 165/165
