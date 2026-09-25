@@ -702,35 +702,113 @@ the address fails 1. Dropping the check conditions is not a unit-test matter and
 was measured instead — the oracle phase falls to **4/6** and the public policy
 reports **817 violations instead of 3**.
 
-#### Still open: the BDD engine was not observed to finish this model
+#### MEASURED 2026-09-25: the BDD engine does not stall on this model, it CRASHES
 
-The default APKeep engine is NDD, and every number above is its. APKeep's own
-BDD engine (`--apkeep-engine bdd`) was run on the corrected model and **was
-stopped, not finished, after ~40 minutes**, where it took seconds on the lossy
-one.
+The default APKeep engine is NDD, and every number above is its. This section
+used to say the BDD engine "did not complete the build within 40 minutes", then
+(earlier the same day) that the claim was unrecorded and no bound could be
+derived from it. Both are now superseded by a measurement: run under the
+`APKEEP_NDD_EVAL.md` §2.6b protocol with a **declared 4 h deadline**
+(`bench/cloud_bdd_measure.py`), the build **fails with an exception at ~11
+minutes**. It never approaches the deadline, and it was never going to finish.
 
-**Downgraded 2026-09-25 — this is an unrecorded observation, not a
-measurement.** The stopping rule was never written down and **no artifact of the
-run survives**: no profiler trace, no `ap_num` trajectory, no result file, no
-recorded heap. Nothing here distinguishes the three possibilities that matter —
-the AP-partition wall, a different superlinearity, or a run that would have
-finished at 45 minutes. `APKEEP_NDD_EVAL.md` §2.6b makes the same point about
-its own faithful runs, and those at least have committed traces from which a
-completion lower bound can be derived; this one has none, so no bound can be
-stated. The mechanism below is a **hypothesis consistent with the observation**,
-not something this run established:
+**Reproduced exactly.** Two runs, byte-identical inputs and jar (sha256s recorded
+in each result):
 
-> 46 `FilterElement`s carrying a few hundred 5-tuple rules each split the AP
-> partition, and `APKeeper.updateSplitAP` touches every element per split — the
-> wall `APKEEP_BACKEND.md`'s "Performance analysis: BDDs vs APs" describes and
-> P7b hit on wl_stanford.
+| | run 1 | run 2 |
+|---|---:|---:|
+| status | `error` | `error` |
+| fatal | `APNotFoundException: AP 300498 not exist` | **same AP id** |
+| rules applied | 1 226 / 1 773 (69.2 %) | **1 226** |
+| `ap_num` | 53 978 | **53 978** |
+| `split_count` | 54 053 | **54 053** |
+| BDD table | 130.2 MiB | **130.2 MiB** |
+| wall | 672.9 s | 607.9 s |
 
-**It is a cost observation, not a correctness one** — no verdict was produced,
-so none is reported. **What would make it citable** is one run under the §2.6b
-protocol: `APKEEP_BUILD_PROFILE`/`_MS` on, a *declared* deadline rather than an
-operator kill, the trace committed under `bench/wl_cloud/eval/`, and the
-completion bound computed from the tail rule-rate. Until that exists, this
-paragraph must not be cited as evidence that BDD cannot build wl_cloud.
+Every structural quantity is identical; only wall time moves (~10 %, the usual
+JVM variance, and `ppm_ms` tracks it). This is a deterministic defect, not a
+flaky one.
+
+**The failure sequence, from the committed stderr.** The first thing to go wrong
+is inside the vendored BDD library, during an address-rewrite quantification:
+
+```
+java.lang.ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 687
+    at jdd.bdd.BDD.quant_rec(BDD.java:749)
+    at jdd.bdd.BDD.exists(BDD.java:715)
+    at common.BDDACLWrapper.nat(BDDACLWrapper.java:247)
+    at apkeep.elements.NATElement.updateAPSplit(NATElement.java:277)
+    at apkeep.core.APKeeper.updateSplitAP(APKeeper.java:226)
+```
+
+687 is the BDD variable count, and the indexing expression is `varset_vec[var]`
+with `var = getVar(bdd)` (`jdd/bdd/BDD.java`, `quant_rec`). **`getVar` returned
+-1**, i.e. the node handle being quantified was not a live node.
+
+Then **36 `APNotFoundException`s** from `Element.updateAPSplit`, all reached
+through `NATElement.updateRewriteTable`, before one finally escapes and ends the
+run. The build ran for roughly two more minutes in between.
+
+**Why it keeps going after the first failure — and why that is the serious
+part.** `NATElement.updateRewriteTableIfPresent` (`NATElement.java:354`) wraps
+its retry loop in an **upstream** `// TODO Auto-generated catch block` that
+swallows every exception and prints it; `updated` keeps its previous `true`, so
+the loop retries against the damaged state and prints again.
+
+The damage is not recoverable, because **`APKeeper.updateSplitAP` is not
+transactional**: it removes `origin` from the global `AP` set and adds
+`parta`/`partb` first, then iterates every element applying the same split. An
+exception part-way through leaves some elements split and the rest not, with the
+global set already updated.
+
+**So this is a soundness hazard and not only a cost result.** Nothing on that
+path stops a build from continuing past the corruption and answering
+reachability queries over an inconsistent atomic-predicate partition. These two
+runs happened to die first, by which exception escaped -- not by design. No
+APKeep-BDD answer on a model whose NAT elements participate in AP splits should
+be trusted until this is fixed.
+
+**Root cause -- located, not yet proven.** `updateSplitAP` calls
+`bddengine.ref(parta)` / `ref(partb)` **after** the element loop
+(`APKeeper.java:239-241`), so the very node handles `NATElement.updateAPSplit`
+hands to `nat()` inside that loop are still unreferenced. `nat()` allocates
+(`exists` then `and`), and a JDD node-table GC triggered by those allocations is
+free to collect an unreferenced node -- which is exactly the invalid handle
+`getVar` reports. That also explains the determinism (same allocation sequence,
+same GC point) and why it bites here: wl_cloud rewrites a 32-bit **address**,
+where faithful-stanford rewrites a 12-bit VLAN, so each `nat()` allocates far
+more nodes inside the split loop.
+
+**Both defects are upstream APKeep**, not the FaVe fork (`git log -L`: APKeeper
+`394fe3c7`, 2024-03-15; the catch block `aa9822d9`, 2024-03-18). What the fork
+contributed is the `srcIPField` source-NAT path that makes wl_cloud exercise
+them. A related consistency failure was already seen and partly addressed here --
+`NATElement.tryMergeIfNATElement` carries a P7b comment about *"stale-AP crashes
+that just moved when patched"* from eager merging.
+
+**The decisive experiment is two lines**: hoist `ref(parta)`/`ref(partb)` above
+the element loop and re-run. If the crash disappears, the cause is confirmed.
+Not done here -- it patches vendored APKeep and rebuilds the jar every other test
+uses, so it is an owner call (`APKEEP_BDD_BASELINE.md` §6: engine fixes are
+branch-scoped and do not backport).
+
+**What is NOT claimed.** That this is what the original "40 minutes" observation
+was. That run left no artifact, which is why it was downgraded in the first
+place; this crash is a candidate for it and nothing more. "The build is slow" and
+"the build corrupts its partition and throws" are different claims and only the
+second one is measured.
+
+**Artifacts** (`bench/wl_cloud/eval/`): `bdd_build_deadline4h.json` and
+`bdd_build_run2.json` with their `.profile.jsonl` growth curves, per-minute
+`.status.jsonl` histories and full `.stderr.log`. Reproduce:
+
+```
+FAVE_JVM_XMX=8g PYTHONPATH=. python3 bench/cloud_bdd_measure.py \
+    --engine bdd --deadline-s 14400 --out bench/wl_cloud/eval/<name>.json
+```
+
+For contrast, the same driver on the same model with `--engine ndd`: **1.9 s
+wall** (build 0.116 s, query 0.06 s), no errors.
 
 ---
 
@@ -2581,15 +2659,14 @@ residual is the per-query JVM object construction the cache also avoids.
 
 ### It is consistent with the one other place BDD was measured
 
-§1.7.3: on the corrected wl_cloud model the BDD engine **was stopped at ~40
-minutes without finishing**, where NDD takes seconds. Read that as the weak
-observation it is — §1.7.3 records that the run left no trace behind, so the
-suspected mechanism (the AP-partition wall of `APKEEP_BACKEND.md`'s "BDDs vs
-APs", where `updateSplitAP` touches every element per split) is a hypothesis
-rather than a finding. It points the same way as the caching gap above, and two
-plausibly independent mechanisms both penalising BDD is why the engine choice is
-worth writing down rather than leaving to the default — but only the caching gap
-is measured.
+§1.7.3, **and it turned out not to be a scaling result at all**: measured
+2026-09-25, the BDD engine does not stall on the corrected wl_cloud model, it
+**crashes deterministically at ~11 minutes** — an invalid BDD node handle inside
+a NAT rewrite, then 36 swallowed `APNotFoundException`s over a half-updated AP
+partition. That is a defect (and a soundness hazard), not a cost curve, so it
+does **not** corroborate the caching gap above; the two are unrelated. The
+engine-choice conclusion is unchanged and now rests on firmer ground: NDD answers
+this model in 1.9 s, BDD does not answer it at all.
 
 ### The forward-looking half
 

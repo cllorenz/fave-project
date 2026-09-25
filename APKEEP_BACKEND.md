@@ -734,19 +734,22 @@ third-party verdicts, 57 violated of 71), the matrix phase (1,315 of 4,224) and
 the public phase (3 of 4,199), with the violated SETS equal and not merely the
 totals.
 
-**Open, and a cost observation rather than a correctness result:** APKeep's own
-BDD engine was **stopped at ~40 minutes without finishing** the corrected
-model's build, where it took seconds on the lossy one. **The run left no
-artifact** — no profiler trace, no `ap_num` trajectory, no result file — and its
-stopping rule was never recorded, so no completion bound can be derived from it
-(contrast `APKEEP_NDD_EVAL.md` §2.6b, where committed traces do support one).
-The suspected mechanism is a hypothesis, not a finding: 46 `FilterElement`s
-carrying a few hundred 5-tuple rules each split the AP partition, and
-`APKeeper.updateSplitAP` touches every element per split — the wall "Performance
-analysis: BDDs vs APs" below describes and P7b hit on wl_stanford. No verdict was
-produced, so none is reported. See `CLOUD_BENCH_PLAN.md` §1.7.3 for what one
-§2.6b-protocol run would take to make this citable. The default engine is NDD and
-every number above is its.
+**Open, and a DEFECT rather than a cost result — measured 2026-09-25.** APKeep's
+own BDD engine does not merely fail to finish the corrected model: it **crashes
+deterministically at ~11 minutes**, reproduced twice with every structural
+quantity identical (rules 1 226/1 773, `ap_num` 53 978, `split_count` 54 053,
+fatal `APNotFoundException: AP 300498 not exist`). The first failure is an
+invalid BDD node handle inside `BDDACLWrapper.nat` — `getVar` returns -1 in
+JDD's `quant_rec` — reached from `NATElement.updateAPSplit` under
+`APKeeper.updateSplitAP`, which refs `parta`/`partb` only *after* the element
+loop that already consumed them. 36 `APNotFoundException`s then cascade over a
+half-updated partition, swallowed by an upstream `// TODO Auto-generated catch
+block`. **Both defects are upstream APKeep; the fork's contribution is the
+`srcIPField` source-NAT path that makes wl_cloud reach them.** Because the
+swallow lets a build continue past the corruption, this is a **soundness hazard**
+and not only a cost result. Full analysis, artifacts and the two-line decisive
+experiment: `CLOUD_BENCH_PLAN.md` §1.7.3. The default engine is NDD, every number
+above is its, and NDD builds and answers this model in 1.9 s.
 
 #### Three defects found in passing
 
