@@ -66,6 +66,7 @@ import logging
 import os
 
 from bench.generic_benchmark import GenericBenchmark
+from bench.input_stamp import sha256, verify, write
 from bench.deltanet.policy import (
     emit_inventory, emit_policy, homing_switches, role_endpoints)
 from bench.deltanet.preparation import build_model
@@ -127,6 +128,36 @@ class DeltanetBenchmark(GenericBenchmark):
         self._delete_artifacts()
         self._generate_policy_matrix()
         self._convert_policy_to_checks()
+        self.stamp()
+
+    def _generated(self):
+        """ Every file this workload derives, by label. `np_config` is excluded:
+        it is shared (`bench/np.conf`) and lives outside the prefix, so it is
+        not this directory's to record. """
+        return {label: path for label, path in self.files.items()
+                if label != 'np_config' and path.startswith(self.prefix + '/')}
+
+    def stamp(self):
+        """ Record what this directory now holds, and from what. """
+        return write(
+            self.prefix,
+            generator='bench.deltanet.workload',
+            files=self._generated(),
+            extra={
+                'trace': self.trace,
+                'trace_sha256': sha256(os.path.join(RAW, self.trace)),
+                'census': self.census,
+            })
+
+    def check_stamp(self):
+        """ The inputs are the ones the stamp recorded -- or say how they differ.
+
+        `run()` calls `_pre_preparation` itself, so driving one model through
+        three backends regenerates it three times. This is what makes "all three
+        got the same inputs" an observation rather than a belief about
+        determinism (CLOUD_BENCH_PLAN.md D7).
+        """
+        return verify(self.prefix, self._generated())
 
 
 def build(name, logger=None):
@@ -145,3 +176,19 @@ def build(name, logger=None):
         logger=logger if logger else logging.getLogger(name),
         use_internet=False,
         strict=True)
+
+
+def generate_inputs(name, logger=None):
+    """ The model, the FPL, the checks and the stamp -- everything short of an
+    engine. `run()` reaches the same steps through `_preparation`; this is the
+    entry point for the integration tier, which needs them without a backend.
+
+    `_preparation` is deliberately NOT called here: it would also delete
+    /dev/shm state that a concurrent run may own.
+    """
+    run = build(name, logger=logger)
+    run._pre_preparation()
+    run._generate_policy_matrix()
+    run._convert_policy_to_checks()
+    run.stamp()
+    return run

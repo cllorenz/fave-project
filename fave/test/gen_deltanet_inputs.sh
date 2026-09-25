@@ -29,7 +29,7 @@ import logging
 import sys
 
 from bench.deltanet.registry import WORKLOADS
-from bench.deltanet.workload import build
+from bench.deltanet.workload import generate_inputs
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,15 +40,10 @@ for name in names:
             "%s is not a registered Delta-net workload -- have: %s"
             % (name, ', '.join(sorted(WORKLOADS))))
 
-    run = build(name, logger=logging.getLogger('gen_%s' % name))
-    # The model, the FPL inventory and the FPL policy, all from the vendored
-    # traces.
-    run._pre_preparation()
-    # reachability.csv (PolicyTranslator) -> checks/cchecks/reachable.json.
-    # Neither step needs an engine; `_preparation` itself would also delete
-    # /dev/shm state a concurrent run may own, so the two steps are called
-    # directly.
-    run._generate_policy_matrix()
-    run._convert_policy_to_checks()
-    print("generated bench/%s/" % name)
+    # What "generate the inputs" MEANS is defined once, in
+    # `bench.deltanet.workload`, because `run()` reaches the same steps by a
+    # different route -- and two spellings of it are how a benchmark and its
+    # generator come to produce almost the same directory.
+    run = generate_inputs(name, logger=logging.getLogger('gen_%s' % name))
+    print("generated bench/%s/ from %s" % (name, run.trace))
 PY

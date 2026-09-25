@@ -111,6 +111,12 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_apkeep_nat_rewrite.py  # a NAT's rewrite outputs stay atomic predicates across rules applied to OTHER elements (TODO item 29); skips if unavailable
     test/test_apkeep_cloud_differential.py # APKeep vs libnetplumber on wl_cloud, one engine per process, anchored to the dataset
     test/test_ad6_port_pair.py   # a rule matching BOTH transport ports means AND, not OR -- and same-direction ports still alternate (CLOUD_BENCH_PLAN.md 1.7.4)
+    # Integration rather than fast, although its first half is pure Python: the
+    # second half asserts that every REGISTERED Delta-net workload carries a
+    # SOURCE.json, and the inputs only exist after this tier generates them. In
+    # the fast tier that half would skip in every run, and a permanent skip is
+    # the failure mode the test itself is about.
+    test/test_deltanet_stamp.py  # SOURCE.json: a generated workload records which trace produced it (D6)
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
 # chain, which TODO.md item 13a refuses by default -- so they run in their own
