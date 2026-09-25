@@ -182,7 +182,12 @@ def _trend(samples):
             "is_tail": (last.get("ms") or 0) > win * 1000,
         }
     w = t["windows"]
-    tail = w.get("900s") or w.get("300s")
+    # Prefer the LONGEST window that is actually a tail -- a window still
+    # covering the whole run averages in the fast opening phase and understates
+    # the bound by orders of magnitude while the build is already crawling.
+    tails = [w["%ds" % win] for win in sorted(_WINDOWS, reverse=True)
+             if w.get("%ds" % win) and w["%ds" % win].get("is_tail")]
+    tail = tails[0] if tails else (w.get("900s") or w.get("300s"))
     if tail and tail["rate_per_s"] > 0 and left:
         t["rules_left"] = left
         t["bound_h"] = round(left / tail["rate_per_s"] / 3600.0, 2)
