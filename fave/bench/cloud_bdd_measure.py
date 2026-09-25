@@ -177,9 +177,11 @@ def _trend(samples):
             "rate_per_s": round(d_rules / d_s, 4),
             "d_ap": d_ap,
             "ap_per_rule": round(d_ap / d_rules, 3) if (d_ap is not None and d_rules) else None,
-            # True once the run is longer than the window; until then this row
-            # covers the WHOLE run and is not a tail measurement at all.
-            "is_tail": (last.get("ms") or 0) > win * 1000,
+            # A window is only a usable TAIL once the run is meaningfully longer
+            # than it -- at elapsed 1830 s the "1800 s window" still spans 98 % of
+            # the run, opening burst included, and averaging that in understates
+            # the bound badly. 1.5x is the same guard the direction check uses.
+            "is_tail": (last.get("ms") or 0) > win * 1500,
         }
     w = t["windows"]
     # Prefer the LONGEST window that is actually a tail -- a window still
