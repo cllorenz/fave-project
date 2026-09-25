@@ -60,6 +60,7 @@ filter rule says. The destination here is deliberately named `dst`, not
 import logging
 import unittest
 
+from apkeep.adapter import _filter_rule_string
 from apkeep.lib_ndd import LibNDD, available as ndd_available
 from apkeep.lib_apkeep import LibAPKeep, available as bdd_available
 from test.backend_gate import require_or_skip
@@ -267,3 +268,75 @@ class TestProbeUntagAsymmetry(unittest.TestCase):
         vlan5, vlan0 = _probe_verdicts("probe.x")
         self.assertEqual(vlan5, (True, True))
         self.assertEqual(vlan0, (True, False))
+
+
+# --- the CONDITION path reads the same slots (item 28, step 1) --------------
+#
+# A check's condition is a `+ filter ...` rule string handed to `is_reachable`.
+# The BDD engine builds a `common.ACLRule` from it, so it has always honoured
+# token 14 (VLAN) and, since step 4, token 16 (tcp_flags). The NDD engine called
+# bare `ruleToNDD`, which reads the 5-tuple and `related` but neither of those
+# slots -- so one condition string meant two different things, and NDD answered
+# the UNCONDITIONED question.
+#
+# This is the FOURTH reader of these slots to have been missed, and the reason
+# item 28 folds them into `ruleToNDD` rather than patching the call site.
+_COND_EDGES = ["src p1 fw p1", "fw p2 dst p1"]
+
+
+def _cond(**kwargs):
+    return _filter_rule_string('cond', 'cond', None, None, None, None, None,
+                               None, 0, **kwargs)
+
+
+def _conditioned(rules, nats, condition):
+    ndd = LibNDD()
+    ndd.build(rules, _COND_EDGES)
+    bdd = LibAPKeep()
+    bdd.init_in_memory("condslots", _COND_EDGES, device_filters=["fw"],
+                       device_nats={"fw": nats} if nats else None)
+    bdd.run(rules)
+    conds = [(condition, False)] if condition else None
+    return (bool(ndd.is_reachable("src", "p1", "dst", "p1", conditions=conds)),
+            bool(bdd.is_reachable("src", "p1", "dst", "p1", conditions=conds)))
+
+
+@require_or_skip(ndd_available() and bdd_available(), "both engines are needed")
+class TestAConditionsSlotsAreHonoured(unittest.TestCase):
+    """ Traffic is pinned to one VLAN / one flags half; a condition naming the
+    OTHER one is unsatisfiable and must make the pair unreachable. """
+
+    #: everything leaves carrying vlan 5
+    _VLAN_RULES = [_filter_rule_string('fw', 'p2', None, None, None, None,
+                                       None, None, 1),
+                   "+ nat fw p2 vlan 0.0.0.0 0 5"]
+    #: everything forwarded has the tcp_flags MSB clear
+    _FLAG_RULES = [_filter_rule_string('fw', 'p2', None, None, None, None,
+                                       None, None, 1, flags='0xxxxxxx')]
+
+    def test_no_condition_is_unconstrained(self):
+        """ The control for both cases below. """
+        self.assertEqual(_conditioned(self._VLAN_RULES, ["p2"], None),
+                         (True, True))
+        self.assertEqual(_conditioned(self._FLAG_RULES, None, None),
+                         (True, True))
+
+    def test_a_satisfiable_condition_still_reaches(self):
+        """ The second control: an engine that dropped everything would pass the
+        assertions below. """
+        self.assertEqual(_conditioned(self._VLAN_RULES, ["p2"], _cond(vlan=5)),
+                         (True, True))
+        self.assertEqual(
+            _conditioned(self._FLAG_RULES, None, _cond(flags='0xxxxxxx')),
+            (True, True))
+
+    def test_an_unsatisfiable_VLAN_condition_blocks(self):
+        """ Before step 1: NDD True, BDD False. """
+        self.assertEqual(_conditioned(self._VLAN_RULES, ["p2"], _cond(vlan=9)),
+                         (False, False))
+
+    def test_an_unsatisfiable_FLAGS_condition_blocks(self):
+        """ Before step 1: NDD True, BDD False. """
+        self.assertEqual(
+            _conditioned(self._FLAG_RULES, None, _cond(flags='1xxxxxxx')),
+            (False, False))

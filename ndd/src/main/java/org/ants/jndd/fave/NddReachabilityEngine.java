@@ -197,7 +197,7 @@ public final class NddReachabilityEngine {
                 // a pre-fix jar -- and note its warning that a test pinning the
                 // arrival VLAN at a `probe.*` device cannot observe this at all,
                 // because the flood quantifies VLAN out of probes first.
-                r.hit = NDD.ref(withFlagsSlot(withVlanSlot(ruleToNDD(t), t), t));
+                r.hit = NDD.ref(ruleToNDD(t));
                 r.out = t[5];
                 r.prio = Long.parseLong(t[16]);
                 dev = t[2];
@@ -222,7 +222,7 @@ public final class NddReachabilityEngine {
                 // deny drops. The element node appears in the topology as
                 // "<elem>_..._{in,out}" (resolved in the flood). A trailing VLAN
                 // token (VLAN-admission ACL, faithful wl_stanford) constrains VLAN.
-                r.hit = NDD.ref(withFlagsSlot(withVlanSlot(ruleToNDD(t), t), t));
+                r.hit = NDD.ref(ruleToNDD(t));
                 r.out = t[5].equals("permit") ? "permit" : DROP;
                 r.prio = Long.parseLong(t[16]);
                 dev = t[2];
@@ -268,8 +268,7 @@ public final class NddReachabilityEngine {
                 // cover. It became reachable when `_filter_rule_string` gained a
                 // `vlan` argument (OUT_STAGE_PLAN.md sec. 4.2), because a
                 // first-match NAT reuses its own rule's body as the match.
-                int matchPred = withFlagsSlot(
-                        withVlanSlot(ruleToNDD(body), body), body);
+                int matchPred = ruleToNDD(body);
                 nat.computeIfAbsent(key(t[2], t[3]), k -> new ArrayList<>())
                    .add(new int[]{NDD.ref(matchPred), fld, NDD.ref(rwPred)});
                 continue;
@@ -578,6 +577,27 @@ public final class NddReachabilityEngine {
 
     // ---- per-field encoders (identical to NDDWlupReachabilityTest) -----------
 
+    /**
+     * A rule string -> the predicate it matches. THE ONLY PLACE that reads a
+     * header field out of a rule string (item 28).
+     *
+     * <p>It did not used to be. The 5-tuple and `related` were read here while
+     * VLAN (slot 17) and tcp_flags (slot 19) were conjoined by helpers that each
+     * CALLER had to remember, and the boundary was not "the classic quintuple
+     * versus the rest" -- it was whatever was in this method on the day the
+     * field arrived. VLAN was added for the `+ acl` branch alone and later
+     * extracted into a helper applied at the branches rather than folded in;
+     * flags copied that pattern.
+     *
+     * <p>Three defects of one shape came out of it -- `+ filter` dropping VLAN
+     * (TABLE_SEMANTICS_PLAN.md step 0), the `+ nat ... match` body dropping it
+     * (OUT_STAGE_PLAN.md sec. 4.2), and the CONDITION path dropping both -- and
+     * every one was a call site that forgot. The BDD engine ANDs all eight
+     * fields in one function (`ConvertACLRule`) and has had none of them.
+     *
+     * <p>So: add a field HERE, and every caller gets it. The length guards keep
+     * the shorter `+ acl` layout (18 tokens, no rel/flags) working.
+     */
     private static int ruleToNDD(String[] t) {
         int r = NDD.getTrue();
         r = NDD.and(r, rangePred(PROTO, t[6], t[7]));
@@ -585,8 +605,10 @@ public final class NddReachabilityEngine {
         r = NDD.and(r, rangePred(SPORT, t[10], t[11]));
         r = NDD.and(r, addrPred(DST, DST4, t[12], t[13]));
         r = NDD.and(r, rangePred(DPORT, t[14], t[15]));
+        r = withVlanSlot(r, t);
         String rel = t.length > 18 ? t[18] : "null";
         if (!rel.equals("null")) r = NDD.and(r, exact(REL, Long.parseLong(rel), 1));
+        r = withFlagsSlot(r, t);
         return r;
     }
 
