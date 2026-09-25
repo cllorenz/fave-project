@@ -734,13 +734,19 @@ third-party verdicts, 57 violated of 71), the matrix phase (1,315 of 4,224) and
 the public phase (3 of 4,199), with the violated SETS equal and not merely the
 totals.
 
-**Open, and a cost result rather than a correctness one:** APKeep's own BDD
-engine does not finish the corrected model's build within 40 minutes, where it
-took seconds on the lossy one. 46 `FilterElement`s carrying a few hundred 5-tuple
-rules each split the AP partition, and `APKeeper.updateSplitAP` touches every
-element per split — the wall "Performance analysis: BDDs vs APs" below describes
-and P7b hit on wl_stanford. No verdict was produced, so none is reported. The
-default engine is NDD and every number above is its.
+**Open, and a cost observation rather than a correctness result:** APKeep's own
+BDD engine was **stopped at ~40 minutes without finishing** the corrected
+model's build, where it took seconds on the lossy one. **The run left no
+artifact** — no profiler trace, no `ap_num` trajectory, no result file — and its
+stopping rule was never recorded, so no completion bound can be derived from it
+(contrast `APKEEP_NDD_EVAL.md` §2.6b, where committed traces do support one).
+The suspected mechanism is a hypothesis, not a finding: 46 `FilterElement`s
+carrying a few hundred 5-tuple rules each split the AP partition, and
+`APKeeper.updateSplitAP` touches every element per split — the wall "Performance
+analysis: BDDs vs APs" below describes and P7b hit on wl_stanford. No verdict was
+produced, so none is reported. See `CLOUD_BENCH_PLAN.md` §1.7.3 for what one
+§2.6b-protocol run would take to make this citable. The default engine is NDD and
+every number above is its.
 
 #### Three defects found in passing
 

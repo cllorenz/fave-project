@@ -702,17 +702,35 @@ the address fails 1. Dropping the check conditions is not a unit-test matter and
 was measured instead — the oracle phase falls to **4/6** and the public policy
 reports **817 violations instead of 3**.
 
-#### Still open: the BDD engine does not finish this model
+#### Still open: the BDD engine was not observed to finish this model
 
 The default APKeep engine is NDD, and every number above is its. APKeep's own
-BDD engine (`--apkeep-engine bdd`) **did not complete the build within 40
-minutes** on the corrected model, where it took seconds on the lossy one. That
-is consistent with the atomic-predicate wall P7b hit on wl_stanford
-(`APKEEP_BACKEND.md`, "Performance analysis: BDDs vs APs"): 46 `FilterElement`s
-carrying a few hundred 5-tuple rules each split the AP partition, and
-`APKeeper.updateSplitAP` touches every element per split. **It is a cost result,
-not a correctness one** — no verdict was produced, so none is reported — and
-sizing it properly is its own piece of work.
+BDD engine (`--apkeep-engine bdd`) was run on the corrected model and **was
+stopped, not finished, after ~40 minutes**, where it took seconds on the lossy
+one.
+
+**Downgraded 2026-09-25 — this is an unrecorded observation, not a
+measurement.** The stopping rule was never written down and **no artifact of the
+run survives**: no profiler trace, no `ap_num` trajectory, no result file, no
+recorded heap. Nothing here distinguishes the three possibilities that matter —
+the AP-partition wall, a different superlinearity, or a run that would have
+finished at 45 minutes. `APKEEP_NDD_EVAL.md` §2.6b makes the same point about
+its own faithful runs, and those at least have committed traces from which a
+completion lower bound can be derived; this one has none, so no bound can be
+stated. The mechanism below is a **hypothesis consistent with the observation**,
+not something this run established:
+
+> 46 `FilterElement`s carrying a few hundred 5-tuple rules each split the AP
+> partition, and `APKeeper.updateSplitAP` touches every element per split — the
+> wall `APKEEP_BACKEND.md`'s "Performance analysis: BDDs vs APs" describes and
+> P7b hit on wl_stanford.
+
+**It is a cost observation, not a correctness one** — no verdict was produced,
+so none is reported. **What would make it citable** is one run under the §2.6b
+protocol: `APKEEP_BUILD_PROFILE`/`_MS` on, a *declared* deadline rather than an
+operator kill, the trace committed under `bench/wl_cloud/eval/`, and the
+completion bound computed from the tail rule-rate. Until that exists, this
+paragraph must not be cited as evidence that BDD cannot build wl_cloud.
 
 ---
 
@@ -2563,12 +2581,15 @@ residual is the per-query JVM object construction the cache also avoids.
 
 ### It is consistent with the one other place BDD was measured
 
-§1.7.3: on the corrected wl_cloud model the BDD engine **did not complete the
-build in 40 minutes**, where NDD takes seconds. That is a different mechanism —
-the AP-partition wall of `APKEEP_BACKEND.md`'s "BDDs vs APs", where
-`updateSplitAP` touches every element per split — but it points the same way,
-and two independent mechanisms both penalising BDD is why the engine choice is
-worth writing down rather than leaving to the default.
+§1.7.3: on the corrected wl_cloud model the BDD engine **was stopped at ~40
+minutes without finishing**, where NDD takes seconds. Read that as the weak
+observation it is — §1.7.3 records that the run left no trace behind, so the
+suspected mechanism (the AP-partition wall of `APKEEP_BACKEND.md`'s "BDDs vs
+APs", where `updateSplitAP` touches every element per split) is a hypothesis
+rather than a finding. It points the same way as the caching gap above, and two
+plausibly independent mechanisms both penalising BDD is why the engine choice is
+worth writing down rather than leaving to the default — but only the caching gap
+is measured.
 
 ### The forward-looking half
 
@@ -2598,6 +2619,13 @@ modes are the same:
   count (§9.34.3).
 - **State the denominator.** Never compare totals across different query counts
   (TODO item 0a).
+- **Declare the stopping rule, or you have no result.** A long-running build that
+  is killed by the operator has not been shown not to finish — it has been shown
+  to have been killed. Either give the run a *declared* deadline up front, or
+  keep a profiler trace from which a completion **lower bound** can be computed
+  off the tail rate, and state which. `APKEEP_NDD_EVAL.md` §2.6b is the worked
+  example; §1.7.3's wl_cloud paragraph is what it looks like when neither was
+  done (2026-09-25).
 - **A FIB workload must PROVE its evidence can see LPM** (added 2026-09-22,
   owner: "the sanity question concerning LPM needs to be addressed in future
   benchmarks"). Emitting rules longest-prefix-first is not evidence that

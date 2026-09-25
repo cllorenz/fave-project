@@ -165,8 +165,8 @@ gate (19 passed, 0 skipped):
 | wl_tum (IPv4 5-tuple) | exact == BDD | on par / faster |
 | wl_stanford-P7a (IPv4 fwd) | exact == BDD | on par (single-field) |
 | wl_i2 (77k IPv4 dst) | exact == reachable.json | 0.7 s (216-atom AP engine) vs BDD s-scale |
-| **wl_stanford faithful (dst×VLAN)** | exact == NetPlumber (165) | **NDD 3 s vs BDD intractable** (ap_num≈21.6k, 28 min+ unfinished) |
-| **wl_i2 faithful (dst×VLAN)** | exact == reachable.json (72) | **NDD ~15 s vs BDD intractable** (ap_num≥19k, 28 min+ unfinished) |
+| **wl_stanford faithful (dst×VLAN)** | exact == NetPlumber (165) | **NDD 3 s vs BDD ≥ 3.8 h** (§2.6b bound; ap_num ≥ 22.2k, still climbing) |
+| **wl_i2 faithful (dst×VLAN)** | exact == reachable.json (72) | **NDD ~15 s vs BDD ≥ 18.7 h** (§2.6b bound; ap_num ≥ 21.0k, still climbing) |
 
 **When NDD wins: field INDEPENDENCE.** The per-field Σ representation beats BDD's single
 joint partition (Π) exactly when the model has multiple *independent* fields — dramatic on
@@ -213,23 +213,29 @@ single-field FIB is the one place NDD needed extra engineering to reach parity.
 ## Status: DONE
 Part 1 (preservation) and Part 2 (NDD integration, §2.0–§2.6) are complete. NDD is a
 selectable second backend, exact on all six FaVe benchmarks and decisively faster wherever
-multiple independent header fields make BDD-APKeep pay a cross-product (two faithful-VLAN
-models are outright intractable for BDD-APKeep). Full record: `APKEEP_NDD_EVAL.md`.
+multiple independent header fields make BDD-APKeep pay a cross-product (on two
+faithful-VLAN models BDD-APKeep needs ≥ 3.8 h / ≥ 18.7 h by the §2.6b bounds, against
+NDD's seconds). Full record: `APKEEP_NDD_EVAL.md`.
 
 ## Uncapped BDD-APKeep faithful measurements — DONE (2026-08-19)
 **Outcome (full record: `APKEEP_NDD_EVAL.md` §2.6b).** Ran uncapped on this box (15 GB,
-4 cores) via the committed driver `bench/faithful_bdd_measure.py`. The definitive answer
-is **neither (a) completion nor (b) an OOM heap ceiling**: it is *unbounded wall-clock
-growth with a flat, tiny heap*. The BDD table (`bdd_mem`) stays pinned at **376–392 MB
-for the whole run** on both models (JDD GCs live nodes rather than resizing), so **more
-RAM would not help** — the "≥64 GB host" hedge below is moot; the limit is the
-single-threaded, superlinear PPM cost of an ever-growing partition. faithful-i2 ran
-**53.5 min** (~2× the cap), decisively surpassing the capped snapshot (rules 82 003 >
-81 161, `ap_num` 20 930 > 19 081, still 53 % of rules, ~2.8 AP/rule, no plateau → projects
-past ~220 k vs NDD Σ=253). The plan's **reduced-slice hedge** delivered *completing*
-anchors (Stanford N=2/3/5 → `ap_num` 2 574/2 661/5 697, peak heap ≤ 634 MB), giving the
-frontier where BDD-APKeep stops completing as the independent-field partition grows. The
-full-Stanford uncapped result is recorded in §2.6b's slot.
+4 cores) via the committed driver `bench/faithful_bdd_measure.py`. Outcome (b), an OOM
+heap ceiling, is **excluded by measurement**: the BDD table (`bdd_mem`) stays pinned at
+**376–392 MB for the whole run** on both models (JDD GCs live nodes rather than
+resizing) and never grew at any point, so **more RAM would not help** — the "≥64 GB
+host" hedge below is moot; the limit is the single-threaded, superlinear PPM cost of an
+ever-growing partition. Outcome (a), completion, was **not** observed and is **not**
+excluded: **both runs were killed by the operator**, at 54.0 min (i2) and 54.5 min
+(stanford), under a driver with no stopping logic — so the honest statement is a
+**derived lower bound**, ≥ 18.7 h for i2 and ≥ 3.8 h for stanford, computed from the
+tail rule-rate in the committed traces. faithful-i2 reached rules 82 042 / `ap_num`
+21 012 (53 % of rules, 2.16–2.60 AP/rule with no plateau, projecting ~178–210 k vs NDD
+Σ=253). The plan's **reduced-slice hedge** delivered the one set of runs here that
+*completed under the driver's own exit* (Stanford N=2/3/5 → `ap_num` 2 574/2 661/5 697,
+peak heap ≤ 634 MB), giving the frontier where BDD-APKeep ceases to be practical as the
+independent-field partition grows. **Revised 2026-09-25** — the original text read the
+operator kill as an experimental outcome ("unbounded wall-clock growth"); see §2.6b's
+stopping-rule table.
 
 ### Original rationale (retained)
 **Why.** The BDD-APKeep numbers for the two faithful (dst×VLAN) models were originally
