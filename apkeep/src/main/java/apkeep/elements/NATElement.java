@@ -351,16 +351,26 @@ public class NATElement extends Element {
 	}
 	
 	@Override
-	protected void updateRewriteTableIfPresent() {
+	protected void updateRewriteTableIfPresent() throws Exception {
+		// FaVe fork (TODO item 29): this used to be
+		//     try { updated = updateRewriteTable(); }
+		//     catch (Exception e) { /* TODO Auto-generated catch block */
+		//                           e.printStackTrace(); }
+		// i.e. upstream Eclipse boilerplate that SWALLOWED every failure and, because
+		// `updated` keeps its previous value on the exception path, retried the loop
+		// against the damaged state. That is how a wl_cloud build printed 36
+		// APNotFoundExceptions and kept going for two more minutes over a
+		// half-updated AP partition (APKeeper.updateSplitAP mutates the global AP set
+		// before iterating elements, and is not transactional).
+		//
+		// A crash is the GOOD outcome here. The bad one is a build that swallows the
+		// corruption, reports success, and answers reachability queries over an
+		// inconsistent partition -- a wrong answer with no signal. So this now
+		// propagates; Element.updatePortPredicateMap already declares throws Exception.
 		boolean updated = true;
 		int update_round = 1;
 		while(updated) {
-			try {
-				updated = updateRewriteTable();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			updated = updateRewriteTable();
 			Logger.logInfo("Update rewrite table round " + update_round++);
 		}
 	}

@@ -346,7 +346,7 @@ public abstract class Element {
 		apset.add(merged_ap);
 	}
 	
-	protected void updateRewriteTableIfPresent() {
+	protected void updateRewriteTableIfPresent() throws Exception {
 		// NAT Element should override this method
 	}
 
