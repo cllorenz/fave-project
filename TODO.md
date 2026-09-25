@@ -1046,7 +1046,7 @@ Reachability unchanged: wl_stanford **165/165** vs NetPlumber, EXTRA=0 MISSING=0
 
 ---
 
-### 28. NDD handles header fields in five places; BDD handles them in one — **PLAN** ([`NDD_FIELD_UNIFICATION_PLAN.md`](NDD_FIELD_UNIFICATION_PLAN.md))
+### 28. NDD handled header fields in five places; BDD in one — **STEPS 1-4 DONE 2026-09-25** ([`NDD_FIELD_UNIFICATION_PLAN.md`](NDD_FIELD_UNIFICATION_PLAN.md))
 
 **Raised by the owner, 2026-09-25, after the fourth slot-drop defect of the same shape: "they are all header fields and a verification engine should be able to handle them uniformly."**
 
@@ -1063,10 +1063,10 @@ Four such defects have been found here. Three were NDD-only; the fourth cost thr
 
 Adding one field today means touching five places: the emitter, one of six field sets in `apkeep/adapter.py`, `_is_acceptall_filter_rule` (which reads slots positionally and silently widens on an unknown one — this bit steps 2 and 4), every NDD call site, and a new positional parameter on `isReachable` (hence its **four** overloads).
 
-- [ ] **Step 1** — fold VLAN and flags into `ruleToNDD`. Closes the condition-path defect as a consequence rather than as a patch.
-- [ ] **Step 2** — one declaration of the slot layout per side; derive the Python emitter and the accept-all reader from it.
-- [ ] **Step 3** — retire the `isReachable` overloads; `target_vlan` is already dead in production (item 27 removed its only use).
-- [ ] **Step 4** — widen `_COND_SLOTS`, making "reachable on VLAN 78" expressible. Needs its own oracle, which must FAIL before step 1.
+- [x] **Step 1 — DONE** (`bba29207`). Closed the condition-path defect as a consequence. Its test was confirmed failing on the pre-fix jar.
+- [x] **Step 2 — DONE** (`69348f90`). `_FILTER_SLOTS` drives emitter and reader; Java gained named slot constants. Emitted IR **byte-identical** on wl_stanford/wl_cloud/wl_ifi. Deviation: named constants rather than a dispatch table in Java — each field needs a different predicate kind, so a table would carry a per-entry lambda for no gain.
+- [x] **Step 3 — DONE, partially** (`d902e0ac`). One implementation, three delegating forms; the 7-arg body was a copy of the 8-arg minus the conds loop. Deviation: the parameters stay — removing them pushes churn into `lib_apkeep` and the dual-engine call site for modest gain.
+- [x] **Step 4 — DONE** (`4bd4c00a`). VLAN and tcp_flags are forceable conditions; the pre-existing rewrite guard keeps them honest. **Limit:** no shipped workload can exercise a VLAN-conditioned check — the benchmarks carrying VLAN also rewrite it, so the refusal fires. Also corrected a test that claimed "neither engine carries" VLAN, which was wrong twice over.
 - [ ] **Step 5 — NOT scheduled.** The trailing-token grammar is the root cause, but retiring it touches `common/ACLRule.java`, which standalone APKeep shares. Owner's priority is the FaVe path; steps 1–2 get most of the benefit at none of that risk.
 
 **Scope (owner):** APKeep as a FaVe backend, not standalone. `ndd/.../fave/` is FaVe-only — verified, the sole references are `fave/apkeep/lib_ndd.py` and `fave/apkeep/adapter.py` — so `ndd/.../application/**` and standalone APKeep's formats are untouched.

@@ -1,6 +1,6 @@
 # Unifying header-field handling in the FaVe-facing NDD engine
 
-**Status: PLAN (2026-09-25).** Written after the fourth slot-drop defect of the
+**Status: steps 1-4 DONE (2026-09-25); step 5 not scheduled.** Written after the fourth slot-drop defect of the
 same shape. Scope set by the owner: **APKeep as a FaVe verification backend, not
 as a standalone tool.**
 
@@ -81,7 +81,7 @@ grammar there carries risk the FaVe path does not need.
 
 ## 5. The plan
 
-### Step 1 — fold VLAN and flags into `ruleToNDD`
+### Step 1 — fold VLAN and flags into `ruleToNDD` — **DONE** (`bba29207`)
 
 Move `withVlanSlot`/`withFlagsSlot` inside, next to where `related` already is.
 One parser per engine; all four call sites get every field.
@@ -102,7 +102,7 @@ traffic has flags MSB 0, condition 1xxxxxxx NDD True -> False   (BDD already Fal
 
 Plus fast + integration, and wl_stanford 165/165.
 
-### Step 2 — one declaration of the slot layout, per side
+### Step 2 — one declaration of the slot layout, per side — **DONE** (`69348f90`)
 
 **Java:** replace the hand-written index reads with a single table —
 `{slot, field, builder}` — and one loop over it. Adding a field becomes one row.
@@ -116,7 +116,7 @@ and lets `_elide_passthrough_filters` contract it away.
 *Gate:* byte-identical rule strings on every workload (diff the emitted IR before
 and after), and `_is_acceptall_filter_rule` unchanged on the existing cases.
 
-### Step 3 — retire the `isReachable` overloads
+### Step 3 — retire the `isReachable` overloads — **DONE, partially** (`d902e0ac`)
 
 `targetVlan` and `related` are arrival constraints, which is exactly what `conds`
 already is. Express both as conditions and collapse four overloads into one.
@@ -130,7 +130,7 @@ the *adapter*, not the engine, and does not require a separate engine parameter.
 *Gate:* `test_apkeep_compliance_cond.py` and `test_ndd_vlan_slot.py` unchanged in
 outcome; the wl_up `related` checks (3,302 of them) unchanged.
 
-### Step 4 — widen `_COND_SLOTS` to what the parser now handles
+### Step 4 — widen `_COND_SLOTS` to what the parser now handles — **DONE** (`4bd4c00a`)
 
 The payoff. *"Is X reachable from Y on VLAN 78"* is a meaningful question FaVe
 currently refuses, and after step 1 it is safe to answer. Add VLAN and flags to
@@ -172,3 +172,45 @@ fragility is a stated bound rather than a surprise.
 
 Steps 1–3 are refactors with no intended verdict change on any workload; step 4
 is the only one that adds behaviour.
+
+
+---
+
+## 7. Outcome (2026-09-25)
+
+| step | result |
+|---|---|
+| 1 | `ruleToNDD` is the only place NDD reads a header field. The condition-path defect closed as a consequence; its test was confirmed failing on the pre-fix jar. |
+| 2 | `_FILTER_SLOTS` declares the layout once; emitter and accept-all reader derive from it. Java gained named slot constants. **Emitted IR byte-identical** on wl_stanford, wl_cloud and wl_ifi (same sha256 over the sorted IR). |
+| 3 | One `isReachable` implementation; three delegating forms. |
+| 4 | VLAN and tcp_flags are forceable conditions; the pre-existing rewrite guard is what keeps them honest. |
+| 5 | Not scheduled, by design — see sec. 5. |
+
+**Two deviations, both recorded in their commits:**
+
+*Step 2, Java.* The plan said a `{slot, field, builder}` table driven by one
+loop. Each field needs a different predicate kind (range, address, exact,
+ternary), so a uniform table carries a per-entry lambda and is more machinery
+than the eight lines it replaces. Named slot constants give the same "one
+declaration" property. The duplication that actually caused defects was between
+the Python EMITTER and READER, and the spec-driven half removes exactly that.
+
+*Step 3.* The plan said to express `targetVlan`/`related` as conditions and
+delete the parameters. I stopped at collapsing the duplicated bodies. Removing
+the parameters does not stay inside the NDD engine -- `lib_apkeep` presents the
+same two to the BDD engine and the adapter calls both from one site -- so the
+churn lands in the BDD wrapper for a modest gain. The duplication was the part
+that could cause a defect; what remains is a naming asymmetry.
+
+**A limit worth stating about step 4.** No shipped workload can exercise a
+VLAN-conditioned check end to end: the benchmarks that carry VLAN also rewrite
+it, so `_query_conditions` refuses. The capability is unit-tested; on real data
+the refusal is what fires.
+
+**Gating.** Per the owner, `test_ad6_*` was not run: ad6 imports only
+`aggregator.*` and `devices/abstract_device.py`, and every file touched by steps
+1-4 is under `fave/apkeep/`, `fave/test/` or `ndd/.../fave/` (checked with
+`git diff --stat`). Had a step reached into `devices/`, `aggregator/` or
+`bench/np_preparation.py`, ad6 would have become reachable and needed re-running.
+Each step was gated on a 17-file APKeep+NDD set (`FAVE_ALLOW_OUT_IFACE=1`, which
+wl_up's `-o` rules require) plus wl_stanford against NetPlumber.
