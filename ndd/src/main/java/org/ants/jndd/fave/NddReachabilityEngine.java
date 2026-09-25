@@ -51,6 +51,19 @@ public final class NddReachabilityEngine {
     static final int[] W = {128, 128, 8, 16, 16, 1, 32, 32, 16, 8};
     static final String DROP = "__drop__";
 
+    // THE `+ filter` / `+ acl` RULE-STRING LAYOUT, declared once (item 28,
+    // step 2). Every read of a header field out of a rule string goes through
+    // these names, so inserting a field means editing this block and nothing
+    // else. They used to be magic numbers spread over `ruleToNDD`, two slot
+    // helpers and three branch guards, where a shifted layout would have gone
+    // unnoticed until a wrong answer.
+    //
+    // `+ acl` is the same layout truncated after SLOT_VLAN, which is why every
+    // read past it is length-guarded rather than assumed.
+    private static final int SLOT_OUT = 5, SLOT_PROTO = 6, SLOT_SRC = 8,
+            SLOT_SPORT = 10, SLOT_DST = 12, SLOT_DPORT = 14, SLOT_PRIO = 16,
+            SLOT_VLAN = 17, SLOT_REL = 18, SLOT_FLAGS = 19;
+
     // NDD's node tables are process-global statics; initialise the field layout
     // exactly once per JVM (the FaVe path builds one network per process).
     private static boolean fieldsReady = false;
@@ -114,8 +127,8 @@ public final class NddReachabilityEngine {
      * is what stops them drifting apart again.
      */
     private static int withVlanSlot(int hit, String[] t) {
-        if (t.length > 17 && !t[17].equals("null")) {
-            return NDD.and(hit, vlanPred(t[17]));
+        if (t.length > SLOT_VLAN && !t[SLOT_VLAN].equals("null")) {
+            return NDD.and(hit, vlanPred(t[SLOT_VLAN]));
         }
         return hit;
     }
@@ -131,8 +144,8 @@ public final class NddReachabilityEngine {
      * sec. 4.2 found exactly that for the VLAN slot in the NAT branch).
      */
     private static int withFlagsSlot(int hit, String[] t) {
-        if (t.length > 19 && !t[19].equals("null")) {
-            return NDD.and(hit, flagsPred(t[19]));
+        if (t.length > SLOT_FLAGS && !t[SLOT_FLAGS].equals("null")) {
+            return NDD.and(hit, flagsPred(t[SLOT_FLAGS]));
         }
         return hit;
     }
@@ -186,7 +199,7 @@ public final class NddReachabilityEngine {
             if (t.length < 2) continue;
             Rule r = new Rule();
             String dev;
-            if (t[1].equals("filter") && t.length >= 17) {
+            if (t[1].equals("filter") && t.length > SLOT_PRIO) {
                 // The VLAN slot is token 17 in BOTH layouts ("<prio> [vlan]
                 // [rel]"), and ruleToNDD reads the 5-tuple plus `related` at 18
                 // but never 17. Conjoining it here is not an extension: the BDD
@@ -198,8 +211,8 @@ public final class NddReachabilityEngine {
                 // arrival VLAN at a `probe.*` device cannot observe this at all,
                 // because the flood quantifies VLAN out of probes first.
                 r.hit = NDD.ref(ruleToNDD(t));
-                r.out = t[5];
-                r.prio = Long.parseLong(t[16]);
+                r.out = t[SLOT_OUT];
+                r.prio = Long.parseLong(t[SLOT_PRIO]);
                 dev = t[2];
             } else if (t[0].equals("+") && t[1].equals("fwd") && t.length >= 7) {
                 // A dst-IP FIB rule. Do NOT build a per-rule NDD or a growing
@@ -213,7 +226,7 @@ public final class NddReachabilityEngine {
                 fr.out = t[5];
                 fwdByDev.computeIfAbsent(t[2], k -> new ArrayList<>()).add(fr);
                 continue;
-            } else if (t[1].equals("acl") && t.length >= 17) {
+            } else if (t[1].equals("acl") && t.length > SLOT_PRIO) {
                 // "+ acl <elem> acl 0 <permit|deny> 0 255 <sip> <swild> null null
                 //       <dip> <dwild> null null <prio> [vlan]" -- SAME field layout
                 // as "+ filter" (proto/src/sport/dst/dport at the same indices), so
@@ -223,8 +236,8 @@ public final class NddReachabilityEngine {
                 // "<elem>_..._{in,out}" (resolved in the flood). A trailing VLAN
                 // token (VLAN-admission ACL, faithful wl_stanford) constrains VLAN.
                 r.hit = NDD.ref(ruleToNDD(t));
-                r.out = t[5].equals("permit") ? "permit" : DROP;
-                r.prio = Long.parseLong(t[16]);
+                r.out = t[SLOT_OUT].equals("permit") ? "permit" : DROP;
+                r.prio = Long.parseLong(t[SLOT_PRIO]);
                 dev = t[2];
             } else if (t[1].equals("nat") && t.length >= 8 && t[4].equals("vlan")) {
                 // "+ nat <dev> <port> vlan <dstIP> <dstlen> <vlanN>": an inline
@@ -600,13 +613,13 @@ public final class NddReachabilityEngine {
      */
     private static int ruleToNDD(String[] t) {
         int r = NDD.getTrue();
-        r = NDD.and(r, rangePred(PROTO, t[6], t[7]));
-        r = NDD.and(r, addrPred(SRC, SRC4, t[8], t[9]));
-        r = NDD.and(r, rangePred(SPORT, t[10], t[11]));
-        r = NDD.and(r, addrPred(DST, DST4, t[12], t[13]));
-        r = NDD.and(r, rangePred(DPORT, t[14], t[15]));
+        r = NDD.and(r, rangePred(PROTO, t[SLOT_PROTO], t[SLOT_PROTO + 1]));
+        r = NDD.and(r, addrPred(SRC, SRC4, t[SLOT_SRC], t[SLOT_SRC + 1]));
+        r = NDD.and(r, rangePred(SPORT, t[SLOT_SPORT], t[SLOT_SPORT + 1]));
+        r = NDD.and(r, addrPred(DST, DST4, t[SLOT_DST], t[SLOT_DST + 1]));
+        r = NDD.and(r, rangePred(DPORT, t[SLOT_DPORT], t[SLOT_DPORT + 1]));
         r = withVlanSlot(r, t);
-        String rel = t.length > 18 ? t[18] : "null";
+        String rel = t.length > SLOT_REL ? t[SLOT_REL] : "null";
         if (!rel.equals("null")) r = NDD.and(r, exact(REL, Long.parseLong(rel), 1));
         r = withFlagsSlot(r, t);
         return r;

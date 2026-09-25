@@ -369,6 +369,48 @@ def _addr_tokens(val: Optional[str]) -> Tuple[str, str]:
 
 _FILTER_DROP = "__drop__"   # FilterElement's drop sink (matches FilterElement.DROP_PORT)
 
+#: THE `+ filter` RULE-STRING LAYOUT, declared once (item 28, step 2).
+#:
+#: `(name, tokens, unconstrained)` in emission order, starting at token index
+#: `_FILTER_SLOT_BASE`. `_filter_rule_string` renders from this and
+#: `_is_acceptall_filter_rule` reads it, so an emitted slot is a parsed slot by
+#: construction.
+#:
+#: That coupling is the point. The two used to be written out by hand
+#: independently, and twice a new field landed in the emitter while the reader
+#: kept treating its slot as absent -- which reads as a WILDCARD, so a
+#: field-qualified rule looked like a semantic identity and
+#: `_elide_passthrough_filters` would contract it out of the graph, widening
+#: every path through it. VLAN did that in step 2 of OUT_STAGE_PLAN.md and
+#: tcp_flags in step 4. Adding a field is now one row.
+#:
+#: `prio` carries no match, so it has no unconstrained form (None) and the
+#: accept-all test skips it.
+_FILTER_SLOT_BASE = 6
+_FILTER_SLOTS = (
+    ('proto',   2, ('0', '255')),
+    ('src',     2, ('0.0.0.0', '255.255.255.255')),
+    ('sport',   2, ('null', 'null')),
+    ('dst',     2, ('0.0.0.0', '255.255.255.255')),
+    ('dport',   2, ('null', 'null')),
+    ('prio',    1, None),
+    ('vlan',    1, ('null',)),
+    ('related', 1, ('null',)),
+    ('flags',   1, ('null',)),
+)
+
+
+def _filter_slot_offsets() -> Dict[str, int]:
+    """ slot name -> its first token index, derived from the one layout. """
+    offsets, pos = {}, _FILTER_SLOT_BASE
+    for name, width, _unconstrained in _FILTER_SLOTS:
+        offsets[name] = pos
+        pos += width
+    return offsets
+
+
+_FILTER_SLOT_AT = _filter_slot_offsets()
+
 
 def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
                         src: Optional[str], dst: Optional[str],
@@ -390,53 +432,57 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
     accepted: APKeep ORs the tags, which is what the faithful VLAN-admission
     ACLs already rely on.
     """
-    sip, swild = _addr_tokens(src)
-    dip, dwild = _addr_tokens(dst)
-    plo, phi = ("0", "255") if proto is None else (str(proto), str(proto))
-    slo, shi = ("null", "null") if sport is None else tuple(str(p) for p in _ternary_port_range(sport))
-    dlo, dhi = ("null", "null") if dport is None else tuple(str(p) for p in _ternary_port_range(dport))
-    rel = "null" if related is None else str(related)
-    vln = "null" if vlan is None else str(vlan)
-    flg = "null" if flags is None else str(flags)
-    return "+ filter %s filter 0 %s %s %s %s %s %s %s %s %s %s %s %d %s %s %s" % (
-        device, out_port, plo, phi, sip, swild, slo, shi, dip, dwild, dlo, dhi,
-        _FILTER_PRIO_BASE - int(idx), vln, rel, flg
-    )
+    rendered = {
+        'proto': ("0", "255") if proto is None else (str(proto), str(proto)),
+        'src': _addr_tokens(src),
+        'sport': ("null", "null") if sport is None
+                 else tuple(str(p) for p in _ternary_port_range(sport)),
+        'dst': _addr_tokens(dst),
+        'dport': ("null", "null") if dport is None
+                 else tuple(str(p) for p in _ternary_port_range(dport)),
+        'prio': (str(_FILTER_PRIO_BASE - int(idx)),),
+        'vlan': ("null" if vlan is None else str(vlan),),
+        'related': ("null" if related is None else str(related),),
+        'flags': ("null" if flags is None else str(flags),),
+    }
+    body: List[str] = []
+    for name, width, _unconstrained in _FILTER_SLOTS:
+        tokens = rendered[name]
+        assert len(tokens) == width, name      # the layout and the renderer agree
+        body.extend(tokens)
+    return "+ filter %s filter 0 %s %s" % (device, out_port, ' '.join(body))
 
 
 def _is_acceptall_filter_rule(tokens: List[str]) -> bool:
     """ True iff a parsed "+ filter ..." rule matches the ENTIRE header space and
-    forwards (does not drop) -- i.e. an accept-all pass-through rule. Token layout
-    (see _filter_rule_string): + filter <dev> filter 0 <out> <plo> <phi> <sip>
-    <swild> <slo> <shi> <dip> <dwild> <dlo> <dhi> <prio> [vlan] [rel]. All match
-    fields wildcard (proto 0-255; src/dst 0.0.0.0/255.255.255.255 -- our IPv6
-    wildcard is emitted in that IPv4 form too; ports/vlan/rel null) and
-    out != drop.
+    forwards (does not drop) -- i.e. an accept-all pass-through rule.
 
-    **The VLAN slot is part of "wildcard" and used not to be**, because nothing
-    could fill it. It can now (`_filter_rule_string`'s `vlan`), and a
-    VLAN-qualified pass-through matches one tag rather than the whole space --
-    so eliding it as a semantic identity would widen every path through it to
-    every VLAN. The same holds for the TCP-flags slot (19). `_elide_passthrough_filters` is the only caller, and that is
-    exactly the silent widening it must not do. """
+    Derived from `_FILTER_SLOTS`, so every slot the emitter can fill is a slot
+    this checks. It used to spell the layout out by hand, and twice a new field
+    landed in the emitter while this kept treating its slot as absent -- which
+    reads as a WILDCARD. A field-qualified rule then looked like a semantic
+    identity, and `_elide_passthrough_filters` (the only caller) would contract
+    it out of the graph, widening every path through it to every value of that
+    field. That is the failure mode this coupling exists to make impossible.
+
+    A slot the rule string is too short to carry counts as unconstrained, which
+    keeps the shorter historic layouts readable.
+    """
     if len(tokens) < 17 or tokens[1] != "filter":
         return False
-    out = tokens[5]
-    vlan = tokens[17] if len(tokens) > 17 else "null"
-    flags = tokens[19] if len(tokens) > 19 else "null"
-    plo, phi = tokens[6], tokens[7]
-    sip, swild = tokens[8], tokens[9]
-    slo, shi = tokens[10], tokens[11]
-    dip, dwild = tokens[12], tokens[13]
-    dlo, dhi = tokens[14], tokens[15]
-    rel = tokens[18] if len(tokens) > 18 else "null"
-    return (out != _FILTER_DROP
-            and plo == "0" and phi == "255"
-            and slo == "null" and shi == "null"
-            and dlo == "null" and dhi == "null" and rel == "null"
-            and vlan == "null" and flags == "null"
-            and sip == "0.0.0.0" and swild == "255.255.255.255"
-            and dip == "0.0.0.0" and dwild == "255.255.255.255")
+    if tokens[5] == _FILTER_DROP:
+        return False
+    for name, width, unconstrained in _FILTER_SLOTS:
+        if unconstrained is None:
+            continue                        # priority carries no match
+        at = _FILTER_SLOT_AT[name]
+        for offset in range(width):
+            index = at + offset
+            if index >= len(tokens):
+                continue                    # absent => unconstrained
+            if tokens[index] != unconstrained[offset]:
+                return False
+    return True
 
 
 def _fib_name(device: str) -> str:
