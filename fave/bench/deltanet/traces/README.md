@@ -43,6 +43,34 @@ The cost of that scope is stated in `TRACES.md`: an insert-only trace that never
 overwrites a rule cannot exercise withdrawal at all, so the churn axis needs an
 archive member that is no longer here.
 
+### The archive came back, and the scope held (2026-09-25)
+
+Claas re-supplied it; the sha256 below matched exactly. Every one of the nine
+un-vendored members was then streamed out and measured without extracting
+anything to disk. The result, in full in `CLOUD_BENCH_PLAN.md` §2.14:
+
+* **No other member yields a workload.** Every non-airtel trace withdraws
+  exactly as many rules as it inserts — `berkeley.csv` and `rf1755.csv` were
+  replayed in full and both terminate at an **empty** FIB, and `inet.csv`,
+  `rf3257.csv` and `rf6461.csv` carry the identical signature. They are
+  throughput traces, built to be replayed at speed rather than to arrive at a
+  state. The one insert-only member, `rf1755.links.csv`, replays to itself:
+  33,732,869 rules, 885× `wl_airtel1`.
+* **The two derivations these files support are theirs alone.** The fourth
+  field is `5 * plen + 100` only here — `trace.py` refuses every other trace,
+  which is what that assertion was written to do — and only here do node names
+  encode `(switch, port)`, so only here can a port-annotated topology be derived
+  without inventing an interface.
+* **`airtel1-only-inserts.csv` is exactly the terminal FIB of the full
+  `airtel1.csv`**, reproduced byte for byte by replaying all 14,155,633 of its
+  updates. `airtel2-only-inserts.csv` is **not** the terminal FIB of
+  `airtel2.csv` — that holds 46,259 rules and the vendored file is a strict
+  38,100-row subset of it. So the two files here were not produced the same way,
+  which nothing previously recorded.
+
+The scope decision therefore stands on measurement rather than on size alone,
+and a third re-supply would be needed to re-derive any of it.
+
 ## Provenance
 
 Source archive `deltanet-NSDI17-dataset.tar.gz`,

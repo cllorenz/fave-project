@@ -16,7 +16,13 @@ fourth CSV column is a priority encoding LPM (`5*plen+100`, exact on all
 76,200 rows), the trace needs no replay because no insert overwrites another,
 and three figures this document stated about the traces were wrong (§2.2 D1).
 What they contain is now derived into `fave/bench/deltanet/TRACES.md` and
-pinned, rather than described here. D3-D5 open.
+pinned, rather than described here. **D3, D4, D6, D7 and D8 done; D5 is
+unblocked on data and blocked on scope** (§2.2). D8 (2026-09-25) surveyed the
+re-supplied archive and closes the question of further Delta-net workloads:
+there are none — every other member is an exactly-balanced
+insert-everything-then-withdraw-everything throughput trace that replays to an
+empty FIB, and D1's priority identity and D3's ports-in-the-names are both
+Airtel-only (§2.14).
 
 **C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
 26 roles. Under the matrix as written, **1,312 violations, every one of them
@@ -1869,18 +1875,30 @@ overlapping the service roles).
 free on the working box, so several files are not merely inconvenient but
 physically out of reach:
 
+> **CORRECTED 2026-09-25 (§2.14), from the archive itself rather than an `ls`.**
+> The uncompressed total is **45,137,929,882 bytes (45.1 GB)**, not ~40 GB, and
+> the last member is `rf1755.links.csv`, not `rf1755.links`. The sizes in the
+> table below are right. "Physically out of reach" is also too strong, and the
+> distinction it misses is worth keeping: a member never has to LAND on disk.
+> One full decompression pass costs 5m43s, so every member can be STREAMED
+> through a reader (`tar --to-command`) however large it is — only *vendoring*
+> one is bounded by free space. §2.14 was done entirely that way.
+
 | file | size | | file | size |
 |---|---:|---|---|---:|
 | airtel2-only-inserts | 1.2 MB | | rf3257 | 4.8 GB |
 | airtel1-only-inserts | 1.2 MB | | rf6461 | 4.8 GB |
 | airtel1 | 447 MB | | rf1755 | 2.1 GB |
-| berkeley | 773 MB | | rf1755.links | 1.1 GB |
+| berkeley | 773 MB | | rf1755.links.csv | 1.1 GB |
 | berkley-…-random-remove | 773 MB | | airtel2 | **16.0 GB** |
 | | | | inet | **14.4 GB** |
 
 `berkeley.csv` and `berkley-ribs-add-random-remove-random.csv` are byte-identical
 in size, supporting the reading that the latter is a churn-randomised derivative
-of the former.
+of the former. Confirmed exactly 2026-09-25 — both are 772,659,142 bytes and
+both hold 25,635,804 lines split 12,817,902 / 12,817,902 between inserts and
+withdrawals (§2.14). The owner has since ruled the `berkley-ribs` member out of
+scope.
 
 **In scope, and VENDORED** under `fave/bench/deltanet/traces/`
 (2.4 MB, with its own `SHA256SUMS` and a README recording the scope and what is
@@ -2099,6 +2117,17 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       random.csv`) went with the archive, so the churn axis needs Claas to
       re-supply it. Worth settling before D4 is costed, because it changes
       whether D5 is a benchmark or a sentence.
+
+      **The archive came back 2026-09-25 and the churn data is now measured
+      (§2.14), which changes what D5 could be.** `airtel1.csv` carries
+      7,328,721 inserts against 6,826,912 withdrawals, with 1,234,980 revisions
+      and 771,271 spurious withdrawals, so real churn is there. But the OWNER
+      has ruled the full airtel traces out of scope, and every other member is
+      an exactly-balanced insert-everything-then-withdraw-everything throughput
+      trace. So D5 is unblocked on data and blocked on scope, which is a
+      different thing from where it stood, and the adapter half — APKeep and
+      ad6 buffer the model and solve at `check_compliance`, only
+      `netplumber/adapter.py:929` can delete — is unchanged either way.
 - [x] **D6 — DONE 2026-09-25. The three-tier layout, and `wl_deltanet` became
       `wl_airtel1`** (filed and landed the same day, owner direction). A second trace cannot be
       built in place. `_PREFIX` is one directory, so generating airtel2
@@ -2309,6 +2338,42 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       which was **resolved by moving it to the integration tier** (owner,
       2026-09-25) — it is pure Python, so the tier says runtime and nothing
       else.
+- [x] **D8 — DONE 2026-09-25 (§2.14). The other nine archive members yield NO
+      workload, and that is measured rather than argued.** Claas re-supplied
+      `deltanet-NSDI17-dataset.tar.gz` the same day (sha256 matches the recorded
+      value exactly), which lifted the block D5 had stood behind since
+      2026-09-18. Owner scope, same day: the full airtel traces are out — the
+      `-only-inserts` variants are what the project wants for AS 9498 — and
+      `berkley-ribs-add-random-remove-random.csv` is ignored.
+
+      **The proposal tested was the owner's**, and it is a good one: replay a
+      churn trace to its final snapshot and treat the snapshot as a static
+      workload, which `bench/deltanet/` consumes unchanged and which needs no
+      new metric, no incremental adapter wiring and no `delete_rules` on APKeep
+      or ad6. It is now tested instead of assumed, and it does not survive
+      contact with the data. **Five of six in-scope members replay to the EMPTY
+      FIB** — they insert a whole routing table and withdraw all of it, which is
+      what a throughput trace looks like — and the sixth is insert-only, so
+      replay is the identity over 33.7M rules, 885× `wl_airtel1`.
+
+      **D1 and D3 are airtel-only, and that is the durable finding.** The fourth
+      field is not `5 * plen + 100` outside airtel, so `trace.py` refuses every
+      one of those files; node names carry no `(switch, port)` structure, so
+      §2.4's ports-in-the-names has nothing to bind to and a converter would
+      have to invent every interface. The assertion D1 landed with — written
+      against "an administrative distance, a metric, a timestamp" — fired on
+      four traces at once, which is the first evidence it earned its comparison
+      per row.
+
+      **It also turned up something about a workload already shipped**, by
+      testing the replay against ground truth: replaying `airtel1.csv` reproduces
+      the vendored `airtel1-only-inserts.csv` byte for byte, and replaying
+      `airtel2.csv` does NOT — its terminal FIB has 46,259 rules of which the
+      vendored file is a strict 38,100-row subset, missing two whole graph nodes.
+      So §2.3's distillation question is narrowed, not closed, and the two
+      vendored files were not made the same way. No defect in `wl_airtel2`;
+      §2.13 stands. §2.14 has all of it, including what is inferred rather than
+      measured.
 
 ---
 
@@ -2378,6 +2443,16 @@ are enormous (Table 2: 14.2M operations for Airtel 1, 505.2M for Airtel 2) while
 these files hold 38,100 rules each and no rule ever overwrites another. The
 `-only-inserts` files are therefore a *distillation*, not a prefix of the trace,
 and exactly how they were distilled is not stated anywhere available here.
+
+> **NARROWED, not closed, 2026-09-25 (§2.14).** With the archive back, both full
+> traces were replayed to their terminal FIB. `airtel1.csv` reproduces
+> `airtel1-only-inserts.csv` **byte for byte**, so for that trace the
+> distillation IS "replay to EOF". `airtel2.csv` does not: its terminal FIB holds
+> **46,259** rules, of which the vendored 38,100 are a strict subset — missing
+> two whole graph nodes (`s12-3`, `s12-4`) and parts of 31 further ports. Both
+> vendored files hold exactly 38,100 rules, the paper's published count for the
+> ONOS snapshot, and that is the only clue to the trimming. So the two files were
+> **not made the same way**, which the framing just below quietly assumes.
 
 ### The differential
 
@@ -3304,6 +3379,245 @@ verdicts, by contrast, are exact and repeated.
 And none of it manufactures an oracle. Three engines agreeing on a second trace
 is still a consensus between implementations in this tree — §0's first gap, which
 only `wl_cloud` closes.
+
+---
+
+## 2.14 D8 — what the other nine archive members contain, and why none is a workload (2026-09-25)
+
+Claas re-supplied `deltanet-NSDI17-dataset.tar.gz` on 2026-09-25, lifting the
+block §2.2's D5 had stood behind since 2026-09-18. Everything below is measured
+from it. **Nothing was vendored and nothing was extracted to disk**: every
+member was streamed out of the archive with `tar --to-command` and read by a
+`mawk` filter, so the whole investigation cost one 9.6 GB file and no repository
+change.
+
+**Identity first.** `sha256 = cc67472319e5d4791b96d8ceed1a5038af1ea719c360c3ce30040f3cc17f334b`,
+exactly the value `traces/README.md` recorded before the archive was deleted;
+members owned by `ali/ali`, dated 2016-09, re-tarred 2019-10-15. So this is the
+same archive bit for bit and not a lookalike, and the §2 derivation chain is
+re-verifiable against its original source.
+
+### The scope this answers, and who set it
+
+Owner direction, 2026-09-25, in the order given:
+
+* the **full airtel traces are out** — `airtel1.csv` and `airtel2.csv` are not
+  to become workloads; the vendored `*-only-inserts.csv` are what the project
+  wants for AS 9498;
+* **`berkley-ribs-add-random-remove-random.csv` is ignored**;
+* for the rest, the question is **insert-only or removals**, and where there
+  are removals, **replay the trace to its final snapshot** and treat that
+  snapshot as a static workload.
+
+That last proposal is the one under test here, and it is a good one: a replayed
+snapshot is consumed by `bench/deltanet/` unchanged, so it needs no new metric,
+no incremental adapter wiring, and no `delete_rules` on APKeep or ad6 — only
+`netplumber/adapter.py:929` has one. It is tested below rather than assumed.
+
+### The archive, measured
+
+Twelve members: one directory entry and 11 CSVs, **45,137,929,882 bytes**
+uncompressed. One full decompression pass takes 5m43s (132 MB/s), which is what
+makes streaming practical and is the reason no member is out of reach for
+*analysis* however large it is. Because tar is sequential, reach cost is
+POSITION, not size — `airtel1.csv` is member 3 and costs 3 s to reach;
+`rf1755.links.csv` is member 12 and costs the whole pass.
+
+Two corrections to the table at the head of §2, which was written from an
+`ls` at vendoring time: the member is `rf1755.links.csv`, not `rf1755.links`,
+and the total is 45.1 GB, not ~40 GB.
+
+### Every member's op mix, full file, no sampling
+
+Counted with a dict-free filter so that no member was truncated:
+
+| member | lines | inserts | withdrawals |
+|---|---:|---:|---:|
+| `airtel1-only-inserts.csv` | 38,100 | 38,100 | 0 |
+| `airtel2-only-inserts.csv` | 38,100 | 38,100 | 0 |
+| `airtel1.csv` | 14,155,633 | 7,328,721 | 6,826,912 |
+| `airtel2.csv` | 505,249,128 | 292,715,964 | 212,533,164 |
+| `berkeley.csv` | 25,635,804 | 12,817,902 | **12,817,902** |
+| `berkley-ribs-…-random.csv` | 25,635,804 | 12,817,902 | **12,817,902** |
+| `inet.csv` | 249,467,112 | 124,733,556 | **124,733,556** |
+| `rf1755.csv` | 67,465,738 | 33,732,869 | **33,732,869** |
+| `rf3257.csv` | 148,985,840 | 74,492,920 | **74,492,920** |
+| `rf6461.csv` | 150,011,476 | 75,005,738 | **75,005,738** |
+| `rf1755.links.csv` | 33,735,177 | 33,732,869 | **0** |
+
+`airtel1.csv` and `airtel2.csv` reproduce the paper's Table 2 operation counts
+(14.2M, 505.2M), a fourth external corroboration alongside rules, nodes and
+links.
+
+**Every non-airtel trace withdraws exactly as many rules as it inserts.** That
+is the finding, and it is not a coincidence of rounding: the counts are equal to
+the unit on five separate files.
+
+### So they replay to nothing
+
+| trace | final snapshot | how established |
+|---|---:|---|
+| `berkeley.csv` | **0 rules** | replayed in full |
+| `rf1755.csv` | **0 rules** | replayed in full |
+| `inet.csv` | 0 expected | **inferred** from the balance |
+| `rf3257.csv` | 0 expected | **inferred** from the balance |
+| `rf6461.csv` | 0 expected | **inferred** from the balance |
+| `rf1755.links.csv` | **33,732,869 rules** | insert-only; replay is the identity |
+
+The two that were replayed in full agree to the last detail — balanced counts,
+**0 insert revisions, 0 spurious withdrawals**, terminal FIB empty. The other
+three carry the identical signature but were not replayed, and that distinction
+is kept rather than smoothed over: their peak live-key count exceeds what a
+`mawk` dict holds on this machine (`inet.csv` would need ~124.7M keys).
+
+**These are throughput traces, not state traces.** They insert an entire routing
+table and then withdraw all of it — which is exactly right for a paper whose
+headline metric is operations per second (Table 2), and which by construction
+arrives at no state at all. The compression the owner's proposal expects comes
+from withdrawals cancelling inserts *partially*, which is what Airtel's
+failure-and-recovery regime produces; these cancel *completely*.
+
+And the one insert-only member is the one where replay buys nothing: with 0
+revisions across those 33,732,869 inserts every key is distinct, so its terminal
+FIB is the whole file — 33.7M rules against `wl_airtel1`'s 38,100, a factor of
+**885**.
+
+### D1 does not generalise, and its assertion is what caught it
+
+The fourth field is a priority encoding LPM in the airtel traces and **nowhere
+else**:
+
+| trace | priority violations | a row |
+|---|---:|---|
+| `airtel1.csv` | **0** of 14,155,633 | — |
+| `airtel2.csv` | **0** of 505,249,128 | — |
+| `berkeley.csv` | 12,817,902 of 12,817,902 | `+43.245.208.0/24,17,20,3583901` |
+| `rf1755.csv` | 33,732,868 of 33,732,869 | `+199.249.116.0/24,60,45,6691061` |
+| `inet.csv` | 29,999,999 of 30,000,001 † | `+208.87.79.0/24,Anaheim_CA6556,Seattle_WA6432,44343632` |
+| `rf3257.csv` | 29,999,998 of 30,000,001 † | `+27.118.15.0/24,133,134,23563484` |
+| `rf6461.csv` | 29,999,999 of 30,000,001 † | `+106.51.232.0/24,133,112,17409668` |
+
+† a truncated scan — these three tripped the replay's 30M live-key guard. The
+rate, not the count, is the point.
+
+The magnitudes are consistent with timestamps or sequence numbers, and that is
+as far as the data licenses going; no mechanism is claimed. What matters is that
+`trace.py` **refuses all of them**, and refuses them for the reason its
+docstring gives: the assertion was written so that "a trace encoding something
+else — an administrative distance, a metric, a timestamp — is refused rather
+than quietly read as an LPM tie-break it is not." It fired on four traces at
+once. That is the first evidence it was worth its one comparison per row, and
+the strongest argument yet for §1.8's habit of asserting a derived identity
+instead of trusting it.
+
+### D3 does not generalise either, and this is the harder blocker
+
+No trace outside airtel names its nodes `s<i>-<j>`:
+
+| trace | router names | routers | next-hops |
+|---|---|---:|---:|
+| `berkeley.csv` | `17`, `15`, `14` | 23 | 23 |
+| `rf1755.csv` | `60`, `61`, `62` | 87 | 87 |
+| `inet.csv` | `Anaheim_CA6556`, `Seattle_WA6432` | 89 † | 314 † |
+| `rf3257.csv` | `133`, `132`, `131` | 73 † | 157 † |
+| `rf6461.csv` | `133`, `132`, `131` | 62 † | 138 † |
+
+† from the truncated scan; `berkeley` and `rf1755` are full-file.
+
+§2.4 derived a port-annotated topology from the airtel traces **with nothing
+invented**, because `s<i>-<j>` is not a router but a `(switch, port)` pair —
+the paper's own device — so both columns of every row already name a port and
+symmetry recovers the egress. These name bare devices. **There is no port
+anywhere in this data**, and FaVe's router model is port-based. Every invariant
+`topology.py` refuses on is a property of the two airtel files, not of the
+format, exactly as `TRACES.md` says; outside airtel there is nothing for them to
+hold of.
+
+### `rf1755.links.csv` carries a topology — the only one in the archive
+
+Its 2,308 non-update lines sit **after** all 33,732,869 updates, in the form
+`]<a>,<b>`:
+
+| | |
+|---|---|
+| edge lines | 2,308 — no duplicates, no self-loops |
+| distinct nodes | **87**, ids 1..87 |
+| the trace's own routers / next-hops | **87 / 87**, the same set |
+| symmetry | every pair appears **once** → an undirected edge list |
+
+This is the one place outside airtel where topology is stated rather than
+inferred, and its ids line up exactly with the trace's device names.
+
+**It still does not close D3.** It gives adjacency and no ports, so a converter
+would have to invent every port assignment — deterministic and defensible, but
+an invention, and §2.4's whole point was not needing one.
+
+### The asymmetry between the two vendored airtel files — NEW, and unrelated to the above
+
+Testing the replay against ground truth turned up something about the workloads
+already shipped. Replaying each full airtel trace to its terminal FIB:
+
+| | replayed terminal FIB | vendored `-only-inserts` | relation |
+|---|---:|---:|---|
+| airtel1 | 38,100 | 38,100 | **byte-identical** (`sha256 5036ba2e…`) |
+| airtel2 | **46,259** | 38,100 | vendored is a **strict subset** |
+
+For airtel2: 0 rows only in the vendored file, 8,159 only in the replay. The
+extras span all 1,400 prefixes over 33 router-ports on 8 switches, and point to
+no next-hop outside the known set; `s12-3` and `s12-4` appear **nowhere** in the
+vendored file, so two whole graph nodes were dropped, and 31 further ports were
+trimmed unevenly (922 rows off `s9-3`, 748 off `s2-5`, down to a handful).
+
+The one hard clue is that **both** vendored files hold exactly 38,100 rules,
+which is the paper's published count for the ONOS snapshot. Airtel1's terminal
+FIB happens to be exactly that; airtel2's is 46,259 and was trimmed to match. No
+mechanism is claimed beyond that observation.
+
+**Three consequences, none of them a defect in `wl_airtel2`.** The workload is
+defined as the vendored trace, the paper corroborates its 38,100 rules, and
+every result in §2.13 is about that trace and stands. But: §2.3's open question
+about how the files were distilled is **narrowed, not closed** — "replay to EOF"
+is the answer for airtel1 and demonstrably not for airtel2. §2.3's "one network
+routed two ways" framing quietly assumes the two files were made the same way,
+and they were not. And the vendored airtel2 model is missing 17.6% of its
+trace's terminal forwarding state, two graph nodes included.
+
+This is also a lesson about n=1. After airtel1 matched, this document was very
+nearly told that the distillation question was **closed**; the second trace,
+checked only because Claas asked for it, falsified that. The reference hash was
+computed and written down before the second replay ran, so the claim could not
+be retrofitted — which is the only reason the falsification is legible.
+
+### What is NOT claimed
+
+* `inet.csv`, `rf3257.csv` and `rf6461.csv` were **not** replayed. Their
+  terminal FIB is inferred from a balanced op mix plus two fully-measured
+  members that share the signature; it is not measured.
+* The router, next-hop and prefix counts for those three come from their first
+  30M rows only.
+* Nothing is claimed about what the fourth field *is* outside airtel, only that
+  it is not `5 * plen + 100`.
+* `rf1755.links.csv` is taken to hold the same inserts as `rf1755.csv` on the
+  strength of an identical insert count and identical statistics over the first
+  30M rows. The files were not compared row by row.
+
+### Where this leaves §2
+
+**The Delta-net archive yields exactly the two workloads already built.** Five
+of six in-scope members replay to nothing, the sixth replays to itself at 885×
+`wl_airtel1`, and both derivations that let FaVe consume a Delta-net trace at
+all — D1's priority identity and D3's ports-in-the-names — are properties of
+Airtel's conventions that no other member shares.
+
+Pursuing `rf1755.links.csv` anyway would need three concessions, and they should
+be demanded together rather than discovered one at a time: settle what the
+fourth field means, invent a port assignment over the 87-node link list, and
+find a way to carry 33.7M rules when ad6 takes ~104 s on 38,100. There is no
+reason to spend that without a use for the result.
+
+The archive can go again. `.gitignore:13` already names it, so it was never at
+risk of being committed; its sha256 above is what makes a third re-supply
+identifiable.
 
 ---
 
