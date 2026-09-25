@@ -2087,12 +2087,16 @@ in German.
 
 **Why wl_cloud and not the faithful models.** wl_cloud rewrites a 32-bit **address**; faithful-stanford/i2 rewrite a 12-bit VLAN. Each `nat()` therefore allocates far more nodes inside the split loop, so the GC lands there. Not verified — it is the explanation most consistent with the evidence. A related consistency failure was already seen here: `NATElement.tryMergeIfNATElement`'s P7b comment about *"stale-AP crashes that just moved when patched"*.
 
-**Next step — the decisive experiment is two lines.** Hoist `ref(parta)`/`ref(partb)` above the element loop in `updateSplitAP` and re-run; if the crash disappears the cause is confirmed. **Owner call**, because it patches vendored APKeep and rebuilds the jar every other test uses — and per `APKEEP_BDD_BASELINE.md` §6 an engine fix is branch-scoped and does not backport. If confirmed, it is also worth reporting upstream.
+**CAUSE CONFIRMED BY EXPERIMENT, and defect (1) is FIXED 2026-09-25.** The GC hypothesis is right; the first patch was one frame too low. Hoisting the `ref`s that already existed at the *end* of `updateSplitAP` to above its element loop changed **nothing** — identical crash, identical site — because the handle is already dead on entry. The exposure starts in the caller: `addPredicate` computes `parta = and(pred, oldap)` and leaves it unreferenced across the following `and` **and** across all of `updateSplitAP`. And the collection path is real, which the first analysis had not verified: JDD's `NodeTable.grow()` (`:256`) calls `gc()` (`:199`), so *any* allocation can free an unreferenced node. `addPredicate` now takes a temporary ref on each part at computation and drops it once `updateSplitAP` has taken its permanent one; net reference count per AP unchanged from upstream.
 
-- [ ] Run the two-line ref-ordering experiment.
-- [ ] If confirmed: decide fix vs. refuse-wl_cloud-on-BDD, and whether to report upstream.
-- [ ] Either way, make the swallowed catch loud — a verification engine must not continue past a corrupted partition. This is the part that matters even if the GC hypothesis is wrong.
-- [ ] Re-check the faithful-VLAN models for the same hazard; they ran 54 min without crashing, which is not the same as being safe.
+**Measured:** patched, the build passes 1 226 rules with **zero exceptions**, reaches `ap_num` 66 656 at 1 244 rules, and `merge_ms` goes **631 → 235 238** — AP merging works again, which it cannot over a corrupted partition. Java core suite green.
+
+- [x] Run the ref-ordering experiment — done, and the first attempt's NEGATIVE result is what localised the defect.
+- [x] Fix defect (1): `APKeeper.addPredicate` protects `parta`/`partb` (`apkeep/FAVE_CHANGES.md`).
+- [ ] **Make the swallowed catch loud** — `NATElement.updateRewriteTableIfPresent`'s upstream `// TODO Auto-generated catch block`. **This fix does not address it**, and it is the part that matters most: a verification engine that continues past a corrupted partition can return a WRONG ANSWER rather than crashing. The crash was the good outcome.
+- [ ] Re-run the Python test tiers against the patched jar (deferred while a wl_cloud measurement had the box).
+- [ ] Report both defects upstream.
+- [ ] Re-check the faithful-VLAN models for the same hazard; they ran 54 min without crashing, which is not the same as being safe — and per `APKEEP_NDD_EVAL.md` §2.6b those runs' bounds were derived from builds that may have been silently corrupt.
 
 ---
 
