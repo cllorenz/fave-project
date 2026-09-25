@@ -36,6 +36,7 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_isect);
         CPPUNIT_TEST(test_isect_a);
         CPPUNIT_TEST(test_isect_arr);
+        CPPUNIT_TEST(test_overlaps_arr);
         CPPUNIT_TEST(test_minus);
         CPPUNIT_TEST(test_rewrite);
         CPPUNIT_TEST(test_vec_append);
@@ -74,6 +75,7 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         void test_isect();
         void test_isect_a();
         void test_isect_arr();
+        void test_overlaps_arr();
         void test_minus();
         void test_rewrite();
         void test_vec_append();

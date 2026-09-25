@@ -1046,32 +1046,35 @@ Reachability unchanged: wl_stanford **165/165** vs NetPlumber, EXTRA=0 MISSING=0
 
 ---
 
-### 26. NetPlumber answers a CONDITIONED check differently from the SEEDED form of the same question (found 2026-09-24)
+### 26. NetPlumber's conditioned checks over-reported — **FIXED 2026-09-25** (`hs_overlaps_arr`)
 
-**Found while building the OUT_STAGE_PLAN.md step-0 oracle; unrelated to the out stage.**
+**Found while building OUT_STAGE_PLAN.md's step-0 oracle; diagnosed and fixed with the owner.**
 
-The same question can be asked two ways, and for a header field nothing rewrites they are the same question:
+The same question asked two ways gave two answers, and for a field nothing rewrites they are the same question:
 
-* **seeded** — constrain what the generator EMITS (`sources.json` device fields);
-* **conditioned** — constrain what may ARRIVE at the probe (`check_compliance`'s `cond`, i.e. `NetPlumberAdapter._create_compliance_rules` -> `_build_vector`).
+| | NetPlumber | APKeep |
+|---|---|---|
+| `dst = 172.24.68.0/23`, conditioned at the probe | **35** | 30 |
+| `ipv4_dst=172.24.68.0/23`, seeded at the generator | 30 | 30 |
 
-wl_stanford rewrites **only `vlan`** (checked: the sole `rw=` kind in `routes.json`), so a `dst` condition and a `dst` seed must agree. They do not:
+Five conditioned-only pairs, zero seeded-only — strictly looser.
 
-| model | question | NetPlumber | APKeep (faithful/ndd) |
-|---|---|---|---|
-| full 16-router | `dst = 172.24.68.0/23`, conditioned | **35** | 30 |
-| full 16-router | `ipv4_dst=172.24.68.0/23`, seeded | **30** | 30 |
-| `yoza_rtr,bbra_rtr` | `dst = 172.24.68.0/23`, conditioned | **2** (= its own unconditioned answer) | 1 |
-| `yoza_rtr,bbra_rtr` | `ipv4_dst=172.24.68.0/23`, seeded | **1** | 1 |
+**Cause.** `NetPlumber::check_compliance` tests a condition with `hs_overlaps_arr(flow->hs_object, cond)`. In HSA a header space is a union of vectors each with a **difference list** subtracted, and that function asked, for each list element, whether the probe array `arr` is a subset of some single diff term:
 
-APKeep's two answers agree with each other and with NetPlumber's seeded answer, so two of the three readings agree and **NetPlumber's conditioned check is the odd one out** — and it is consistently the LOOSER of the two, which is the direction that reports reachability that the seeded question does not.
+```c
+any |= array_is_sub_eq(arr, a->list.diff[i].elems[j], len);
+```
 
-A no-op control passes on both backends (`dst:0.0.0.0/0` and `src:0.0.0.0/0` both give 165/165), so the condition plumbing is not simply inert.
+A condition vector is WIDE — one field constrained, the rest wildcard — so it is almost never contained in a diff term, even when the diff covers every point the two have in common. The result was an overlap reported against an empty space.
 
-- [ ] **Reproduce**: `python bench/apkeep_out_stage_oracle.py --routers yoza_rtr,bbra_rtr --cond dst:172.24.68.0/23 --cond none` — two routers, ~20 s, one divergent pair (`yoza_rtr -> bbra_rtr`), and the unconditioned row alongside it as the control.
-- [ ] **Decide which form is right before touching anything.** If the conditioned answer is wrong, every conditioned benchmark result on the NetPlumber backend is affected — wl_up and wl_cloud both ship `cchecks.json`. If the seeded answer is wrong, APKeep agrees with it and the problem is wider.
-- [ ] `_build_vector(cond, preset='x')` looks right on inspection (all-x, then set each named field), so the divergence is more likely in how the vector is applied at the probe than in how it is built. Not chased further.
-- [ ] Until it is settled, **prefer seeding** for any differential that has to mean one specific thing.
+**Fix (owner's (a)):** intersect the list element with `arr` first, then ask whether *that intersection* is contained in a diff term. One line's worth of change, strictly tighter, and it closed the gap completely: conditioned 35 → 30, matching both the seeded form and APKeep. The 2-router reproducer goes 2 → 1, and a second conditioned battery 44 → 39.
+
+- [x] **Blast radius: ZERO, measured.** The shipped conditioned checks were run through NetPlumber on both builds and the violation SETS compared, not just counts — wl_cloud (71 checks, 12 conditioned, 57 violations), wl_ifi (299/54/27), wl_up (18,811/3,302/0). Byte-identical. No published number moves.
+- [x] **`hs_overlaps_arr` had no test at all** — it was added for `check_compliance` and never covered, which is why this survived. `HeaderspaceTest::test_overlaps_arr` now covers the regression, a positive and a negative control, and pins the remaining limit below. Verified to FAIL on the pre-fix build.
+- [ ] **KNOWN REMAINING LOOSENESS, pinned rather than fixed:** each diff term is still tested on its own, so coverage split across SEVERAL diff terms of one list element is missed (`elem = xxxxxxxx`, `diffs = {0xxxxxxx, 1xxxxxxx}` is empty but reports an overlap). Closing it needs cube coverage — containment in the UNION of the intersected diffs — which is the ternary tautology problem. It does not bite on any current workload.
+- [ ] **No test in the suite exercises NetPlumber WITH conditions**, which is the deeper gap: `test_apkeep_cloud_differential.py` is unconditioned *deliberately*, and the conditioned questions are only asked by the benchmarks' own FPL runs, which no tier compares against a second engine. The new C++ test covers the function; an end-to-end conditioned differential is still missing.
+- [ ] **Build note:** `libcppunit-dev` and `pybind11-dev` were absent, so the whole C++ CppUnit suite was silently unbuildable and `python/build_libnetplumber.sh` fell through to "pybind11 headers not found". The shipped `.so` dated from 2026-09-09. Worth adding both to the doctor's dependency check.
+- [ ] **Trap for the next person:** `CPPUNIT_TEST_SUITE_REGISTRATION(HeaderspaceTest)` lives in `main.cc`, so the suite table is instantiated THERE. Adding a `CPPUNIT_TEST` to `hs_unit.h` requires `main.o` to be rebuilt; make's dependency tracking does not catch it, and the symptom is a test that silently never runs (a `CPPUNIT_ASSERT(false)` in it still reports OK).
 
 ---
 

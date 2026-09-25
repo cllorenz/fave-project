@@ -454,6 +454,58 @@ void HeaderspaceTest::test_isect_arr() {
     array_free(v2);
 }
 
+void HeaderspaceTest::test_overlaps_arr() {
+    printf("\n");
+
+    /* `hs_overlaps_arr` is the whole of `NetPlumber::check_compliance`'s
+     * condition test, and it had no test of its own -- it was added for that
+     * caller and never covered. The case below is why that mattered.
+     */
+
+    /* A plain overlap, no diffs. */
+    hs_add(h, array_from_str("1xxxxxxx"));
+    array_t *hit = array_from_str("1xxxxxxx");
+    CPPUNIT_ASSERT(hs_overlaps_arr(h, hit));
+    array_free(hit);
+
+    /* ... and a plain miss. */
+    array_t *miss = array_from_str("0xxxxxxx");
+    CPPUNIT_ASSERT(!hs_overlaps_arr(h, miss));
+    array_free(miss);
+
+    /* THE REGRESSION. The list element is wholly subtracted, so the term is
+     * empty and nothing can overlap it -- but the probe array is WIDER than the
+     * diff. The old test asked `arr subset-of diff`, which is false here, and
+     * reported an overlap with an empty space. A condition vector always has
+     * this shape: one field constrained, the rest wildcard. */
+    hs_vec_append(&h->list.diff[0], array_from_str("1xxxxxxx"), true);
+    array_t *wide = array_from_str("xxxxxxxx");
+    CPPUNIT_ASSERT(!hs_overlaps_arr(h, wide));
+    array_free(wide);
+
+    /* A diff that does NOT cover the part the two have in common still leaves
+     * an overlap -- the control, without which the assertion above would pass
+     * on a function that always returned false. */
+    hs_free(h);
+    h = hs_create(HS_TEST_LEN);
+    hs_add(h, array_from_str("xxxxxxxx"));
+    hs_vec_append(&h->list.diff[0], array_from_str("0xxxxxxx"), true);
+    array_t *upper = array_from_str("1xxxxxxx");
+    CPPUNIT_ASSERT(hs_overlaps_arr(h, upper));
+    array_free(upper);
+
+    /* KNOWN LIMIT, pinned deliberately. Two diffs together cover the element
+     * exactly, so the term is empty -- but each is tested on its own, so the
+     * function still reports an overlap. Closing this needs cube coverage
+     * (containment in the UNION of the intersected diffs), i.e. the ternary
+     * tautology problem. Recorded here so the remaining looseness is a stated
+     * bound rather than a surprise. */
+    hs_vec_append(&h->list.diff[0], array_from_str("1xxxxxxx"), true);
+    array_t *all = array_from_str("xxxxxxxx");
+    CPPUNIT_ASSERT(hs_overlaps_arr(h, all));    /* exact answer would be false */
+    array_free(all);
+}
+
 void HeaderspaceTest::test_minus() {
     test_add();
 

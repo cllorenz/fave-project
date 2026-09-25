@@ -1433,14 +1433,35 @@ hs_overlaps_arr(const struct hs *a, const array_t *arr)
 {
     const size_t len = a->len;
     for (size_t i = 0; i < a->list.used; i++) {
-        if (array_has_isect(a->list.elems[i], arr, len)) {
-            bool any = false;
-            for (size_t j = 0; j < a->list.diff[i].used; j++) {
-                any |= array_is_sub_eq(arr, a->list.diff[i].elems[j], len);
-                if (any) break;
-            }
-            if (!any) return true;
+        /* The question is whether (elem_i - U_j diff_ij) still meets `arr`, so
+         * the containment test below has to be about the part of `arr` that is
+         * actually in elem_i -- not about `arr` itself.
+         *
+         * This used to ask `arr subset-of diff_ij`, which is a much weaker
+         * rejection: a condition vector is WIDE (one field constrained, the
+         * rest wildcard), so it is almost never contained in a diff term even
+         * when the diff covers every point the two have in common. The result
+         * was an overlap reported where the term is empty -- and since
+         * `check_compliance` is the only caller, a conditioned check that
+         * counted a flow carrying none of the conditioned traffic.
+         *
+         * STILL NOT EXACT: each diff term is tested on its own, so coverage
+         * split across several diff terms of the same list element is missed.
+         * That needs cube coverage (`isect` contained in the UNION of the
+         * intersected diffs), which is the ternary tautology problem; this is
+         * the cheap, strictly tighter half.
+         */
+        array_t *isect = array_isect_a(a->list.elems[i], arr, len);
+        if (!isect) continue;
+
+        bool any = false;
+        for (size_t j = 0; j < a->list.diff[i].used; j++) {
+            any |= array_is_sub_eq(isect, a->list.diff[i].elems[j], len);
+            if (any) break;
         }
+        array_free(isect);
+
+        if (!any) return true;
     }
 
     return false;
