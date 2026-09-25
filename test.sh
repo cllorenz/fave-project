@@ -117,6 +117,13 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     # the fast tier that half would skip in every run, and a permanent skip is
     # the failure mode the test itself is about.
     test/test_deltanet_stamp.py  # SOURCE.json: a generated workload records which trace produced it (D6)
+    # Pure Python, and here purely on COST (owner, 2026-09-25). It builds a
+    # 39,500-rule model per trace and walks packets through it; moving its six
+    # tests off the fast tier took that tier from 105s to 74s and cost this one
+    # 19s. It needs no backend and no generated input, so this is NOT a
+    # dependency -- and the file's own docstring says so, because a reader who
+    # assumes one would hesitate to run it by hand.
+    test/test_deltanet_lpm.py    # LPM is load-bearing on BOTH traces, and the matrix cannot see it (3's standing rule)
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
 # chain, which TODO.md item 13a refuses by default -- so they run in their own

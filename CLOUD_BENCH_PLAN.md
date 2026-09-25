@@ -2305,8 +2305,10 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       recorded in §2.13 rather than acted on: §2.6's archived ad6 figure
       (56.9 s) does not reproduce today (102.6, 105.0 s), which is why every
       airtel1 number was re-measured instead of carried forward; and the LPM
-      guard on a second trace costs the fast tier 65 s → 105 s, which is a lot
-      for one guard and is the owner's call to keep or move.
+      guard on a second trace cost the fast tier 105 s against 74 s without it,
+      which was **resolved by moving it to the integration tier** (owner,
+      2026-09-25) — it is pure Python, so the tier says runtime and nothing
+      else.
 
 ---
 
@@ -3274,9 +3276,17 @@ and today is not established here and is worth its own look.
   apart** — it follows a packet, so it reads the 1,800 differing decisions,
   where the matrix cannot. It passes, and non-vacuously: airtel2 carries the
   same two nested prefix pairs and the same single witness,
-  `117.53.131.0/24` inside `117.53.128.0/20`, homed apart. Cost: the fast tier
-  goes 919 → **922** tests but **65 s → 105 s**, which is a lot for one guard
-  and is flagged rather than absorbed.
+  `117.53.131.0/24` inside `117.53.128.0/20`, homed apart.
+
+  **MOVED to the integration tier 2026-09-25** (owner's call, after the cost was
+  flagged). It is pure Python and needs no backend, so the tier choice is about
+  runtime alone — `test/test_deltanet_lpm.py` and `test.sh` both say so, because
+  a reader who inferred a dependency would hesitate to run it by hand. The fast
+  tier goes **922 → 916** tests and **105 s → 74 s**; integration's first group
+  goes **162 → 168** and 69 s → 88 s. Those two wall-clock figures are minutes
+  apart and comparable; the 65 s recorded earlier in this session is NOT — the
+  machine's load roughly doubled in between, which is exactly the trap §2.12's
+  caveat describes, met here on a tier timing rather than on a benchmark.
 * **Gated, engines.** `TestBackendDifferentialAirtel2`, `ENGINES = ('ndd',)`.
   Integration's second group goes 8 → **11** passed and 84 s → 146 s.
 * **NOT gated: ad6.** Exactly as for airtel1 — no `test_ad6_*` covers this
