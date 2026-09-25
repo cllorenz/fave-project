@@ -213,7 +213,10 @@ def _trend(samples):
 
 def _status_text(result, trend):
     lines = [
-        "wl_cloud BDD build -- live status (APKEEP_NDD_EVAL.md 2.6b protocol)",
+        # The bench name comes from the result, not a literal: faithful_bdd_measure
+        # reuses this renderer, and a stanford run printed "wl_cloud BDD build".
+        "%s %s build -- live status (APKEEP_NDD_EVAL.md 2.6b protocol)" % (
+            result.get("bench", "?"), str(result.get("engine", "?")).upper()),
         "engine=%s  deadline=%ss  started=%s" % (
             result.get("engine"), result.get("deadline_s"), result.get("started_utc")),
         "",
