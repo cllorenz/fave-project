@@ -1018,23 +1018,31 @@ Owner's framing: *"the sanity question concerning LPM needs to be addressed in f
 
 ---
 
-### 27. The faithful path applies an out-stage VLAN reset that the reference model never performs (found 2026-09-24)
+### 27. The faithful path applied an out-stage VLAN reset the reference never performs — **RESOLVED 2026-09-25**
 
-**Found while building OUT_STAGE_PLAN.md step 3. Pre-existing, deliberately left in place there.**
+**Found while building OUT_STAGE_PLAN.md step 3; closed after the out stage gained its own rewrites (sec. 4.5).**
 
-`_build_stanford_faithful` folds the out-stage `rw=vlan:0` rules into the mid-stage NAT (`_out_reset` -> the `effective` egress VLAN), so a route whose out stage "resets" leaves the mid with vlan 0. **All 45 of those reset rules are shadowed by their port's match-all** — 45 of 45 instances, e.g. `out.bbra_rtr.130013` resets vlan 864 at idx 49 behind a match-all at idx 36 — and hassel is top-down first-match (owner, 2026-09-24), so none of them ever fires. The adapter models an event the reference model does not have.
+`_build_stanford_faithful` folded the out-stage `rw=vlan:0` rules into the mid-stage NAT (`_out_reset` -> the `effective` egress VLAN). All 45 of those rules are shadowed by their port's match-all, and hassel is top-down first-match, so **none of them ever fires**: the adapter modelled an event the reference model does not have. It overwrote **142 of 3,372** mid NATs with vlan 0.
 
-Measured, dropping the 45 reset rules from the model:
+**What unblocked it.** The item said the BDD behaviour could not be measured because faithful wl_stanford does not finish on that engine. That was the wrong instrument: the question is a *mechanism* question and a toy model answers it in milliseconds.
 
-| backend | intact | without the resets |
-|---|---|---|
-| NetPlumber | 165 | 165 |
-| APKeep faithful/NDD | 165 | 165 |
+```
+traffic leaves carrying vlan 5; ask target_vlan=0 at the destination
+   destination `dst`      NDD=False  BDD=False    <- agree
+   destination `probe.x`  NDD=True   BDD=False    <- disagree
+```
 
-- [ ] **Why it is harmless TODAY, and only on one engine.** NDD existentially quantifies VLAN out of any `probe.*` device *before* `target_vlan` is applied, so the faithful path's `target_vlan=0` at probes is vacuous there (item 23 step 0). The fold therefore cannot change an NDD verdict either way.
-- [ ] **Its BDD behaviour is NOT measured, and the attempt to measure it was invalid.** A faithful-BDD wl_stanford intact-vs-noreset run was started for exactly this question. Neither half produced a pair count within 25 minutes — the deferred scalability item — **and the run is not citable even as a timing observation**: it was left in the background across edits to `fave/apkeep/adapter.py`, including two `git checkout` reverts of that file, so its two halves did not execute the same code (the second half logged the step-3 tcp_flags warning, which did not exist when the job was launched). Redo it on a quiesced tree. On BDD the probe constraint is real, so the fold is the one thing that could be making `vlan=0` reachable at a probe at all; whether removing it takes BDD from 165 to near-0, or changes nothing, is unknown.
-- [ ] **Do not remove the fold before that is known.** Removing it is a change whose only possible effect is on the path that currently cannot be measured, which is why step 3 left it alone. It belongs with the BDD-scalability work.
-- [ ] Note the asymmetry this exposes: the two engines disagree about what a probe's VLAN filter *means*, and three separate findings now rest on it (this, item 25's last checkbox, item 23 step 0's "newly open").
+NDD existentially quantifies VLAN out of a `probe.*` device before the constraint applies (a host on an access port receives the frame untagged); BDD takes it literally.
+
+**And the reference settles which is right.** Clearing the `vlan=0` filter on all 16 of wl_stanford's probes leaves **NetPlumber at 165 pairs, unchanged** — NP does not enforce it either. So NDD matches the reference and BDD does not, and the real defect was the adapter forcing `target_vlan=0` at all.
+
+**Both are removed.** The fold is gone (the out stage carries its own rewrites, on dedicated ports, per arrival port), and so is the probe VLAN constraint. `_out_reset`, `_capture_out_reset` and `mid_port_to_outin` are deleted with it, as is the "a mid feeding TWO out stages is refused" guard — that refusal existed only because the fold read ONE partner's reset set, and it would now reject a model this path handles correctly.
+
+Reachability unchanged: wl_stanford **165/165** vs NetPlumber, EXTRA=0 MISSING=0.
+
+- [x] The engine asymmetry is pinned by `test/test_ndd_vlan_slot.py::TestProbeUntagAsymmetry`. It is now INERT for FaVe (nothing forces a probe VLAN), but it is a real difference between the engines and must not change unnoticed.
+- [ ] **Still open, and now visible rather than masked:** on BDD the literal reading would under-approximate any workload that did force a probe VLAN. Whether BDD should untag like NDD is a modelling decision for the BDD-scalability work; nothing depends on it today.
+- [x] Supersedes item 25's last checkbox and item 23 step 0's "newly open" — all three rested on this asymmetry being unmeasured.
 
 ---
 

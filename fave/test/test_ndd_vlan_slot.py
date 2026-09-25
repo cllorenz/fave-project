@@ -211,3 +211,59 @@ class TestVlanSlotDifferential(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# --- the probe-untag asymmetry (TODO item 27) -------------------------------
+#
+# The two engines disagree about what arriving at a PROBE means for VLAN, and
+# three findings used to rest on that being unmeasured. It is measured here, on
+# a toy model, in milliseconds -- the earlier attempts tried to observe it
+# through faithful wl_stanford, which does not finish on BDD.
+#
+#   NDD existentially quantifies VLAN out of any `probe.*` device before the
+#   arrival constraint applies (a host on an access port receives the frame
+#   untagged). BDD takes the constraint literally.
+#
+# Neither is "the bug": what was wrong was the ADAPTER forcing `target_vlan=0`
+# at a faithful wl_stanford probe, because the reference model does not enforce
+# that either -- clearing `vlan=0` on all 16 of wl_stanford's probes leaves
+# NetPlumber at 165 pairs. The adapter no longer forces it, so this asymmetry
+# is now inert for FaVe. Pinned so it cannot change unnoticed.
+_PROBE_EDGES = ["src p1 fw p1", "fw p2 %s p1"]
+
+
+def _probe_verdicts(dest):
+    """ (target_vlan=5, target_vlan=0) on (NDD, BDD), with traffic that leaves
+    carrying vlan 5. """
+    edges = ["src p1 fw p1", "fw p2 %s p1" % dest]
+    rules = [("+ filter fw filter 0 p2 0 255 0.0.0.0 255.255.255.255 null null "
+              "0.0.0.0 255.255.255.255 null null 1000 null null null"),
+             "+ nat fw p2 vlan 0.0.0.0 0 5"]
+    ndd = LibNDD()
+    ndd.build(rules, edges)
+    bdd = LibAPKeep()
+    bdd.init_in_memory("probevlan", edges, device_filters=["fw"],
+                       device_nats={"fw": ["p2"]})
+    bdd.run(rules)
+    return tuple(
+        (bool(ndd.is_reachable("src", "p1", dest, "p1", target_vlan=tv)),
+         bool(bdd.is_reachable("src", "p1", dest, "p1", target_vlan=tv)))
+        for tv in (5, 0)
+    )
+
+
+@require_or_skip(ndd_available() and bdd_available(), "both engines are needed")
+class TestProbeUntagAsymmetry(unittest.TestCase):
+
+    def test_at_an_ORDINARY_device_the_engines_agree(self):
+        """ The control. Traffic leaves carrying vlan 5, so requiring vlan 0 at
+        arrival is unsatisfiable -- on both engines. """
+        vlan5, vlan0 = _probe_verdicts("dst")
+        self.assertEqual(vlan5, (True, True))
+        self.assertEqual(vlan0, (False, False))
+
+    def test_at_a_PROBE_they_do_not(self):
+        """ NDD untags and answers True; BDD is literal and answers False. """
+        vlan5, vlan0 = _probe_verdicts("probe.x")
+        self.assertEqual(vlan5, (True, True))
+        self.assertEqual(vlan0, (True, False))

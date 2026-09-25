@@ -522,7 +522,6 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._faithful_vlan = faithful_vlan
         # mid.X -> [(dst_cidr, egress_port, vlan_N)] ; out.X reset set {(inport130, vlan)}
         self._mid_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}
-        self._out_reset: Dict[str, set] = {}
         # wl_i2 faithful (dst x VLAN): out.X routes match dst + rewrite the egress
         # VLAN (rw=vlan:M). out.X -> [(dst_cidr, egress_port, vlan_M)] (like _mid_rw
         # but i2 has no mid stage -- out.X IS the dst FIB).
@@ -815,19 +814,18 @@ class APKeepAdapter(AbstractVerificationEngine):
         # internal pipeline ports (e.g. ifi.acl_in_out) -- translating those
         # would emit bogus APKeep ports. So restrict to the forwarding tables.
         if model.node.split('.', 1)[0] == 'out':
-            # wl_stanford: record the in-port permutation (+ VLAN resets) for
-            # `_build_stanford_faithful`, which still owns this stage because it
-            # also has to model the egress VLAN reset. PLAIN mode no longer
-            # reads `_out_perm` -- `_demux_ingress` handles the permutation as
-            # the general case it is (CLOUD_BENCH_PLAN.md §2.8) -- so the
-            # capture is kept for the faithful path alone, and is a small unused
-            # dict otherwise. Fall through either way so the out. rules are ALSO
-            # translated as a FIB: required for wl_i2, whose out. stage IS one,
-            # and in plain wl_stanford those forwards are now kept and split
-            # rather than dropped.
+            # wl_stanford: record which arrival ports the stage has, for
+            # `_build_stanford_faithful`, which emits one element per arrival
+            # port. PLAIN mode no longer reads `_out_perm` -- `_demux_ingress`
+            # handles the permutation as the general case it is
+            # (CLOUD_BENCH_PLAN.md §2.8) -- so the capture serves the faithful
+            # path alone and is a small unused dict otherwise. The separate VLAN
+            # RESET capture that used to sit here is gone: the out stage carries
+            # its own rewrites now (TODO item 27). Fall through either way so the
+            # out. rules are ALSO translated as a FIB: required for wl_i2, whose
+            # out. stage IS one, and in plain wl_stanford those forwards are now
+            # kept and split rather than dropped.
             self._capture_out_perm(model)
-            if self._faithful_vlan:
-                self._capture_out_reset(model)
         fwd_tables = (model.node + '.routing', model.node + '.1')
         acl_in_t = model.node + '.acl_in'
         acl_out_t = model.node + '.acl_out'
@@ -1464,26 +1462,6 @@ class APKeepAdapter(AbstractVerificationEngine):
                 for port in (rule.in_ports or [None]):
                     key = (node, None if port is None else _split_port(port)[1])
                     self._in_port_vlans.setdefault(key, set()).add(vlan)
-
-    def _capture_out_reset(self, model: Any) -> None:
-        """ P7b: the out-stage mostly passes the mid-assigned VLAN through, but a
-        few rules reset it to 0 (rw=vlan:0) -- and probes require vlan=0. Record
-        the (in_port, vlan) pairs that reset, so the mid NAT can fold the reset
-        into the effective egress VLAN for those routes. """
-        reset = self._out_reset.setdefault(model.node, set())
-        for _table, rules in model.tables.items():
-            for rule in rules:
-                resets = any(
-                    isinstance(a, Rewrite)
-                    and any(f.name == _VLAN and str(f.value) == '0' for f in a.rewrite)
-                    for a in rule.actions
-                )
-                if not resets or not rule.in_ports:
-                    continue
-                in_port = _split_port(rule.in_ports[0])[1]
-                for field in (rule.match or []):
-                    if field.name == _VLAN:
-                        reset.add((in_port, str(field.value)))
 
     def _capture_iport_vlan(self, rules: Any) -> None:
         """ pre_routing assigns an ingress VLAN per ingress port (e.g. the
@@ -2295,14 +2273,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         (probes require vlan=0), else N (the transit VLAN that propagates on).
         Returns (collapsed_edges, device_nats, nat_rules). """
         mid_to_out: Dict[Tuple[str, str], Tuple[str, str]] = {}
-        mid_port_to_outin: Dict[Tuple[str, str], str] = {}
         out_ext: Dict[Tuple[str, str], List[Tuple[str, str]]] = {}
         kept: List[str] = []
         for edge in edges:
             s_dev, s_port, d_dev, d_port = edge.split()
             if d_dev.split('.', 1)[0] == 'out':          # mid.X -> out.X (internal)
                 mid_to_out[(d_dev, d_port)] = (s_dev, s_port)
-                mid_port_to_outin[(s_dev, s_port)] = d_port
             elif s_dev.split('.', 1)[0] == 'out':        # out.X -> in.Y / probe
                 out_ext.setdefault((s_dev, s_port), []).append((d_dev, d_port))
             else:
@@ -2469,40 +2445,34 @@ class APKeepAdapter(AbstractVerificationEngine):
             "-- the cost the P7a collapse used to avoid", len(out_elems),
             len(out_rules))
 
-        # Which out device belongs to which mid device -- read off the TOPOLOGY,
-        # which already states it, rather than rebuilt by constructing the name
-        # `'out.' + mid_dev.split('.', 1)[1]`. That construction was the last
-        # place in any of the three adapters that built a device name from a
-        # string, and it was redundant with `mid_to_out` twenty lines above:
-        # measured on wl_stanford, all 16 mid devices have an edge-derived
-        # partner, every one single-valued, agreeing with the constructed name in
-        # 16 of 16 (TABLE_SEMANTICS_PLAN.md §7.1).
-        #
-        # A set, and a REFUSAL if it is not a singleton: single-valuedness is a
-        # property of this dataset, not a guarantee. A constructed name would
-        # silently pick one partner for a mid stage that fanned out to two; this
-        # says so instead.
-        out_of_mid: Dict[str, Set[str]] = {}
-        for (out_dev, _in_port), (m_dev, _m_port) in mid_to_out.items():
-            out_of_mid.setdefault(m_dev, set()).add(out_dev)
+        # The `out_of_mid` partner map and its "a mid feeding TWO out stages is
+        # refused" guard are GONE with the fold (TODO item 27). They existed
+        # because the fold read ONE partner's reset set, so a mid with two
+        # partners would have picked one by accident of iteration order. Nothing
+        # reads a partner any more -- the out stage carries its own rewrites, per
+        # arrival port -- so the refusal would now reject a model this path
+        # handles correctly. It is deleted rather than kept as dead weight.
 
         device_nats: Dict[str, set] = dict(out_nats)
         nat_rules: List[str] = list(out_nat_rules)
         for mid_dev, rws in self._mid_rw.items():
-            partners = out_of_mid.get(mid_dev, set())
-            if len(partners) > 1:
-                raise UntranslatedSemantics(
-                    "%s feeds %d out-stage devices (%s). The egress VLAN reset "
-                    "is read from ONE of them, so which reset applies would be "
-                    "an accident of iteration order."
-                    % (mid_dev, len(partners), ', '.join(sorted(partners)))
-                )
-            reset = self._out_reset.get(
-                next(iter(partners)), set()) if partners else set()
+            # NO out-stage reset is folded in here any more (TODO item 27).
+            #
+            # This used to write the EFFECTIVE egress VLAN: 0 where the out stage
+            # had a `rw=vlan:0` rule for (in_port, vlan_n), else vlan_n. Two
+            # things retired it. The out stage is now a real element and carries
+            # its own rewrites on dedicated ports (sec. 4.5), so folding here
+            # modelled the same event a second time and in the wrong place. And
+            # all 45 of those reset rules are SHADOWED by their port's match-all,
+            # so under hassel's top-down first match none of them ever fires --
+            # the fold was applying a reset the reference model does not perform.
+            #
+            # Measured both ways: deleting the 45 reset rules from the model
+            # leaves NetPlumber at 165 and APKeep at 165, because what actually
+            # delivers vlan-0 traffic to a probe is the MID stage, 25 of whose
+            # rules write `rw=vlan:0` directly.
             for dst, egress_port, vlan_n in rws:
-                out_inport = mid_port_to_outin.get((mid_dev, egress_port))
-                effective = '0' if (out_inport is not None
-                                    and (out_inport, vlan_n) in reset) else vlan_n
+                effective = vlan_n
                 ip = "0.0.0.0" if dst is None else dst.partition('/')[0]
                 plen = 0 if dst is None else int((dst.partition('/')[2] or "32"))
                 device_nats.setdefault(mid_dev, set()).add(egress_port)
@@ -2820,10 +2790,24 @@ class APKeepAdapter(AbstractVerificationEngine):
                 # src-IP so source-matching ACLs bite (a 0.0.0.0/0 source -> len
                 # 0 -> full space, the unconstrained case).
                 src_cidr = self._gen_src.get(source_name)
-                # wl_stanford probes accept only vlan=0 (traffic whose egress VLAN
-                # the out-stage reset to 0); the faithful model enforces that at
-                # the probe as a target-header constraint.
-                tvlan = 0 if (self._stanford and self._faithful_vlan) else None
+                # NO probe VLAN constraint (TODO item 27).
+                #
+                # This used to force vlan=0 at a faithful wl_stanford probe, on
+                # the belief that "probes accept only vlan=0 (traffic whose
+                # egress VLAN the out-stage reset to 0)". Both halves are wrong.
+                # The out-stage resets never fire -- all 45 are shadowed by their
+                # port's match-all -- and the REFERENCE MODEL DOES NOT ENFORCE
+                # THE FILTER EITHER: clearing `vlan=0` on all 16 of wl_stanford's
+                # probes leaves NetPlumber at 165 pairs, unchanged.
+                #
+                # Forcing it was vacuous on NDD, which existentially quantifies
+                # VLAN out of a `probe.*` device before the constraint applies (a
+                # host on an access port receives the frame untagged), and
+                # BINDING on BDD, which takes it literally. Measured on a toy
+                # model: with traffic carrying vlan 5, `target_vlan=0` at
+                # `probe.x` gives NDD=True, BDD=False. So the one engine it
+                # affected was the one it made disagree with the reference.
+                tvlan = None
                 if self._engine == 'ndd' and self._ndd_fwd_mode:
                     # pure dst-IP FIB: AtomForwarding floods the full dst space
                     # (forwarding is source-independent), no src/VLAN constraint.

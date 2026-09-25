@@ -656,6 +656,15 @@ class TestMidToOutComesFromTheTopology(unittest.TestCase):
     wl_stanford the two agreed 16 of 16 -- so carrying a `group` identity in the
     declaration would have been a second source of truth for something the model
     already states.
+
+    **Two of these tests were deleted with the VLAN-reset fold (TODO item 27).**
+    They observed the fold: one that the partner was found by topology rather
+    than by name (visible as the effective egress VLAN becoming 0), and one that
+    a mid feeding TWO out stages was refused (because the fold read ONE
+    partner's reset set). The out stage now carries its own rewrites per arrival
+    port, nothing reads a partner, and the refusal would reject a model this path
+    handles -- so both the machinery and its tests are gone, replaced by the
+    positive statement below.
     """
 
     def _engine(self):
@@ -664,37 +673,40 @@ class TestMidToOutComesFromTheTopology(unittest.TestCase):
         log.setLevel(logging.ERROR)
         return APKeepAdapter(log, faithful_vlan=True, engine='ndd')
 
-    def test_the_partner_need_not_share_the_mid_device_s_NAME(self):
-        """ The discriminating case: `mid.alpha` feeding `out.beta`. The deleted
-        construction looked up `'out.' + 'alpha'`, missed, and silently used no
-        VLAN reset; reading the topology finds `out.beta`. """
+    def test_a_mid_feeding_TWO_out_stages_is_now_HANDLED(self):
+        """ It used to be refused, and the refusal was right while the fold read
+        one partner's reset set by accident of iteration order. Per-arrival-port
+        elements have no such notion, so both mid egresses are wired and both out
+        stages get their element. """
+        engine = self._engine()
+        engine._out_perm = {'out.beta': {'1': {'2'}}, 'out.gamma': {'1': {'2'}}}
+        engine._mid_rw = {'mid.alpha': [('10.0.0.0/8', 'e1', '7')]}
+        engine._fwd_table = {
+            'out.beta': [{'idx': 1, 'ports': ['2'], 'in_ports': ['1'],
+                          'match': {}, 'rw': {}}],
+            'out.gamma': [{'idx': 1, 'ports': ['2'], 'in_ports': ['1'],
+                           'match': {}, 'rw': {}}],
+        }
+        edges = ['mid.alpha e1 out.beta 1', 'mid.alpha e2 out.gamma 1',
+                 'out.beta 2 in.b 1', 'out.gamma 2 in.c 1']
+        engine._build_stanford_faithful(edges)      # must not raise
+        self.assertEqual(len(engine._out_stage_elems), 2)
+
+    def test_the_mid_egress_VLAN_is_written_as_the_mid_stage_states_it(self):
+        """ The fold used to overwrite it with 0 where the out stage had a reset
+        rule for (in_port, vlan). Those rules are all shadowed, so the reset
+        never happens and the mid's own value is what belongs here. """
         engine = self._engine()
         engine._out_perm = {'out.beta': {'1': {'2'}}}
         engine._mid_rw = {'mid.alpha': [('10.0.0.0/8', 'e1', '7')]}
-        engine._out_reset = {'out.beta': {('1', '7')}}
-
+        engine._fwd_table = {'out.beta': [
+            {'idx': 1, 'ports': ['2'], 'in_ports': ['1'], 'match': {}, 'rw': {}},
+        ]}
         edges = ['mid.alpha e1 out.beta 1', 'out.beta 2 probe.p 1']
-        _edges, _nats, nat_rules, _acl_devs, _acls = \
-            engine._build_stanford_faithful(edges)
-
-        # the reset applies, so the effective egress VLAN is 0 rather than 7
-        self.assertTrue(nat_rules, "no NAT emitted, so nothing was resolved")
-        self.assertTrue(nat_rules[0].endswith(' 0'), nat_rules[0])
-
-    def test_a_mid_feeding_TWO_out_stages_is_REFUSED(self):
-        """ Single-valuedness is a property of wl_stanford, not a guarantee. A
-        constructed name would silently pick one partner; this says so. """
-        from apkeep.adapter import UntranslatedSemantics
-        engine = self._engine()
-        engine._out_perm = {}
-        engine._mid_rw = {'mid.alpha': [('10.0.0.0/8', 'e1', '7')]}
-        engine._out_reset = {}
-
-        edges = ['mid.alpha e1 out.beta 1', 'mid.alpha e2 out.gamma 1']
-        with self.assertRaises(UntranslatedSemantics) as caught:
-            engine._build_stanford_faithful(edges)
-        self.assertIn('out.beta', str(caught.exception))
-        self.assertIn('out.gamma', str(caught.exception))
+        _e, _n, nat_rules, _ad, _ar = engine._build_stanford_faithful(edges)
+        mid_nats = [r for r in nat_rules if r.split()[2] == 'mid.alpha']
+        self.assertEqual(len(mid_nats), 1)
+        self.assertTrue(mid_nats[0].endswith(' 7'), mid_nats[0])
 
     def test_no_adapter_constructs_a_device_name_any_more(self):
         """ The property the deletion bought, pinned so it stays bought. """

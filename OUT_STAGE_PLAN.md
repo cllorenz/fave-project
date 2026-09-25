@@ -443,7 +443,7 @@ hassel's top-down first match. `test_apkeep_stanford.py`,
    `_out_stage_widened`, logged at WARNING, and counted in `_cost_metrics`.
    Implementing the field stays open as sec. 4.4.
 
-### 4.3.1 The VLAN resets are dead too, and the fold outlives its justification
+### 4.3.1 The VLAN resets are dead too, and the fold that applied them is gone
 
 The sketch said the reset *had* to move onto the out element, because a mid NAT
 writing the already-reset VLAN would leave the element matching a tag the packet
@@ -458,20 +458,34 @@ element would model it in a second place rather than the right one. Confirmed
 both ways: dropping the 45 reset rules from the model leaves **NetPlumber at 165
 and APKeep at 165**.
 
-**`_build_stanford_faithful` folds them anyway** (`_out_reset` -> the mid NAT's
-`effective` VLAN), which means the adapter applies a reset the reference never
-applies. That is a real fidelity defect and it is **deliberately left alone
-here**, for two reasons: it is pre-existing, and it is measured to change no
-verdict on the production path — NDD existentially quantifies VLAN out of
-`probe.*` devices before `target_vlan` applies, so the probes' `vlan=0` filter is
-vacuous there (item 23 step 0). Its BDD behaviour is **not** measured: an intact-vs-noreset
-faithful-BDD run was attempted and neither half produced a pair count within 25
-minutes, which is the deferred scalability item. **That run is not citable even
-as a timing observation** — it sat in the background across edits to
-`apkeep/adapter.py` (including two `git checkout` reverts of it), so its halves
-did not execute the same code; it needs redoing on a quiesced tree. Removing the
-fold is therefore a change whose only possible effect is on a path that currently
-has no trustworthy measurement, and it belongs with that item rather than here.
+**`_build_stanford_faithful` folded them anyway** (`_out_reset` -> the mid NAT's
+`effective` VLAN), overwriting **142 of 3,372** mid NATs with vlan 0 -- applying
+a reset the reference never applies. Step 3 left that alone, on the grounds that
+its only possible effect was on the BDD path, which faithful wl_stanford cannot
+exercise.
+
+**RESOLVED 2026-09-25 (TODO item 27), and the blocker was a wrong instrument.**
+The question -- does a probe VLAN constraint bind? -- is a MECHANISM question,
+and a toy model answers it in milliseconds where faithful-BDD wl_stanford never
+finishes:
+
+```
+traffic leaves carrying vlan 5; ask target_vlan=0 at the destination
+   destination `dst`      NDD=False  BDD=False    <- agree
+   destination `probe.x`  NDD=True   BDD=False    <- disagree
+```
+
+And the reference settles which reading is right: **clearing the `vlan=0` filter
+on all 16 of wl_stanford's probes leaves NetPlumber at 165 pairs, unchanged.** NP
+does not enforce it either, so NDD's untag matches the reference and BDD's
+literal reading does not -- and the real defect was the adapter forcing
+`target_vlan=0` at all.
+
+Both are now gone: the fold, and the probe VLAN constraint. With them go
+`_out_reset`, `_capture_out_reset`, `mid_port_to_outin`, and the "a mid feeding
+TWO out stages is refused" guard -- that refusal existed only because the fold
+read ONE partner's reset set, and would now reject a model the per-arrival-port
+elements handle correctly. wl_stanford stays 165/165.
 
 ### 4.4 Step 4 — `packet.upper.tcp.flags` in both engines — **DONE**
 
