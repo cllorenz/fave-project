@@ -2084,6 +2084,126 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       random.csv`) went with the archive, so the churn axis needs Claas to
       re-supply it. Worth settling before D4 is costed, because it changes
       whether D5 is a benchmark or a sentence.
+- [ ] **D6 — the three-tier layout, and `wl_deltanet` becomes `wl_airtel1`**
+      (filed 2026-09-25, owner direction the same day). A second trace cannot be
+      built in place. `_PREFIX` is one directory, so generating airtel2
+      overwrites airtel1's model and leaves no record of which trace is in
+      there — and between that moment and the next `./test.sh integration`,
+      `test_backend_differential -k Deltanet` gates airtel2 while every name in
+      it says otherwise. That is §2.3's failure mode reproduced as a working
+      directory.
+
+      **Own prefixes alone would buy that at the price of copied
+      infrastructure** (owner, 2026-09-25), and the tree already shows where
+      copying ends up. `np.conf` exists in **12 copies with 5 distinct
+      contents**, six of them running `log4j.logger.NetPlumber=DEBUG` where the
+      rest run `INFO` — a measurement-affecting difference, on a machine where
+      §2.6 notes that /dev/shm logs are not free. `tf_to_json.py` and
+      `topology_to_json.py` have **diverged between `wl_i2` and `wl_stanford`**,
+      the Stanford copy having grown port-offset logic the i2 copy never
+      learned. Neither drift was chosen; both are sediment from copying.
+
+      So the workloads get their own directories and the code does not move with
+      them:
+
+      * **`bench/`** — cross-workload: one shared `np.conf` with a per-prefix
+        override, and `input_stamp.py`.
+      * **`bench/deltanet/`** — the dataset FAMILY: trace parser, topology
+        derivation, census, policy, preparation, the vendored `traces/`, and
+        `TRACES.md`. **The raw data forces this tier to exist** — 2.4 MB of CSVs
+        under one `SHA256SUMS` with two consumers cannot be duplicated without
+        duplicating the pin.
+      * **`bench/wl_airtel1/`** — a ~15-line driver and the generated artifacts.
+
+      **Measured before proposing it**: `deltanet_topology.py`,
+      `deltanet_preparation.py` and `deltanet_policy.py` mention airtel **zero
+      times**. The derivation is already a pure function of the trace, so this
+      is a MOVE, not a refactor — the airtel1 implementation did the factoring
+      and filed the result in a workload directory.
+
+      **The name.** `wl_deltanet` names the distribution, not the network; the
+      archive holds 11 CSVs spanning `inet`, `rf3257`, `rf6461` and
+      `berkley-ribs-*` as well. `deltanet` therefore survives as the name of the
+      family and of the code that reads it, and stops being the name of a
+      workload — which is why the tests, `TRACES.md` and the vendored data keep
+      their names. The residual inaccuracy is stated rather than fixed:
+      **airtel1 and airtel2 are one network under two failure regimes**, not two
+      networks (§2.3), so a directory name that reads as a network is wrong in
+      the same KIND of way the old one was, only smaller. It is adopted anyway
+      because `Airtel 1` and `Airtel 2` are the paper's own names for the data
+      sets (Table 2), and matching the source's vocabulary beats inventing a
+      more accurate word nobody else uses. `bench/deltanet/README.md` carries
+      the correction.
+
+      **`FAVE_DELTANET_TRACE` is deleted by this.** The directory determines the
+      trace, so an override could only ever mislabel a directory. It has never
+      been used — §2.3 established that its sole occurrence in the tree is its
+      own definition.
+
+      **NO behaviour change, and three checks rather than one say so**, because
+      a large mechanical diff is where a silent change hides: identical `fast`
+      and `integration` counts before and after; the backend differential
+      producing the same MATRIX, not merely the same pass count; and a
+      regenerated `TRACES.md` differing by **exactly one line** —
+      `deltanet_census.py:209` writes its own regeneration command into the
+      document, so that line must change and nothing else may.
+
+      **Out of scope, deliberately**: collapsing the other ten `np.conf` copies.
+      Six carry `DEBUG`, and normalising them as a side effect of an airtel
+      refactor would be a measurement-affecting change made under cover of a
+      rename. The fallback mechanism lands here only so that this item does not
+      create copies 13 and 14.
+
+      **Prose is renamed by one rule.** A code comment describes the current
+      tree, so it is renamed — a reader who greps a dead directory name and
+      finds nothing is the failure mode there. A plan document is a DATED
+      RECORD, so it is not: §2.6 saying `wl_deltanet` is a true statement about
+      a measurement of a directory that had that name. §2 gets one dated line
+      saying the directory was renamed and that earlier prose names the old path.
+- [ ] **D7 — `wl_airtel2` on NetPlumber, NDD-APKeep and ad6**, in that order
+      (owner direction 2026-09-25: highest confidence first, then the fastest,
+      then the slowest). **BDD-APKeep is untouched** — parallel work. Driven
+      through FaVe so that every backend receives the same inputs, and that is
+      CHECKED rather than assumed: `run()` calls `_pre_preparation()` itself, so
+      each backend regenerates the model, and the inputs are re-hashed against
+      `SOURCE.json` after every run.
+
+      **What it buys, and §2.3 already bounds it: a robustness check, not a
+      differential.** The matrix is derived from the homing, the homing is
+      identical across the two traces, and §2.5's finer per-prefix measurement
+      is already 21,000/21,000 on both — so the answer is known before any
+      engine starts. What is NOT known is whether three engine TRANSLATIONS
+      agree on a second, genuinely different forwarding state: 3,300
+      `(router, prefix)` keys forwarding elsewhere, 155 directed port-edges
+      against airtel1's 158. That, plus a second model's costs, which D5 has
+      none of.
+
+      **First, adding it is the acceptance test for D6.** It must cost a driver
+      file, a registry line and a gitignore pattern. More than that means the
+      factoring was wrong, and this is where that is cheap to learn rather than
+      at `wl_berkley`.
+
+      **Gated versus measured once** (§2.9's distinction, and item 12a's). The
+      pure-Python guards are gated — census, topology, and the LPM guard, which
+      **has already been verified to port**: airtel2 carries the same two nested
+      prefix pairs and the same single witness (`117.53.131.0/24` inside
+      `117.53.128.0/20`, homed apart), and all three of `TestDeltanetLPM`'s
+      assertions pass on it, the inversion included. The engine half is gated at
+      NetPlumber + NDD only, `ENGINES = ('ndd',)`, with `wl_up` as the
+      precedent. **ad6 stays a one-off measurement and the gap is named**, as it
+      is for airtel1: no `test_ad6_*` covers this workload at all (§2.6), and
+      building one is separate work.
+
+      **Each zero is to be shown non-vacuous per engine** by §2.6's mutation:
+      claim `s1 ---> s8`, expect exactly one violation naming it, with the check
+      total still 256.
+
+      **The one place a real finding could appear.** airtel2 uses three fewer
+      directed port-edges, and the matrix is an expectation derived from homing
+      rather than from paths, so a must-reach COULD fail where airtel1's did
+      not. §2.5's measurement says it will not — but that is one
+      implementation's claim, and checking it against three engines is a fair
+      part of the point. Results go to §2.13, stamped by engine AND trace.
 
 ---
 
@@ -2944,6 +3064,23 @@ Single runs, wall-clock, one machine, no repetition, JVM warm-up not controlled.
 These are order-of-magnitude figures that justify an engine choice. **They are
 not benchmark figures** and must not reach a results table without being
 re-measured under the harness that produces the rest of them.
+
+---
+
+## 2.13 D7 — `wl_airtel2` on all three backends
+
+**NOT YET RUN.** Reserved 2026-09-25, when D7 was filed, so that the results
+have a home before they exist and nothing is tempted to write them into §2.6 —
+which is airtel1's, and stamped as such.
+
+What belongs here when there is something to put in it: the trace stamp, the
+three engine verdicts with their compliance times, the per-engine non-vacuity
+mutation, the input-identity check against `SOURCE.json`, and the framing §2.3
+requires — a **robustness check, not a differential**.
+
+A section that exists before its measurement is not bookkeeping for its own
+sake. §2.6 stood for three days describing a run of an unnamed trace, because
+the place to record which one was not there to be left empty.
 
 ---
 
