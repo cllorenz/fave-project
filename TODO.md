@@ -1046,6 +1046,33 @@ Reachability unchanged: wl_stanford **165/165** vs NetPlumber, EXTRA=0 MISSING=0
 
 ---
 
+### 28. NDD handles header fields in five places; BDD handles them in one — **PLAN** ([`NDD_FIELD_UNIFICATION_PLAN.md`](NDD_FIELD_UNIFICATION_PLAN.md))
+
+**Raised by the owner, 2026-09-25, after the fourth slot-drop defect of the same shape: "they are all header fields and a verification engine should be able to handle them uniformly."**
+
+Four such defects have been found here. Three were NDD-only; the fourth cost three edits in NDD against one in BDD:
+
+| defect | NDD | BDD |
+|---|---|---|
+| item 23 step 0 — `+ filter` drops VLAN | dropped | honoured ("always did") |
+| OUT_STAGE_PLAN sec. 4.2 — `+ nat … match` drops VLAN | dropped | honoured via `ACLRule` |
+| the condition path — drops VLAN **and** flags | dropped | honoured |
+| step 4 — `tcp_flags` absent from both | 3 call sites | 1 edit |
+
+**Structural, not accidental.** BDD has ONE parser (`ConvertACLRule` ANDs eight field nodes; six callers, none field-aware). NDD has FOUR parse sites, three of which remember two helpers — and the split is arbitrary: `ruleToNDD` reads the 5-tuple *and* `related` (token 18) inside itself, while only VLAN (17) and flags (19) live outside. VLAN was added for `+ acl` alone, later extracted into a helper applied at the branches rather than folded in; flags copied the pattern.
+
+Adding one field today means touching five places: the emitter, one of six field sets in `apkeep/adapter.py`, `_is_acceptall_filter_rule` (which reads slots positionally and silently widens on an unknown one — this bit steps 2 and 4), every NDD call site, and a new positional parameter on `isReachable` (hence its **four** overloads).
+
+- [ ] **Step 1** — fold VLAN and flags into `ruleToNDD`. Closes the condition-path defect as a consequence rather than as a patch.
+- [ ] **Step 2** — one declaration of the slot layout per side; derive the Python emitter and the accept-all reader from it.
+- [ ] **Step 3** — retire the `isReachable` overloads; `target_vlan` is already dead in production (item 27 removed its only use).
+- [ ] **Step 4** — widen `_COND_SLOTS`, making "reachable on VLAN 78" expressible. Needs its own oracle, which must FAIL before step 1.
+- [ ] **Step 5 — NOT scheduled.** The trailing-token grammar is the root cause, but retiring it touches `common/ACLRule.java`, which standalone APKeep shares. Owner's priority is the FaVe path; steps 1–2 get most of the benefit at none of that risk.
+
+**Scope (owner):** APKeep as a FaVe backend, not standalone. `ndd/.../fave/` is FaVe-only — verified, the sole references are `fave/apkeep/lib_ndd.py` and `fave/apkeep/adapter.py` — so `ndd/.../application/**` and standalone APKeep's formats are untouched.
+
+---
+
 ### 26. NetPlumber's conditioned checks over-reported — **FIXED 2026-09-25** (`hs_overlaps_arr`)
 
 **Found while building OUT_STAGE_PLAN.md's step-0 oracle; diagnosed and fixed with the owner.**
