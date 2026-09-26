@@ -1,0 +1,69 @@
+{
+  "bench": "stanford",
+  "engine": "bdd",
+  "faithful_vlan": true,
+  "routers": null,
+  "xmx": "8g",
+  "profile": "bench/wl_stanford/eval/probe_stanford_1h.profile.jsonl",
+  "deadline_s": 3600,
+  "status": "deadline",
+  "started_utc": "2026-09-25T23:18:45Z",
+  "sources": 16,
+  "probes": 16,
+  "wall_s": 3600.001,
+  "trend": {
+    "samples": 120,
+    "elapsed_s": 3570.1,
+    "rules": 4245,
+    "total_rules": 9491,
+    "pct_rules": 44.73,
+    "ap_num": 13759,
+    "elements": 375,
+    "ppm_entries": 5159625,
+    "bdd_mem_mib": 375.7,
+    "encode_ms": 64,
+    "insert_ms": 81,
+    "ppm_ms": 653805,
+    "merge_ms": 2909067,
+    "split_count": 31292,
+    "windows": {
+      "300s": {
+        "d_rules": 13,
+        "span_s": 270.0,
+        "rate_per_s": 0.0481,
+        "d_ap": -27,
+        "ap_per_rule": -2.077,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 43,
+        "span_s": 870.0,
+        "rate_per_s": 0.0494,
+        "d_ap": 222,
+        "ap_per_rule": 5.163,
+        "is_tail": true
+      },
+      "1800s": {
+        "d_rules": 91,
+        "span_s": 1770.0,
+        "rate_per_s": 0.0514,
+        "d_ap": 426,
+        "ap_per_rule": 4.681,
+        "is_tail": true
+      },
+      "3600s": {
+        "d_rules": 4245,
+        "span_s": 3570.1,
+        "rate_per_s": 1.1891,
+        "d_ap": 13758,
+        "ap_per_rule": 3.241,
+        "is_tail": false
+      }
+    },
+    "rules_left": 5246,
+    "bound_h": 28.35,
+    "bound_basis": "tail rate 0.0514 rules/s over the window it is keyed to",
+    "ap_num_projected": 38315,
+    "rate_falling": true
+  }
+}

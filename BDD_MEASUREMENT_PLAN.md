@@ -106,3 +106,44 @@ corrupt, and it is suggestive rather than conclusive.
 *(appended as runs land)*
 
 - **2026-09-25 — campaign agreed.** Scope #0/#1/#3/#4/#5; #2 and #6 dropped.
+
+- **#0 PASSED** (2026-09-25). fast 919; integration 164+11+16, 0 failures. Both
+  item-29 fixes (the `addPredicate` ref protection and the loud catch) are clean
+  against the whole suite -- nothing depended on the swallow.
+
+- **#1 COMPLETED** (2026-09-26 00:10). **wl_cloud builds on BDD in 2 h 46 min.**
+  `status: completed`, **zero exceptions with the loud catch active**, so nothing
+  was swallowed to reach it. build 9 976.3 s / **query 1.96 s** / `ap_num`
+  **90 153** / 1 773 of 1 773 rules / merge 143.3 min vs ppm 22.8 min (6.3x) /
+  119 elements / table 180.6 MiB. The query is essentially free once the
+  partition exists; the cost is entirely the build, and within it AP merge.
+  §1.7.3 called this model intractable on BDD for months.
+  **OPEN:** `reachable_pairs` **53** where NDD returns **59** on the same model
+  under the same driver (re-confirmed with the current jar). §1.7.3 records NDD
+  agreeing with NetPlumber on all 64 cells, so BDD appears to disagree with the
+  reference on 6. Measured, not diagnosed. Both drivers now record
+  `reachable_pair_list`; the six cannot be named from this run because the pair
+  sets were not saved.
+
+- **#3 BOTH PROBES CLEAN** (2026-09-26 01:19). One hour each, declared deadline,
+  loud catch active, **zero exceptions in either**. faithful-stanford: 4 245 of
+  9 491 rules, `ap_num` 13 759. faithful-i2: 86 709 of 154 974, `ap_num` 13 564.
+  §2.6b's runs are therefore unlikely to have been silently corrupt, and #4/#5
+  are de-risked.
+
+  **CAVEAT DISCOVERED HERE -- the §2.6b baseline transfers for i2 and NOT for
+  stanford.** The stanford faithful model is **9 491 rules today against §2.6b's
+  7 278**: `OUT_STAGE_PLAN.md` step 3 removed the out-stage collapse and now
+  emits the full stage. So #4 is a NEW measurement, not a re-measurement, and
+  §2.6b's >= 3.8 h bound does not transfer to it. i2 is 154 974 vs 154 920
+  (0.03 %), so that one does.
+
+  **And on i2, where the comparison IS valid, the patched build looks materially
+  different:** at 30 min it had `ap_num` 11 124 at 84 854 rules against §2.6b's
+  20 930 at 82 003 -- roughly half the partition, at more rules, at 1.62 rules/s
+  against 1.08, with AP/rule 0.94 against 2.16-2.60 and more merge activity in
+  half the time. **That points at §2.6b's "unbounded superlinear partition growth
+  with no plateau" -- the Σ-vs-Π headline -- being substantially an artifact of
+  the use-after-free**, which degraded merging, and a partition that cannot merge
+  only grows. One run against one run, and §2.6b's i2 build did merge somewhat,
+  so this is a strong pointer rather than a finding. #5 is what settles it.
