@@ -1,0 +1,19 @@
+stanford BDD build -- live status (APKEEP_NDD_EVAL.md 2.6b protocol)
+engine=bdd  deadline=28800s  started=2026-09-26T01:20:33Z
+
+elapsed        28770.5 s (7.99 h)
+rules applied  5035 / 9491  (53.05 %)
+ap_num         18455
+elements       375   ppm_entries 6920625   split_count 75960
+bdd table      375.7 MiB
+timers (ms)    encode=78 insert=121 ppm=3452149 merge=25294121
+
+window    d_rules   rate/s   d_ap   AP/rule   tail?
+300s            4   0.0148    -34      -8.5   yes
+900s           12   0.0138    -37    -3.083   yes
+1800s          22   0.0124     -1    -0.045   yes
+3600s          43    0.012    274     6.372   yes
+
+rules left     4456
+COMPLETION     >= 103.15 h at the tail rate (windows still overlap -> no direction readable yet)
+ap_num proj.   46848 (extrapolation, not a measurement)
