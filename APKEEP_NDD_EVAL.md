@@ -720,8 +720,11 @@ plus the 1 h loud-catch probes `probe_{stanford,i2}_1h.*` and the pre-fix
 
 **The 53-vs-59 gap is CLOSED (2026-09-27).** On wl_cloud the completed BDD build
 answered **53** reachable pairs where NDD (and NetPlumber) answer **59**. The six
-are the whole `internet` row -- every pair crossing the gateway's DNAT -- and the
-cause is a third upstream defect: a `NATElement`'s rewrite outputs stop being
+are the whole `internet` row -- every pair crossing the gateway's DNAT
+(`internet -> dc0_leaf1_host1`, `dc1_leaf0_host20`, `dc1_leaf5_host5`,
+`dc1_leaf6_host0`, `dc1_leaf6_host2`, `dc4_leaf3_host22`), all six lost in the
+UNDER-approximating direction, which is the one `bench/apkeep_convergence.py`
+calls a soundness failure. The cause is a third upstream defect: a `NATElement`'s rewrite outputs stop being
 atomic predicates as soon as a rule reaches any OTHER element, so
 `Element.forwardAPs`' `retainAll` intersects them away and the rewritten traffic
 vanishes without an exception. Fixed by `Network.refreshRewriteTables()`; full

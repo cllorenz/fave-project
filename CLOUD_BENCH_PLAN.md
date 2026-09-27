@@ -851,8 +851,21 @@ With the fix above the build finishes (campaign run #1: `completed`, 2 h 46 min,
 recorded as measured-not-diagnosed. This is the diagnosis.
 
 **The six are the whole `internet` row** -- every pair whose path crosses the
-gateway's DNAT. Nothing else differs: all 58 other cells match NetPlumber
-exactly. The DNAT delivered nothing.
+gateway's DNAT. Named, from a `reachable_pair_list` on the full model with the
+committed binary (`natfix_full_before.json`, `status: completed`, `ap_num`
+90 153 -- identical to campaign run #1, so the build is deterministic):
+
+    internet -> dc0_leaf1_host1     internet -> dc1_leaf6_host0
+    internet -> dc1_leaf0_host20    internet -> dc1_leaf6_host2
+    internet -> dc1_leaf5_host5     internet -> dc4_leaf3_host22
+
+Nothing else differs: all 58 other cells match NetPlumber exactly, and the
+difference is **one-directional** -- six pairs NDD reaches that BDD does not, and
+**zero** the other way. That direction is the serious one. `bench/apkeep_
+convergence.py` defines APKeep's soundness criterion as exactly this: it may
+over-approximate the reference, never under-approximate it, because an
+under-approximation is a real path the verifier says does not exist. This was six
+of them. The DNAT delivered nothing.
 
 That is the *same symptom* as the translation defect at the top of this section
 ("the gateway's fourteen DNAT rules arrived with no rewrite"), and an unrelated

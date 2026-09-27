@@ -1,0 +1,15 @@
+wl_cloud BDD build -- live status (APKEEP_NDD_EVAL.md 2.6b protocol)
+engine=bdd  deadline=12600s  started=2026-09-27T10:23:52Z
+
+elapsed        12584.2 s (3.50 h)
+rules applied  1773 / 1773  (100.0 %)
+ap_num         90153
+elements       119   ppm_entries 10728207   split_count 113120
+bdd table      180.6 MiB
+timers (ms)    encode=112 insert=113 ppm=1517769 merge=11051145
+
+window    d_rules   rate/s   d_ap   AP/rule   tail?
+300s           16   0.0564    824      51.5   yes
+900s           49   0.0555   2894    59.061   yes
+1800s         101   0.0566   6197    61.356   yes
+3600s         213   0.0594  10726    50.357   yes

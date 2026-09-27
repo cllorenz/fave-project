@@ -1,0 +1,300 @@
+{
+  "bench": "wl_cloud",
+  "engine": "bdd",
+  "deadline_s": 12600,
+  "status": "completed",
+  "started_utc": "2026-09-27T10:23:52Z",
+  "xmx": "8g",
+  "profile": "/tmp/claude-1000/-home-clorenz-fp2/d643a363-e41b-4b8f-abd6-1b3ccbebad68/scratchpad/reach/bdd_pairs.json.profile.jsonl",
+  "regenerated_inputs": true,
+  "inputs_sha256": {
+    "topology.json": "b30bcf548a269006539280191cb0ee740ee04fdba9cf5d77b30998bece2f5ba9",
+    "routes.json": "ca010732939e4d58c39553ae5a2369ca23d3f279def0bee73bc43ac2ed3cd950",
+    "policies.json": "5877c2306fa59869e8f7d808ee7c1778ba9f89c7d81b645f37027727ea23e33d",
+    "sources.json": "eff244716a2058023dbfdb9ba1e3b7f077e70ba718d407d732a3f0cfda3e8252",
+    "mapping.json": "df71b5feca8e5381a3c1c60c915e8776e403c07f4fc1ae9d5bfdcef8751b1c78"
+  },
+  "jar_sha256": "7d5c8fa024372ec2ef8ae5c029c825665638b94d491a5a604b55bb3cedf960ba",
+  "ndd_jar_sha256": "67b2673c1a5e4926d3a374c3906bafb99817c1427034056b3549c44efbc98188",
+  "replay_s": 0.181,
+  "sources": 8,
+  "probes": 8,
+  "build_s": 12584.319,
+  "ap_num": 90153,
+  "element_metrics": {
+    "elements": 119,
+    "ports": 1500,
+    "ForwardElement": 56,
+    "FilterElement": 53,
+    "ACLElement": 0,
+    "NATElement": 10
+  },
+  "query_s": 3.447,
+  "reachable_pairs": 53,
+  "reachable_pair_list": [
+    [
+      "source.dc0_leaf1_host1",
+      "probe.dc0_leaf1_host1"
+    ],
+    [
+      "source.dc0_leaf1_host1",
+      "probe.dc1_leaf0_host20"
+    ],
+    [
+      "source.dc0_leaf1_host1",
+      "probe.dc1_leaf5_host5"
+    ],
+    [
+      "source.dc0_leaf1_host1",
+      "probe.dc1_leaf6_host0"
+    ],
+    [
+      "source.dc0_leaf1_host1",
+      "probe.dc1_leaf6_host2"
+    ],
+    [
+      "source.dc0_leaf1_host1",
+      "probe.dc2_leaf7_host6"
+    ],
+    [
+      "source.dc0_leaf1_host1",
+      "probe.dc4_leaf3_host22"
+    ],
+    [
+      "source.dc0_leaf1_host1",
+      "probe.internet"
+    ],
+    [
+      "source.dc1_leaf0_host20",
+      "probe.dc0_leaf1_host1"
+    ],
+    [
+      "source.dc1_leaf0_host20",
+      "probe.dc1_leaf0_host20"
+    ],
+    [
+      "source.dc1_leaf0_host20",
+      "probe.dc1_leaf5_host5"
+    ],
+    [
+      "source.dc1_leaf0_host20",
+      "probe.dc1_leaf6_host0"
+    ],
+    [
+      "source.dc1_leaf0_host20",
+      "probe.dc1_leaf6_host2"
+    ],
+    [
+      "source.dc1_leaf0_host20",
+      "probe.dc2_leaf7_host6"
+    ],
+    [
+      "source.dc1_leaf0_host20",
+      "probe.dc4_leaf3_host22"
+    ],
+    [
+      "source.dc1_leaf0_host20",
+      "probe.internet"
+    ],
+    [
+      "source.dc1_leaf5_host5",
+      "probe.dc0_leaf1_host1"
+    ],
+    [
+      "source.dc1_leaf5_host5",
+      "probe.dc1_leaf0_host20"
+    ],
+    [
+      "source.dc1_leaf5_host5",
+      "probe.dc1_leaf5_host5"
+    ],
+    [
+      "source.dc1_leaf5_host5",
+      "probe.dc1_leaf6_host0"
+    ],
+    [
+      "source.dc1_leaf5_host5",
+      "probe.dc1_leaf6_host2"
+    ],
+    [
+      "source.dc1_leaf5_host5",
+      "probe.dc2_leaf7_host6"
+    ],
+    [
+      "source.dc1_leaf5_host5",
+      "probe.dc4_leaf3_host22"
+    ],
+    [
+      "source.dc1_leaf5_host5",
+      "probe.internet"
+    ],
+    [
+      "source.dc1_leaf6_host0",
+      "probe.dc0_leaf1_host1"
+    ],
+    [
+      "source.dc1_leaf6_host0",
+      "probe.dc1_leaf0_host20"
+    ],
+    [
+      "source.dc1_leaf6_host0",
+      "probe.dc1_leaf5_host5"
+    ],
+    [
+      "source.dc1_leaf6_host0",
+      "probe.dc1_leaf6_host0"
+    ],
+    [
+      "source.dc1_leaf6_host0",
+      "probe.dc1_leaf6_host2"
+    ],
+    [
+      "source.dc1_leaf6_host0",
+      "probe.dc2_leaf7_host6"
+    ],
+    [
+      "source.dc1_leaf6_host0",
+      "probe.dc4_leaf3_host22"
+    ],
+    [
+      "source.dc1_leaf6_host0",
+      "probe.internet"
+    ],
+    [
+      "source.dc1_leaf6_host2",
+      "probe.dc0_leaf1_host1"
+    ],
+    [
+      "source.dc1_leaf6_host2",
+      "probe.dc1_leaf0_host20"
+    ],
+    [
+      "source.dc1_leaf6_host2",
+      "probe.dc1_leaf5_host5"
+    ],
+    [
+      "source.dc1_leaf6_host2",
+      "probe.dc1_leaf6_host0"
+    ],
+    [
+      "source.dc1_leaf6_host2",
+      "probe.dc1_leaf6_host2"
+    ],
+    [
+      "source.dc1_leaf6_host2",
+      "probe.dc2_leaf7_host6"
+    ],
+    [
+      "source.dc1_leaf6_host2",
+      "probe.dc4_leaf3_host22"
+    ],
+    [
+      "source.dc1_leaf6_host2",
+      "probe.internet"
+    ],
+    [
+      "source.dc2_leaf7_host6",
+      "probe.dc0_leaf1_host1"
+    ],
+    [
+      "source.dc2_leaf7_host6",
+      "probe.dc1_leaf0_host20"
+    ],
+    [
+      "source.dc2_leaf7_host6",
+      "probe.dc1_leaf5_host5"
+    ],
+    [
+      "source.dc2_leaf7_host6",
+      "probe.dc1_leaf6_host0"
+    ],
+    [
+      "source.dc2_leaf7_host6",
+      "probe.dc1_leaf6_host2"
+    ],
+    [
+      "source.dc2_leaf7_host6",
+      "probe.dc4_leaf3_host22"
+    ],
+    [
+      "source.dc4_leaf3_host22",
+      "probe.dc0_leaf1_host1"
+    ],
+    [
+      "source.dc4_leaf3_host22",
+      "probe.dc1_leaf0_host20"
+    ],
+    [
+      "source.dc4_leaf3_host22",
+      "probe.dc1_leaf5_host5"
+    ],
+    [
+      "source.dc4_leaf3_host22",
+      "probe.dc1_leaf6_host0"
+    ],
+    [
+      "source.dc4_leaf3_host22",
+      "probe.dc1_leaf6_host2"
+    ],
+    [
+      "source.dc4_leaf3_host22",
+      "probe.dc4_leaf3_host22"
+    ],
+    [
+      "source.dc4_leaf3_host22",
+      "probe.internet"
+    ]
+  ],
+  "wall_s": 12588.168,
+  "trend": {
+    "samples": 421,
+    "elapsed_s": 12584.2,
+    "rules": 1773,
+    "total_rules": 1773,
+    "pct_rules": 100.0,
+    "ap_num": 90153,
+    "elements": 119,
+    "ppm_entries": 10728207,
+    "bdd_mem_mib": 180.6,
+    "encode_ms": 112,
+    "insert_ms": 113,
+    "ppm_ms": 1517769,
+    "merge_ms": 11051145,
+    "split_count": 113120,
+    "windows": {
+      "300s": {
+        "d_rules": 16,
+        "span_s": 283.5,
+        "rate_per_s": 0.0564,
+        "d_ap": 824,
+        "ap_per_rule": 51.5,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 49,
+        "span_s": 883.6,
+        "rate_per_s": 0.0555,
+        "d_ap": 2894,
+        "ap_per_rule": 59.061,
+        "is_tail": true
+      },
+      "1800s": {
+        "d_rules": 101,
+        "span_s": 1783.6,
+        "rate_per_s": 0.0566,
+        "d_ap": 6197,
+        "ap_per_rule": 61.356,
+        "is_tail": true
+      },
+      "3600s": {
+        "d_rules": 213,
+        "span_s": 3583.6,
+        "rate_per_s": 0.0594,
+        "d_ap": 10726,
+        "ap_per_rule": 50.357,
+        "is_tail": true
+      }
+    },
+    "rules_left": 0
+  }
+}
