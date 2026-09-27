@@ -338,6 +338,52 @@ public class Network {
 		return fwd_apk.getHoldPorts(ap);
 	}
 	
+	/**
+	 * Drive every NATElement's rewrite table to a fixpoint against the CURRENT
+	 * atomic-predicate partition.
+	 *
+	 * FaVe fork (TODO item 29). A NATElement stores, per input AP, the BDD its
+	 * rewrite produces ({@code bdd.nat(ap, field, new_value)}). For
+	 * {@link apkeep.elements.Element#forwardAPs} to carry those packets onward
+	 * the stored output must be an AP OF THE PARTITION, because forwardAPs
+	 * intersects AP-id sets ({@code retainAll}) -- an id that is merely a valid
+	 * BDD node and not a partition member intersects to nothing, and the traffic
+	 * silently disappears.
+	 *
+	 * {@link apkeep.elements.NATElement#updateRewriteTable()} is what registers
+	 * them (via {@code APKeeper.addPredicate}), but it used to run only from
+	 * {@code updatePortPredicateMap}, i.e. only on the element that just received
+	 * a rule. The outputs do not go stale then -- they go stale when a rule
+	 * inserted into some OTHER element splits or merges one of this NAT's input
+	 * APs: {@code updateAPSplit}/{@code updateAPSetMerge} recompute the outputs
+	 * with {@code bdd.nat(...)}, producing fresh unregistered BDDs, and nothing
+	 * ever re-registered them. FaVe emits NAT rules before the ~550 filter rules
+	 * that follow, so on wl_cloud EVERY rewrite output was stale by the end of
+	 * the build and every internet-sourced pair came back unreachable.
+	 *
+	 * Runs to a GLOBAL fixpoint: registering one output splits the partition,
+	 * which can invalidate another NAT's outputs. Terminates for the same reason
+	 * APKeep's own splitting does -- each round strictly refines a finite
+	 * partition. Called on BOTH sides of the per-rule merge and of the batch
+	 * merge: a merge invalidates outputs exactly as a split does, and its
+	 * mergability guard ({@code NATElement.isMergable}) reads {@code output_aps},
+	 * so a stale entry there would let it merge two APs the rewrite
+	 * distinguishes. The pre-merge call is also where upstream's per-element
+	 * registration sat (it ran from {@code updatePortPredicateMap}), so that
+	 * ordering is preserved rather than changed.
+	 */
+	private void refreshRewriteTables() throws Exception {
+		if (nat_element_names.isEmpty()) return;
+		boolean changed = true;
+		while (changed) {
+			changed = false;
+			for (String nat_name : nat_element_names) {
+				Element e = elements.get(nat_name);
+				if (e != null) changed |= e.updateRewriteTableIfPresent();
+			}
+		}
+	}
+
 	public int getAPNum() {
 		if(division_activated) {
 			return fwd_apk.getAPNum()+acl_apk.getAPNum();
@@ -355,7 +401,9 @@ public class Network {
 			updateRule(eva, rule);
 		}
 		
+		refreshRewriteTables();
 		hardMergeAPBatch();
+		refreshRewriteTables();
 		
 		eva.endExp(getAPNum());
 	}
@@ -376,7 +424,9 @@ public class Network {
 			updateRule(eva, linestr);
 		}
 
+		refreshRewriteTables();
 		hardMergeAPBatch();
+		refreshRewriteTables();
 
 		eva.endExp(getAPNum());
 	}
@@ -408,7 +458,13 @@ public class Network {
 			checkProperty(eva, device, moved_aps);
 		}
 		
+		// BEFORE the merge, because softMergeAPBatch's mergability guard
+		// (NATElement.isMergable) reads output_aps: a stale output there lets it
+		// merge two APs the rewrite distinguishes. AFTER it too, because the merge
+		// re-derives the outputs itself (updateAPSetMergeBatch).
+		refreshRewriteTables();
 		softMergeAPBatch();
+		refreshRewriteTables();
 		
 		eva.endUpdate();
 		eva.printUpdateResults(getAPNum());

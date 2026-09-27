@@ -351,7 +351,7 @@ public class NATElement extends Element {
 	}
 	
 	@Override
-	protected void updateRewriteTableIfPresent() throws Exception {
+	public boolean updateRewriteTableIfPresent() throws Exception {
 		// FaVe fork (TODO item 29): this used to be
 		//     try { updated = updateRewriteTable(); }
 		//     catch (Exception e) { /* TODO Auto-generated catch block */
@@ -368,11 +368,14 @@ public class NATElement extends Element {
 		// inconsistent partition -- a wrong answer with no signal. So this now
 		// propagates; Element.updatePortPredicateMap already declares throws Exception.
 		boolean updated = true;
+		boolean changed = false;
 		int update_round = 1;
 		while(updated) {
 			updated = updateRewriteTable();
+			changed |= updated;
 			Logger.logInfo("Update rewrite table round " + update_round++);
 		}
+		return changed;
 	}
 
 	@Override

@@ -118,12 +118,12 @@ corrupt, and it is suggestive rather than conclusive.
   119 elements / table 180.6 MiB. The query is essentially free once the
   partition exists; the cost is entirely the build, and within it AP merge.
   §1.7.3 called this model intractable on BDD for months.
-  **OPEN:** `reachable_pairs` **53** where NDD returns **59** on the same model
-  under the same driver (re-confirmed with the current jar). §1.7.3 records NDD
-  agreeing with NetPlumber on all 64 cells, so BDD appears to disagree with the
-  reference on 6. Measured, not diagnosed. Both drivers now record
-  `reachable_pair_list`; the six cannot be named from this run because the pair
-  sets were not saved.
+  **WAS OPEN, now CLOSED (2026-09-27):** `reachable_pairs` **53** where NDD
+  returns **59** on the same model under the same driver. The six are the whole
+  `internet` row, and the cause is a third upstream defect -- a NAT's rewrite
+  outputs stop being atomic predicates once a rule reaches any other element.
+  `CLOUD_BENCH_PLAN.md` §1.7.3, TODO item 29. Note that the cost figures on this
+  line are therefore the **pre-fix** partition.
 
 - **#3 BOTH PROBES CLEAN** (2026-09-26 01:19). One hour each, declared deadline,
   loud catch active, **zero exceptions in either**. faithful-stanford: 4 245 of
@@ -173,5 +173,17 @@ corrupt, and it is suggestive rather than conclusive.
 
 - **CAMPAIGN COMPLETE** (2026-09-27). ~38 h of the 56 h budget, five runs, zero
   exceptions in any. Written up in `APKEEP_NDD_EVAL.md` §2.6c, with §2.6b marked
-  SUPERSEDED. Still open: wl_cloud BDD answers 53 reachable pairs where NDD
-  answers 59 (TODO item 29); both upstream defects are unreported.
+  SUPERSEDED.
+
+- **THE 53-vs-59 GAP, DIAGNOSED AND FIXED** (2026-09-27, ~8 h). The one
+  correctness question the campaign opened and did not close. The six pairs are
+  the whole `internet` row; the cause is a **third** upstream defect (a NAT's
+  rewrite outputs stop being atomic predicates once a rule reaches any other
+  element, and `Element.forwardAPs` then intersects them away silently). Found by
+  dumping the engine-neutral rule IR and replaying it on device subsets, which
+  took a 2.8 h build down to a **70-rule, 0.4 s** repro; that harness is now
+  `fave/bench/apkeep_ir_replay.py`. Fixed by `Network.refreshRewriteTables()`,
+  pinned by `fave/test/test_apkeep_nat_rewrite.py`. `CLOUD_BENCH_PLAN.md` §1.7.3,
+  TODO item 29. **Still open:** all three upstream defects are unreported
+  upstream, and the faithful-VLAN models have not been re-measured against the
+  fixed engine.

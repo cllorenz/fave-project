@@ -843,6 +843,123 @@ FAVE_JVM_XMX=8g PYTHONPATH=. python3 bench/cloud_bdd_measure.py \
 For contrast, the same driver on the same model with `--engine ndd`: **1.9 s
 wall** (build 0.116 s, query 0.06 s), no errors.
 
+#### MEASURED 2026-09-27: the completed build answers six cells wrong, and why
+
+With the fix above the build finishes (campaign run #1: `completed`, 2 h 46 min,
+`ap_num` 90 153, query 1.96 s) -- and returns a number that does not match.
+**53 of 64 reachable pairs, where NDD and NetPlumber both answer 59.** That was
+recorded as measured-not-diagnosed. This is the diagnosis.
+
+**The six are the whole `internet` row** -- every pair whose path crosses the
+gateway's DNAT. Nothing else differs: all 58 other cells match NetPlumber
+exactly. The DNAT delivered nothing.
+
+That is the *same symptom* as the translation defect at the top of this section
+("the gateway's fourteen DNAT rules arrived with no rewrite"), and an unrelated
+cause. Worth stating plainly, because the symptom is a signature -- "no
+internet-sourced pair reaches anything" means the rewrite did not happen -- and
+it has now had two distinct causes, one in the translation and one in the engine.
+A matrix that names the failing cells distinguishes them; a pass/fail count does
+not.
+
+**A NAT's rewrite outputs stop being atomic predicates.** A `NATElement` stores,
+per input AP, the BDD its rewrite produces (`bdd.nat(ap, field, new_value)`).
+`Element.forwardAPs` carries packets onward by **intersecting AP-id sets**
+(`retainAll`), so a stored output only forwards if it is a **member of the
+partition**; an id that is merely a valid BDD node intersects to nothing and the
+traffic disappears -- no exception, no log line.
+`NATElement.updateRewriteTable()` is what registers outputs (via
+`APKeeper.addPredicate`), but upstream calls it only from
+`Element.updatePortPredicateMap`, i.e. only on **the element that just received
+a rule**. That is not when the outputs go stale. They go stale when a rule
+inserted into **any other element** splits or merges one of this NAT's input
+APs, because `updateAPSplit` / `updateAPSetMergeBatch` recompute the outputs with
+`bdd.nat()` and nothing re-registers the results. Verbatim upstream
+(`50c17885`) -- the third upstream defect on this workload, and the only one that
+returned a wrong answer instead of crashing.
+
+FaVe emits this model's rules as `fwd` (1 200), `acl` (0), `nat` (25), `filter`
+(548), so **548 rules follow every NAT**. Read off the built network by
+reflection: all five of the gateway DNAT's `rewrite_table` entries point at BDD
+ids absent from the partition.
+
+**Localised in minutes, not hours.** `bench/apkeep_ir_replay.py` dumps the
+engine-neutral rule IR (`all_rules` + `edges`, which both engines receive
+**identically**, so the dump settles "translation or engine?" outright) and
+replays it on a device subset. Replaying the unpruned IR on NDD returns 59/64,
+which is what licensed trusting the harness; then:
+
+| model | rules | BDD, before | BDD, after | NDD / NetPlumber |
+|---|---:|---|---|---|
+| full | 1 773 | 53 / 64 (2 h 46 min) | *running* | 59 / 64 |
+| endpoint-bearing leaves only | 343 | **53 / 64** (150 s) | **59 / 64** (427 s) | 59 / 64 |
+| `dc0` only | 413 | 2 / 4 (9.6 s) | 3 / 4 (22.6 s) | 3 / 4 |
+| `dc0`, one leaf, one NAT rule | 70 | 2 / 4 (**0.4 s**) | 3 / 4 | 3 / 4 |
+
+The 343-rule prune keeps only the six leaves that host an endpoint and
+reproduces the full model's 53 **exactly**, with the whole `internet` row dark;
+NDD answers all 64 cells on it identically to the full model, which is what makes
+the prune evidence rather than a different question. Patched, the same prune
+answers **59 of 64, cell for cell identical to both references** -- `ap_num`
+16 485 -> 17 925. From there two experiments separated cause from symptom:
+
+| experiment | BDD |
+|---|---|
+| the IR as emitted (`nat` before `filter`) | internet -> host **unreachable** |
+| the same rules, NAT rules moved **last** | **reachable** -- agrees with NDD |
+
+Nothing follows the NATs in the second ordering, so nothing splits their inputs.
+Reflection agrees: the outputs are in the partition there and outside it in the
+first.
+
+**The fix.** `Network.refreshRewriteTables()` (new) drives every `NATElement` to
+a **global** fixpoint -- registering one output splits the partition, which can
+invalidate another NAT's -- on **both sides** of the per-rule `softMergeAPBatch()`
+and of the batch `hardMergeAPBatch()`. Both sides, because the merge's
+mergability guard (`NATElement.isMergable`) reads `output_aps`, so a stale entry
+there would let it merge two APs the rewrite distinguishes; and because the merge
+re-derives the outputs itself. It terminates for the same reason APKeep's own
+splitting does: each round strictly refines a finite partition.
+`Element.updateRewriteTableIfPresent()` became `public boolean` so the network
+can tell when a round changed something.
+
+**What it costs.** The partition must now be closed under the rewrite, so it
+grows and the build slows. The partition grows only a little -- `ap_num` 16 485
+-> 17 925 on the 343-rule prune (+8.7 %), 4 329 -> 5 584 on `dc0`, 4 -> 6 on the
+four-rule unit model -- but the build slows much more: **2.8x** on the prune
+(150 s -> 427 s), **2.4x** on `dc0`. Two components, separable from the profiler:
+the refresh itself is **~12 % of wall** on the full model (the time attributed to
+none of encode/insert/ppm/merge, against ~1 % unpatched), and the rest is the
+larger partition doing more PPM and merge work.
+`NATElement.updateRewriteTable()` copies the whole rewrite table on every call,
+which is where that 12 % goes; a dirty flag on the four sites that call
+`bdd.nat()` would remove most of it, and is deliberately NOT done here, because
+it trades a measured 12 % for a chance to get the correctness back wrong.
+
+Pinned by `fave/test/test_apkeep_nat_rewrite.py`: four rules, 0.7 s, two of its
+three checks red on the unpatched jar. The existing differential
+(`test_apkeep_cloud_differential.py`) cannot catch this -- it runs the NDD
+engine, because a BDD build of wl_cloud does not fit in a test tier.
+
+**Two observations recorded, not chased.** A `RewriteRule`'s port name is derived
+from the rewrite VALUE (`"dst" + prefix + "/" + len`), so two rules on one port
+that rewrite to the same prefix but match differently collapse onto one
+`rule_map` entry -- harmless here only because the colliding pair rewrites to the
+same value. And every `RewriteRule` is built at priority 65535, so a NAT's rule
+list carries no priority order of its own.
+
+**Artifacts** (`bench/wl_cloud/eval/`): `natfix_matrix_{ndd,netplumber}.json` are
+the two references on the full model; `natfix_endpoint_prune_{ndd,before,after}
+.json` are the 343-rule matrices. Reproduce the whole chain in about ten
+minutes:
+
+```
+PYTHONPATH=. python3 bench/apkeep_ir_replay.py dump --bench wl_cloud --out ir.json
+KEEP=core.,source.,probe.,dc0_leaf1,dc1_leaf0,dc1_leaf5,dc1_leaf6,dc2_leaf7,dc4_leaf3
+PYTHONPATH=. python3 bench/apkeep_ir_replay.py replay --ir ir.json --engine ndd --keep $KEEP
+PYTHONPATH=. python3 bench/apkeep_ir_replay.py replay --ir ir.json --engine bdd --keep $KEEP
+```
+
 ---
 
 ### 1.7.4 ad6 — a rule matching both transport ports meant OR (FIXED 2026-09-22)

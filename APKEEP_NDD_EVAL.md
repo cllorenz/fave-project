@@ -718,9 +718,19 @@ stderr): `bench/wl_cloud/eval/bdd_build_6h.*`,
 plus the 1 h loud-catch probes `probe_{stanford,i2}_1h.*` and the pre-fix
 `bdd_build_{deadline4h,run2}.*` that caught the crash.
 
-**Still open:** on wl_cloud the completed BDD build answers **53** reachable
-pairs where NDD answers **59**, and NDD matches NetPlumber on all 64 cells
-(`CLOUD_BENCH_PLAN.md` §1.7.3, TODO item 29). Measured, not diagnosed.
+**The 53-vs-59 gap is CLOSED (2026-09-27).** On wl_cloud the completed BDD build
+answered **53** reachable pairs where NDD (and NetPlumber) answer **59**. The six
+are the whole `internet` row -- every pair crossing the gateway's DNAT -- and the
+cause is a third upstream defect: a `NATElement`'s rewrite outputs stop being
+atomic predicates as soon as a rule reaches any OTHER element, so
+`Element.forwardAPs`' `retainAll` intersects them away and the rewritten traffic
+vanishes without an exception. Fixed by `Network.refreshRewriteTables()`; full
+diagnosis in `CLOUD_BENCH_PLAN.md` §1.7.3 and TODO item 29.
+
+**This does not disturb §2.6c's cost figures**, which are BUILD measurements and
+were taken before the fix; the fix changes what the built partition contains, so
+the wl_cloud numbers above (`ap_num` 90 153, 2 h 46 min) are the *pre-fix*
+partition and are labelled as such wherever they are quoted.
 
 ### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all

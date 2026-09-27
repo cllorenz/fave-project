@@ -273,6 +273,57 @@ useful half of the evidence:** hoisting the `ref`s that already existed at the
 END of `updateSplitAP` to above its element loop changed nothing -- the handle is
 already dead on entry. That is what localised the defect to the caller.
 
+**BUGFIX -- a NAT's rewrite outputs must be re-registered after a rule applied to
+ANY OTHER element (FaVe TODO item 29).** A `NATElement` stores, per input atomic
+predicate, the BDD its rewrite produces (`bdd.nat(ap, field, new_value)`).
+`Element.forwardAPs` carries packets onward by INTERSECTING AP-ID SETS
+(`retainAll`), so a stored output only forwards if it is a **member of the
+partition** -- a node id that is merely a valid BDD intersects to nothing and the
+traffic disappears. `NATElement.updateRewriteTable()` is what registers them (via
+`APKeeper.addPredicate`), but upstream calls it only from
+`Element.updatePortPredicateMap`, i.e. only on the element that just received a
+rule. That is not when the outputs go stale: they go stale when a rule inserted
+into **another** element splits or merges one of this NAT's input APs, because
+`updateAPSplit` / `updateAPSetMergeBatch` recompute the outputs with `bdd.nat()`
+and nothing re-registers the results. Verbatim upstream (`50c17885`), and
+silent -- a wrong verdict, no exception.
+
+`Network.refreshRewriteTables()` (**new**) now drives every `NATElement` to a
+global fixpoint on **both sides** of the per-rule `softMergeAPBatch()` and of the
+batch `hardMergeAPBatch()`. Both sides, because the merge's mergability guard
+(`NATElement.isMergable`) reads `output_aps` -- a stale entry there lets it merge
+two APs the rewrite distinguishes -- and because the merge re-derives the outputs
+itself (`updateAPSetMergeBatch`); the pre-merge call is also where upstream's
+per-element registration sat, so that ordering is preserved rather than changed.
+`Element.updateRewriteTableIfPresent()` became `public boolean` so the network
+can tell when a round changed something (registering one output splits the
+partition, which can invalidate another NAT's). It terminates for the same reason
+APKeep's own splitting does: each round strictly refines a finite partition.
+
+**Cost, measured rather than assumed.** The partition must now be closed under
+the rewrite, so it grows and the build slows. On the full wl_cloud model the
+refresh itself accounts for **~12 % of wall** (the time not attributed to
+encode/insert/ppm/merge, against ~1 % unpatched); the rest of the slowdown is the
+larger partition doing more PPM and merge work.
+`NATElement.updateRewriteTable()` copies the whole rewrite table on every call,
+which is where that 12 % goes -- a dirty flag on the four sites that call
+`bdd.nat()` would remove most of it, and is deliberately not done here, because
+it trades a measured 12 % for a chance to get the correctness back wrong.
+
+Measured on wl_cloud, where FaVe emits the 25 NAT rules **before** ~550
+first-match filter rules, so every rewrite output was stale by the end of the
+build: APKeep-BDD returned **53 of 64** reachable pairs where NDD and NetPlumber
+both return **59**, losing exactly the six internet-sourced ones -- the DNAT
+delivered nothing. Reduced to a **70-rule, 0.4 s** repro (one DC, one leaf, one
+NAT rule) and then to the four-rule model in
+`../fave/test/test_apkeep_nat_rewrite.py`.
+
+Patched, a 343-rule prune of the same model -- the endpoint-bearing leaves only,
+on which NDD reproduces the full 64-cell matrix exactly -- goes **53/64 ->
+59/64, cell for cell identical to both NDD and NetPlumber**. The partition grows
+little (`ap_num` 16 485 -> 17 925, +8.7 %) but the build slows 2.8x (150 s ->
+427 s); `dc0` goes 2/4 -> 3/4 at `ap_num` 4 329 -> 5 584 and 9.6 s -> 22.6 s. FaVe-side context: `../CLOUD_BENCH_PLAN.md` §1.7.3, `../TODO.md` item 29.
+
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the

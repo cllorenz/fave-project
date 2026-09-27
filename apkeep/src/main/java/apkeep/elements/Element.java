@@ -346,8 +346,17 @@ public abstract class Element {
 		apset.add(merged_ap);
 	}
 	
-	protected void updateRewriteTableIfPresent() throws Exception {
+	/** Re-register this element's rewrite OUTPUTS in the atomic-predicate
+	 *  partition, to fixpoint; returns true iff anything changed.
+	 *
+	 *  FaVe fork (TODO item 29): was `protected void`, callable only from
+	 *  {@link #updatePortPredicateMap}, i.e. only on the element that just
+	 *  received a rule. That is not where the outputs go stale -- see
+	 *  {@link apkeep.core.Network#refreshRewriteTables()}. Public and
+	 *  boolean-valued so the network can drive it to a GLOBAL fixpoint. */
+	public boolean updateRewriteTableIfPresent() throws Exception {
 		// NAT Element should override this method
+		return false;
 	}
 
 	public Set<String> getPorts() {

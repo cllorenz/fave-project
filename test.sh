@@ -108,6 +108,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_ad6_wl_stanford_plain.py # N=2 differential vs a libnetplumber worker (bench.apkeep_convergence._emit_worker)
     test/test_ad6_cloud_differential.py # ad6 vs libnetplumber on wl_cloud, anchored to the dataset's own verdicts (~2 min)
     test/test_apkeep_first_match.py  # a forwarding table decides its APKeep element by its RULES, not by the device name; skips if unavailable
+    test/test_apkeep_nat_rewrite.py  # a NAT's rewrite outputs stay atomic predicates across rules applied to OTHER elements (TODO item 29); skips if unavailable
     test/test_apkeep_cloud_differential.py # APKeep vs libnetplumber on wl_cloud, one engine per process, anchored to the dataset
     test/test_ad6_port_pair.py   # a rule matching BOTH transport ports means AND, not OR -- and same-direction ports still alternate (CLOUD_BENCH_PLAN.md 1.7.4)
 )
