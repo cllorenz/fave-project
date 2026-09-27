@@ -1,0 +1,1410 @@
+[   1.0 min] rules=78346/154974 ap_num=3959 bound>=0.01h
+[   2.0 min] rules=79418/154974 ap_num=5219 bound>=0.02h
+[   3.0 min] rules=80006/154974 ap_num=5896 bound>=0.04h
+[   4.0 min] rules=80456/154974 ap_num=6451 bound>=0.05h
+[   5.0 min] rules=80824/154974 ap_num=6842 bound>=0.07h
+[   6.0 min] rules=81133/154974 ap_num=7161 bound>=0.08h
+[   7.0 min] rules=81414/154974 ap_num=7451 bound>=0.1h
+[   8.0 min] rules=81656/154974 ap_num=7704 bound>=3.9h
+[   9.0 min] rules=81881/154974 ap_num=7957 bound>=4.45h
+[  10.0 min] rules=82089/154974 ap_num=8176 bound>=4.93h
+[  11.0 min] rules=82282/154974 ap_num=8406 bound>=5.42h
+[  12.0 min] rules=82458/154974 ap_num=8580 bound>=5.91h
+[  13.0 min] rules=82623/154974 ap_num=8807 bound>=6.36h
+[  14.0 min] rules=82780/154974 ap_num=8965 bound>=6.84h
+[  15.0 min] rules=82934/154974 ap_num=9117 bound>=7.23h
+[  16.0 min] rules=83079/154974 ap_num=9270 bound>=7.62h
+[  17.0 min] rules=83219/154974 ap_num=9412 bound>=7.95h
+[  18.0 min] rules=83348/154974 ap_num=9570 bound>=8.3h
+[  19.0 min] rules=83461/154974 ap_num=9686 bound>=8.88h
+[  20.0 min] rules=83569/154974 ap_num=9775 bound>=9.53h
+[  21.0 min] rules=83693/154974 ap_num=9904 bound>=9.83h
+[  22.0 min] rules=83811/154974 ap_num=10070 bound>=10.19h
+[  23.0 min] rules=83920/154974 ap_num=10186 bound>=7.99h
+[  24.0 min] rules=84022/154974 ap_num=10288 bound>=8.43h
+[  25.0 min] rules=84127/154974 ap_num=10418 bound>=8.83h
+[  26.0 min] rules=84229/154974 ap_num=10518 bound>=9.2h
+[  27.0 min] rules=84330/154974 ap_num=10619 bound>=9.55h
+[  28.0 min] rules=84428/154974 ap_num=10726 bound>=9.87h
+[  29.0 min] rules=84526/154974 ap_num=10828 bound>=10.2h
+[  30.0 min] rules=84622/154974 ap_num=10911 bound>=10.53h
+[  31.0 min] rules=84715/154974 ap_num=10990 bound>=10.84h
+[  32.0 min] rules=84807/154974 ap_num=11082 bound>=11.16h
+[  33.0 min] rules=84894/154974 ap_num=11150 bound>=11.37h
+[  34.0 min] rules=84982/154974 ap_num=11234 bound>=11.53h
+[  35.0 min] rules=85069/154974 ap_num=11310 bound>=11.76h
+[  36.0 min] rules=85154/154974 ap_num=11363 bound>=12.04h
+[  37.0 min] rules=85237/154974 ap_num=11434 bound>=12.28h
+[  38.0 min] rules=85320/154974 ap_num=11507 bound>=12.5h
+[  39.0 min] rules=85404/154974 ap_num=11590 bound>=12.65h
+[  40.0 min] rules=85485/154974 ap_num=11634 bound>=12.85h
+[  41.0 min] rules=85565/154974 ap_num=11706 bound>=13.05h
+[  42.0 min] rules=85643/154974 ap_num=11780 bound>=13.26h
+[  43.0 min] rules=85720/154974 ap_num=11835 bound>=13.46h
+[  44.0 min] rules=85796/154974 ap_num=11862 bound>=13.68h
+[  45.0 min] rules=85869/154974 ap_num=12010 bound>=13.92h
+[  46.0 min] rules=85939/154974 ap_num=12087 bound>=12.17h
+[  47.0 min] rules=86009/154974 ap_num=12102 bound>=12.46h
+[  48.0 min] rules=86070/154974 ap_num=12259 bound>=12.71h
+[  49.0 min] rules=86127/154974 ap_num=12263 bound>=12.96h
+[  50.0 min] rules=86183/154974 ap_num=12120 bound>=13.26h
+[  51.1 min] rules=86241/154974 ap_num=12132 bound>=13.58h
+[  52.1 min] rules=86296/154974 ap_num=12342 bound>=13.88h
+[  53.1 min] rules=86346/154974 ap_num=12584 bound>=14.22h
+[  54.1 min] rules=86391/154974 ap_num=12712 bound>=14.56h
+[  55.1 min] rules=86437/154974 ap_num=12841 bound>=14.92h
+[  56.1 min] rules=86481/154974 ap_num=12917 bound>=15.3h
+[  57.1 min] rules=86523/154974 ap_num=12989 bound>=15.7h
+[  58.1 min] rules=86563/154974 ap_num=13160 bound>=16.12h
+[  59.1 min] rules=86603/154974 ap_num=13314 bound>=16.57h
+[  60.1 min] rules=86641/154974 ap_num=13432 bound>=17.04h
+[  61.1 min] rules=86679/154974 ap_num=13482 bound>=17.52h
+[  62.1 min] rules=86716/154974 ap_num=13582 bound>=18.0h
+[  63.1 min] rules=86752/154974 ap_num=13653 bound>=18.48h
+[  64.1 min] rules=86787/154974 ap_num=13724 bound>=19.03h
+[  65.1 min] rules=86822/154974 ap_num=13768 bound>=19.58h
+[  66.1 min] rules=86856/154974 ap_num=13805 bound>=20.16h
+[  67.1 min] rules=86890/154974 ap_num=13844 bound>=20.78h
+[  68.1 min] rules=86922/154974 ap_num=13948 bound>=21.45h
+[  69.1 min] rules=86955/154974 ap_num=14007 bound>=22.13h
+[  70.1 min] rules=86987/154974 ap_num=14039 bound>=22.86h
+[  71.1 min] rules=87019/154974 ap_num=14098 bound>=23.61h
+[  72.1 min] rules=87050/154974 ap_num=14129 bound>=24.41h
+[  73.1 min] rules=87081/154974 ap_num=14173 bound>=25.25h
+[  74.1 min] rules=87111/154974 ap_num=14209 bound>=26.11h
+[  75.1 min] rules=87141/154974 ap_num=14250 bound>=26.96h
+[  76.1 min] rules=87171/154974 ap_num=14285 bound>=27.85h
+[  77.1 min] rules=87201/154974 ap_num=14328 bound>=28.72h
+[  78.1 min] rules=87230/154974 ap_num=14377 bound>=29.45h
+[  79.1 min] rules=87258/154974 ap_num=14411 bound>=30.18h
+[  80.1 min] rules=87286/154974 ap_num=14467 bound>=30.99h
+[  81.1 min] rules=87314/154974 ap_num=14497 bound>=31.83h
+[  82.1 min] rules=87340/154974 ap_num=14537 bound>=32.63h
+[  83.1 min] rules=87366/154974 ap_num=14615 bound>=33.37h
+[  84.1 min] rules=87391/154974 ap_num=14658 bound>=34.01h
+[  85.1 min] rules=87418/154974 ap_num=14699 bound>=34.64h
+[  86.1 min] rules=87444/154974 ap_num=14728 bound>=35.25h
+[  87.1 min] rules=87470/154974 ap_num=14763 bound>=35.81h
+[  88.1 min] rules=87496/154974 ap_num=14820 bound>=36.34h
+[  89.1 min] rules=87521/154974 ap_num=14847 bound>=36.93h
+[  90.1 min] rules=87546/154974 ap_num=14884 bound>=37.42h
+[  91.1 min] rules=87571/154974 ap_num=14942 bound>=23.8h
+[  92.1 min] rules=87595/154974 ap_num=14983 bound>=24.36h
+[  93.1 min] rules=87620/154974 ap_num=15024 bound>=24.9h
+[  94.1 min] rules=87643/154974 ap_num=15042 bound>=25.51h
+[  95.1 min] rules=87667/154974 ap_num=15079 bound>=26.11h
+[  96.1 min] rules=87691/154974 ap_num=15116 bound>=26.73h
+[  97.1 min] rules=87714/154974 ap_num=15151 bound>=27.39h
+[  98.1 min] rules=87749/154974 ap_num=15188 bound>=28.43h
+[  99.1 min] rules=87772/154974 ap_num=15218 bound>=29.14h
+[ 100.1 min] rules=87794/154974 ap_num=15240 bound>=29.89h
+[ 101.1 min] rules=87817/154974 ap_num=15279 bound>=30.63h
+[ 102.2 min] rules=87839/154974 ap_num=15308 bound>=31.42h
+[ 103.2 min] rules=87860/154974 ap_num=15332 bound>=32.25h
+[ 104.2 min] rules=87882/154974 ap_num=15378 bound>=33.05h
+[ 105.2 min] rules=87903/154974 ap_num=15398 bound>=33.87h
+[ 106.2 min] rules=87924/154974 ap_num=15422 bound>=34.72h
+[ 107.3 min] rules=87945/154974 ap_num=15462 bound>=35.45h
+[ 108.3 min] rules=87965/154974 ap_num=15495 bound>=36.16h
+[ 109.3 min] rules=87985/154974 ap_num=15514 bound>=36.86h
+[ 110.3 min] rules=88007/154974 ap_num=15542 bound>=37.6h
+[ 111.3 min] rules=88030/154974 ap_num=15581 bound>=38.29h
+[ 112.3 min] rules=88051/154974 ap_num=15604 bound>=38.92h
+[ 113.3 min] rules=88072/154974 ap_num=15629 bound>=39.46h
+[ 114.3 min] rules=88093/154974 ap_num=15660 bound>=40.05h
+[ 115.3 min] rules=88114/154974 ap_num=15697 bound>=40.6h
+[ 116.3 min] rules=88136/154974 ap_num=15735 bound>=41.09h
+[ 117.3 min] rules=88157/154974 ap_num=15766 bound>=41.57h
+[ 118.3 min] rules=88178/154974 ap_num=15784 bound>=42.05h
+[ 119.3 min] rules=88199/154974 ap_num=15855 bound>=42.5h
+[ 120.3 min] rules=88219/154974 ap_num=15863 bound>=42.98h
+[ 121.3 min] rules=88240/154974 ap_num=15897 bound>=43.42h
+[ 122.3 min] rules=88260/154974 ap_num=15926 bound>=43.87h
+[ 123.3 min] rules=88280/154974 ap_num=15956 bound>=44.3h
+[ 124.3 min] rules=88300/154974 ap_num=15980 bound>=44.74h
+[ 125.3 min] rules=88320/154974 ap_num=16007 bound>=45.15h
+[ 126.3 min] rules=88340/154974 ap_num=16048 bound>=45.57h
+[ 127.3 min] rules=88359/154974 ap_num=16071 bound>=45.97h
+[ 128.3 min] rules=88379/154974 ap_num=16092 bound>=46.37h
+[ 129.3 min] rules=88398/154974 ap_num=16108 bound>=46.79h
+[ 130.3 min] rules=88417/154974 ap_num=16137 bound>=47.21h
+[ 131.3 min] rules=88436/154974 ap_num=16170 bound>=47.61h
+[ 132.3 min] rules=88455/154974 ap_num=16200 bound>=48.01h
+[ 133.3 min] rules=88474/154974 ap_num=16240 bound>=48.38h
+[ 134.3 min] rules=88493/154974 ap_num=16266 bound>=48.76h
+[ 135.3 min] rules=88511/154974 ap_num=16287 bound>=49.19h
+[ 136.3 min] rules=88529/154974 ap_num=16307 bound>=49.62h
+[ 137.3 min] rules=88548/154974 ap_num=16331 bound>=49.98h
+[ 138.3 min] rules=88566/154974 ap_num=16374 bound>=50.35h
+[ 139.4 min] rules=88584/154974 ap_num=16398 bound>=50.72h
+[ 140.4 min] rules=88602/154974 ap_num=16413 bound>=51.1h
+[ 141.4 min] rules=88619/154974 ap_num=16426 bound>=51.44h
+[ 142.4 min] rules=88636/154974 ap_num=16457 bound>=51.81h
+[ 143.4 min] rules=88652/154974 ap_num=16489 bound>=52.16h
+[ 144.4 min] rules=88666/154974 ap_num=16499 bound>=52.69h
+[ 145.4 min] rules=88683/154974 ap_num=16523 bound>=53.05h
+[ 146.4 min] rules=88700/154974 ap_num=16546 bound>=53.44h
+[ 147.4 min] rules=88718/154974 ap_num=16569 bound>=53.77h
+[ 148.4 min] rules=88735/154974 ap_num=16585 bound>=54.1h
+[ 149.4 min] rules=88752/154974 ap_num=16606 bound>=54.46h
+[ 150.4 min] rules=88769/154974 ap_num=16626 bound>=54.8h
+[ 151.4 min] rules=88786/154974 ap_num=16648 bound>=55.11h
+[ 152.4 min] rules=88803/154974 ap_num=16678 bound>=55.46h
+[ 153.4 min] rules=88819/154974 ap_num=16701 bound>=55.79h
+[ 154.4 min] rules=88836/154974 ap_num=16721 bound>=56.11h
+[ 155.4 min] rules=88852/154974 ap_num=16735 bound>=56.48h
+[ 156.4 min] rules=88869/154974 ap_num=16761 bound>=56.76h
+[ 157.4 min] rules=88885/154974 ap_num=16782 bound>=57.08h
+[ 158.4 min] rules=88901/154974 ap_num=16812 bound>=57.43h
+[ 159.4 min] rules=88917/154974 ap_num=16833 bound>=57.77h
+[ 160.4 min] rules=88933/154974 ap_num=16851 bound>=58.11h
+[ 161.4 min] rules=88949/154974 ap_num=16897 bound>=58.41h
+[ 162.4 min] rules=88964/154974 ap_num=16914 bound>=58.77h
+[ 163.5 min] rules=88980/154974 ap_num=16938 bound>=59.02h
+[ 164.5 min] rules=88995/154974 ap_num=16959 bound>=59.31h
+[ 165.7 min] rules=89011/154974 ap_num=16986 bound>=59.57h
+[ 166.8 min] rules=89034/154974 ap_num=17019 bound>=60.05h
+[ 167.8 min] rules=89049/154974 ap_num=17036 bound>=60.32h
+[ 168.8 min] rules=89066/154974 ap_num=17062 bound>=60.46h
+[ 169.8 min] rules=89082/154974 ap_num=17071 bound>=60.79h
+[ 170.8 min] rules=89098/154974 ap_num=17086 bound>=61.16h
+[ 171.8 min] rules=89114/154974 ap_num=17106 bound>=61.43h
+[ 172.8 min] rules=89130/154974 ap_num=17130 bound>=61.71h
+[ 173.8 min] rules=89145/154974 ap_num=17151 bound>=62.05h
+[ 174.8 min] rules=89161/154974 ap_num=17171 bound>=62.33h
+[ 175.8 min] rules=89176/154974 ap_num=17180 bound>=62.74h
+[ 176.8 min] rules=89192/154974 ap_num=17201 bound>=63.03h
+[ 177.8 min] rules=89208/154974 ap_num=17225 bound>=63.32h
+[ 178.8 min] rules=89223/154974 ap_num=17240 bound>=63.68h
+[ 179.8 min] rules=89239/154974 ap_num=17263 bound>=63.91h
+[ 180.8 min] rules=89255/154974 ap_num=17292 bound>=64.21h
+[ 181.8 min] rules=89270/154974 ap_num=17307 bound>=64.51h
+[ 182.8 min] rules=89285/154974 ap_num=17331 bound>=64.82h
+[ 183.8 min] rules=89301/154974 ap_num=17345 bound>=65.06h
+[ 184.8 min] rules=89316/154974 ap_num=17358 bound>=65.37h
+[ 185.8 min] rules=89331/154974 ap_num=17371 bound>=65.69h
+[ 186.8 min] rules=89346/154974 ap_num=17387 bound>=65.93h
+[ 187.8 min] rules=89361/154974 ap_num=17409 bound>=66.25h
+[ 188.8 min] rules=89376/154974 ap_num=17427 bound>=66.53h
+[ 189.8 min] rules=89391/154974 ap_num=17445 bound>=66.78h
+[ 190.8 min] rules=89406/154974 ap_num=17471 bound>=67.03h
+[ 191.8 min] rules=89420/154974 ap_num=17480 bound>=67.37h
+[ 192.8 min] rules=89435/154974 ap_num=17515 bound>=67.63h
+[ 193.8 min] rules=89450/154974 ap_num=17537 bound>=67.89h
+[ 194.8 min] rules=89464/154974 ap_num=17545 bound>=68.18h
+[ 195.8 min] rules=89479/154974 ap_num=17570 bound>=68.37h
+[ 196.8 min] rules=89493/154974 ap_num=17579 bound>=68.72h
+[ 197.8 min] rules=89508/154974 ap_num=17605 bound>=68.91h
+[ 198.8 min] rules=89522/154974 ap_num=17627 bound>=69.21h
+[ 199.8 min] rules=89536/154974 ap_num=17639 bound>=69.48h
+[ 200.8 min] rules=89551/154974 ap_num=17656 bound>=69.6h
+[ 201.8 min] rules=89564/154974 ap_num=17684 bound>=69.91h
+[ 202.8 min] rules=89576/154974 ap_num=17696 bound>=70.19h
+[ 203.8 min] rules=89587/154974 ap_num=17705 bound>=70.4h
+[ 204.8 min] rules=89599/154974 ap_num=17718 bound>=70.77h
+[ 205.8 min] rules=89609/154974 ap_num=17725 bound>=71.32h
+[ 206.9 min] rules=89621/154974 ap_num=17749 bound>=71.78h
+[ 207.9 min] rules=89633/154974 ap_num=17759 bound>=72.17h
+[ 208.9 min] rules=89647/154974 ap_num=17784 bound>=72.38h
+[ 209.9 min] rules=89661/154974 ap_num=17787 bound>=72.6h
+[ 210.9 min] rules=89675/154974 ap_num=17801 bound>=72.85h
+[ 211.9 min] rules=89689/154974 ap_num=17821 bound>=73.06h
+[ 212.9 min] rules=89703/154974 ap_num=17836 bound>=73.23h
+[ 213.9 min] rules=89716/154974 ap_num=17846 bound>=73.54h
+[ 214.9 min] rules=89730/154974 ap_num=17864 bound>=73.7h
+[ 215.9 min] rules=89744/154974 ap_num=17887 bound>=73.93h
+[ 216.9 min] rules=89757/154974 ap_num=17895 bound>=74.15h
+[ 217.9 min] rules=89770/154974 ap_num=17906 bound>=74.41h
+[ 218.9 min] rules=89784/154974 ap_num=17924 bound>=74.55h
+[ 219.9 min] rules=89797/154974 ap_num=17945 bound>=74.81h
+[ 220.9 min] rules=89811/154974 ap_num=17973 bound>=74.95h
+[ 221.9 min] rules=89824/154974 ap_num=17981 bound>=75.12h
+[ 222.9 min] rules=89837/154974 ap_num=18002 bound>=75.36h
+[ 223.9 min] rules=89850/154974 ap_num=18015 bound>=75.53h
+[ 224.9 min] rules=89863/154974 ap_num=18026 bound>=75.77h
+[ 225.9 min] rules=89876/154974 ap_num=18039 bound>=75.95h
+[ 226.9 min] rules=89889/154974 ap_num=18051 bound>=76.12h
+[ 227.9 min] rules=89902/154974 ap_num=18066 bound>=76.36h
+[ 228.9 min] rules=89915/154974 ap_num=18084 bound>=76.71h
+[ 229.9 min] rules=89928/154974 ap_num=18098 bound>=76.98h
+[ 230.9 min] rules=89941/154974 ap_num=18119 bound>=77.23h
+[ 231.9 min] rules=89953/154974 ap_num=18128 bound>=77.58h
+[ 232.9 min] rules=89964/154974 ap_num=18136 bound>=78.04h
+[ 233.9 min] rules=89975/154974 ap_num=18166 bound>=78.43h
+[ 234.9 min] rules=89985/154974 ap_num=18177 bound>=78.97h
+[ 235.9 min] rules=89996/154974 ap_num=18195 bound>=79.37h
+[ 236.9 min] rules=90007/154974 ap_num=18210 bound>=79.85h
+[ 237.9 min] rules=90018/154974 ap_num=18235 bound>=80.34h
+[ 239.0 min] rules=90030/154974 ap_num=18248 bound>=80.61h
+[ 240.0 min] rules=90042/154974 ap_num=18264 bound>=80.99h
+[ 241.1 min] rules=90054/154974 ap_num=18281 bound>=81.3h
+[ 242.1 min] rules=90066/154974 ap_num=18294 bound>=81.69h
+[ 243.2 min] rules=90084/154974 ap_num=18321 bound>=82.19h
+[ 244.3 min] rules=90096/154974 ap_num=18341 bound>=82.48h
+[ 245.3 min] rules=90108/154974 ap_num=18359 bound>=82.8h
+[ 246.5 min] rules=90120/154974 ap_num=18372 bound>=83.1h
+[ 247.6 min] rules=90132/154974 ap_num=18385 bound>=83.39h
+[ 248.7 min] rules=90150/154974 ap_num=18403 bound>=83.83h
+[ 249.8 min] rules=90162/154974 ap_num=18432 bound>=84.13h
+[ 250.8 min] rules=90174/154974 ap_num=18440 bound>=84.43h
+[ 251.8 min] rules=90187/154974 ap_num=18458 bound>=84.65h
+[ 252.8 min] rules=90199/154974 ap_num=18463 bound>=84.87h
+[ 253.8 min] rules=90212/154974 ap_num=18477 bound>=85.06h
+[ 254.8 min] rules=90224/154974 ap_num=18481 bound>=85.28h
+[ 255.8 min] rules=90237/154974 ap_num=18510 bound>=85.47h
+[ 256.8 min] rules=90249/154974 ap_num=18524 bound>=85.7h
+[ 257.8 min] rules=90262/154974 ap_num=18550 bound>=85.93h
+[ 258.8 min] rules=90274/154974 ap_num=18563 bound>=86.12h
+[ 259.8 min] rules=90286/154974 ap_num=18579 bound>=86.47h
+[ 260.8 min] rules=90299/154974 ap_num=18604 bound>=86.45h
+[ 261.8 min] rules=90311/154974 ap_num=18613 bound>=86.52h
+[ 262.8 min] rules=90322/154974 ap_num=18626 bound>=86.63h
+[ 263.8 min] rules=90331/154974 ap_num=18634 bound>=86.87h
+[ 264.8 min] rules=90341/154974 ap_num=18643 bound>=86.98h
+[ 265.8 min] rules=90352/154974 ap_num=18661 bound>=86.97h
+[ 266.8 min] rules=90362/154974 ap_num=18667 bound>=87.17h
+[ 267.8 min] rules=90372/154974 ap_num=18680 bound>=87.54h
+[ 268.8 min] rules=90384/154974 ap_num=18695 bound>=87.73h
+[ 269.8 min] rules=90396/154974 ap_num=18705 bound>=87.98h
+[ 270.8 min] rules=90408/154974 ap_num=18713 bound>=88.18h
+[ 271.8 min] rules=90420/154974 ap_num=18726 bound>=88.42h
+[ 272.8 min] rules=90432/154974 ap_num=18744 bound>=88.67h
+[ 273.8 min] rules=90443/154974 ap_num=18755 bound>=88.87h
+[ 274.8 min] rules=90455/154974 ap_num=18775 bound>=89.12h
+[ 275.8 min] rules=90467/154974 ap_num=18792 bound>=89.24h
+[ 276.8 min] rules=90478/154974 ap_num=18810 bound>=89.58h
+[ 277.8 min] rules=90490/154974 ap_num=18826 bound>=89.7h
+[ 278.8 min] rules=90502/154974 ap_num=18843 bound>=89.9h
+[ 279.8 min] rules=90513/154974 ap_num=18848 bound>=90.16h
+[ 280.8 min] rules=90525/154974 ap_num=18867 bound>=90.28h
+[ 281.8 min] rules=90536/154974 ap_num=18885 bound>=90.49h
+[ 282.8 min] rules=90548/154974 ap_num=18903 bound>=90.75h
+[ 283.8 min] rules=90559/154974 ap_num=18916 bound>=91.01h
+[ 284.8 min] rules=90571/154974 ap_num=18936 bound>=91.09h
+[ 285.8 min] rules=90582/154974 ap_num=18935 bound>=91.35h
+[ 286.8 min] rules=90593/154974 ap_num=18944 bound>=91.62h
+[ 287.8 min] rules=90605/154974 ap_num=18961 bound>=91.69h
+[ 288.8 min] rules=90616/154974 ap_num=18969 bound>=91.82h
+[ 289.8 min] rules=90627/154974 ap_num=18980 bound>=92.09h
+[ 290.8 min] rules=90638/154974 ap_num=19001 bound>=92.31h
+[ 291.9 min] rules=90649/154974 ap_num=19014 bound>=92.44h
+[ 292.9 min] rules=90660/154974 ap_num=19028 bound>=92.42h
+[ 293.9 min] rules=90671/154974 ap_num=19051 bound>=92.26h
+[ 294.9 min] rules=90682/154974 ap_num=19067 bound>=92.25h
+[ 295.9 min] rules=90692/154974 ap_num=19071 bound>=92.23h
+[ 296.9 min] rules=90703/154974 ap_num=19098 bound>=92.22h
+[ 297.9 min] rules=90714/154974 ap_num=19108 bound>=92.34h
+[ 298.9 min] rules=90724/154974 ap_num=19124 bound>=92.62h
+[ 299.9 min] rules=90735/154974 ap_num=19148 bound>=92.75h
+[ 300.9 min] rules=90746/154974 ap_num=19162 bound>=92.83h
+[ 301.9 min] rules=90756/154974 ap_num=19167 bound>=93.1h
+[ 302.9 min] rules=90767/154974 ap_num=19185 bound>=93.23h
+[ 303.9 min] rules=90777/154974 ap_num=19200 bound>=93.46h
+[ 304.9 min] rules=90788/154974 ap_num=19252 bound>=93.59h
+[ 306.0 min] rules=90798/154974 ap_num=19265 bound>=93.87h
+[ 307.0 min] rules=90808/154974 ap_num=19273 bound>=94.11h
+[ 308.0 min] rules=90819/154974 ap_num=19294 bound>=94.24h
+[ 309.1 min] rules=90829/154974 ap_num=19305 bound>=94.53h
+[ 310.2 min] rules=90844/154974 ap_num=19324 bound>=94.91h
+[ 311.3 min] rules=90854/154974 ap_num=19336 bound>=95.35h
+[ 312.3 min] rules=90865/154974 ap_num=19358 bound>=95.43h
+[ 313.3 min] rules=90876/154974 ap_num=19376 bound>=95.73h
+[ 314.3 min] rules=90887/154974 ap_num=19389 bound>=95.86h
+[ 315.3 min] rules=90897/154974 ap_num=19393 bound>=96.26h
+[ 316.3 min] rules=90908/154974 ap_num=19406 bound>=96.4h
+[ 317.3 min] rules=90918/154974 ap_num=19413 bound>=96.81h
+[ 318.3 min] rules=90929/154974 ap_num=19425 bound>=96.95h
+[ 319.3 min] rules=90940/154974 ap_num=19446 bound>=97.09h
+[ 320.3 min] rules=90951/154974 ap_num=19464 bound>=97.39h
+[ 321.3 min] rules=90962/154974 ap_num=19476 bound>=97.48h
+[ 322.3 min] rules=90972/154974 ap_num=19482 bound>=97.63h
+[ 323.3 min] rules=90983/154974 ap_num=19497 bound>=97.35h
+[ 324.3 min] rules=90993/154974 ap_num=19504 bound>=97.33h
+[ 325.3 min] rules=91004/154974 ap_num=19511 bound>=97.31h
+[ 326.3 min] rules=91015/154974 ap_num=19522 bound>=97.14h
+[ 327.3 min] rules=91026/154974 ap_num=19540 bound>=96.96h
+[ 328.3 min] rules=91036/154974 ap_num=19553 bound>=97.26h
+[ 329.3 min] rules=91046/154974 ap_num=19568 bound>=97.52h
+[ 330.3 min] rules=91057/154974 ap_num=19582 bound>=97.66h
+[ 331.3 min] rules=91068/154974 ap_num=19598 bound>=97.81h
+[ 332.3 min] rules=91078/154974 ap_num=19607 bound>=98.11h
+[ 333.3 min] rules=91089/154974 ap_num=19627 bound>=98.1h
+[ 334.3 min] rules=91099/154974 ap_num=19640 bound>=98.35h
+[ 335.3 min] rules=91110/154974 ap_num=19660 bound>=98.5h
+[ 336.3 min] rules=91120/154974 ap_num=19667 bound>=98.65h
+[ 337.3 min] rules=91131/154974 ap_num=19685 bound>=98.8h
+[ 338.3 min] rules=91141/154974 ap_num=19690 bound>=99.06h
+[ 339.3 min] rules=91151/154974 ap_num=19700 bound>=99.21h
+[ 340.3 min] rules=91162/154974 ap_num=19714 bound>=99.36h
+[ 341.3 min] rules=91172/154974 ap_num=19723 bound>=99.51h
+[ 342.3 min] rules=91182/154974 ap_num=19731 bound>=99.77h
+[ 343.3 min] rules=91193/154974 ap_num=19749 bound>=99.76h
+[ 344.3 min] rules=91203/154974 ap_num=19764 bound>=100.08h
+[ 345.3 min] rules=91213/154974 ap_num=19772 bound>=100.23h
+[ 346.3 min] rules=91223/154974 ap_num=19781 bound>=100.33h
+[ 347.3 min] rules=91234/154974 ap_num=19801 bound>=100.49h
+[ 348.3 min] rules=91244/154974 ap_num=19815 bound>=100.64h
+[ 349.3 min] rules=91254/154974 ap_num=19827 bound>=100.8h
+[ 350.3 min] rules=91264/154974 ap_num=19843 bound>=100.95h
+[ 351.3 min] rules=91274/154974 ap_num=19856 bound>=101.05h
+[ 352.3 min] rules=91283/154974 ap_num=19857 bound>=101.39h
+[ 353.3 min] rules=91293/154974 ap_num=19881 bound>=101.55h
+[ 354.3 min] rules=91302/154974 ap_num=19916 bound>=101.82h
+[ 355.3 min] rules=91312/154974 ap_num=19930 bound>=101.81h
+[ 356.3 min] rules=91322/154974 ap_num=19942 bound>=101.97h
+[ 357.3 min] rules=91332/154974 ap_num=19959 bound>=102.13h
+[ 358.3 min] rules=91341/154974 ap_num=19962 bound>=102.29h
+[ 359.4 min] rules=91351/154974 ap_num=19985 bound>=102.45h
+[ 360.4 min] rules=91361/154974 ap_num=20000 bound>=102.56h
+[ 361.4 min] rules=91370/154974 ap_num=20007 bound>=102.72h
+[ 362.4 min] rules=91380/154974 ap_num=20022 bound>=102.88h
+[ 363.4 min] rules=91389/154974 ap_num=20040 bound>=103.05h
+[ 364.4 min] rules=91399/154974 ap_num=20053 bound>=103.21h
+[ 365.4 min] rules=91408/154974 ap_num=20061 bound>=103.32h
+[ 366.4 min] rules=91418/154974 ap_num=20078 bound>=103.3h
+[ 367.5 min] rules=91427/154974 ap_num=20092 bound>=103.65h
+[ 368.6 min] rules=91436/154974 ap_num=20107 bound>=103.82h
+[ 369.7 min] rules=91450/154974 ap_num=20125 bound>=103.98h
+[ 370.8 min] rules=91459/154974 ap_num=20130 bound>=104.09h
+[ 371.8 min] rules=91469/154974 ap_num=20137 bound>=104.26h
+[ 373.0 min] rules=91478/154974 ap_num=20147 bound>=104.61h
+[ 374.1 min] rules=91487/154974 ap_num=20153 bound>=104.91h
+[ 375.2 min] rules=91496/154974 ap_num=20161 bound>=105.08h
+[ 376.3 min] rules=91510/154974 ap_num=20176 bound>=105.44h
+[ 377.4 min] rules=91519/154974 ap_num=20189 bound>=105.74h
+[ 378.5 min] rules=91528/154974 ap_num=20196 bound>=106.1h
+[ 379.6 min] rules=91537/154974 ap_num=20204 bound>=106.47h
+[ 380.8 min] rules=91546/154974 ap_num=20213 bound>=106.59h
+[ 381.9 min] rules=91560/154974 ap_num=20239 bound>=106.95h
+[ 382.9 min] rules=91569/154974 ap_num=20253 bound>=107.33h
+[ 384.0 min] rules=91577/154974 ap_num=20261 bound>=107.64h
+[ 385.2 min] rules=91586/154974 ap_num=20281 bound>=108.02h
+[ 386.2 min] rules=91600/154974 ap_num=20303 bound>=108.33h
+[ 387.3 min] rules=91609/154974 ap_num=20318 bound>=108.72h
+[ 388.4 min] rules=91618/154974 ap_num=20331 bound>=108.9h
+[ 389.4 min] rules=91627/154974 ap_num=20340 bound>=109.23h
+[ 390.4 min] rules=91634/154974 ap_num=20342 bound>=109.83h
+[ 391.9 min] rules=91642/154974 ap_num=20350 bound>=110.37h
+[ 393.1 min] rules=91656/154974 ap_num=20370 bound>=110.76h
+[ 394.5 min] rules=91669/154974 ap_num=20383 bound>=111.3h
+[ 395.5 min] rules=91678/154974 ap_num=20392 bound>=111.49h
+[ 396.5 min] rules=91687/154974 ap_num=20437 bound>=111.69h
+[ 397.5 min] rules=91696/154974 ap_num=20445 bound>=112.03h
+[ 398.5 min] rules=91705/154974 ap_num=20458 bound>=112.23h
+[ 399.5 min] rules=91714/154974 ap_num=20469 bound>=112.64h
+[ 400.5 min] rules=91724/154974 ap_num=20490 bound>=112.62h
+[ 401.5 min] rules=91733/154974 ap_num=20504 bound>=112.83h
+[ 402.5 min] rules=91742/154974 ap_num=20517 bound>=113.17h
+[ 403.5 min] rules=91751/154974 ap_num=20527 bound>=113.38h
+[ 404.5 min] rules=91760/154974 ap_num=20535 bound>=113.58h
+[ 405.5 min] rules=91769/154974 ap_num=20552 bound>=113.78h
+[ 406.5 min] rules=91778/154974 ap_num=20564 bound>=114.14h
+[ 407.5 min] rules=91787/154974 ap_num=20578 bound>=114.34h
+[ 408.5 min] rules=91796/154974 ap_num=20590 bound>=114.55h
+[ 409.5 min] rules=91805/154974 ap_num=20601 bound>=114.76h
+[ 410.5 min] rules=91814/154974 ap_num=20625 bound>=114.89h
+[ 411.5 min] rules=91822/154974 ap_num=20623 bound>=115.33h
+[ 412.5 min] rules=91831/154974 ap_num=20637 bound>=115.32h
+[ 413.5 min] rules=91840/154974 ap_num=20651 bound>=115.53h
+[ 414.5 min] rules=91848/154974 ap_num=20657 bound>=115.74h
+[ 415.5 min] rules=91857/154974 ap_num=20669 bound>=115.88h
+[ 416.6 min] rules=91866/154974 ap_num=20679 bound>=116.09h
+[ 417.6 min] rules=91874/154974 ap_num=20684 bound>=116.54h
+[ 418.6 min] rules=91883/154974 ap_num=20695 bound>=116.52h
+[ 419.6 min] rules=91892/154974 ap_num=20709 bound>=116.74h
+[ 420.6 min] rules=91901/154974 ap_num=20723 bound>=116.88h
+[ 421.6 min] rules=91909/154974 ap_num=20726 bound>=117.1h
+[ 422.7 min] rules=91922/154974 ap_num=20743 bound>=117.31h
+[ 423.8 min] rules=91931/154974 ap_num=20759 bound>=117.53h
+[ 424.8 min] rules=91939/154974 ap_num=20766 bound>=117.75h
+[ 425.9 min] rules=91948/154974 ap_num=20783 bound>=117.89h
+[ 426.9 min] rules=91956/154974 ap_num=20789 bound>=118.12h
+[ 428.0 min] rules=91964/154974 ap_num=20797 bound>=118.34h
+[ 429.1 min] rules=91973/154974 ap_num=20813 bound>=118.57h
+[ 430.1 min] rules=91981/154974 ap_num=20820 bound>=118.79h
+[ 431.2 min] rules=91994/154974 ap_num=20839 bound>=118.93h
+[ 432.3 min] rules=92002/154974 ap_num=20846 bound>=119.16h
+[ 433.3 min] rules=92011/154974 ap_num=20865 bound>=119.14h
+[ 434.4 min] rules=92019/154974 ap_num=20871 bound>=119.37h
+[ 435.6 min] rules=92028/154974 ap_num=20894 bound>=119.6h
+[ 436.7 min] rules=92040/154974 ap_num=20902 bound>=119.82h
+[ 438.0 min] rules=92048/154974 ap_num=20909 bound>=119.97h
+[ 439.1 min] rules=92057/154974 ap_num=20932 bound>=119.95h
+[ 440.2 min] rules=92065/154974 ap_num=20937 bound>=120.18h
+[ 441.4 min] rules=92078/154974 ap_num=20957 bound>=120.41h
+[ 442.5 min] rules=92086/154974 ap_num=20965 bound>=120.64h
+[ 443.6 min] rules=92094/154974 ap_num=20971 bound>=120.63h
+[ 444.9 min] rules=92106/154974 ap_num=20983 bound>=121.02h
+[ 446.0 min] rules=92114/154974 ap_num=20988 bound>=121.26h
+[ 447.1 min] rules=92122/154974 ap_num=20995 bound>=121.5h
+[ 448.5 min] rules=92135/154974 ap_num=21014 bound>=121.47h
+[ 449.5 min] rules=92143/154974 ap_num=21019 bound>=121.71h
+[ 450.6 min] rules=92151/154974 ap_num=21026 bound>=121.44h
+[ 451.7 min] rules=92159/154974 ap_num=21034 bound>=121.68h
+[ 452.9 min] rules=92170/154974 ap_num=21041 bound>=122.08h
+[ 454.0 min] rules=92179/154974 ap_num=21059 bound>=122.06h
+[ 455.1 min] rules=92187/154974 ap_num=21063 bound>=122.31h
+[ 456.2 min] rules=92199/154974 ap_num=21074 bound>=122.54h
+[ 457.2 min] rules=92207/154974 ap_num=21083 bound>=123.04h
+[ 458.3 min] rules=92215/154974 ap_num=21079 bound>=123.2h
+[ 459.4 min] rules=92223/154974 ap_num=21087 bound>=123.45h
+[ 460.6 min] rules=92231/154974 ap_num=21095 bound>=123.69h
+[ 461.7 min] rules=92243/154974 ap_num=21108 bound>=124.2h
+[ 462.7 min] rules=92251/154974 ap_num=21115 bound>=124.36h
+[ 463.7 min] rules=92260/154974 ap_num=21131 bound>=124.34h
+[ 464.7 min] rules=92268/154974 ap_num=21133 bound>=124.59h
+[ 465.7 min] rules=92276/154974 ap_num=21139 bound>=124.85h
+[ 466.7 min] rules=92285/154974 ap_num=21152 bound>=124.83h
+[ 467.7 min] rules=92293/154974 ap_num=21158 bound>=125.08h
+[ 468.7 min] rules=92301/154974 ap_num=21165 bound>=125.34h
+[ 469.7 min] rules=92309/154974 ap_num=21172 bound>=125.5h
+[ 470.7 min] rules=92318/154974 ap_num=21185 bound>=125.3h
+[ 471.7 min] rules=92326/154974 ap_num=21193 bound>=125.47h
+[ 472.8 min] rules=92335/154974 ap_num=21208 bound>=125.45h
+[ 473.8 min] rules=92343/154974 ap_num=21209 bound>=125.43h
+[ 474.8 min] rules=92351/154974 ap_num=21219 bound>=125.69h
+[ 475.8 min] rules=92359/154974 ap_num=21221 bound>=125.95h
+[ 476.8 min] rules=92367/154974 ap_num=21221 bound>=125.93h
+[ 477.8 min] rules=92376/154974 ap_num=21229 bound>=125.91h
+[ 478.8 min] rules=92384/154974 ap_num=21234 bound>=126.17h
+[ 479.8 min] rules=92392/154974 ap_num=21240 bound>=126.43h
+[ 480.8 min] rules=92400/154974 ap_num=21246 bound>=126.41h
+[ 481.8 min] rules=92408/154974 ap_num=21257 bound>=126.58h
+[ 482.8 min] rules=92416/154974 ap_num=21264 bound>=126.56h
+[ 483.8 min] rules=92423/154974 ap_num=21259 bound>=127.11h
+[ 484.8 min] rules=92431/154974 ap_num=21267 bound>=127.09h
+[ 485.9 min] rules=92439/154974 ap_num=21279 bound>=127.35h
+[ 486.9 min] rules=92447/154974 ap_num=21287 bound>=127.34h
+[ 488.0 min] rules=92455/154974 ap_num=21297 bound>=127.6h
+[ 489.0 min] rules=92463/154974 ap_num=21308 bound>=127.58h
+[ 490.0 min] rules=92471/154974 ap_num=21318 bound>=127.76h
+[ 491.0 min] rules=92478/154974 ap_num=21325 bound>=128.02h
+[ 492.1 min] rules=92486/154974 ap_num=21341 bound>=128.01h
+[ 493.1 min] rules=92494/154974 ap_num=21355 bound>=128.27h
+[ 494.1 min] rules=92502/154974 ap_num=21370 bound>=128.26h
+[ 495.2 min] rules=92513/154974 ap_num=21380 bound>=128.81h
+[ 496.2 min] rules=92521/154974 ap_num=21393 bound>=128.79h
+[ 497.2 min] rules=92529/154974 ap_num=21410 bound>=128.77h
+[ 498.3 min] rules=92536/154974 ap_num=21414 bound>=129.24h
+[ 499.3 min] rules=92544/154974 ap_num=21426 bound>=129.22h
+[ 500.4 min] rules=92552/154974 ap_num=21437 bound>=129.21h
+[ 501.5 min] rules=92560/154974 ap_num=21455 bound>=129.48h
+[ 502.6 min] rules=92567/154974 ap_num=21460 bound>=129.76h
+[ 503.7 min] rules=92578/154974 ap_num=21478 bound>=130.02h
+[ 504.7 min] rules=92586/154974 ap_num=21490 bound>=130.01h
+[ 505.8 min] rules=92593/154974 ap_num=21496 bound>=130.19h
+[ 506.9 min] rules=92601/154974 ap_num=21510 bound>=130.17h
+[ 507.9 min] rules=92609/154974 ap_num=21528 bound>=130.45h
+[ 509.0 min] rules=92616/154974 ap_num=21535 bound>=130.73h
+[ 510.0 min] rules=92624/154974 ap_num=21552 bound>=130.71h
+[ 511.1 min] rules=92631/154974 ap_num=21559 bound>=130.99h
+[ 512.3 min] rules=92639/154974 ap_num=21570 bound>=130.98h
+[ 513.3 min] rules=92651/154974 ap_num=21586 bound>=130.95h
+[ 514.3 min] rules=92659/154974 ap_num=21595 bound>=130.94h
+[ 515.7 min] rules=92667/154974 ap_num=21604 bound>=130.92h
+[ 516.9 min] rules=92679/154974 ap_num=21615 bound>=130.89h
+[ 518.0 min] rules=92687/154974 ap_num=21631 bound>=130.88h
+[ 519.0 min] rules=92695/154974 ap_num=21644 bound>=130.86h
+[ 520.0 min] rules=92703/154974 ap_num=21654 bound>=130.84h
+[ 521.0 min] rules=92712/154974 ap_num=21668 bound>=130.53h
+[ 522.0 min] rules=92720/154974 ap_num=21674 bound>=130.51h
+[ 523.0 min] rules=92728/154974 ap_num=21679 bound>=130.49h
+[ 524.0 min] rules=92737/154974 ap_num=21694 bound>=130.48h
+[ 525.0 min] rules=92745/154974 ap_num=21699 bound>=130.46h
+[ 526.0 min] rules=92753/154974 ap_num=21715 bound>=130.74h
+[ 527.0 min] rules=92761/154974 ap_num=21732 bound>=130.72h
+[ 528.0 min] rules=92770/154974 ap_num=21752 bound>=130.41h
+[ 529.0 min] rules=92778/154974 ap_num=21762 bound>=130.39h
+[ 530.0 min] rules=92786/154974 ap_num=21766 bound>=130.67h
+[ 531.0 min] rules=92794/154974 ap_num=21772 bound>=130.65h
+[ 532.0 min] rules=92802/154974 ap_num=21785 bound>=130.64h
+[ 533.0 min] rules=92810/154974 ap_num=21791 bound>=130.92h
+[ 534.0 min] rules=92818/154974 ap_num=21807 bound>=130.9h
+[ 535.1 min] rules=92826/154974 ap_num=21813 bound>=130.88h
+[ 536.1 min] rules=92834/154974 ap_num=21821 bound>=130.87h
+[ 537.1 min] rules=92842/154974 ap_num=21830 bound>=130.85h
+[ 538.1 min] rules=92850/154974 ap_num=21837 bound>=131.03h
+[ 539.1 min] rules=92862/154974 ap_num=21854 bound>=131.0h
+[ 540.2 min] rules=92870/154974 ap_num=21860 bound>=130.99h
+[ 541.2 min] rules=92878/154974 ap_num=21869 bound>=130.97h
+[ 542.2 min] rules=92885/154974 ap_num=21872 bound>=131.26h
+[ 543.3 min] rules=92893/154974 ap_num=21880 bound>=130.94h
+[ 544.4 min] rules=92901/154974 ap_num=21888 bound>=130.92h
+[ 545.4 min] rules=92908/154974 ap_num=21892 bound>=131.21h
+[ 546.5 min] rules=92916/154974 ap_num=21900 bound>=131.19h
+[ 547.6 min] rules=92924/154974 ap_num=21920 bound>=131.17h
+[ 548.6 min] rules=92932/154974 ap_num=21930 bound>=131.16h
+[ 549.7 min] rules=92943/154974 ap_num=21940 bound>=131.43h
+[ 550.8 min] rules=92951/154974 ap_num=21953 bound>=131.12h
+[ 551.8 min] rules=92958/154974 ap_num=21952 bound>=131.4h
+[ 552.9 min] rules=92966/154974 ap_num=21964 bound>=131.38h
+[ 553.9 min] rules=92974/154974 ap_num=21976 bound>=131.37h
+[ 554.9 min] rules=92981/154974 ap_num=21975 bound>=131.35h
+[ 556.1 min] rules=92989/154974 ap_num=21990 bound>=131.34h
+[ 557.1 min] rules=92996/154974 ap_num=21993 bound>=131.62h
+[ 558.2 min] rules=93004/154974 ap_num=22005 bound>=131.3h
+[ 559.4 min] rules=93014/154974 ap_num=22009 bound>=131.89h
+[ 560.4 min] rules=93021/154974 ap_num=22020 bound>=132.07h
+[ 561.6 min] rules=93029/154974 ap_num=22032 bound>=131.85h
+[ 562.7 min] rules=93040/154974 ap_num=22045 bound>=132.03h
+[ 563.8 min] rules=93047/154974 ap_num=22057 bound>=132.02h
+[ 564.9 min] rules=93054/154974 ap_num=22067 bound>=132.31h
+[ 566.0 min] rules=93061/154974 ap_num=22072 bound>=132.29h
+[ 567.2 min] rules=93069/154974 ap_num=22076 bound>=132.28h
+[ 568.3 min] rules=93079/154974 ap_num=22089 bound>=132.56h
+[ 569.4 min] rules=93086/154974 ap_num=22097 bound>=132.85h
+[ 570.4 min] rules=93093/154974 ap_num=22106 bound>=132.84h
+[ 571.6 min] rules=93100/154974 ap_num=22118 bound>=133.13h
+[ 572.8 min] rules=93112/154974 ap_num=22143 bound>=133.11h
+[ 574.0 min] rules=93119/154974 ap_num=22148 bound>=133.4h
+[ 575.1 min] rules=93126/154974 ap_num=22158 bound>=133.59h
+[ 576.1 min] rules=93132/154974 ap_num=22165 bound>=134.21h
+[ 577.2 min] rules=93138/154974 ap_num=22167 bound>=134.82h
+[ 578.3 min] rules=93149/154974 ap_num=22181 bound>=135.01h
+[ 579.4 min] rules=93156/154974 ap_num=22191 bound>=135.32h
+[ 580.6 min] rules=93163/154974 ap_num=22207 bound>=135.94h
+[ 581.7 min] rules=93169/154974 ap_num=22207 bound>=136.47h
+[ 582.8 min] rules=93179/154974 ap_num=22220 bound>=137.43h
+[ 583.8 min] rules=93186/154974 ap_num=22231 bound>=137.75h
+[ 584.9 min] rules=93193/154974 ap_num=22236 bound>=137.95h
+[ 585.9 min] rules=93200/154974 ap_num=22248 bound>=138.27h
+[ 586.9 min] rules=93207/154974 ap_num=22255 bound>=138.93h
+[ 587.9 min] rules=93214/154974 ap_num=22263 bound>=139.25h
+[ 588.9 min] rules=93221/154974 ap_num=22271 bound>=139.46h
+[ 589.9 min] rules=93228/154974 ap_num=22281 bound>=139.79h
+[ 591.1 min] rules=93234/154974 ap_num=22281 bound>=140.46h
+[ 592.2 min] rules=93244/154974 ap_num=22291 bound>=141.01h
+[ 593.4 min] rules=93250/154974 ap_num=22298 bound>=141.7h
+[ 594.6 min] rules=93257/154974 ap_num=22309 bound>=142.03h
+[ 595.8 min] rules=93263/154974 ap_num=22315 bound>=142.61h
+[ 596.9 min] rules=93273/154974 ap_num=22322 bound>=143.3h
+[ 598.1 min] rules=93279/154974 ap_num=22320 bound>=144.01h
+[ 599.3 min] rules=93286/154974 ap_num=22331 bound>=144.24h
+[ 600.4 min] rules=93297/154974 ap_num=22358 bound>=144.58h
+[ 601.4 min] rules=93303/154974 ap_num=22351 bound>=144.93h
+[ 602.5 min] rules=93310/154974 ap_num=22359 bound>=145.28h
+[ 603.5 min] rules=93317/154974 ap_num=22368 bound>=145.64h
+[ 604.5 min] rules=93324/154974 ap_num=22378 bound>=145.87h
+[ 605.5 min] rules=93331/154974 ap_num=22381 bound>=145.85h
+[ 606.6 min] rules=93338/154974 ap_num=22397 bound>=146.21h
+[ 607.7 min] rules=93348/154974 ap_num=22408 bound>=146.94h
+[ 608.8 min] rules=93355/154974 ap_num=22419 bound>=146.92h
+[ 609.8 min] rules=93361/154974 ap_num=22418 bound>=147.54h
+[ 610.8 min] rules=93369/154974 ap_num=22431 bound>=147.27h
+[ 611.8 min] rules=93377/154974 ap_num=22439 bound>=147.25h
+[ 612.8 min] rules=93385/154974 ap_num=22446 bound>=147.23h
+[ 613.8 min] rules=93394/154974 ap_num=22461 bound>=146.45h
+[ 614.8 min] rules=93402/154974 ap_num=22466 bound>=146.43h
+[ 615.8 min] rules=93410/154974 ap_num=22474 bound>=146.04h
+[ 616.8 min] rules=93419/154974 ap_num=22490 bound>=145.64h
+[ 617.8 min] rules=93427/154974 ap_num=22497 bound>=145.38h
+[ 618.8 min] rules=93435/154974 ap_num=22507 bound>=144.99h
+[ 619.8 min] rules=93443/154974 ap_num=22515 bound>=144.6h
+[ 620.8 min] rules=93451/154974 ap_num=22526 bound>=144.58h
+[ 621.8 min] rules=93459/154974 ap_num=22531 bound>=144.56h
+[ 622.8 min] rules=93467/154974 ap_num=22545 bound>=143.82h
+[ 623.8 min] rules=93473/154974 ap_num=22547 bound>=144.17h
+[ 624.8 min] rules=93480/154974 ap_num=22552 bound>=144.15h
+[ 625.8 min] rules=93487/154974 ap_num=22565 bound>=144.5h
+[ 626.8 min] rules=93494/154974 ap_num=22572 bound>=144.48h
+[ 627.8 min] rules=93502/154974 ap_num=22580 bound>=144.1h
+[ 628.8 min] rules=93510/154974 ap_num=22587 bound>=143.71h
+[ 629.8 min] rules=93518/154974 ap_num=22593 bound>=143.45h
+[ 630.8 min] rules=93526/154974 ap_num=22573 bound>=143.08h
+[ 631.8 min] rules=93534/154974 ap_num=22585 bound>=143.06h
+[ 632.8 min] rules=93542/154974 ap_num=22596 bound>=142.68h
+[ 633.8 min] rules=93550/154974 ap_num=22598 bound>=142.66h
+[ 634.8 min] rules=93558/154974 ap_num=22598 bound>=141.93h
+[ 635.8 min] rules=93566/154974 ap_num=22609 bound>=141.32h
+[ 636.8 min] rules=93574/154974 ap_num=22617 bound>=140.96h
+[ 637.8 min] rules=93582/154974 ap_num=22633 bound>=140.59h
+[ 638.8 min] rules=93589/154974 ap_num=22637 bound>=140.57h
+[ 639.8 min] rules=93597/154974 ap_num=22650 bound>=140.21h
+[ 640.8 min] rules=93605/154974 ap_num=22662 bound>=139.61h
+[ 641.8 min] rules=93613/154974 ap_num=22664 bound>=139.25h
+[ 642.8 min] rules=93621/154974 ap_num=22673 bound>=138.9h
+[ 643.8 min] rules=93629/154974 ap_num=22679 bound>=138.54h
+[ 644.8 min] rules=93637/154974 ap_num=22691 bound>=138.3h
+[ 645.8 min] rules=93644/154974 ap_num=22698 bound>=137.94h
+[ 646.8 min] rules=93652/154974 ap_num=22706 bound>=137.59h
+[ 647.8 min] rules=93660/154974 ap_num=22715 bound>=137.24h
+[ 648.9 min] rules=93668/154974 ap_num=22727 bound>=136.89h
+[ 649.9 min] rules=93676/154974 ap_num=22733 bound>=136.66h
+[ 650.9 min] rules=93684/154974 ap_num=22743 bound>=136.31h
+[ 651.9 min] rules=93692/154974 ap_num=22757 bound>=135.64h
+[ 652.9 min] rules=93699/154974 ap_num=22750 bound>=135.3h
+[ 653.9 min] rules=93705/154974 ap_num=22759 bound>=135.61h
+[ 654.9 min] rules=93712/154974 ap_num=22768 bound>=135.27h
+[ 655.9 min] rules=93719/154974 ap_num=22777 bound>=135.26h
+[ 656.9 min] rules=93726/154974 ap_num=22791 bound>=135.03h
+[ 657.9 min] rules=93733/154974 ap_num=22794 bound>=135.01h
+[ 658.9 min] rules=93741/154974 ap_num=22802 bound>=134.67h
+[ 659.9 min] rules=93749/154974 ap_num=22795 bound>=134.34h
+[ 660.9 min] rules=93757/154974 ap_num=22803 bound>=133.68h
+[ 661.9 min] rules=93765/154974 ap_num=22812 bound>=133.46h
+[ 662.9 min] rules=93772/154974 ap_num=22818 bound>=133.44h
+[ 663.9 min] rules=93780/154974 ap_num=22832 bound>=133.11h
+[ 664.9 min] rules=93788/154974 ap_num=22842 bound>=132.78h
+[ 665.9 min] rules=93796/154974 ap_num=22843 bound>=132.45h
+[ 666.9 min] rules=93803/154974 ap_num=22843 bound>=132.44h
+[ 667.9 min] rules=93811/154974 ap_num=22847 bound>=131.81h
+[ 668.9 min] rules=93819/154974 ap_num=22864 bound>=131.58h
+[ 669.9 min] rules=93826/154974 ap_num=22866 bound>=131.57h
+[ 670.9 min] rules=93834/154974 ap_num=22883 bound>=131.55h
+[ 671.9 min] rules=93841/154974 ap_num=22892 bound>=131.74h
+[ 672.9 min] rules=93849/154974 ap_num=22897 bound>=131.72h
+[ 673.9 min] rules=93857/154974 ap_num=22911 bound>=132.01h
+[ 674.9 min] rules=93864/154974 ap_num=22916 bound>=132.31h
+[ 675.9 min] rules=93872/154974 ap_num=22927 bound>=132.29h
+[ 676.9 min] rules=93879/154974 ap_num=22931 bound>=132.9h
+[ 677.9 min] rules=93887/154974 ap_num=22943 bound>=132.88h
+[ 678.9 min] rules=93895/154974 ap_num=22960 bound>=132.86h
+[ 679.9 min] rules=93902/154974 ap_num=22966 bound>=133.16h
+[ 680.9 min] rules=93910/154974 ap_num=22978 bound>=133.14h
+[ 681.9 min] rules=93917/154974 ap_num=22989 bound>=133.34h
+[ 682.9 min] rules=93924/154974 ap_num=23004 bound>=133.32h
+[ 683.9 min] rules=93931/154974 ap_num=23006 bound>=133.3h
+[ 684.9 min] rules=93937/154974 ap_num=23010 bound>=133.61h
+[ 685.9 min] rules=93943/154974 ap_num=23016 bound>=133.59h
+[ 686.9 min] rules=93949/154974 ap_num=23019 bound>=134.22h
+[ 687.9 min] rules=93957/154974 ap_num=23031 bound>=134.2h
+[ 688.9 min] rules=93964/154974 ap_num=23038 bound>=134.5h
+[ 689.9 min] rules=93972/154974 ap_num=23048 bound>=134.48h
+[ 690.9 min] rules=93979/154974 ap_num=23053 bound>=134.68h
+[ 691.9 min] rules=93987/154974 ap_num=23072 bound>=134.66h
+[ 692.9 min] rules=93994/154974 ap_num=23075 bound>=134.97h
+[ 693.9 min] rules=94002/154974 ap_num=23084 bound>=134.95h
+[ 694.9 min] rules=94009/154974 ap_num=23090 bound>=135.26h
+[ 695.9 min] rules=94016/154974 ap_num=23101 bound>=135.57h
+[ 696.9 min] rules=94024/154974 ap_num=23112 bound>=135.55h
+[ 697.9 min] rules=94031/154974 ap_num=23107 bound>=135.54h
+[ 698.9 min] rules=94039/154974 ap_num=23122 bound>=135.52h
+[ 699.9 min] rules=94046/154974 ap_num=23126 bound>=135.83h
+[ 700.9 min] rules=94053/154974 ap_num=23130 bound>=136.03h
+[ 701.9 min] rules=94061/154974 ap_num=23132 bound>=136.02h
+[ 702.9 min] rules=94068/154974 ap_num=23139 bound>=136.33h
+[ 703.9 min] rules=94075/154974 ap_num=23145 bound>=136.64h
+[ 704.9 min] rules=94083/154974 ap_num=23147 bound>=136.62h
+[ 705.9 min] rules=94090/154974 ap_num=23152 bound>=136.94h
+[ 706.9 min] rules=94098/154974 ap_num=23164 bound>=136.59h
+[ 707.9 min] rules=94105/154974 ap_num=23168 bound>=136.91h
+[ 708.9 min] rules=94112/154974 ap_num=23175 bound>=137.22h
+[ 709.9 min] rules=94120/154974 ap_num=23188 bound>=137.21h
+[ 710.9 min] rules=94127/154974 ap_num=23190 bound>=137.41h
+[ 711.9 min] rules=94134/154974 ap_num=23197 bound>=137.4h
+[ 712.9 min] rules=94141/154974 ap_num=23209 bound>=137.38h
+[ 713.9 min] rules=94147/154974 ap_num=23207 bound>=137.37h
+[ 714.9 min] rules=94153/154974 ap_num=23214 bound>=138.03h
+[ 715.9 min] rules=94159/154974 ap_num=23222 bound>=138.02h
+[ 716.9 min] rules=94166/154974 ap_num=23232 bound>=138.0h
+[ 717.9 min] rules=94173/154974 ap_num=23245 bound>=138.32h
+[ 718.9 min] rules=94181/154974 ap_num=23258 bound>=138.3h
+[ 719.9 min] rules=94188/154974 ap_num=23264 bound>=138.63h
+[ 720.9 min] rules=94195/154974 ap_num=23269 bound>=138.84h
+[ 721.9 min] rules=94202/154974 ap_num=23273 bound>=139.17h
+[ 722.9 min] rules=94210/154974 ap_num=23290 bound>=138.81h
+[ 723.9 min] rules=94217/154974 ap_num=23292 bound>=139.13h
+[ 724.9 min] rules=94224/154974 ap_num=23291 bound>=139.46h
+[ 725.9 min] rules=94231/154974 ap_num=23298 bound>=139.45h
+[ 726.9 min] rules=94239/154974 ap_num=23311 bound>=139.43h
+[ 727.9 min] rules=94246/154974 ap_num=23311 bound>=139.76h
+[ 728.9 min] rules=94253/154974 ap_num=23321 bound>=139.74h
+[ 729.9 min] rules=94260/154974 ap_num=23327 bound>=140.07h
+[ 730.9 min] rules=94267/154974 ap_num=23326 bound>=140.29h
+[ 731.9 min] rules=94275/154974 ap_num=23341 bound>=140.04h
+[ 732.9 min] rules=94282/154974 ap_num=23345 bound>=140.26h
+[ 733.9 min] rules=94289/154974 ap_num=23350 bound>=140.24h
+[ 734.9 min] rules=94296/154974 ap_num=23356 bound>=140.58h
+[ 736.0 min] rules=94304/154974 ap_num=23369 bound>=140.56h
+[ 737.0 min] rules=94311/154974 ap_num=23373 bound>=140.54h
+[ 738.0 min] rules=94318/154974 ap_num=23380 bound>=140.88h
+[ 739.0 min] rules=94325/154974 ap_num=23388 bound>=141.21h
+[ 740.0 min] rules=94332/154974 ap_num=23382 bound>=141.2h
+[ 741.0 min] rules=94340/154974 ap_num=23394 bound>=141.18h
+[ 742.0 min] rules=94347/154974 ap_num=23403 bound>=141.16h
+[ 743.0 min] rules=94353/154974 ap_num=23403 bound>=141.15h
+[ 744.0 min] rules=94359/154974 ap_num=23412 bound>=141.49h
+[ 745.0 min] rules=94365/154974 ap_num=23422 bound>=141.48h
+[ 746.0 min] rules=94371/154974 ap_num=23424 bound>=141.46h
+[ 747.0 min] rules=94377/154974 ap_num=23400 bound>=141.69h
+[ 748.0 min] rules=94384/154974 ap_num=23411 bound>=142.03h
+[ 749.0 min] rules=94391/154974 ap_num=23406 bound>=142.01h
+[ 750.0 min] rules=94398/154974 ap_num=23396 bound>=142.36h
+[ 751.0 min] rules=94405/154974 ap_num=23397 bound>=142.34h
+[ 752.0 min] rules=94412/154974 ap_num=23407 bound>=142.69h
+[ 753.0 min] rules=94419/154974 ap_num=23446 bound>=142.67h
+[ 754.0 min] rules=94426/154974 ap_num=23444 bound>=142.65h
+[ 755.0 min] rules=94433/154974 ap_num=23440 bound>=143.0h
+[ 756.0 min] rules=94441/154974 ap_num=23456 bound>=142.62h
+[ 757.0 min] rules=94448/154974 ap_num=23455 bound>=142.97h
+[ 758.0 min] rules=94455/154974 ap_num=23455 bound>=142.95h
+[ 759.0 min] rules=94462/154974 ap_num=23451 bound>=142.93h
+[ 760.0 min] rules=94469/154974 ap_num=23473 bound>=143.16h
+[ 761.0 min] rules=94475/154974 ap_num=23474 bound>=143.51h
+[ 762.0 min] rules=94481/154974 ap_num=23480 bound>=143.87h
+[ 763.0 min] rules=94488/154974 ap_num=23487 bound>=143.85h
+[ 764.0 min] rules=94495/154974 ap_num=23486 bound>=144.2h
+[ 765.0 min] rules=94502/154974 ap_num=23493 bound>=144.19h
+[ 766.0 min] rules=94509/154974 ap_num=23510 bound>=144.54h
+[ 767.0 min] rules=94516/154974 ap_num=23509 bound>=144.53h
+[ 768.0 min] rules=94523/154974 ap_num=23518 bound>=144.76h
+[ 769.0 min] rules=94530/154974 ap_num=23524 bound>=144.74h
+[ 770.0 min] rules=94537/154974 ap_num=23542 bound>=144.72h
+[ 771.0 min] rules=94544/154974 ap_num=23554 bound>=145.08h
+[ 772.0 min] rules=94551/154974 ap_num=23550 bound>=145.07h
+[ 773.0 min] rules=94557/154974 ap_num=23556 bound>=145.05h
+[ 774.0 min] rules=94563/154974 ap_num=23571 bound>=145.04h
+[ 775.0 min] rules=94569/154974 ap_num=23576 bound>=145.02h
+[ 776.0 min] rules=94575/154974 ap_num=23568 bound>=145.01h
+[ 777.0 min] rules=94581/154974 ap_num=23571 bound>=145.75h
+[ 778.0 min] rules=94588/154974 ap_num=23580 bound>=145.73h
+[ 779.0 min] rules=94595/154974 ap_num=23587 bound>=145.72h
+[ 780.0 min] rules=94602/154974 ap_num=23584 bound>=145.7h
+[ 781.0 min] rules=94609/154974 ap_num=23562 bound>=146.06h
+[ 782.0 min] rules=94616/154974 ap_num=23622 bound>=146.05h
+[ 783.0 min] rules=94622/154974 ap_num=23603 bound>=146.29h
+[ 784.0 min] rules=94629/154974 ap_num=23621 bound>=146.65h
+[ 785.0 min] rules=94636/154974 ap_num=23678 bound>=146.64h
+[ 786.0 min] rules=94642/154974 ap_num=23693 bound>=147.01h
+[ 787.0 min] rules=94649/154974 ap_num=23715 bound>=146.99h
+[ 788.0 min] rules=94656/154974 ap_num=23712 bound>=147.36h
+[ 789.0 min] rules=94662/154974 ap_num=23709 bound>=147.74h
+[ 790.0 min] rules=94669/154974 ap_num=23752 bound>=147.72h
+[ 791.0 min] rules=94675/154974 ap_num=23757 bound>=147.97h
+[ 792.0 min] rules=94682/154974 ap_num=23778 bound>=147.95h
+[ 793.0 min] rules=94688/154974 ap_num=23769 bound>=148.72h
+[ 794.0 min] rules=94695/154974 ap_num=23772 bound>=148.7h
+[ 795.0 min] rules=94702/154974 ap_num=23767 bound>=148.69h
+[ 796.0 min] rules=94708/154974 ap_num=23762 bound>=149.07h
+[ 797.0 min] rules=94715/154974 ap_num=23763 bound>=149.45h
+[ 798.0 min] rules=94721/154974 ap_num=23770 bound>=149.7h
+[ 799.0 min] rules=94728/154974 ap_num=23753 bound>=149.69h
+[ 800.0 min] rules=94734/154974 ap_num=23744 bound>=150.07h
+[ 801.0 min] rules=94740/154974 ap_num=23757 bound>=150.46h
+[ 802.0 min] rules=94747/154974 ap_num=23726 bound>=150.45h
+[ 803.0 min] rules=94752/154974 ap_num=23728 bound>=150.84h
+[ 804.0 min] rules=94757/154974 ap_num=23722 bound>=151.24h
+[ 805.0 min] rules=94763/154974 ap_num=23690 bound>=151.22h
+[ 806.0 min] rules=94769/154974 ap_num=23733 bound>=151.21h
+[ 807.0 min] rules=94775/154974 ap_num=23756 bound>=151.47h
+[ 808.0 min] rules=94781/154974 ap_num=23819 bound>=151.45h
+[ 809.0 min] rules=94787/154974 ap_num=23870 bound>=151.85h
+[ 810.0 min] rules=94793/154974 ap_num=23865 bound>=152.67h
+[ 811.0 min] rules=94800/154974 ap_num=23880 bound>=152.65h
+[ 812.0 min] rules=94806/154974 ap_num=23848 bound>=153.05h
+[ 813.0 min] rules=94812/154974 ap_num=23846 bound>=153.32h
+[ 814.0 min] rules=94819/154974 ap_num=23928 bound>=153.3h
+[ 815.0 min] rules=94825/154974 ap_num=23972 bound>=153.71h
+[ 816.0 min] rules=94832/154974 ap_num=23994 bound>=153.69h
+[ 817.0 min] rules=94838/154974 ap_num=24003 bound>=154.1h
+[ 818.0 min] rules=94844/154974 ap_num=24011 bound>=154.51h
+[ 819.0 min] rules=94850/154974 ap_num=23975 bound>=154.93h
+[ 820.0 min] rules=94856/154974 ap_num=23963 bound>=155.2h
+[ 821.0 min] rules=94862/154974 ap_num=23951 bound>=155.18h
+[ 822.0 min] rules=94869/154974 ap_num=23955 bound>=155.17h
+[ 823.0 min] rules=94874/154974 ap_num=23937 bound>=156.02h
+[ 824.0 min] rules=94880/154974 ap_num=23942 bound>=156.01h
+[ 825.1 min] rules=94887/154974 ap_num=23964 bound>=156.43h
+[ 826.1 min] rules=94893/154974 ap_num=23960 bound>=156.85h
+[ 827.1 min] rules=94899/154974 ap_num=23965 bound>=157.13h
+[ 828.1 min] rules=94905/154974 ap_num=23945 bound>=157.56h
+[ 829.1 min] rules=94911/154974 ap_num=24009 bound>=157.99h
+[ 830.1 min] rules=94917/154974 ap_num=24027 bound>=158.43h
+[ 831.1 min] rules=94923/154974 ap_num=24036 bound>=158.41h
+[ 832.1 min] rules=94929/154974 ap_num=24044 bound>=158.85h
+[ 833.1 min] rules=94934/154974 ap_num=24051 bound>=159.14h
+[ 834.1 min] rules=94939/154974 ap_num=24062 bound>=159.58h
+[ 835.1 min] rules=94944/154974 ap_num=24070 bound>=160.03h
+[ 836.1 min] rules=94949/154974 ap_num=24078 bound>=160.48h
+[ 837.1 min] rules=94954/154974 ap_num=24107 bound>=161.24h
+[ 838.1 min] rules=94960/154974 ap_num=24109 bound>=161.69h
+[ 839.1 min] rules=94966/154974 ap_num=24108 bound>=161.68h
+[ 840.1 min] rules=94972/154974 ap_num=24121 bound>=162.13h
+[ 841.1 min] rules=94978/154974 ap_num=24131 bound>=162.59h
+[ 842.1 min] rules=94983/154974 ap_num=24153 bound>=163.37h
+[ 843.1 min] rules=94989/154974 ap_num=24154 bound>=163.84h
+[ 844.1 min] rules=94995/154974 ap_num=24155 bound>=164.31h
+[ 845.1 min] rules=95001/154974 ap_num=24169 bound>=164.29h
+[ 846.1 min] rules=95006/154974 ap_num=24169 bound>=165.26h
+[ 847.1 min] rules=95012/154974 ap_num=24189 bound>=165.57h
+[ 848.1 min] rules=95018/154974 ap_num=24190 bound>=165.55h
+[ 849.1 min] rules=95023/154974 ap_num=24186 bound>=166.53h
+[ 850.1 min] rules=95029/154974 ap_num=24187 bound>=166.51h
+[ 851.1 min] rules=95035/154974 ap_num=24208 bound>=167.0h
+[ 852.1 min] rules=95041/154974 ap_num=24249 bound>=166.98h
+[ 853.1 min] rules=95046/154974 ap_num=24234 bound>=167.47h
+[ 854.1 min] rules=95052/154974 ap_num=24249 bound>=167.79h
+[ 855.1 min] rules=95057/154974 ap_num=24244 bound>=168.8h
+[ 856.1 min] rules=95063/154974 ap_num=24258 bound>=168.78h
+[ 857.1 min] rules=95068/154974 ap_num=24261 bound>=169.8h
+[ 858.1 min] rules=95074/154974 ap_num=24284 bound>=170.13h
+[ 859.1 min] rules=95079/154974 ap_num=24271 bound>=170.64h
+[ 860.1 min] rules=95085/154974 ap_num=24276 bound>=170.62h
+[ 861.1 min] rules=95090/154974 ap_num=24280 bound>=171.67h
+[ 862.1 min] rules=95096/154974 ap_num=24283 bound>=171.12h
+[ 863.1 min] rules=95101/154974 ap_num=24285 bound>=171.63h
+[ 864.1 min] rules=95105/154974 ap_num=24280 bound>=172.16h
+[ 865.1 min] rules=95110/154974 ap_num=24295 bound>=172.5h
+[ 866.1 min] rules=95114/154974 ap_num=24290 bound>=173.57h
+[ 867.1 min] rules=95120/154974 ap_num=24295 bound>=173.55h
+[ 868.1 min] rules=95125/154974 ap_num=24300 bound>=174.08h
+[ 869.1 min] rules=95131/154974 ap_num=24325 bound>=174.06h
+[ 870.1 min] rules=95136/154974 ap_num=24313 bound>=174.96h
+[ 871.1 min] rules=95141/154974 ap_num=24326 bound>=175.5h
+[ 872.1 min] rules=95147/154974 ap_num=24331 bound>=175.49h
+[ 873.1 min] rules=95152/154974 ap_num=24335 bound>=176.59h
+[ 874.1 min] rules=95158/154974 ap_num=24347 bound>=176.57h
+[ 875.1 min] rules=95163/154974 ap_num=24351 bound>=177.5h
+[ 876.1 min] rules=95168/154974 ap_num=24341 bound>=178.06h
+[ 877.1 min] rules=95174/154974 ap_num=24356 bound>=178.04h
+[ 878.1 min] rules=95179/154974 ap_num=24355 bound>=178.6h
+[ 879.1 min] rules=95185/154974 ap_num=24367 bound>=178.58h
+[ 880.1 min] rules=95190/154974 ap_num=24356 bound>=179.14h
+[ 881.1 min] rules=95195/154974 ap_num=24358 bound>=180.1h
+[ 882.1 min] rules=95201/154974 ap_num=24379 bound>=180.08h
+[ 883.1 min] rules=95206/154974 ap_num=24368 bound>=180.07h
+[ 884.1 min] rules=95211/154974 ap_num=24395 bound>=181.23h
+[ 885.1 min] rules=95216/154974 ap_num=24389 bound>=181.81h
+[ 886.1 min] rules=95221/154974 ap_num=24398 bound>=182.4h
+[ 887.1 min] rules=95227/154974 ap_num=24414 bound>=182.38h
+[ 888.1 min] rules=95232/154974 ap_num=24429 bound>=182.76h
+[ 889.1 min] rules=95237/154974 ap_num=24437 bound>=183.35h
+[ 890.1 min] rules=95242/154974 ap_num=24431 bound>=183.95h
+[ 891.1 min] rules=95248/154974 ap_num=24446 bound>=183.93h
+[ 892.1 min] rules=95253/154974 ap_num=24464 bound>=184.53h
+[ 893.1 min] rules=95258/154974 ap_num=24466 bound>=184.51h
+[ 894.1 min] rules=95262/154974 ap_num=24462 bound>=185.12h
+[ 895.1 min] rules=95266/154974 ap_num=24467 bound>=185.52h
+[ 896.1 min] rules=95270/154974 ap_num=24459 bound>=186.13h
+[ 897.1 min] rules=95275/154974 ap_num=24464 bound>=186.12h
+[ 898.1 min] rules=95280/154974 ap_num=24460 bound>=186.73h
+[ 899.1 min] rules=95285/154974 ap_num=24459 bound>=187.35h
+[ 900.1 min] rules=95290/154974 ap_num=24458 bound>=187.97h
+[ 901.1 min] rules=95296/154974 ap_num=24483 bound>=187.31h
+[ 902.1 min] rules=95301/154974 ap_num=24475 bound>=187.93h
+[ 903.1 min] rules=95306/154974 ap_num=24470 bound>=188.35h
+[ 904.1 min] rules=95313/154974 ap_num=24468 bound>=189.62h
+[ 905.2 min] rules=95318/154974 ap_num=24467 bound>=189.6h
+[ 906.2 min] rules=95324/154974 ap_num=24473 bound>=189.58h
+[ 907.2 min] rules=95329/154974 ap_num=24472 bound>=190.22h
+[ 908.2 min] rules=95334/154974 ap_num=24472 bound>=190.2h
+[ 909.2 min] rules=95339/154974 ap_num=24472 bound>=190.84h
+[ 910.2 min] rules=95344/154974 ap_num=24476 bound>=191.27h
+[ 911.2 min] rules=95350/154974 ap_num=24485 bound>=191.25h
+[ 912.2 min] rules=95354/154974 ap_num=24468 bound>=191.9h
+[ 913.2 min] rules=95359/154974 ap_num=24468 bound>=192.55h
+[ 914.2 min] rules=95365/154974 ap_num=24477 bound>=191.87h
+[ 915.2 min] rules=95370/154974 ap_num=24483 bound>=192.52h
+[ 916.2 min] rules=95375/154974 ap_num=24488 bound>=192.5h
+[ 917.2 min] rules=95380/154974 ap_num=24489 bound>=193.16h
+[ 918.2 min] rules=95385/154974 ap_num=24487 bound>=193.14h
+[ 919.2 min] rules=95390/154974 ap_num=24484 bound>=193.81h
+[ 920.2 min] rules=95395/154974 ap_num=24485 bound>=193.79h
+[ 921.2 min] rules=95400/154974 ap_num=24494 bound>=194.23h
+[ 922.2 min] rules=95406/154974 ap_num=24505 bound>=193.75h
+[ 923.2 min] rules=95410/154974 ap_num=24504 bound>=193.74h
+[ 924.2 min] rules=95414/154974 ap_num=24503 bound>=194.18h
+[ 925.2 min] rules=95418/154974 ap_num=24498 bound>=194.17h
+[ 926.2 min] rules=95422/154974 ap_num=24498 bound>=195.53h
+[ 927.2 min] rules=95427/154974 ap_num=24497 bound>=195.52h
+[ 928.2 min] rules=95432/154974 ap_num=24507 bound>=196.2h
+[ 929.2 min] rules=95437/154974 ap_num=24505 bound>=196.18h
+[ 930.2 min] rules=95442/154974 ap_num=24515 bound>=196.16h
+[ 931.2 min] rules=95447/154974 ap_num=24514 bound>=196.85h
+[ 932.2 min] rules=95452/154974 ap_num=24515 bound>=196.83h
+[ 933.2 min] rules=95457/154974 ap_num=24516 bound>=197.29h
+[ 934.2 min] rules=95462/154974 ap_num=24517 bound>=197.27h
+[ 935.2 min] rules=95467/154974 ap_num=24515 bound>=197.25h
+[ 936.2 min] rules=95472/154974 ap_num=24515 bound>=197.94h
+[ 937.2 min] rules=95477/154974 ap_num=24517 bound>=197.93h
+[ 938.2 min] rules=95482/154974 ap_num=24516 bound>=198.62h
+[ 939.2 min] rules=95487/154974 ap_num=24515 bound>=198.61h
+[ 940.2 min] rules=95492/154974 ap_num=24515 bound>=198.59h
+[ 941.2 min] rules=95497/154974 ap_num=24517 bound>=199.29h
+[ 942.2 min] rules=95502/154974 ap_num=24517 bound>=199.28h
+[ 943.2 min] rules=95507/154974 ap_num=24518 bound>=199.26h
+[ 944.2 min] rules=95512/154974 ap_num=24519 bound>=199.24h
+[ 945.2 min] rules=95517/154974 ap_num=24524 bound>=199.23h
+[ 946.2 min] rules=95521/154974 ap_num=24521 bound>=200.42h
+[ 947.2 min] rules=95526/154974 ap_num=24523 bound>=200.4h
+[ 948.2 min] rules=95531/154974 ap_num=24519 bound>=200.39h
+[ 949.2 min] rules=95536/154974 ap_num=24521 bound>=200.37h
+[ 950.2 min] rules=95541/154974 ap_num=24520 bound>=201.09h
+[ 951.2 min] rules=95546/154974 ap_num=24522 bound>=201.07h
+[ 952.2 min] rules=95551/154974 ap_num=24522 bound>=201.05h
+[ 953.2 min] rules=95555/154974 ap_num=24521 bound>=201.04h
+[ 954.2 min] rules=95559/154974 ap_num=24520 bound>=201.03h
+[ 955.2 min] rules=95564/154974 ap_num=24526 bound>=200.28h
+[ 956.2 min] rules=95568/154974 ap_num=24523 bound>=200.99h
+[ 957.2 min] rules=95573/154974 ap_num=24526 bound>=200.98h
+[ 958.2 min] rules=95578/154974 ap_num=24524 bound>=200.96h
+[ 959.2 min] rules=95583/154974 ap_num=24529 bound>=200.94h
+[ 960.2 min] rules=95588/154974 ap_num=24530 bound>=201.66h
+[ 961.2 min] rules=95592/154974 ap_num=24522 bound>=202.39h
+[ 962.2 min] rules=95597/154974 ap_num=24521 bound>=202.38h
+[ 963.2 min] rules=95602/154974 ap_num=24521 bound>=202.36h
+[ 964.2 min] rules=95607/154974 ap_num=24531 bound>=202.34h
+[ 965.2 min] rules=95612/154974 ap_num=24532 bound>=202.32h
+[ 966.2 min] rules=95617/154974 ap_num=24538 bound>=202.31h
+[ 967.2 min] rules=95622/154974 ap_num=24535 bound>=202.29h
+[ 968.2 min] rules=95627/154974 ap_num=24560 bound>=203.02h
+[ 969.2 min] rules=95632/154974 ap_num=24562 bound>=203.0h
+[ 970.2 min] rules=95637/154974 ap_num=24563 bound>=202.99h
+[ 971.2 min] rules=95642/154974 ap_num=24565 bound>=202.97h
+[ 972.2 min] rules=95646/154974 ap_num=24556 bound>=203.46h
+[ 973.2 min] rules=95651/154974 ap_num=24557 bound>=203.44h
+[ 974.2 min] rules=95656/154974 ap_num=24560 bound>=203.42h
+[ 975.2 min] rules=95661/154974 ap_num=24563 bound>=203.41h
+[ 976.2 min] rules=95666/154974 ap_num=24566 bound>=203.39h
+[ 977.2 min] rules=95671/154974 ap_num=24572 bound>=204.13h
+[ 978.2 min] rules=95676/154974 ap_num=24572 bound>=204.11h
+[ 979.2 min] rules=95681/154974 ap_num=24585 bound>=204.09h
+[ 980.2 min] rules=95686/154974 ap_num=24582 bound>=204.08h
+[ 981.2 min] rules=95690/154974 ap_num=24577 bound>=204.82h
+[ 982.2 min] rules=95695/154974 ap_num=24578 bound>=204.81h
+[ 983.3 min] rules=95699/154974 ap_num=24577 bound>=204.79h
+[ 984.3 min] rules=95703/154974 ap_num=24578 bound>=204.78h
+[ 985.3 min] rules=95707/154974 ap_num=24581 bound>=204.76h
+[ 986.3 min] rules=95711/154974 ap_num=24583 bound>=205.52h
+[ 987.3 min] rules=95716/154974 ap_num=24590 bound>=205.5h
+[ 988.3 min] rules=95721/154974 ap_num=24593 bound>=205.48h
+[ 989.3 min] rules=95725/154974 ap_num=24586 bound>=206.24h
+[ 990.3 min] rules=95730/154974 ap_num=24586 bound>=206.22h
+[ 991.3 min] rules=95735/154974 ap_num=24589 bound>=206.21h
+[ 992.3 min] rules=95740/154974 ap_num=24593 bound>=206.19h
+[ 993.3 min] rules=95745/154974 ap_num=24592 bound>=206.17h
+[ 994.3 min] rules=95749/154974 ap_num=24585 bound>=206.68h
+[ 995.3 min] rules=95754/154974 ap_num=24597 bound>=206.66h
+[ 996.3 min] rules=95759/154974 ap_num=24598 bound>=206.64h
+[ 997.3 min] rules=95764/154974 ap_num=24601 bound>=206.62h
+[ 998.3 min] rules=95769/154974 ap_num=24602 bound>=206.61h
+[ 999.3 min] rules=95773/154974 ap_num=24596 bound>=207.37h
+[1000.3 min] rules=95778/154974 ap_num=24598 bound>=207.36h
+[1001.3 min] rules=95783/154974 ap_num=24599 bound>=207.34h
+[1002.3 min] rules=95788/154974 ap_num=24624 bound>=207.32h
+[1003.3 min] rules=95793/154974 ap_num=24620 bound>=207.3h
+[1004.3 min] rules=95797/154974 ap_num=24615 bound>=208.08h
+[1005.3 min] rules=95802/154974 ap_num=24617 bound>=207.27h
+[1006.3 min] rules=95807/154974 ap_num=24616 bound>=207.25h
+[1007.3 min] rules=95811/154974 ap_num=24616 bound>=208.03h
+[1008.3 min] rules=95816/154974 ap_num=24619 bound>=208.01h
+[1009.3 min] rules=95821/154974 ap_num=24621 bound>=207.99h
+[1010.3 min] rules=95826/154974 ap_num=24623 bound>=207.97h
+[1011.3 min] rules=95830/154974 ap_num=24625 bound>=208.75h
+[1012.3 min] rules=95835/154974 ap_num=24640 bound>=207.94h
+[1013.3 min] rules=95839/154974 ap_num=24646 bound>=207.93h
+[1014.3 min] rules=95843/154974 ap_num=24641 bound>=207.91h
+[1015.3 min] rules=95847/154974 ap_num=24642 bound>=208.69h
+[1016.3 min] rules=95851/154974 ap_num=24645 bound>=209.48h
+[1017.3 min] rules=95855/154974 ap_num=24643 bound>=209.46h
+[1018.3 min] rules=95860/154974 ap_num=24646 bound>=209.45h
+[1019.3 min] rules=95865/154974 ap_num=24650 bound>=209.43h
+[1020.3 min] rules=95870/154974 ap_num=24652 bound>=209.41h
+[1021.3 min] rules=95874/154974 ap_num=24643 bound>=209.93h
+[1022.3 min] rules=95879/154974 ap_num=24645 bound>=209.91h
+[1023.3 min] rules=95884/154974 ap_num=24670 bound>=209.9h
+[1024.3 min] rules=95888/154974 ap_num=24667 bound>=210.69h
+[1025.3 min] rules=95893/154974 ap_num=24668 bound>=210.67h
+[1026.3 min] rules=95898/154974 ap_num=24673 bound>=210.65h
+[1027.3 min] rules=95903/154974 ap_num=24676 bound>=210.64h
+[1028.3 min] rules=95907/154974 ap_num=24671 bound>=210.62h
+[1029.3 min] rules=95912/154974 ap_num=24671 bound>=210.6h
+[1030.3 min] rules=95917/154974 ap_num=24675 bound>=210.59h
+[1031.3 min] rules=95921/154974 ap_num=24672 bound>=211.39h
+[1032.3 min] rules=95926/154974 ap_num=24677 bound>=211.37h
+[1033.3 min] rules=95931/154974 ap_num=24680 bound>=211.35h
+[1034.3 min] rules=95935/154974 ap_num=24674 bound>=212.16h
+[1035.3 min] rules=95940/154974 ap_num=24677 bound>=212.14h
+[1036.3 min] rules=95945/154974 ap_num=24679 bound>=212.12h
+[1037.3 min] rules=95949/154974 ap_num=24674 bound>=212.11h
+[1038.3 min] rules=95954/154974 ap_num=24678 bound>=212.09h
+[1039.3 min] rules=95959/154974 ap_num=24683 bound>=212.07h
+[1040.3 min] rules=95963/154974 ap_num=24677 bound>=212.88h
+[1041.3 min] rules=95968/154974 ap_num=24680 bound>=212.86h
+[1042.3 min] rules=95972/154974 ap_num=24678 bound>=212.85h
+[1043.3 min] rules=95976/154974 ap_num=24678 bound>=212.84h
+[1044.3 min] rules=95980/154974 ap_num=24679 bound>=212.82h
+[1045.3 min] rules=95984/154974 ap_num=24681 bound>=212.81h
+[1046.3 min] rules=95988/154974 ap_num=24683 bound>=212.79h
+[1047.3 min] rules=95992/154974 ap_num=24680 bound>=213.61h
+[1048.4 min] rules=95997/154974 ap_num=24683 bound>=213.59h
+[1049.4 min] rules=96002/154974 ap_num=24684 bound>=213.57h
+[1050.4 min] rules=96006/154974 ap_num=24687 bound>=213.56h
+[1051.4 min] rules=96011/154974 ap_num=24693 bound>=213.54h
+[1052.4 min] rules=96015/154974 ap_num=24690 bound>=214.08h
+[1053.4 min] rules=96020/154974 ap_num=24696 bound>=214.07h
+[1054.4 min] rules=96025/154974 ap_num=24700 bound>=214.05h
+[1055.4 min] rules=96029/154974 ap_num=24697 bound>=214.03h
+[1056.4 min] rules=96034/154974 ap_num=24710 bound>=214.02h
+[1057.4 min] rules=96038/154974 ap_num=24707 bound>=214.84h
+[1058.4 min] rules=96043/154974 ap_num=24711 bound>=214.83h
+[1059.4 min] rules=96048/154974 ap_num=24715 bound>=214.81h
+[1060.4 min] rules=96052/154974 ap_num=24710 bound>=215.64h
+[1061.4 min] rules=96057/154974 ap_num=24719 bound>=215.62h
+[1062.4 min] rules=96061/154974 ap_num=24711 bound>=215.61h
+[1063.4 min] rules=96066/154974 ap_num=24714 bound>=215.59h
+[1064.4 min] rules=96070/154974 ap_num=24711 bound>=216.43h
+[1065.4 min] rules=96075/154974 ap_num=24721 bound>=216.41h
+[1066.4 min] rules=96080/154974 ap_num=24720 bound>=215.54h
+[1067.4 min] rules=96084/154974 ap_num=24714 bound>=216.38h
+[1068.4 min] rules=96089/154974 ap_num=24720 bound>=215.51h
+[1069.4 min] rules=96093/154974 ap_num=24722 bound>=216.35h
+[1070.4 min] rules=96098/154974 ap_num=24723 bound>=216.33h
+[1071.4 min] rules=96102/154974 ap_num=24719 bound>=217.18h
+[1072.4 min] rules=96107/154974 ap_num=24726 bound>=216.3h
+[1073.4 min] rules=96110/154974 ap_num=24722 bound>=217.15h
+[1074.4 min] rules=96115/154974 ap_num=24731 bound>=216.27h
+[1075.4 min] rules=96118/154974 ap_num=24725 bound>=217.12h
+[1076.4 min] rules=96122/154974 ap_num=24735 bound>=217.1h
+[1077.4 min] rules=96126/154974 ap_num=24733 bound>=217.67h
+[1078.4 min] rules=96131/154974 ap_num=24747 bound>=217.07h
+[1079.4 min] rules=96135/154974 ap_num=24747 bound>=217.63h
+[1080.4 min] rules=96140/154974 ap_num=24747 bound>=217.61h
+[1081.4 min] rules=96144/154974 ap_num=24741 bound>=218.47h
+[1082.4 min] rules=96149/154974 ap_num=24749 bound>=217.58h
+[1083.4 min] rules=96153/154974 ap_num=24750 bound>=218.44h
+[1084.4 min] rules=96158/154974 ap_num=24754 bound>=218.42h
+[1085.4 min] rules=96162/154974 ap_num=24748 bound>=219.28h
+[1086.4 min] rules=96167/154974 ap_num=24753 bound>=218.39h
+[1087.4 min] rules=96171/154974 ap_num=24748 bound>=219.25h
+[1088.4 min] rules=96176/154974 ap_num=24755 bound>=219.23h
+[1089.4 min] rules=96180/154974 ap_num=24750 bound>=219.22h
+[1090.4 min] rules=96185/154974 ap_num=24764 bound>=219.2h
+[1091.4 min] rules=96189/154974 ap_num=24761 bound>=220.07h
+[1092.4 min] rules=96194/154974 ap_num=24764 bound>=219.16h
+[1093.4 min] rules=96198/154974 ap_num=24764 bound>=220.04h
+[1094.4 min] rules=96203/154974 ap_num=24767 bound>=220.02h
+[1095.4 min] rules=96207/154974 ap_num=24767 bound>=220.0h
+[1096.4 min] rules=96212/154974 ap_num=24774 bound>=219.98h
+[1097.4 min] rules=96216/154974 ap_num=24772 bound>=220.86h
+[1098.4 min] rules=96221/154974 ap_num=24774 bound>=219.95h
+[1099.4 min] rules=96225/154974 ap_num=24778 bound>=220.83h
+[1100.4 min] rules=96229/154974 ap_num=24778 bound>=221.41h
+[1101.4 min] rules=96234/154974 ap_num=24783 bound>=220.79h
+[1102.4 min] rules=96238/154974 ap_num=24785 bound>=220.78h
+[1103.4 min] rules=96242/154974 ap_num=24788 bound>=220.76h
+[1104.4 min] rules=96245/154974 ap_num=24782 bound>=221.35h
+[1105.4 min] rules=96249/154974 ap_num=24785 bound>=221.34h
+[1106.5 min] rules=96253/154974 ap_num=24784 bound>=221.32h
+[1107.5 min] rules=96257/154974 ap_num=24789 bound>=221.31h
+[1108.5 min] rules=96261/154974 ap_num=24786 bound>=222.2h
+[1109.5 min] rules=96266/154974 ap_num=24792 bound>=222.18h
+[1110.5 min] rules=96270/154974 ap_num=24786 bound>=222.16h
+[1111.5 min] rules=96275/154974 ap_num=24792 bound>=222.14h
+[1112.5 min] rules=96279/154974 ap_num=24789 bound>=223.04h
+[1113.5 min] rules=96284/154974 ap_num=24794 bound>=222.11h
+[1114.5 min] rules=96288/154974 ap_num=24788 bound>=223.01h
+[1115.5 min] rules=96292/154974 ap_num=24787 bound>=223.91h
+[1116.5 min] rules=96297/154974 ap_num=24795 bound>=222.97h
+[1117.5 min] rules=96301/154974 ap_num=24791 bound>=223.87h
+[1118.5 min] rules=96306/154974 ap_num=24807 bound>=222.94h
+[1119.5 min] rules=96310/154974 ap_num=24802 bound>=223.84h
+[1120.5 min] rules=96314/154974 ap_num=24800 bound>=223.82h
+[1121.5 min] rules=96319/154974 ap_num=24808 bound>=223.81h
+[1122.5 min] rules=96323/154974 ap_num=24802 bound>=224.72h
+[1123.5 min] rules=96328/154974 ap_num=24809 bound>=223.77h
+[1124.5 min] rules=96332/154974 ap_num=24807 bound>=224.68h
+[1125.5 min] rules=96336/154974 ap_num=24805 bound>=224.67h
+[1126.5 min] rules=96341/154974 ap_num=24812 bound>=224.65h
+[1127.5 min] rules=96345/154974 ap_num=24810 bound>=224.63h
+[1128.5 min] rules=96349/154974 ap_num=24806 bound>=225.24h
+[1129.5 min] rules=96354/154974 ap_num=24813 bound>=224.6h
+[1130.5 min] rules=96357/154974 ap_num=24806 bound>=226.15h
+[1131.5 min] rules=96361/154974 ap_num=24809 bound>=227.08h
+[1132.5 min] rules=96365/154974 ap_num=24809 bound>=227.06h
+[1133.5 min] rules=96369/154974 ap_num=24813 bound>=226.1h
+[1134.5 min] rules=96373/154974 ap_num=24813 bound>=226.08h
+[1135.5 min] rules=96376/154974 ap_num=24807 bound>=227.02h
+[1136.5 min] rules=96380/154974 ap_num=24816 bound>=227.0h
+[1137.5 min] rules=96384/154974 ap_num=24815 bound>=226.99h
+[1138.5 min] rules=96388/154974 ap_num=24813 bound>=227.93h
+[1139.5 min] rules=96392/154974 ap_num=24812 bound>=227.91h
+[1140.5 min] rules=96397/154974 ap_num=24818 bound>=227.89h
+[1141.5 min] rules=96401/154974 ap_num=24817 bound>=227.88h
+[1142.5 min] rules=96406/154974 ap_num=24824 bound>=227.86h
+[1143.5 min] rules=96410/154974 ap_num=24822 bound>=227.84h
+[1144.5 min] rules=96414/154974 ap_num=24819 bound>=228.79h
+[1145.5 min] rules=96418/154974 ap_num=24820 bound>=229.42h
+[1146.5 min] rules=96423/154974 ap_num=24825 bound>=228.75h
+[1147.5 min] rules=96427/154974 ap_num=24824 bound>=229.38h
+[1148.5 min] rules=96431/154974 ap_num=24821 bound>=229.36h
+[1149.5 min] rules=96436/154974 ap_num=24828 bound>=229.34h
+[1150.5 min] rules=96440/154974 ap_num=24824 bound>=229.33h
+[1151.5 min] rules=96445/154974 ap_num=24832 bound>=229.31h
+[1152.5 min] rules=96449/154974 ap_num=24831 bound>=229.29h
+[1153.5 min] rules=96453/154974 ap_num=24827 bound>=230.25h
+[1154.5 min] rules=96457/154974 ap_num=24827 bound>=230.24h
+[1155.5 min] rules=96461/154974 ap_num=24833 bound>=230.22h
+[1156.5 min] rules=96465/154974 ap_num=24832 bound>=231.19h
+[1157.5 min] rules=96469/154974 ap_num=24830 bound>=231.17h
+[1158.5 min] rules=96474/154974 ap_num=24837 bound>=231.15h
+[1159.5 min] rules=96478/154974 ap_num=24835 bound>=231.14h
+[1160.5 min] rules=96482/154974 ap_num=24832 bound>=232.11h
+[1161.5 min] rules=96487/154974 ap_num=24839 bound>=231.1h
+[1162.5 min] rules=96491/154974 ap_num=24835 bound>=231.09h
+[1163.5 min] rules=96495/154974 ap_num=24843 bound>=231.07h
+[1164.5 min] rules=96498/154974 ap_num=24837 bound>=231.06h
+[1165.5 min] rules=96502/154974 ap_num=24839 bound>=231.04h
+[1166.5 min] rules=96505/154974 ap_num=24838 bound>=232.02h
+[1167.5 min] rules=96510/154974 ap_num=24841 bound>=231.01h
+[1168.5 min] rules=96514/154974 ap_num=24843 bound>=231.98h
+[1169.5 min] rules=96518/154974 ap_num=24841 bound>=231.97h
+[1170.5 min] rules=96523/154974 ap_num=24843 bound>=231.95h
+[1171.5 min] rules=96527/154974 ap_num=24842 bound>=231.93h
+[1172.5 min] rules=96531/154974 ap_num=24843 bound>=231.92h
+[1173.5 min] rules=96536/154974 ap_num=24852 bound>=231.9h
+[1174.5 min] rules=96540/154974 ap_num=24850 bound>=231.88h
+[1175.5 min] rules=96544/154974 ap_num=24850 bound>=232.86h
+[1176.5 min] rules=96549/154974 ap_num=24866 bound>=231.85h
+[1177.5 min] rules=96553/154974 ap_num=24874 bound>=231.83h
+[1178.6 min] rules=96557/154974 ap_num=24870 bound>=232.81h
+[1179.6 min] rules=96562/154974 ap_num=24878 bound>=231.79h
+[1180.6 min] rules=96566/154974 ap_num=24876 bound>=232.78h
+[1181.6 min] rules=96570/154974 ap_num=24875 bound>=232.76h
+[1182.6 min] rules=96574/154974 ap_num=24875 bound>=232.74h
+[1183.6 min] rules=96579/154974 ap_num=24875 bound>=232.72h
+[1184.6 min] rules=96583/154974 ap_num=24872 bound>=232.71h
+[1185.6 min] rules=96587/154974 ap_num=24870 bound>=232.69h
+[1186.6 min] rules=96591/154974 ap_num=24869 bound>=233.35h
+[1187.6 min] rules=96596/154974 ap_num=24880 bound>=232.66h
+[1188.6 min] rules=96600/154974 ap_num=24880 bound>=233.31h
+[1189.6 min] rules=96604/154974 ap_num=24883 bound>=233.29h
+[1190.6 min] rules=96608/154974 ap_num=24880 bound>=232.61h
+[1191.6 min] rules=96613/154974 ap_num=24887 bound>=231.59h
+[1192.6 min] rules=96617/154974 ap_num=24887 bound>=231.58h
+[1193.6 min] rules=96621/154974 ap_num=24886 bound>=230.57h
+[1194.6 min] rules=96625/154974 ap_num=24887 bound>=230.56h
+[1195.6 min] rules=96629/154974 ap_num=24887 bound>=230.54h
+[1196.6 min] rules=96634/154974 ap_num=24897 bound>=229.54h
+[1197.6 min] rules=96638/154974 ap_num=24895 bound>=229.52h
+[1198.6 min] rules=96642/154974 ap_num=24894 bound>=229.51h
+[1199.6 min] rules=96646/154974 ap_num=24896 bound>=230.47h
+[1200.6 min] rules=96651/154974 ap_num=24900 bound>=229.47h
+[1201.6 min] rules=96655/154974 ap_num=24900 bound>=229.46h
+[1202.6 min] rules=96659/154974 ap_num=24903 bound>=230.42h
+[1203.6 min] rules=96663/154974 ap_num=24903 bound>=230.41h
+[1204.6 min] rules=96667/154974 ap_num=24900 bound>=230.39h
+[1205.6 min] rules=96672/154974 ap_num=24908 bound>=230.37h
+[1206.6 min] rules=96676/154974 ap_num=24906 bound>=230.35h
+[1207.6 min] rules=96680/154974 ap_num=24905 bound>=230.34h
+[1208.6 min] rules=96684/154974 ap_num=24904 bound>=231.31h
+[1209.6 min] rules=96688/154974 ap_num=24904 bound>=231.29h
+[1210.6 min] rules=96693/154974 ap_num=24914 bound>=230.29h
+[1211.6 min] rules=96697/154974 ap_num=24914 bound>=231.26h
+[1212.6 min] rules=96701/154974 ap_num=24918 bound>=231.24h
+[1213.6 min] rules=96705/154974 ap_num=24921 bound>=231.23h
+[1214.6 min] rules=96709/154974 ap_num=24921 bound>=231.21h
+[1215.6 min] rules=96714/154974 ap_num=24927 bound>=230.2h
+[1216.6 min] rules=96718/154974 ap_num=24925 bound>=230.19h
+[1217.6 min] rules=96722/154974 ap_num=24928 bound>=231.16h
+[1218.6 min] rules=96726/154974 ap_num=24932 bound>=231.14h
+[1219.6 min] rules=96730/154974 ap_num=24932 bound>=231.13h
+[1220.6 min] rules=96734/154974 ap_num=24933 bound>=232.11h
+[1221.6 min] rules=96738/154974 ap_num=24936 bound>=232.09h
+[1222.6 min] rules=96743/154974 ap_num=24946 bound>=231.08h
+[1223.6 min] rules=96747/154974 ap_num=24941 bound>=230.07h
+[1224.6 min] rules=96751/154974 ap_num=24946 bound>=230.06h
+[1225.6 min] rules=96755/154974 ap_num=24944 bound>=230.04h
+[1226.6 min] rules=96759/154974 ap_num=24943 bound>=230.03h
+[1227.6 min] rules=96763/154974 ap_num=24940 bound>=230.01h
+[1228.6 min] rules=96767/154974 ap_num=24942 bound>=229.99h
+[1229.6 min] rules=96771/154974 ap_num=24942 bound>=230.96h
+[1230.6 min] rules=96775/154974 ap_num=24940 bound>=230.95h
+[1231.6 min] rules=96780/154974 ap_num=24952 bound>=229.94h
+[1232.6 min] rules=96784/154974 ap_num=24951 bound>=229.93h
+[1233.7 min] rules=96788/154974 ap_num=24950 bound>=230.9h
+[1234.7 min] rules=96794/154974 ap_num=24949 bound>=230.87h
+[1235.7 min] rules=96798/154974 ap_num=24948 bound>=231.85h
+[1236.7 min] rules=96802/154974 ap_num=24950 bound>=231.83h
+[1237.7 min] rules=96806/154974 ap_num=24950 bound>=231.82h
+[1238.7 min] rules=96810/154974 ap_num=24948 bound>=232.47h
+[1239.7 min] rules=96814/154974 ap_num=24948 bound>=232.45h
+[1240.7 min] rules=96818/154974 ap_num=24949 bound>=232.44h
+[1241.7 min] rules=96823/154974 ap_num=24957 bound>=231.75h
+[1242.7 min] rules=96827/154974 ap_num=24955 bound>=232.4h
+[1243.7 min] rules=96831/154974 ap_num=24956 bound>=232.39h
+[1244.7 min] rules=96835/154974 ap_num=24956 bound>=232.37h
+[1245.7 min] rules=96839/154974 ap_num=24959 bound>=232.35h
+[1246.7 min] rules=96843/154974 ap_num=24960 bound>=233.35h
+[1247.7 min] rules=96847/154974 ap_num=24958 bound>=233.33h
+[1248.7 min] rules=96851/154974 ap_num=24961 bound>=233.31h
+[1249.7 min] rules=96855/154974 ap_num=24962 bound>=233.3h
+[1250.7 min] rules=96859/154974 ap_num=24962 bound>=234.3h
+[1251.7 min] rules=96863/154974 ap_num=24961 bound>=234.28h
+[1252.7 min] rules=96867/154974 ap_num=24961 bound>=234.26h
+[1253.7 min] rules=96871/154974 ap_num=24964 bound>=234.25h
+[1254.7 min] rules=96875/154974 ap_num=24964 bound>=234.23h
+[1255.7 min] rules=96879/154974 ap_num=24977 bound>=235.24h
+[1256.7 min] rules=96882/154974 ap_num=24964 bound>=236.26h
+[1257.7 min] rules=96886/154974 ap_num=24968 bound>=236.25h
+[1258.7 min] rules=96889/154974 ap_num=24959 bound>=236.93h
+[1259.7 min] rules=96893/154974 ap_num=24960 bound>=237.96h
+[1260.7 min] rules=96898/154974 ap_num=24968 bound>=236.89h
+[1261.7 min] rules=96902/154974 ap_num=24969 bound>=236.87h
+[1262.7 min] rules=96906/154974 ap_num=24968 bound>=236.86h
+[1263.7 min] rules=96909/154974 ap_num=24961 bound>=237.89h
+[1264.7 min] rules=96913/154974 ap_num=24961 bound>=238.93h
+[1265.7 min] rules=96918/154974 ap_num=24970 bound>=237.86h
+[1266.7 min] rules=96922/154974 ap_num=24974 bound>=237.84h
+[1267.7 min] rules=96925/154974 ap_num=24967 bound>=238.88h
+[1268.7 min] rules=96929/154974 ap_num=24970 bound>=238.87h
+[1269.7 min] rules=96933/154974 ap_num=24971 bound>=239.92h
+[1270.8 min] rules=96937/154974 ap_num=24970 bound>=239.9h
+[1271.8 min] rules=96941/154974 ap_num=24969 bound>=239.89h
+[1272.8 min] rules=96945/154974 ap_num=24970 bound>=239.87h
+[1273.8 min] rules=96949/154974 ap_num=24968 bound>=239.85h
+[1274.8 min] rules=96953/154974 ap_num=24964 bound>=240.91h
+[1275.8 min] rules=96957/154974 ap_num=24966 bound>=240.89h
+[1276.8 min] rules=96961/154974 ap_num=24965 bound>=240.88h
+[1277.8 min] rules=96965/154974 ap_num=24962 bound>=240.86h
+[1278.8 min] rules=96969/154974 ap_num=24971 bound>=240.84h
+[1279.8 min] rules=96973/154974 ap_num=24967 bound>=240.83h
+[1280.8 min] rules=96976/154974 ap_num=24959 bound>=241.54h
+[1281.8 min] rules=96980/154974 ap_num=24959 bound>=242.61h
+[1282.8 min] rules=96984/154974 ap_num=24966 bound>=242.6h
+[1283.8 min] rules=96988/154974 ap_num=24964 bound>=242.58h
+[1284.8 min] rules=96992/154974 ap_num=24964 bound>=242.56h
+[1285.8 min] rules=96996/154974 ap_num=24964 bound>=242.55h
+[1286.8 min] rules=97000/154974 ap_num=24966 bound>=242.53h
+[1287.8 min] rules=97004/154974 ap_num=24968 bound>=242.51h
+[1288.8 min] rules=97007/154974 ap_num=24960 bound>=243.6h
+[1289.8 min] rules=97011/154974 ap_num=24961 bound>=243.58h
+[1290.8 min] rules=97015/154974 ap_num=24963 bound>=244.68h
+[1291.8 min] rules=97019/154974 ap_num=24965 bound>=244.66h
+[1292.8 min] rules=97023/154974 ap_num=24970 bound>=244.64h
+[1293.8 min] rules=97027/154974 ap_num=24969 bound>=244.63h
+[1294.8 min] rules=97031/154974 ap_num=24970 bound>=244.61h
+[1295.8 min] rules=97035/154974 ap_num=24974 bound>=244.59h
+[1296.8 min] rules=97038/154974 ap_num=24968 bound>=245.7h
+[1297.8 min] rules=97042/154974 ap_num=24969 bound>=245.68h
+[1298.8 min] rules=97046/154974 ap_num=24973 bound>=245.67h
+[1299.8 min] rules=97050/154974 ap_num=24974 bound>=245.65h
+[1300.8 min] rules=97054/154974 ap_num=24974 bound>=245.63h
+[1301.8 min] rules=97058/154974 ap_num=24972 bound>=246.37h
+[1302.8 min] rules=97062/154974 ap_num=24974 bound>=246.35h
+[1303.8 min] rules=97065/154974 ap_num=24967 bound>=247.47h
+[1304.9 min] rules=97069/154974 ap_num=24968 bound>=247.46h
+[1305.9 min] rules=97073/154974 ap_num=24973 bound>=247.44h
+[1306.9 min] rules=97077/154974 ap_num=24975 bound>=247.42h
+[1307.9 min] rules=97080/154974 ap_num=24967 bound>=248.56h
+[1308.9 min] rules=97084/154974 ap_num=24972 bound>=248.54h
+[1309.9 min] rules=97088/154974 ap_num=24974 bound>=248.52h
+[1310.9 min] rules=97092/154974 ap_num=24977 bound>=248.51h
+[1311.9 min] rules=97096/154974 ap_num=24981 bound>=248.49h
+[1312.9 min] rules=97099/154974 ap_num=24976 bound>=249.63h
+[1313.9 min] rules=97103/154974 ap_num=24981 bound>=249.62h
+[1314.9 min] rules=97107/154974 ap_num=24983 bound>=249.6h
+[1315.9 min] rules=97111/154974 ap_num=24985 bound>=248.42h
+[1316.9 min] rules=97114/154974 ap_num=24977 bound>=249.57h
+[1317.9 min] rules=97118/154974 ap_num=24978 bound>=249.55h
+[1318.9 min] rules=97122/154974 ap_num=24983 bound>=248.38h
+[1319.9 min] rules=97125/154974 ap_num=24982 bound>=250.69h
+[1320.9 min] rules=97129/154974 ap_num=24984 bound>=250.67h
+[1321.9 min] rules=97133/154974 ap_num=24985 bound>=250.65h
+[1322.9 min] rules=97136/154974 ap_num=24977 bound>=251.43h
+[1323.9 min] rules=97140/154974 ap_num=24981 bound>=250.62h
+[1325.0 min] rules=97144/154974 ap_num=24986 bound>=251.39h
+[1326.0 min] rules=97148/154974 ap_num=24986 bound>=251.37h
+[1327.0 min] rules=97151/154974 ap_num=24977 bound>=251.36h
+[1328.0 min] rules=97155/154974 ap_num=24981 bound>=251.34h
+[1329.0 min] rules=97159/154974 ap_num=24984 bound>=251.33h
+[1330.1 min] rules=97163/154974 ap_num=24988 bound>=251.31h
+[1331.1 min] rules=97166/154974 ap_num=24987 bound>=252.48h
+[1332.1 min] rules=97170/154974 ap_num=24992 bound>=252.46h
+[1333.1 min] rules=97174/154974 ap_num=24994 bound>=252.45h
+[1334.1 min] rules=97177/154974 ap_num=24989 bound>=253.63h
+[1335.2 min] rules=97181/154974 ap_num=24985 bound>=253.61h
+[1336.2 min] rules=97186/154974 ap_num=24986 bound>=254.8h
+[1337.2 min] rules=97190/154974 ap_num=24989 bound>=254.78h
+[1338.3 min] rules=97194/154974 ap_num=24990 bound>=254.76h
+[1339.3 min] rules=97198/154974 ap_num=24990 bound>=254.74h
+[1340.3 min] rules=97202/154974 ap_num=24994 bound>=253.52h
+[1341.3 min] rules=97205/154974 ap_num=24986 bound>=254.71h
+[1342.3 min] rules=97209/154974 ap_num=24994 bound>=254.7h
+[1343.4 min] rules=97212/154974 ap_num=24988 bound>=255.9h
+[1344.4 min] rules=97216/154974 ap_num=24991 bound>=255.88h
+[1345.4 min] rules=97219/154974 ap_num=24988 bound>=256.69h
+[1346.5 min] rules=97223/154974 ap_num=24990 bound>=256.67h
+[1347.6 min] rules=97227/154974 ap_num=24994 bound>=256.65h
+[1348.6 min] rules=97230/154974 ap_num=25001 bound>=256.64h
+[1349.6 min] rules=97234/154974 ap_num=25000 bound>=256.62h
+[1350.6 min] rules=97237/154974 ap_num=24995 bound>=257.85h
+[1351.6 min] rules=97241/154974 ap_num=25001 bound>=257.83h
+[1352.7 min] rules=97245/154974 ap_num=25003 bound>=257.81h
+[1353.8 min] rules=97250/154974 ap_num=25000 bound>=259.04h
+[1354.9 min] rules=97253/154974 ap_num=24996 bound>=260.29h
+[1356.0 min] rules=97257/154974 ap_num=24998 bound>=260.27h
+[1357.0 min] rules=97261/154974 ap_num=25004 bound>=258.99h
+[1358.0 min] rules=97264/154974 ap_num=25002 bound>=260.24h
+[1359.1 min] rules=97268/154974 ap_num=25003 bound>=260.22h
+[1360.2 min] rules=97271/154974 ap_num=24998 bound>=261.48h
+[1361.3 min] rules=97277/154974 ap_num=25005 bound>=261.45h
+[1362.4 min] rules=97280/154974 ap_num=24998 bound>=262.29h
+[1363.6 min] rules=97284/154974 ap_num=25004 bound>=261.42h
+[1364.6 min] rules=97288/154974 ap_num=25006 bound>=261.4h
+[1365.7 min] rules=97293/154974 ap_num=25003 bound>=262.23h
+[1366.7 min] rules=97296/154974 ap_num=24998 bound>=263.51h
+[1367.7 min] rules=97300/154974 ap_num=25000 bound>=262.2h
+[1368.9 min] rules=97303/154974 ap_num=24998 bound>=263.48h
+[1370.1 min] rules=97307/154974 ap_num=25001 bound>=263.46h
+[1371.2 min] rules=97312/154974 ap_num=24999 bound>=264.75h
+[1372.3 min] rules=97316/154974 ap_num=25004 bound>=263.42h
+[1373.4 min] rules=97319/154974 ap_num=25004 bound>=264.72h
+[1374.4 min] rules=97322/154974 ap_num=25007 bound>=266.02h
+[1375.6 min] rules=97325/154974 ap_num=25003 bound>=267.34h
+[1376.8 min] rules=97328/154974 ap_num=25000 bound>=267.33h
+[1378.0 min] rules=97333/154974 ap_num=25001 bound>=268.2h
+[1379.1 min] rules=97337/154974 ap_num=25006 bound>=267.28h
+[1380.3 min] rules=97342/154974 ap_num=25002 bound>=268.16h
+[1381.4 min] rules=97346/154974 ap_num=25011 bound>=268.14h
+[1382.5 min] rules=97349/154974 ap_num=25003 bound>=268.12h
+[1383.6 min] rules=97353/154974 ap_num=25007 bound>=268.1h
+[1384.8 min] rules=97358/154974 ap_num=25004 bound>=269.44h
+[1386.2 min] rules=97362/154974 ap_num=25009 bound>=269.42h
+[1387.5 min] rules=97367/154974 ap_num=25009 bound>=269.39h
+[1388.7 min] rules=97371/154974 ap_num=25008 bound>=269.37h
+[1389.8 min] rules=97376/154974 ap_num=25011 bound>=269.35h
+[1390.9 min] rules=97379/154974 ap_num=25005 bound>=270.7h
+[1392.1 min] rules=97383/154974 ap_num=25016 bound>=270.69h
+[1393.3 min] rules=97388/154974 ap_num=25013 bound>=270.66h
+[1394.6 min] rules=97392/154974 ap_num=25015 bound>=270.64h
+[1395.8 min] rules=97395/154974 ap_num=25010 bound>=272.01h
+[1396.9 min] rules=97401/154974 ap_num=25017 bound>=270.6h
+[1398.0 min] rules=97404/154974 ap_num=25015 bound>=271.97h
+[1399.2 min] rules=97409/154974 ap_num=25010 bound>=273.34h
+[1400.3 min] rules=97413/154974 ap_num=25012 bound>=271.92h
+[1401.6 min] rules=97417/154974 ap_num=25019 bound>=271.91h
+[1402.7 min] rules=97420/154974 ap_num=25016 bound>=273.29h
+[1403.8 min] rules=97425/154974 ap_num=25014 bound>=273.26h
+[1405.0 min] rules=97428/154974 ap_num=25012 bound>=273.25h
+[1406.1 min] rules=97432/154974 ap_num=25017 bound>=273.23h
+[1407.2 min] rules=97437/154974 ap_num=25016 bound>=273.21h
+[1408.4 min] rules=97441/154974 ap_num=25021 bound>=273.19h
+[1409.5 min] rules=97444/154974 ap_num=25021 bound>=274.11h
+[1410.8 min] rules=97448/154974 ap_num=25027 bound>=273.15h
+[1411.8 min] rules=97453/154974 ap_num=25028 bound>=274.07h
+[1413.2 min] rules=97456/154974 ap_num=25024 bound>=274.05h
+[1414.5 min] rules=97462/154974 ap_num=25029 bound>=273.09h
+[1415.9 min] rules=97465/154974 ap_num=25024 bound>=274.01h
+[1417.0 min] rules=97470/154974 ap_num=25032 bound>=273.99h
+[1418.1 min] rules=97474/154974 ap_num=25040 bound>=273.97h
+[1419.4 min] rules=97479/154974 ap_num=25035 bound>=273.94h
+[1420.7 min] rules=97483/154974 ap_num=25041 bound>=273.92h
+[1421.8 min] rules=97488/154974 ap_num=25040 bound>=273.9h
+[1423.0 min] rules=97491/154974 ap_num=25035 bound>=275.3h
+[1424.4 min] rules=97497/154974 ap_num=25044 bound>=273.86h
+[1425.5 min] rules=97500/154974 ap_num=25038 bound>=275.26h
+[1426.8 min] rules=97504/154974 ap_num=25045 bound>=273.82h
+[1427.8 min] rules=97509/154974 ap_num=25043 bound>=275.22h
+[1429.1 min] rules=97512/154974 ap_num=25038 bound>=275.2h
+[1430.1 min] rules=97516/154974 ap_num=25043 bound>=275.18h
+[1431.1 min] rules=97519/154974 ap_num=25040 bound>=275.17h
+[1432.1 min] rules=97523/154974 ap_num=25047 bound>=275.15h
+[1433.1 min] rules=97527/154974 ap_num=25047 bound>=273.71h
+[1434.1 min] rules=97531/154974 ap_num=25044 bound>=272.76h
+[1435.1 min] rules=97534/154974 ap_num=25040 bound>=272.74h
+[1436.1 min] rules=97538/154974 ap_num=25043 bound>=271.33h
+[1437.1 min] rules=97542/154974 ap_num=25046 bound>=269.94h
+[1438.1 min] rules=97545/154974 ap_num=25034 bound>=271.3h
+[1439.1 min] rules=97549/154974 ap_num=25035 bound>=271.28h
+DEADLINE 86400s reached; partial result written to bench/wl_i2/eval/faithful_bdd_24h.json

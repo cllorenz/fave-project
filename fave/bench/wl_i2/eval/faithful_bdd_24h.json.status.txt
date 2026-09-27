@@ -1,0 +1,19 @@
+i2 BDD build -- live status (APKEEP_NDD_EVAL.md 2.6b protocol)
+engine=bdd  deadline=86400s  started=2026-09-26T09:21:13Z
+
+elapsed        86371.2 s (23.99 h)
+rules applied  97553 / 154974  (62.95 %)
+ap_num         25036
+elements       260   ppm_entries 6509360   split_count 296048
+bdd table      375.7 MiB
+timers (ms)    encode=500 insert=1680 ppm=2666941 merge=83689025
+
+window    d_rules   rate/s   d_ap   AP/rule   tail?
+300s           17    0.063     -7    -0.412   yes
+900s           53   0.0609     -2    -0.038   yes
+1800s         105   0.0593      9     0.086   yes
+3600s         211   0.0591     34     0.161   yes
+
+rules left     57421
+COMPLETION     >= 269.89 h at the tail rate (windows still overlap -> no direction readable yet)
+ap_num proj.   34280 (extrapolation, not a measurement)
