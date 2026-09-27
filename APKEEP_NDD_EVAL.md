@@ -492,6 +492,21 @@ BDD-APKeep *eventually* completes (final `ap_num`/time) or hits a real heap ceil
 left to the planned uncapped runs (APKEEP_NDD_PLAN → "Planned: uncapped BDD-APKeep
 faithful measurements").
 
+### §2.6b — SUPERSEDED 2026-09-27: these runs used a binary with two defects
+
+> **Read §2.6c first.** Everything below was produced by an APKeep build carrying
+> the item-29 use-after-free (`APKeeper.addPredicate` left `parta` unreferenced
+> across allocating calls, so JDD's GC could collect it mid-split) **and** the
+> upstream `// TODO Auto-generated catch block` that swallowed the consequences.
+> The first degraded AP **merging**; the second hid it. Re-measured on a fixed
+> binary at matched rule counts, **faithful-i2's partition is ~0.34–0.39× what
+> this section reports** — its `ap_num` curve, and the "unbounded superlinear
+> growth" reading built on it, are inflated ~2.6× by a defect.
+>
+> What survives: the heap finding (flat, tiny, never a ceiling) and the stopping-
+> rule discipline recorded below. What does not: the `ap_num` trajectory, the
+> extrapolated endpoints, and the Σ-vs-Π ratios derived from them.
+
 ### §2.6b — uncapped BDD-APKeep faithful measurements (operator-stopped; bounds derived)
 Executes the plan's "Planned: uncapped BDD-APKeep faithful measurements". Ran on the
 pinned env, **this box (15 GB RAM, 4 cores)**. The driver is committed —
@@ -649,6 +664,63 @@ Committed traces (this run): `bench/wl_i2/eval/faithful_bdd_uncapped_profile.jso
 `bench/wl_stanford/eval/faithful_bdd_pop_N{2,3,5}.json` (+ their `_profile.jsonl`).
 Caveat: the reduced-slice **build times** were measured under concurrent load (the i2
 crawl shared CPU) and are upper bounds; `ap_num` is deterministic and load-independent.
+
+### §2.6c — re-measured on a FIXED binary (2026-09-27, `BDD_MEASUREMENT_PLAN.md`)
+
+Five runs under a declared-deadline protocol, on a binary with both item-29
+defects fixed and the swallowed catch made to **rethrow**, so every result below
+carries the guarantee that no corruption was silently absorbed to produce it.
+**Zero exceptions in any run**, totalling ~38 h of build time.
+
+| run | outcome | rules | `ap_num` | merge / ppm |
+|---|---|---|---:|---|
+| wl_cloud, 6 h | **`completed` in 2 h 46 min** | 1 773 / 1 773 | **90 153** | 143.3 / 22.8 min (6.3×) |
+| faithful-stanford, 8 h | `deadline` | 5 035 / 9 491 (53 %) | 18 455 | 421.6 / 57.5 min (7.3×) |
+| faithful-i2, 24 h | `deadline` | 97 553 / 154 974 (63 %) | 25 036 | **1 394.8 / 44.4 min (31.4×)** |
+
+**wl_cloud is not intractable — it completes in under three hours**, query
+included (the query costs **1.96 s**; all the cost is the build). The earlier
+"intractable" reading came from the use-after-free crashing the build at 11 min.
+`CLOUD_BENCH_PLAN.md` §1.7.3.
+
+**The defect inflated the partition ~2.6×.** faithful-i2 is the only model
+unchanged since §2.6b (154 974 rules vs 154 920), so it is the only valid
+comparison — faithful-stanford is now 9 491 rules against 7 278 after
+`OUT_STAGE_PLAN.md` step 3. At matched rule counts:
+
+| rules | §2.6b `ap_num` | fixed `ap_num` | ratio |
+|---:|---:|---:|---:|
+| 78 000 | 11 791 | 3 959 | **0.34×** |
+| 80 000 | 16 515 | 5 896 | **0.36×** |
+| 82 000 | 20 930 | 8 176 | **0.39×** |
+
+A partition that cannot merge only grows, and the defect degraded merging.
+
+**But the wall-clock moves the OTHER way, which reverses the intuition.** The
+fixed faithful-i2 build projects **234–270 h to completion** (0.059–0.068
+rules/s, stable across six windows from 15 min to 8 h) against §2.6b's ≥ 18.7 h.
+The timers say why: `merge_ms` is **31.4×** `ppm_ms` here, where §2.6b's run was
+PPM-dominated at 0.5×. **Fixing the defect makes the partition ~3× smaller and
+the projected build ~13× longer, because the merge work that keeps the partition
+small is itself the dominant cost.** An early reading of this campaign claimed
+the fixed build was *faster* — that was the cheap `+fwd` phase, not a trend, and
+it is recorded here as corrected.
+
+**Σ-vs-Π, restated on fixed numbers.** BDD's partition on faithful-i2 is 25 036
+at 63 % of rules and still climbing, against NDD's per-field **Σ = 253**. The
+qualitative headline stands and is ~2.6× smaller than §2.6b claimed; the
+extrapolated "~220 k" endpoint should not be quoted at all, since the slope is
+not stationary on any of these workloads.
+
+**Artifacts** (all with profiler trace, per-minute status history and full
+stderr): `bench/wl_cloud/eval/bdd_build_6h.*`,
+`bench/wl_stanford/eval/faithful_bdd_8h.*`, `bench/wl_i2/eval/faithful_bdd_24h.*`,
+plus the 1 h loud-catch probes `probe_{stanford,i2}_1h.*` and the pre-fix
+`bdd_build_{deadline4h,run2}.*` that caught the crash.
+
+**Still open:** on wl_cloud the completed BDD build answers **53** reachable
+pairs where NDD answers **59**, and NDD matches NetPlumber on all 64 cells
+(`CLOUD_BENCH_PLAN.md` §1.7.3, TODO item 29). Measured, not diagnosed.
 
 ### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all
