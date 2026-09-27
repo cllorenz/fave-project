@@ -184,6 +184,18 @@ corrupt, and it is suggestive rather than conclusive.
   took a 2.8 h build down to a **70-rule, 0.4 s** repro; that harness is now
   `fave/bench/apkeep_ir_replay.py`. Fixed by `Network.refreshRewriteTables()`,
   pinned by `fave/test/test_apkeep_nat_rewrite.py`. `CLOUD_BENCH_PLAN.md` §1.7.3,
-  TODO item 29. **Still open:** all three upstream defects are unreported
-  upstream, and the faithful-VLAN models have not been re-measured against the
-  fixed engine.
+  TODO item 29.
+
+- **AND IT REACHES THE FAITHFUL MODELS** (2026-09-27). An induced 4-router
+  faithful-stanford subnetwork (3 985 rules) carries **634 stale rewrite outputs
+  in 32 of its 72 NATElements**; a 2-router / 1 946-rule subset carries none, so
+  it is a question of how many rules follow the NATs -- and the full models have
+  far more. So runs #4 and #5 above built over partitions with the same defect.
+  Their answers are suspect in the under-approximating direction, and their COST
+  figures are **understated**: `NATElement.isMergable` is vacuous while the
+  outputs are stale, so merging was permitted where the rewrite distinguishes and
+  the partition stayed smaller and cheaper than a correct engine's. `ap_num`
+  18 455 / 25 036 and the 234-270 h bound are floors, not estimates. Not measured:
+  whether any faithful answer changes, or whether the full models behave as the
+  subsets do -- a patched build of even the 4-router subset did not fit the
+  budget. **Still open:** all three upstream defects are unreported upstream.

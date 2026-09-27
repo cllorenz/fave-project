@@ -2114,7 +2114,18 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
 - [x] **Name the pairs BDD got wrong** — the six internet-sourced ones; see above.
 - [x] Re-run the Python test tiers against the patched jar — **green** (2026-09-27): Java suite 29/29 with the coverage ratchet met; `./test.sh fast` **919 passed**; `./test.sh integration` **PASSED**.
 - [ ] Report all three defects upstream.
-- [ ] Re-check the faithful-VLAN models for the same hazard; they ran 54 min without crashing, which is not the same as being safe — and per `APKEEP_NDD_EVAL.md` §2.6b those runs' bounds were derived from builds that may have been silently corrupt. Defect (3) applies to them in principle (they rewrite VLAN through a `NATElement` too), and their `+ nat` rules likewise precede other elements' rules.
+- [x] **Re-check the faithful-VLAN models for the same hazard — THEY HAVE IT** (2026-09-27). Measured directly, by reflection on the built network, using `_prepare_replay_dir`'s induced router subsets and a jar pinned to the pre-fix source:
+
+  | faithful-stanford subset | rules | NATElements | rewrite outputs | stale |
+  |---|---:|---:|---:|---:|
+  | `bbra_rtr,rozb_rtr` | 1 946 | 42 | 46 806 | **0** |
+  | `bbra_rtr,bbrb_rtr,rozb_rtr,goza_rtr` | 3 985 | 72 | 119 687 | **634**, in 32 of 72 |
+
+  So it is not an address-rewrite phenomenon: a VLAN rewrite goes stale the same way, once enough rules follow the NATs. The 4-router figure reproduced exactly across two builds (`ap_num` 5 090 both times), one of which read a jar that had been replaced mid-run, so it was redone against a pinned pre-fix build.
+
+  **What this costs the §2.6b/§2.6c faithful numbers.** Those builds carried stale rewrite outputs, so (a) their reachability answers are suspect in the *under*-approximating direction — the direction `bench/apkeep_convergence.py` calls a soundness failure — and (b) their cost figures are **understated**, because `NATElement.isMergable` was vacuous there too: merging was permitted where the rewrite distinguishes, so the partition was smaller and the merge cheaper than a correct engine's. `ap_num` 18 455 (stanford) and 25 036 (i2), and the 234–270 h completion bound, are all floors under a correct engine, not estimates of one.
+
+  **NOT measured:** whether any faithful answer actually *changes*, and whether the full 16-router / 154 974-rule models behave as the subsets do. A patched build of even the 4-router model did not fit the budget (the unpatched one is 39 min, and the patch costs 3–5x at this scale).
 
 ---
 

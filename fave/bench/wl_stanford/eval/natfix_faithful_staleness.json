@@ -1,0 +1,15 @@
+{
+  "what": "TODO item 29 defect (3) on the FAITHFUL (dst x VLAN) wl_stanford model: are a NATElement's rewrite OUTPUTS members of the atomic-predicate partition?",
+  "method": "bench/faithful_bdd_measure.py's _prepare_replay_dir induced router subset + faithful_vlan=True on the BDD engine; the built network's NATElement rewrite_table values are then compared against APKeeper's AP set by reflection.",
+  "jar": "pre-fix source (TODO item 29 defect 3 not applied), pinned and rebuilt so no jar swap can affect the reading",
+  "date": "2026-09-27",
+  "runs": [
+    {"routers": ["bbra_rtr", "rozb_rtr"], "rules_to_engine": 1946, "build_s": 173.3,
+     "ap_num": 2888, "nat_elements": 42, "rewrite_outputs": 46806,
+     "stale_outputs": 0, "stale_elements": 0},
+    {"routers": ["bbra_rtr", "bbrb_rtr", "rozb_rtr", "goza_rtr"], "rules_to_engine": 3985,
+     "build_s": 2364.3, "ap_num": 5090, "nat_elements": 72, "rewrite_outputs": 119687,
+     "stale_outputs": 634, "stale_elements": 32}
+  ],
+  "reading": "The defect is NOT specific to address rewrites: a VLAN rewrite goes stale the same way, once enough rules follow the NATs. The 4-router figure reproduced exactly across two builds (ap_num 5090 both times). NOT measured: whether any faithful reachability answer changes, or whether the full 16-router model behaves as the subsets do."
+}

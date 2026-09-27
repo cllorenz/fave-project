@@ -730,10 +730,28 @@ atomic predicates as soon as a rule reaches any OTHER element, so
 vanishes without an exception. Fixed by `Network.refreshRewriteTables()`; full
 diagnosis in `CLOUD_BENCH_PLAN.md` §1.7.3 and TODO item 29.
 
-**This does not disturb §2.6c's cost figures**, which are BUILD measurements and
-were taken before the fix; the fix changes what the built partition contains, so
-the wl_cloud numbers above (`ap_num` 90 153, 2 h 46 min) are the *pre-fix*
-partition and are labelled as such wherever they are quoted.
+**IT DOES DISTURB §2.6c's FAITHFUL NUMBERS, and they are now floors rather than
+estimates.** Every figure in §2.6c was measured before the fix, so each is the
+*pre-fix* partition -- which for wl_cloud is simply labelled as such (`ap_num`
+90 153, 2 h 46 min). For faithful-stanford and faithful-i2 it is worse than a
+label, because those models rewrite VLAN through `NATElement`s and carry the same
+staleness: measured by reflection on an induced 4-router faithful-stanford
+subnetwork (3 985 rules), **634 of 119 687 rewrite outputs sat outside the
+partition, in 32 of 72 NATElements** (a 2-router / 1 946-rule subset shows none,
+so it is a question of how many rules follow the NATs, and the full models have
+far more).
+
+Two consequences. Their reachability answers are suspect **in the
+under-approximating direction** -- the one `bench/apkeep_convergence.py` calls a
+soundness failure. And their **cost figures are understated**: with stale
+outputs, `NATElement.isMergable` never finds a real atomic predicate in
+`output_aps` and so permits every merge it is asked about, including merges the
+rewrite distinguishes. The partition was therefore smaller, and the merge
+cheaper, than a correct engine's. Read `ap_num` 18 455 (stanford), 25 036 (i2)
+and the 234-270 h completion bound as **floors**, not estimates. What has NOT
+been measured is whether any faithful answer changes, or whether the full
+16-router and 154 974-rule models behave as the subsets do; a patched build of
+even the 4-router subset did not fit the budget. TODO item 29.
 
 ### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all
