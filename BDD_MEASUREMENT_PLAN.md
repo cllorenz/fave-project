@@ -147,3 +147,31 @@ corrupt, and it is suggestive rather than conclusive.
   the use-after-free**, which degraded merging, and a partition that cannot merge
   only grows. One run against one run, and §2.6b's i2 build did merge somewhat,
   so this is a strong pointer rather than a finding. #5 is what settles it.
+
+- **#4 DEADLINE** (2026-09-26 09:20). faithful-stanford, 8 h, **zero exceptions**.
+  5 035 of 9 491 rules (53.1 %), `ap_num` 18 455, merge 421.6 min vs ppm 57.5
+  (7.3×). Completion bound **≥ 56 h** (0.0120–0.0219 rules/s over the final
+  15 min to 4 h); the rate DECAYED across the run, so these are true lower
+  bounds. Not comparable to §2.6b's ≥ 3.8 h — different model, per the caveat
+  above. Partition non-stationary: near-flat at 14–15 k for three hours, then
+  +1 850 in the sixth while the rate halved.
+
+- **#5 DEADLINE** (2026-09-27 09:21). faithful-i2, 24 h, **zero exceptions**.
+  97 553 of 154 974 rules (62.95 %), `ap_num` 25 036.
+
+  **The matched-rule-count comparison, which is what this campaign was for:**
+  0.34× / 0.36× / 0.39× the §2.6b partition at 78 k / 80 k / 82 k rules. **The
+  defect inflated §2.6b's `ap_num` curve ~2.6×.**
+
+  **And the wall-clock inverts, which I had backwards.** Completion bound
+  **234–270 h** (0.059–0.068 rules/s, stable across six windows) against §2.6b's
+  ≥ 18.7 h. `merge_ms` 1 394.8 min vs `ppm_ms` 44.4 — **31.4×**, where §2.6b's
+  run was PPM-dominated at 0.5×. Fixing the defect makes the partition ~3×
+  smaller and the projected build ~13× longer, because the merge work that keeps
+  the partition small IS the dominant cost. The #3 note above called the patched
+  build "faster" on a 30-minute reading; that was the cheap `+fwd` phase.
+
+- **CAMPAIGN COMPLETE** (2026-09-27). ~38 h of the 56 h budget, five runs, zero
+  exceptions in any. Written up in `APKEEP_NDD_EVAL.md` §2.6c, with §2.6b marked
+  SUPERSEDED. Still open: wl_cloud BDD answers 53 reachable pairs where NDD
+  answers 59 (TODO item 29); both upstream defects are unreported.
