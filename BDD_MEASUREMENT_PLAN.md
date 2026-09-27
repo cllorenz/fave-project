@@ -199,5 +199,17 @@ corrupt, and it is suggestive rather than conclusive.
   answers moved because **all five** of its gateway DNAT's outputs were stale and
   every internet-sourced path crosses that gateway; here 0.6 % of outputs are
   stale and none on a deciding path. Not measured: whether the full 16-router and
-  154 974-rule models behave as the subsets do. **Still open:** all three upstream
-  defects are unreported upstream.
+  154 974-rule models behave as the subsets do.
+
+- **AND THE PATCHED wl_cloud BUILD NO LONGER FITS 5 h** (2026-09-27,
+  `bench/wl_cloud/eval/natfix_full_after_deadline5h.*`). Declared 5 h deadline,
+  `status: deadline`, **1 405 of 1 773 rules (79.2 %)**, `ap_num` 83 852,
+  `merge_ms` 275.7 min vs `ppm_ms` 15.4 min = **17.9x** (the unpatched run of the
+  same model in the same session: 7.3x). The tail rate puts completion **>= 9.6 h
+  further**, i.e. **>= 14.6 h** against the unpatched 2 h 46 min. At matched rule
+  counts in the same session the ratio is **3.35-3.41x** from rule 1 350 to 1 405
+  and still climbing. Both full runs shared the box, so the ratio is the
+  meaningful figure, not the absolute wall. The correctness verification
+  therefore rests on the 343-rule prune, which is what it was built for.
+
+  **Still open:** all three upstream defects are unreported upstream.

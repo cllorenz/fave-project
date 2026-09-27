@@ -904,7 +904,7 @@ which is what licensed trusting the harness; then:
 
 | model | rules | BDD, before | BDD, after | NDD / NetPlumber |
 |---|---:|---|---|---|
-| full | 1 773 | 53 / 64 (2 h 46 min) | *running* | 59 / 64 |
+| full | 1 773 | 53 / 64 (2 h 46 min) | not reached in 5 h (see below) | 59 / 64 |
 | endpoint-bearing leaves only | 343 | **53 / 64** (150 s) | **59 / 64** (427 s) | 59 / 64 |
 | `dc0` only | 413 | 2 / 4 (9.6 s) | 3 / 4 (22.6 s) | 3 / 4 |
 | `dc0`, one leaf, one NAT rule | 70 | 2 / 4 (**0.4 s**) | 3 / 4 | 3 / 4 |
@@ -967,6 +967,20 @@ the guard doing its job for the first time. It is the cost of being right, not a
 implementation inefficiency -- and `NATElement.updateRewriteTable()`'s per-call
 copy of the whole rewrite table, which a dirty flag would remove, is worth only
 that 1.4 %.
+
+**At full scale the patched build does not finish in five hours.** Run under the
+same declared-deadline protocol (`natfix_full_after_deadline5h.*`): `status`
+**`deadline`**, wall 18 000 s, **1 405 of 1 773 rules (79.2 %)**, `ap_num`
+83 852, `merge_ms` 275.7 min against `ppm_ms` 15.4 min -- **17.9x**, where the
+unpatched run of the same model in the same session was 7.3x. The tail rate puts
+completion **>= 9.6 h further**, so **>= 14.6 h** in total against the unpatched
+2 h 46 min. Both full runs shared the box with other jobs, so read the wall
+figures as a ratio rather than absolutely; at matched rule counts, in the same
+session, the patched build is **3.35-3.41x** the unpatched one from rule 1 350 to
+1 405, and the ratio is still climbing.
+
+So the correctness verification above rests on the 343-rule prune, not on this
+run -- which is what the prune was built for.
 
 Pinned by `fave/test/test_apkeep_nat_rewrite.py`: four rules, 0.7 s, two of its
 three checks red on the unpatched jar. The existing differential

@@ -2112,6 +2112,7 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
 - [x] **Make the swallowed catch loud** — done in the 56 h campaign; `NATElement.updateRewriteTableIfPresent` propagates, and all five campaign runs were exception-free with it active.
 - [x] Fix defect (3): `Network.refreshRewriteTables()` (`apkeep/FAVE_CHANGES.md`).
 - [x] **Name the pairs BDD got wrong** — the six internet-sourced ones; see above.
+- [x] **Measure the fix at full scale** — wl_cloud with the fix reaches **1 405 of 1 773 rules in a declared 5 h** (`status: deadline`, `ap_num` 83 852, `merge_ms`/`ppm_ms` = **17.9×** against the unpatched 7.3×), tail rate putting completion at **≥ 14.6 h** against the unpatched 2 h 46 min; **3.35–3.41×** at matched rule counts in the same session, still climbing. `bench/wl_cloud/eval/natfix_full_after_deadline5h.*`. So a correct engine is several times dearer on this model, and the correctness verification rests on the 343-rule prune rather than on a completed full build.
 - [x] Re-run the Python test tiers against the patched jar — **green** (2026-09-27): Java suite 29/29 with the coverage ratchet met; `./test.sh fast` **919 passed**; `./test.sh integration` **PASSED**.
 - [ ] Report all three defects upstream.
 - [x] **Re-check the faithful-VLAN models for the same hazard — THEY HAVE IT** (2026-09-27). Measured directly, by reflection on the built network, using `_prepare_replay_dir`'s induced router subsets and a jar pinned to the pre-fix source:

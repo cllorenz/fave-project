@@ -730,6 +730,15 @@ atomic predicates as soon as a rule reaches any OTHER element, so
 vanishes without an exception. Fixed by `Network.refreshRewriteTables()`; full
 diagnosis in `CLOUD_BENCH_PLAN.md` §1.7.3 and TODO item 29.
 
+**AND IT MAKES wl_cloud MUCH MORE EXPENSIVE.** Re-run with the fix under the same
+declared-deadline protocol, wl_cloud reaches only **1 405 of 1 773 rules in 5 h**
+(`status: deadline`, `ap_num` 83 852, `merge_ms`/`ppm_ms` = **17.9x** against the
+unpatched 7.3x), with the tail rate putting completion at **>= 14.6 h** in total
+against the unpatched 2 h 46 min -- 3.35-3.41x at matched rule counts in the same
+session, still climbing. The wl_cloud line above (`ap_num` 90 153, 2 h 46 min,
+6.3x) is therefore a PRE-FIX cost, and a correct engine is several times dearer on
+this model.
+
 **IT DOES DISTURB §2.6c's FAITHFUL NUMBERS, and they are now floors rather than
 estimates.** Every figure in §2.6c was measured before the fix, so each is the
 *pre-fix* partition -- which for wl_cloud is simply labelled as such (`ap_num`
