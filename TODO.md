@@ -2123,9 +2123,20 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
 
   So it is not an address-rewrite phenomenon: a VLAN rewrite goes stale the same way, once enough rules follow the NATs. The 4-router figure reproduced exactly across two builds (`ap_num` 5 090 both times), one of which read a jar that had been replaced mid-run, so it was redone against a pinned pre-fix build.
 
-  **What this costs the §2.6b/§2.6c faithful numbers.** Those builds carried stale rewrite outputs, so (a) their reachability answers are suspect in the *under*-approximating direction — the direction `bench/apkeep_convergence.py` calls a soundness failure — and (b) their cost figures are **understated**, because `NATElement.isMergable` was vacuous there too: merging was permitted where the rewrite distinguishes, so the partition was smaller and the merge cheaper than a correct engine's. `ap_num` 18 455 (stanford) and 25 036 (i2), and the 234–270 h completion bound, are all floors under a correct engine, not estimates of one.
+  **And then measured what it costs, which is less than I first wrote.** The 3-router subset (3 638 rules, same 634 stale outputs in 32 elements) was rebuilt with the patched jar:
 
-  **NOT measured:** whether any faithful answer actually *changes*, and whether the full 16-router / 154 974-rule models behave as the subsets do. A patched build of even the 4-router model did not fit the budget (the unpatched one is 39 min, and the patch costs 3–5x at this scale).
+  | | pre-fix | patched |
+  |---|---:|---:|
+  | stale outputs | 634, in 32 elements | **0** |
+  | `ap_num` | 4 728 | **4 728** |
+  | build | 1 789.5 s | 2 293.9 s (**1.28×**) |
+  | reachable pairs | 6 / 9 | **6 / 9, identical set** |
+
+  So the fix clears the staleness on the VLAN path too — and at this scale it changes **no answer and no partition size**. I had written that the campaign's faithful figures (`ap_num` 18 455 / 25 036, the 234–270 h bound) are "floors, not estimates" on the argument that a vacuous `isMergable` had kept the partition small; the measured partition is *identical*, so that argument does not hold at this scale and the claim was too strong.
+
+  **Why wl_cloud changed answers and this does not.** In wl_cloud, **all five** of the gateway DNAT's rewrite outputs were stale — the whole gateway — and every internet-sourced path crosses it. Here 634 of 105 566 outputs (0.6 %) are stale, and none of them on a path that decides one of the nine cells. The hazard is the same; whether it bites depends on where the stale outputs sit.
+
+  **NOT measured:** whether the full 16-router (9 491-rule) and i2 (154 974-rule) models behave as the subsets do. A patched build of those does not fit any budget here.
 
 ---
 

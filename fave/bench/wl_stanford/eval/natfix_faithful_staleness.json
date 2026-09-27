@@ -1,15 +1,126 @@
 {
-  "what": "TODO item 29 defect (3) on the FAITHFUL (dst x VLAN) wl_stanford model: are a NATElement's rewrite OUTPUTS members of the atomic-predicate partition?",
-  "method": "bench/faithful_bdd_measure.py's _prepare_replay_dir induced router subset + faithful_vlan=True on the BDD engine; the built network's NATElement rewrite_table values are then compared against APKeeper's AP set by reflection.",
-  "jar": "pre-fix source (TODO item 29 defect 3 not applied), pinned and rebuilt so no jar swap can affect the reading",
-  "date": "2026-09-27",
-  "runs": [
-    {"routers": ["bbra_rtr", "rozb_rtr"], "rules_to_engine": 1946, "build_s": 173.3,
-     "ap_num": 2888, "nat_elements": 42, "rewrite_outputs": 46806,
-     "stale_outputs": 0, "stale_elements": 0},
-    {"routers": ["bbra_rtr", "bbrb_rtr", "rozb_rtr", "goza_rtr"], "rules_to_engine": 3985,
-     "build_s": 2364.3, "ap_num": 5090, "nat_elements": 72, "rewrite_outputs": 119687,
-     "stale_outputs": 634, "stale_elements": 32}
+ "date": "2026-09-27",
+ "jar": "pre-fix source (TODO item 29 defect 3 not applied), pinned and rebuilt so no jar swap can affect the reading",
+ "method": "bench/faithful_bdd_measure.py's _prepare_replay_dir induced router subset + faithful_vlan=True on the BDD engine; the built network's NATElement rewrite_table values are then compared against APKeeper's AP set by reflection.",
+ "pair_sets_3router": {
+  "after": [
+   [
+    "bbra_rtr",
+    "bbra_rtr"
+   ],
+   [
+    "bbra_rtr",
+    "bbrb_rtr"
+   ],
+   [
+    "bbra_rtr",
+    "rozb_rtr"
+   ],
+   [
+    "rozb_rtr",
+    "bbra_rtr"
+   ],
+   [
+    "rozb_rtr",
+    "bbrb_rtr"
+   ],
+   [
+    "rozb_rtr",
+    "rozb_rtr"
+   ]
   ],
-  "reading": "The defect is NOT specific to address rewrites: a VLAN rewrite goes stale the same way, once enough rules follow the NATs. The 4-router figure reproduced exactly across two builds (ap_num 5090 both times). NOT measured: whether any faithful reachability answer changes, or whether the full 16-router model behaves as the subsets do."
+  "before": [
+   [
+    "bbra_rtr",
+    "bbra_rtr"
+   ],
+   [
+    "bbra_rtr",
+    "bbrb_rtr"
+   ],
+   [
+    "bbra_rtr",
+    "rozb_rtr"
+   ],
+   [
+    "rozb_rtr",
+    "bbra_rtr"
+   ],
+   [
+    "rozb_rtr",
+    "bbrb_rtr"
+   ],
+   [
+    "rozb_rtr",
+    "rozb_rtr"
+   ]
+  ],
+  "identical": true
+ },
+ "reading": "The defect is NOT specific to address rewrites: a VLAN rewrite goes stale the same way, once enough rules follow the NATs (0 stale at 1946 rules, 634 at 3638 and at 3985). The fix clears them (634 -> 0) -- but at this scale it changes NO answer (6/9 both, identical pair sets) and NO partition size (ap_num 4728 both); the build costs 1.28x. wl_cloud's answers moved because ALL FIVE of its gateway DNAT's outputs were stale and every internet-sourced path crosses that gateway; here 634 of 105566 outputs (0.6%) are stale and none on a deciding path. NOT measured: whether the full 16-router (9491-rule) or i2 (154974-rule) models behave as these subsets do.",
+ "runs": [
+  {
+   "ap_num": 2888,
+   "build_s": 173.3,
+   "nat_elements": 42,
+   "rewrite_outputs": 46806,
+   "routers": [
+    "bbra_rtr",
+    "rozb_rtr"
+   ],
+   "rules_to_engine": 1946,
+   "stale_elements": 0,
+   "stale_outputs": 0
+  },
+  {
+   "ap_num": 4728,
+   "build_s": 1789.5,
+   "cells": 9,
+   "jar": "pre-fix",
+   "nat_elements": 65,
+   "reachable_pairs": 6,
+   "rewrite_outputs": 105566,
+   "routers": [
+    "bbra_rtr",
+    "bbrb_rtr",
+    "rozb_rtr"
+   ],
+   "rules_to_engine": 3638,
+   "stale_elements": 32,
+   "stale_outputs": 634
+  },
+  {
+   "ap_num": 4728,
+   "build_s": 2293.9,
+   "cells": 9,
+   "jar": "PATCHED",
+   "nat_elements": 65,
+   "reachable_pairs": 6,
+   "rewrite_outputs": 108891,
+   "routers": [
+    "bbra_rtr",
+    "bbrb_rtr",
+    "rozb_rtr"
+   ],
+   "rules_to_engine": 3638,
+   "stale_elements": 0,
+   "stale_outputs": 0
+  },
+  {
+   "ap_num": 5090,
+   "build_s": 2364.3,
+   "nat_elements": 72,
+   "rewrite_outputs": 119687,
+   "routers": [
+    "bbra_rtr",
+    "bbrb_rtr",
+    "rozb_rtr",
+    "goza_rtr"
+   ],
+   "rules_to_engine": 3985,
+   "stale_elements": 32,
+   "stale_outputs": 634
+  }
+ ],
+ "what": "TODO item 29 defect (3) on the FAITHFUL (dst x VLAN) wl_stanford model: are a NATElement's rewrite OUTPUTS members of the atomic-predicate partition?"
 }

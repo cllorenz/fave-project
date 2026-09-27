@@ -191,11 +191,13 @@ corrupt, and it is suggestive rather than conclusive.
   in 32 of its 72 NATElements**; a 2-router / 1 946-rule subset carries none, so
   it is a question of how many rules follow the NATs -- and the full models have
   far more. So runs #4 and #5 above built over partitions with the same defect.
-  Their answers are suspect in the under-approximating direction, and their COST
-  figures are **understated**: `NATElement.isMergable` is vacuous while the
-  outputs are stale, so merging was permitted where the rewrite distinguishes and
-  the partition stayed smaller and cheaper than a correct engine's. `ap_num`
-  18 455 / 25 036 and the 234-270 h bound are floors, not estimates. Not measured:
-  whether any faithful answer changes, or whether the full models behave as the
-  subsets do -- a patched build of even the 4-router subset did not fit the
-  budget. **Still open:** all three upstream defects are unreported upstream.
+  Rebuilding the 3-router subset with the patched jar then measured what that
+  costs, and it is less than it sounds: stale outputs 634 -> **0**, `ap_num`
+  **4 728 unchanged**, build 1 789.5 s -> 2 293.9 s (1.28x), and the reachable
+  pair set **identical** (6 of 9). So the fix clears the staleness on the VLAN
+  path but changes no answer and no partition size at this scale. wl_cloud's
+  answers moved because **all five** of its gateway DNAT's outputs were stale and
+  every internet-sourced path crosses that gateway; here 0.6 % of outputs are
+  stale and none on a deciding path. Not measured: whether the full 16-router and
+  154 974-rule models behave as the subsets do. **Still open:** all three upstream
+  defects are unreported upstream.

@@ -741,17 +741,31 @@ partition, in 32 of 72 NATElements** (a 2-router / 1 946-rule subset shows none,
 so it is a question of how many rules follow the NATs, and the full models have
 far more).
 
-Two consequences. Their reachability answers are suspect **in the
-under-approximating direction** -- the one `bench/apkeep_convergence.py` calls a
-soundness failure. And their **cost figures are understated**: with stale
-outputs, `NATElement.isMergable` never finds a real atomic predicate in
-`output_aps` and so permits every merge it is asked about, including merges the
-rewrite distinguishes. The partition was therefore smaller, and the merge
-cheaper, than a correct engine's. Read `ap_num` 18 455 (stanford), 25 036 (i2)
-and the 234-270 h completion bound as **floors**, not estimates. What has NOT
-been measured is whether any faithful answer changes, or whether the full
-16-router and 154 974-rule models behave as the subsets do; a patched build of
-even the 4-router subset did not fit the budget. TODO item 29.
+**How much that costs them was then measured, and it is less than it sounds.**
+The 3-router subset (3 638 rules, the same 634 stale outputs in 32 elements) was
+rebuilt with the patched jar:
+
+| | pre-fix | patched |
+|---|---:|---:|
+| stale rewrite outputs | 634, in 32 elements | **0** |
+| `ap_num` | 4 728 | **4 728** |
+| build | 1 789.5 s | 2 293.9 s (**1.28x**) |
+| reachable pairs | 6 / 9 | **6 / 9, identical set** |
+
+The fix clears the staleness on the VLAN path, and at this scale it changes
+**no answer and no partition size**. An earlier draft of this paragraph called
+§2.6c's faithful figures "floors, not estimates", reasoning that a vacuous
+`NATElement.isMergable` had kept the partition artificially small; the measured
+partition is identical, so that reasoning does not hold here and the claim was
+too strong. The cost difference is 1.28x, not the 2.8-3.7x wl_cloud shows.
+
+**Why wl_cloud's answers moved and these do not.** There, **all five** of the
+gateway DNAT's rewrite outputs were stale -- the whole gateway -- and every
+internet-sourced path crosses it. Here 634 of 105 566 outputs (0.6 %) are stale,
+and none on a path that decides one of the nine cells. Same hazard; whether it
+bites depends on where the stale outputs sit. What remains unmeasured is whether
+the full 16-router (9 491-rule) and i2 (154 974-rule) models behave as the
+subsets do. TODO item 29.
 
 ### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all
