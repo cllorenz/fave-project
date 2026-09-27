@@ -2112,6 +2112,7 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
 - [x] **Make the swallowed catch loud** — done in the 56 h campaign; `NATElement.updateRewriteTableIfPresent` propagates, and all five campaign runs were exception-free with it active.
 - [x] Fix defect (3): `Network.refreshRewriteTables()` (`apkeep/FAVE_CHANGES.md`).
 - [x] **Name the pairs BDD got wrong** — the six internet-sourced ones; see above.
+- [x] Re-run the Python test tiers against the patched jar — **green** (2026-09-27): Java suite 29/29 with the coverage ratchet met; `./test.sh fast` **919 passed**; `./test.sh integration` **PASSED**.
 - [ ] Report all three defects upstream.
 - [ ] Re-check the faithful-VLAN models for the same hazard; they ran 54 min without crashing, which is not the same as being safe — and per `APKEEP_NDD_EVAL.md` §2.6b those runs' bounds were derived from builds that may have been silently corrupt. Defect (3) applies to them in principle (they rewrite VLAN through a `NATElement` too), and their `+ nat` rules likewise precede other elements' rules.
 
