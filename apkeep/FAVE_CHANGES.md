@@ -300,15 +300,23 @@ can tell when a round changed something (registering one output splits the
 partition, which can invalidate another NAT's). It terminates for the same reason
 APKeep's own splitting does: each round strictly refines a finite partition.
 
-**Cost, measured rather than assumed.** The partition must now be closed under
-the rewrite, so it grows and the build slows. On the full wl_cloud model the
-refresh itself accounts for **~12 % of wall** (the time not attributed to
-encode/insert/ppm/merge, against ~1 % unpatched); the rest of the slowdown is the
-larger partition doing more PPM and merge work.
-`NATElement.updateRewriteTable()` copies the whole rewrite table on every call,
-which is where that 12 % goes -- a dirty flag on the four sites that call
-`bdd.nat()` would remove most of it, and is deliberately not done here, because
-it trades a measured 12 % for a chance to get the correctness back wrong.
+**Cost, measured -- and it is the AP merge, not the refresh.** The partition grows
+21 % (67 761 -> 82 038 atomic predicates at rule 1 300 of wl_cloud) but the build
+slows by a factor that GROWS with the rule count: 1.17x at rule 1 226, 2.40x at
+1 250, 3.19x at 1 275, 3.67x at 1 300. At rule 1 300 the wall goes 1 920 s ->
+7 050 s, of which `ppm_ms` accounts for 648 -> 807 s (1.24x, in line with the
+partition) and **`merge_ms` for 1 269 -> 6 146 s (4.8x)**. The refresh itself is
+1.4 % of wall.
+
+The merge factor is the defect again. `APKeeper` consults
+`NATElement.isMergable(ap1, ap2)` before merging, and that guard is written
+entirely in terms of `output_aps` and the `rewrite_table` VALUES. While those hold
+stale raw BDD ids, no real atomic predicate is ever found in either, so the first
+line -- `!contains(ap1) && !contains(ap2)` -- returns true for every pair. **The
+guard was vacuous**, and the engine merged APs its own rewrite distinguishes: a
+second way the same staleness corrupts the partition, and the reason merging used
+to be cheap. `NATElement.updateRewriteTable()`'s per-call copy of the whole
+rewrite table, which a dirty flag would remove, is worth only that 1.4 %.
 
 Measured on wl_cloud, where FaVe emits the 25 NAT rules **before** ~550
 first-match filter rules, so every rewrite output was stale by the end of the

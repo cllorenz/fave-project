@@ -923,18 +923,37 @@ splitting does: each round strictly refines a finite partition.
 `Element.updateRewriteTableIfPresent()` became `public boolean` so the network
 can tell when a round changed something.
 
-**What it costs.** The partition must now be closed under the rewrite, so it
-grows and the build slows. The partition grows only a little -- `ap_num` 16 485
--> 17 925 on the 343-rule prune (+8.7 %), 4 329 -> 5 584 on `dc0`, 4 -> 6 on the
-four-rule unit model -- but the build slows much more: **2.8x** on the prune
-(150 s -> 427 s), **2.4x** on `dc0`. Two components, separable from the profiler:
-the refresh itself is **~12 % of wall** on the full model (the time attributed to
-none of encode/insert/ppm/merge, against ~1 % unpatched), and the rest is the
-larger partition doing more PPM and merge work.
-`NATElement.updateRewriteTable()` copies the whole rewrite table on every call,
-which is where that 12 % goes; a dirty flag on the four sites that call
-`bdd.nat()` would remove most of it, and is deliberately NOT done here, because
-it trades a measured 12 % for a chance to get the correctness back wrong.
+**What it costs, and where -- which is not where it looks.** The partition grows
+only a little: `ap_num` 16 485 -> 17 925 on the 343-rule prune (+8.7 %), 4 329 ->
+5 584 on `dc0`, 4 -> 6 on the four-rule unit model, 67 761 -> 82 038 at rule 1 300
+of the full model (+21 %). The build slows much more, and by a factor that GROWS
+with the rule count -- 1.17x at rule 1 226, 2.40x at 1 250, 3.19x at 1 275, 3.67x
+at 1 300 -- so "2.8x" (the prune's figure) is a point on a curve, not a constant.
+
+The profiler says where it goes, at rule 1 300 of the full model:
+
+| | wall | `ppm_ms` | **`merge_ms`** | everything else |
+|---|---:|---:|---:|---:|
+| unpatched | 1 920 s | 648 s | **1 269 s** | 3 s |
+| patched | 7 050 s | 807 s | **6 146 s** | 96 s |
+
+The refresh itself is in "everything else": **1.4 % of wall**. (An earlier reading
+of ~12 % was taken at t = 1 110 s, when JVM start-up and the replay still dominated
+the untimed remainder; it was wrong.) PPM grows 1.24x, in line with the partition.
+**AP merge grows 4.8x**, far out of line with it -- and the reason is the defect
+itself.
+
+`APKeeper` asks `NATElement.isMergable(ap1, ap2)` before merging, and that guard
+is written entirely in terms of `output_aps` and the `rewrite_table` VALUES. With
+those holding stale raw BDD ids, no *real* atomic predicate is ever found in
+either, so the guard's first line (`!contains(ap1) && !contains(ap2)`) returns
+true for every pair it is asked about. **Before the fix it was vacuous**: the
+engine was merging APs its own rewrite distinguishes, which is both why the merge
+was cheap and a second way the same staleness corrupts the partition. The 4.8x is
+the guard doing its job for the first time. It is the cost of being right, not an
+implementation inefficiency -- and `NATElement.updateRewriteTable()`'s per-call
+copy of the whole rewrite table, which a dirty flag would remove, is worth only
+that 1.4 %.
 
 Pinned by `fave/test/test_apkeep_nat_rewrite.py`: four rules, 0.7 s, two of its
 three checks red on the unpatched jar. The existing differential
