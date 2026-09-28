@@ -19,19 +19,23 @@
 #   replay  -- replay to the terminal FIB and emit it in the trace's own
 #              format, so `trace.py` consumes the result unchanged. Holds one
 #              live key per rule, so it is the pass with a memory ceiling.
+#   phase   -- where the insert phase ends relative to the first withdrawal,
+#              whether field 4 is monotone, and how many routers carry each
+#              prefix. Dicts over prefixes and routers only, so no ceiling
+#              that any member reaches (added 2026-09-28).
 #
-# Usage:  ./survey.sh opmix|replay  <archive.tar.gz>  <output-dir>
+# Usage:  ./survey.sh opmix|replay|phase  <archive.tar.gz>  <output-dir>
 
 set -euo pipefail
 
-MODE="${1:?usage: survey.sh opmix|replay <archive.tar.gz> <output-dir>}"
+MODE="${1:?usage: survey.sh opmix|replay|phase <archive.tar.gz> <output-dir>}"
 ARCHIVE="${2:?missing archive path}"
 OUTDIR="${3:?missing output directory}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 case "$MODE" in
-    opmix|replay) ;;
-    *) echo "mode must be opmix or replay, not '$MODE'" >&2; exit 2 ;;
+    opmix|replay|phase) ;;
+    *) echo "mode must be opmix, replay or phase, not '$MODE'" >&2; exit 2 ;;
 esac
 mkdir -p "$OUTDIR"
 
@@ -51,6 +55,9 @@ start=$(date +%s)
 if [ "$SURVEY_MODE" = "opmix" ]; then
     mawk -f "$SURVEY_AWK/opmix.awk" > "$SURVEY_OUT/$base.opmix"
     echo "seconds=$(( $(date +%s) - start ))" >> "$SURVEY_OUT/$base.opmix"
+elif [ "$SURVEY_MODE" = "phase" ]; then
+    mawk -f "$SURVEY_AWK/phase.awk" > "$SURVEY_OUT/$base.phase"
+    echo "seconds=$(( $(date +%s) - start ))" >> "$SURVEY_OUT/$base.phase"
 else
     mawk -v census="$SURVEY_OUT/$base.census" -f "$SURVEY_AWK/replay.awk" \
         | LC_ALL=C sort -T "$SURVEY_OUT" -S 512M > "$SURVEY_OUT/$base.snapshot.csv"

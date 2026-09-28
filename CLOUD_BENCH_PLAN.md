@@ -22,7 +22,11 @@ re-supplied archive and closes the question of further Delta-net workloads:
 there are none — every other member is an exactly-balanced
 insert-everything-then-withdraw-everything throughput trace that replays to an
 empty FIB, and D1's priority identity and D3's ports-in-the-names are both
-Airtel-only (§2.14).
+Airtel-only (§2.14). *(2026-09-28: of those three objections the first no
+longer stands. The ORDER is now measured — in every such member the inserts
+are one contiguous block, so the state at its end is one the trace passes
+through and can serve as the snapshot. The priority and naming objections,
+and the scale, are untouched. §2.14, "The insert block, and its order".)*
 
 **C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
 26 roles. Under the matrix as written, **1,312 violations, every one of them
@@ -2355,6 +2359,10 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       FIB** — they insert a whole routing table and withdraw all of it, which is
       what a throughput trace looks like — and the sixth is insert-only, so
       replay is the identity over 33.7M rules, 885× `wl_airtel1`.
+      *(2026-09-28: the FINAL snapshot is empty, and that stands; but the
+      inserts were since measured to be one contiguous block in all five, so
+      the PEAK state at the block's end is a snapshot the trace does pass
+      through — §2.14, "The insert block, and its order".)*
 
       **D1 and D3 are airtel-only, and that is the durable finding.** The fourth
       field is not `5 * plen + 100` outside airtel, so `trace.py` refuses every
@@ -3482,6 +3490,65 @@ revisions across those 33,732,869 inserts every key is distinct, so its terminal
 FIB is the whole file — 33.7M rules against `wl_airtel1`'s 38,100, a factor of
 **885**.
 
+### The insert block, and its order — MEASURED 2026-09-28
+
+"Insert an entire routing table and then withdraw all of it" above was a
+description of the BALANCE, not a measurement: `opmix` counts ops and cannot
+see their order, and equal counts are just as consistent with a trace that
+interleaves them. The question matters since Claas raised it on 2026-09-28:
+**could the insert batch serve as the snapshot?** That is only a state if
+the inserts precede every withdrawal; interleaved, their union is a set of
+rules that were never live together.
+
+A third pass, `archive_survey/phase.awk` (`./survey.sh phase`; validated on
+`airtel1-only-inserts.csv` against `TRACES.md` and on two synthetic traces, one
+blocked and one interleaved), measured it over every member in one 19-minute
+streamed pass:
+
+| member | inserts = lines 1..N | first `-` | `+` after it | field 4 falls on | routers per prefix |
+|---|---:|---:|---:|---:|---|
+| `berkeley.csv` | 12,817,902 | N+1 | 0 | 49.99% of steps | **22** of 23 (534,078×) or **21** (50,866×) |
+| `rf1755.csv` | 33,732,869 | N+1 | 0 | 49.99% | 3–76 of 87, mean 53.1 |
+| `rf3257.csv` | 74,492,920 | N+1 | 0 | 50.00% | 1–151 of 161, mean 117.2 |
+| `rf6461.csv` | 75,005,738 | N+1 | 0 | 50.00% | 50–136 of 138, mean 118.0 |
+| `inet.csv` | 124,733,556 | N+1 | 0 | 50.00% | 3–308 of 315, mean 258.8 |
+| `airtel1.csv` | — | **38,101** | 7,290,621 | 4.36% | — |
+| `airtel2.csv` | — | **38,101** | 292,677,864 | 3.43% | — |
+
+**So the description holds exactly, and it makes the insert batch a real
+state.** In all five non-airtel members the inserts are one contiguous block
+and the first withdrawal is the next line. The state after line N is one the
+trace passes through — its peak, carrying every inserted rule — and deriving it
+is a cut at a line number, not a construction. The two replayed members add
+that no insert in the block overwrites another (0 revisions, above), so for
+them the peak state *is* the insert set. For `inet`, `rf3257` and `rf6461` that
+last step is **not** measured: `phase` keeps no per-rule dict and so cannot
+count revisions.
+
+Four further readings, each from the same pass:
+
+* **Field 4 is not a timestamp or sequence number** outside airtel. It falls on
+  half of all steps, which is what an unordered per-rule value does; in
+  `airtel1-only-inserts.csv` it never falls (170 → 260, sorted by priority).
+  Whatever it is, a snapshot from these traces would take its priority from
+  prefix length, and `trace.py`'s D1 assertion would have to be switched off
+  for them explicitly rather than satisfied.
+* **Delivery is legible in `berkeley` and not in the Rocketfuel traces.** In
+  `berkeley` every prefix is carried by all routers but one or two, so where it
+  arrives without a rule — §2.4's delivery rule — is nearly forced. In
+  `rf1755` a prefix is carried by as few as 3 of 87 routers, so "no rule here"
+  cannot be read as "delivered here" without following the next-hop chains.
+* **`rf1755.links.csv`'s inserts are `rf1755.csv`'s**, now on eight shared
+  fingerprints — including the order-sensitive count of falling steps,
+  16,864,401, and a 42-bucket routers-per-prefix histogram. Stronger than the
+  "identical statistics over the first 30M rows" below, still not row by row.
+* **Both full airtel traces open with a 38,100-line insert-only block**, the
+  size of both vendored files.
+
+**What this does NOT change:** the port-free naming (D3, below) and the scale.
+It removes the snapshot objection and leaves the topology and size ones where
+they were.
+
 ### D1 does not generalise, and its assertion is what caught it
 
 The fourth field is a priority encoding LPM in the airtel traces and **nowhere
@@ -3599,7 +3666,9 @@ be retrofitted — which is the only reason the falsification is legible.
   it is not `5 * plen + 100`.
 * `rf1755.links.csv` is taken to hold the same inserts as `rf1755.csv` on the
   strength of an identical insert count and identical statistics over the first
-  30M rows. The files were not compared row by row.
+  30M rows. The files were not compared row by row. *(Strengthened 2026-09-28 to eight
+  whole-file fingerprints, one of them order-sensitive — "The insert block,
+  and its order", above. Still not row by row.)*
 
 ### Where this leaves §2
 

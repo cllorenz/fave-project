@@ -17,13 +17,14 @@ records settling for the vendored traces themselves.
 
     ./survey.sh opmix  /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
     ./survey.sh replay /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
+    ./survey.sh phase  /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
 
 Nothing is extracted to disk: `tar --to-command` streams each member through a
 reader, so a 16 GB member costs time and no space. One full decompression pass
 was 5m43s (132 MB/s) on the 2026-09-25 box. tar is sequential, so reaching a
 member costs everything *before* it rather than its own size.
 
-## The two passes, and why there are two
+## The first two passes, and why there are two
 
 `opmix.awk` counts the first character of every line and nothing else. No dict,
 so no memory ceiling and no member is ever truncated. This is what answers
@@ -81,3 +82,60 @@ built. Every non-airtel member is a throughput trace that inserts a routing
 table and withdraws all of it, and both derivations that let FaVe read a
 Delta-net trace — the `5*plen+100` priority identity and `s<i>-<j>` as
 `(switch, port)` — are Airtel-only.
+
+"Inserts a routing table and withdraws all of it" was a description of the
+BALANCE when it was written: `opmix` counts ops and cannot see their order. The
+`phase` pass below measures the order, and it holds exactly.
+
+## The third pass: `phase` (2026-09-28)
+
+`phase.awk` records where the last insert and the first withdrawal fall, so it
+answers whether a trace's inserts form a contiguous block (lines 1..N, first
+`-` at N+1) or are interleaved with its withdrawals. That is what decides
+whether the full insert set is a state the trace actually passes through — the
+state after line N — or merely the union of rules that were live at different
+times. It also records whether field 4 is monotone across the inserts, and a
+histogram of how many routers carry a rule for each prefix. It keeps dicts over
+prefixes and routers only, never over rules, so no member is truncated; the
+price is that it cannot count insert revisions, which `replay` does.
+
+**Validated before use**: on `airtel1-only-inserts.csv` it reproduces
+`TRACES.md`'s 38,100 inserts, 57 routers and 1,400 prefixes, and its histogram
+sums back to 38,100 rules over 1,400 prefixes; two six-line synthetic traces,
+one blocked and one interleaved, are told apart (`inserts_after_first_
+withdrawal` 0 against 2), as are a monotone and a non-monotone field 4.
+
+Full pass 2026-09-28, 19m02s (it reads every member, the 505M-line
+`airtel2.csv` included):
+
+| member | inserts = lines 1..N | first `-` | `+` after it | field 4 falls on | routers | prefixes | routers per prefix |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `berkeley.csv` | 12,817,902 | N+1 | 0 | 50.0% of steps | 23 | 584,944 | **22** (534,078×) or **21** (50,866×) |
+| `inet.csv` | 124,733,556 | N+1 | 0 | 50.0% | 315 | 481,876 | 3–308, mean 258.8 |
+| `rf1755.csv` | 33,732,869 | N+1 | 0 | 50.0% | 87 | 635,810 | 3–76, mean 53.1 |
+| `rf3257.csv` | 74,492,920 | N+1 | 0 | 50.0% | 161 | 635,810 | 1–151, mean 117.2 |
+| `rf6461.csv` | 75,005,738 | N+1 | 0 | 50.0% | 138 | 635,810 | 50–136, mean 118.0 |
+| `rf1755.links.csv` | 33,732,869 | — | — | 50.0% | 87 | 635,810 | 3–76, mean 53.1 |
+| `airtel1.csv` | — | **38,101** | 7,290,621 | 4.4% | 59 | 1,400 | — |
+| `airtel2.csv` | — | **38,101** | 292,677,864 | 3.4% | 60 | 1,400 | — |
+
+(`berkley-ribs-…` is out of scope; for the record its insert half matches
+`berkeley.csv` on every column here.)
+
+What it establishes:
+
+* **In every non-airtel member the inserts are one contiguous block**, and the
+  first withdrawal is the very next line. The state after line N is therefore
+  one the trace passes through: its peak, holding every inserted rule.
+* **Field 4 is not a timestamp or sequence number** outside airtel: it falls on
+  half of all steps, which is what an unordered per-rule value does. In
+  `airtel1-only-inserts.csv` it never falls (170 → 260, sorted by priority).
+* **`rf1755.links.csv`'s inserts are `rf1755.csv`'s**, now on eight shared
+  fingerprints including the order-sensitive count of falling steps
+  (16,864,401) and a 42-bucket histogram — still not a row-by-row comparison.
+* **Both full airtel traces open with a 38,100-line insert-only block** before
+  their first withdrawal — the size of both vendored files.
+* **Delivery is legible in `berkeley` and not in the Rocketfuel traces.** In
+  `berkeley` every prefix is carried by all routers but one or two; in
+  `rf1755` a prefix is carried by as few as 3 of 87.
+
