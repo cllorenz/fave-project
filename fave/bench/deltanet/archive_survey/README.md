@@ -215,3 +215,15 @@ First used for `berkeley.csv` → `fave/bench/wl_berkeley/berkeley-inserts.csv`
 (12,817,902 lines, sha256 `96d57987…`), which is gitignored pending the owner's
 decision on vendoring it; `CLOUD_BENCH_PLAN.md` §2.15.
 
+## Measuring a snapshot: `snapshot_survey.py` (2026-09-28)
+
+    python3 snapshot_survey.py <snapshot.csv> [--switch-prefix]
+
+Adjacency and its symmetry, per-prefix delivery points and loops, chain
+lengths, how delivery is laid out in address order, and nested prefix pairs
+that a model could get observably wrong — for any file in the trace format,
+without `trace.py`'s airtel-only assertions. Validated against every figure
+`TRACES.md` and `test_deltanet_lpm.py` pin for airtel1 (`--switch-prefix` groups
+airtel's `s<i>-<j>` nodes by switch for that). Results for `berkeley`:
+`CLOUD_BENCH_PLAN.md` §2.15.
+

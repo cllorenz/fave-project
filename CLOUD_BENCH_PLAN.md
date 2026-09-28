@@ -3784,6 +3784,92 @@ the extraction should not decide them by default:
   artifacts. `wl_berkeley/` was the direction given; `traces/` is where the
   layout would put it.
 
+### The four measurements
+
+**(a) Revisions — 0** (§2.14, `./survey.sh revisions`): 12,817,902 inserts,
+12,817,902 distinct `(router, prefix)` keys. The snapshot is the insert set.
+
+(b)–(d) come from `archive_survey/snapshot_survey.py`, one stdlib pass over any
+trace-format file (43 s here). **Validated first on `airtel1-only-inserts.csv`**
+against every pinned figure it overlaps: 158 edges, 11 rule-less next-hops, 16
+nodes nobody forwards to, every prefix delivered at exactly one switch, 14
+switches × 100, s8 and s9 delivering nothing, 52 directed switch-level edges
+all symmetric (26 links, §2.4), the 18-length prefix profile, and exactly the
+2 nested pairs and 1 witness `test_deltanet_lpm.py` pins (`117.53.131.0/24` ⊂
+`117.53.128.0/20`). Field 4 is not read.
+
+**(b) Adjacency — a complete graph less one link, symmetric.**
+
+| | |
+|---|---|
+| routers / next-hops | 23 / 23, the same set — no rule-less next-hop, no router nobody forwards to |
+| directed `(router, next_hop)` edges | 504, **0 asymmetric**, 0 self-loops |
+| undirected links | **252** of the 253 a 23-node complete graph has; the missing one is **22–23** |
+| out-degree | 21–22 |
+
+**(c) Delivery and loops — every chain is ONE hop.**
+
+| | |
+|---|---|
+| delivery points per prefix | **exactly 1** for all 584,944 |
+| loops | **0** |
+| chain length | **1 hop** for all 12,817,902 rules |
+| prefixes per delivering router | 25,433 at 22 routers, **25,418** at router 18 |
+| runs of one delivery point in address order | **23** (airtel1: 1,309 over 1,400) |
+| rule-less routers no chain reaches | router 22 for the 25,433 prefixes delivered at 23, and 23 for those delivered at 22 |
+
+Read together: **every rule's next-hop is the router that delivers the
+prefix**, and that router carries no rule for it — the forwarding is "send
+straight to the egress", with no transit anywhere. The homing is not routing
+either. 22 × 25,433 + 25,418 = 584,944 is a list cut into chunks of
+⌈584,944 / 23⌉, and in address order the prefixes form exactly one run per
+router, handed out in a fixed order (20, 21, 22, 23, 1, 3, 2, 5, 4, …, 19, 18)
+— and router 18, the one short chunk, is the LAST run, which is where a chunked
+split puts its remainder. The two routers
+with the missing link are the only ones with no route to each other's
+prefixes, which is consistent with a one-hop rule set: no link, no rule.
+
+**(d) LPM — observable, so §3's guard has what it needs.** 444,125 nested
+`(specific, container)` pairs, of which **557 are delivered at different
+routers**, and 557 — the same count; the sets were not compared — are
+forwarded differently at some router. Witness:
+`66.237.6.0/23` ⊂ `66.236.0.0/14`. Few relative to the total, because a chunked
+address-ordered homing puts most nested pairs in the same chunk; airtel has
+one. Prefix lengths run **8–32**, /24 holding
+316,667 of 584,944 — the profile of a real Internet routing table.
+
+### What this makes `wl_berkeley`, if it is built
+
+**A real prefix set on a synthetic forwarding structure.** The 584,944 prefixes
+and their length profile look like a genuine RIB; the next-hop relation and the
+homing are generated — a near-complete mesh and a chunked assignment. So:
+
+* **Topology is no longer the blocker D8 took it for**, but for a reason that
+  weakens the workload: a port per neighbour is a faithful renaming of 252
+  links, and there are no paths to get wrong — every packet crosses exactly one
+  link.
+* **A reachability matrix would be nearly all-reachable.** Every router
+  delivers ~25k prefixes and every other router forwards to it directly, so the
+  matrix's only denials would be 22 ↔ 23 — 2 of 506 off-diagonal cells, and
+  only if a router with no rule for a prefix is modelled as dropping it rather
+  than delivering it. That modelling choice is §2.4's delivery rule meeting a
+  case airtel never had, and it has to be made explicitly.
+* **The workload's value is size and LPM volume**, not topology: 12.8M rules
+  (336× `wl_airtel1`) and 557 LPM-observable nested pairs. Whether any engine
+  can carry it — FaVe's Python pipeline included — is unmeasured.
+* **Priority**: D1's column may not be needed. The tables declare
+  longest-prefix-match (`TABLE_SEMANTICS_PLAN.md` S3b), and the positional
+  backends — NetPlumber and ad6 — order by it at translation time
+  (`test_deltanet_lpm.py`'s `_walk` docstring), so for them prefix length alone
+  suffices; APKeep's path has not been checked for this. `trace.py`'s D1
+  assertion still refuses the file, and bypassing it must be explicit and
+  stamped.
+
+**Not measured:** any engine run; whether the rf/inet traces share the one-hop
+shape (their 3–308 routers-per-prefix spread says they are at least different);
+what, if anything, the paper says of how the Berkeley rules were generated —
+the paper is not in the tree.
+
 ---
 
 ---
