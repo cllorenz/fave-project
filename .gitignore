@@ -12,6 +12,12 @@ pybison
 cloud_bench.tar.bz2
 deltanet-NSDI17-dataset.tar.gz
 nsdi-data-sets/
+# The berkeley.csv insert block (2026-09-28): 386 MB, extracted from the
+# archive by fave/bench/deltanet/archive_survey/insert_block.sh. Whether it is
+# vendored, and where (traces/ vs wl_berkeley/), is the owner's open decision;
+# until then it is guarded like the archive it came from.
+fave/bench/wl_berkeley/berkeley-inserts.csv
+fave/bench/wl_berkeley/berkeley-inserts.csv.log
 
 # Python / test artifacts
 __pycache__/

@@ -20,6 +20,7 @@ records settling for the vendored traces themselves.
     ./survey.sh phase  /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
     ./survey.sh revisions /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
     ./opening.sh       /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
+    ./insert_block.sh  /path/to/deltanet-NSDI17-dataset.tar.gz berkeley.csv out.csv
 
 Nothing is extracted to disk: `tar --to-command` streams each member through a
 reader, so a 16 GB member costs time and no space. One full decompression pass
@@ -202,4 +203,15 @@ its 33,732,869 inserts plus its 2,308 trailing `]a,b` edge lines. It too had
 distinct from each other and from every rule, and dropping distinct lines
 cannot create a duplicate. The filter is now in `survey.sh`; the run was not
 repeated for it.
+
+## Extracting a snapshot: `insert_block.sh` (2026-09-28)
+
+Not a survey pass but the step after one: it writes one member's insert block —
+every line before its first withdrawal, in the trace's own format and order —
+to a file, and REFUSES (deleting the output) if any insert follows the cut, so
+a trace that interleaves cannot be mistaken for one that does not. Tested on a
+synthetic archive with one blocked and one interleaved member before use.
+First used for `berkeley.csv` → `fave/bench/wl_berkeley/berkeley-inserts.csv`
+(12,817,902 lines, sha256 `96d57987…`), which is gitignored pending the owner's
+decision on vendoring it; `CLOUD_BENCH_PLAN.md` §2.15.
 

@@ -3748,6 +3748,44 @@ The archive can go again. `.gitignore:13` already names it, so it was never at
 risk of being committed; its sha256 above is what makes a third re-supply
 identifiable.
 
+## 2.15 `wl_berkeley` — the insert block as a snapshot (2026-09-28)
+
+**Owner direction 2026-09-28**, after §2.14's order measurement: extract the
+Berkeley workload into `bench/wl_berkeley/`, then run the four measurements
+that decide whether a static workload can be built on it — revisions (§2.14,
+done), adjacency, delivery and loops, and LPM. **Nothing is built yet**, and no
+registry line exists: registering it would put a 12.8M-rule generation into
+`test.sh` and `gen_deltanet_inputs.sh` unasked.
+
+### The extraction
+
+`archive_survey/insert_block.sh <archive> berkeley.csv
+fave/bench/wl_berkeley/berkeley-inserts.csv` streams the member, writes every
+line before its first withdrawal in the trace's own format and order, and keeps
+reading so it can REFUSE (and delete its output) if any insert follows the cut —
+tested on a synthetic archive both ways before use. On the real one, 3m47s:
+
+| | |
+|---|---|
+| block | **12,817,902** lines (first withdrawal at line 12,817,903; 0 inserts after) |
+| size | 386,329,571 bytes |
+| sha256 | `96d57987cb4e7da0861e78aa01ef291b55bc903880427a7d25856ed7c9cdbb21` |
+
+**It is NOT committed, and that is deliberate.** `.gitignore` guards it like the
+archive it came from, because two things about it are the owner's to decide and
+the extraction should not decide them by default:
+
+* **vendor or not** — 386 MB is ~160× the two airtel files together, so §1.8's
+  "vendored extracted, git reveals a change" does not come free here; the
+  alternative is to keep the archive and re-derive by script;
+* **where** — D6's layout puts raw data in `bench/deltanet/traces/` under the
+  one `SHA256SUMS` every workload verifies against (`bench/deltanet/README.md`,
+  "Why the middle tier exists"), and `wl_<trace>/` holds a driver plus generated
+  artifacts. `wl_berkeley/` was the direction given; `traces/` is where the
+  layout would put it.
+
+---
+
 ---
 
 ## 3. Guardrails carried over
