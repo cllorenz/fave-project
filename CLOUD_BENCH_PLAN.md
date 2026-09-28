@@ -3539,7 +3539,12 @@ is a cut at a line number, not a construction. The two replayed members add
 that no insert in the block overwrites another (0 revisions, above), so for
 them the peak state *is* the insert set. For `inet`, `rf3257` and `rf6461` that
 last step is **not** measured: `phase` keeps no per-rule dict and so cannot
-count revisions.
+count revisions. *(MEASURED the same day by a fourth pass, `./survey.sh
+revisions` — a disk-backed `sort -u` instead of a dict, so no cap: **0
+revisions in all three**, over 124,733,556, 74,492,920 and 75,005,738 inserts,
+and 0 again for `berkeley` and `rf1755`, agreeing with their replays. So in all
+five the peak state is exactly the insert set. `archive_survey/README.md` has
+the table and one defect in the run that does not affect it.)*
 
 Four further readings, each from the same pass:
 
@@ -3710,7 +3715,11 @@ The recorded hash again made the result checkable: the sorted opening block of
 
 * `inet.csv`, `rf3257.csv` and `rf6461.csv` were **not** replayed. Their
   terminal FIB is inferred from a balanced op mix plus two fully-measured
-  members that share the signature; it is not measured.
+  members that share the signature; it is not measured. *(2026-09-28: still not replayed, but their
+  insert blocks were since measured contiguous with 0 revisions, and a
+  contiguous revision-free block followed by an equal number of withdrawals
+  empties the FIB only if every withdrawal hits a live rule — which remains
+  unmeasured for these three.)*
 * The router, next-hop and prefix counts for those three come from their first
   30M rows only.
 * Nothing is claimed about what the fourth field *is* outside airtel, only that

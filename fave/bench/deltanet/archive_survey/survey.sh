@@ -23,19 +23,24 @@
 #              whether field 4 is monotone, and how many routers carry each
 #              prefix. Dicts over prefixes and routers only, so no ceiling
 #              that any member reaches (added 2026-09-28).
+#   revisions -- does any (router, prefix) occur twice in the INSERT BLOCK
+#              (the lines before the first withdrawal)? A disk-backed
+#              `sort -u` rather than a dict, so it has no ceiling either, and
+#              it is what replay's 45M-key cap could not answer for inet,
+#              rf3257 and rf6461 (added 2026-09-28).
 #
-# Usage:  ./survey.sh opmix|replay|phase  <archive.tar.gz>  <output-dir>
+# Usage:  ./survey.sh opmix|replay|phase|revisions  <archive.tar.gz>  <output-dir>
 
 set -euo pipefail
 
-MODE="${1:?usage: survey.sh opmix|replay|phase <archive.tar.gz> <output-dir>}"
+MODE="${1:?usage: survey.sh opmix|replay|phase|revisions <archive.tar.gz> <output-dir>}"
 ARCHIVE="${2:?missing archive path}"
 OUTDIR="${3:?missing output directory}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 case "$MODE" in
-    opmix|replay|phase) ;;
-    *) echo "mode must be opmix, replay or phase, not '$MODE'" >&2; exit 2 ;;
+    opmix|replay|phase|revisions) ;;
+    *) echo "mode must be opmix, replay, phase or revisions, not '$MODE'" >&2; exit 2 ;;
 esac
 mkdir -p "$OUTDIR"
 
@@ -55,6 +60,27 @@ start=$(date +%s)
 if [ "$SURVEY_MODE" = "opmix" ]; then
     mawk -f "$SURVEY_AWK/opmix.awk" > "$SURVEY_OUT/$base.opmix"
     echo "seconds=$(( $(date +%s) - start ))" >> "$SURVEY_OUT/$base.opmix"
+elif [ "$SURVEY_MODE" = "revisions" ]; then
+    # "router,prefix,next_hop" for every insert before the first withdrawal,
+    # sorted -u to a temp file, then counted twice: distinct lines, and
+    # distinct (router,prefix) keys. Under LC_ALL=C a key's lines sort
+    # contiguously (',' is below every prefix character), so `uniq` on the
+    # key columns counts keys exactly.
+    r="$SURVEY_OUT/$base.revisions"
+    # Only `+` lines are rules: rf1755.links.csv ends in `]a,b` edge lines.
+    mawk -F, -v lines="$r.lines" '/^-/ { exit }
+        /^\+/ { n++; print $2 "," substr($1, 2) "," $3 }
+        END { print n + 0 > lines }' \
+        | LC_ALL=C sort -u -T "$SURVEY_OUT" -S 3G --parallel=2 -o "$r.sorted"
+    cat > /dev/null      # drain the member past the cut
+    lines=$(cat "$r.lines")
+    keys=$(cut -d, -f1,2 "$r.sorted" | LC_ALL=C uniq | wc -l)
+    { echo "block_lines=$lines"
+      echo "distinct_rules=$(wc -l < "$r.sorted")"
+      echo "distinct_keys=$keys"
+      echo "revisions=$(( lines - keys ))"
+      echo "seconds=$(( $(date +%s) - start ))"; } > "$r"
+    rm -f "$r.lines" "$r.sorted"
 elif [ "$SURVEY_MODE" = "phase" ]; then
     mawk -f "$SURVEY_AWK/phase.awk" > "$SURVEY_OUT/$base.phase"
     echo "seconds=$(( $(date +%s) - start ))" >> "$SURVEY_OUT/$base.phase"

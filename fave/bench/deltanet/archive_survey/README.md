@@ -18,6 +18,7 @@ records settling for the vendored traces themselves.
     ./survey.sh opmix  /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
     ./survey.sh replay /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
     ./survey.sh phase  /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
+    ./survey.sh revisions /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
     ./opening.sh       /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
 
 Nothing is extracted to disk: `tar --to-command` streams each member through a
@@ -166,4 +167,39 @@ files were made the same way. That airtel1's churn happens to return to its
 opening state, and airtel2's does not, is measured; why is not. (Recovering
 each single-link failure before the next, as the paper describes airtel1,
 would be consistent with it, but nothing here tests that.)
+
+## The fourth pass: `revisions` (2026-09-28)
+
+`phase` shows the insert block is contiguous; it does not show that the block
+holds each `(router, prefix)` once, and without that the peak state is smaller
+than the insert set. `replay` answers it only up to its 45M-key cap, so it never
+did for `inet`, `rf3257` or `rf6461`. `revisions` answers it with no ceiling:
+every `+` line before the first withdrawal becomes `router,prefix,next_hop`,
+`sort -u` (disk-backed, 3 GB buffer) gives the distinct rules, and `uniq` on the
+key columns gives the distinct keys; `revisions = block lines - distinct keys`.
+Validated on a synthetic trace with a same-key insert to a new next hop and an
+exact repeat (2 revisions, correctly), and against the two members `replay`
+completed.
+
+Full pass 2026-09-28, 9m41s (inet's 5.9 GB sort is 221 s of it):
+
+| member | insert block | distinct keys | revisions |
+|---|---:|---:|---:|
+| `berkeley.csv` | 12,817,902 | 12,817,902 | 0 (replay: 0) |
+| `rf1755.csv` | 33,732,869 | 33,732,869 | 0 (replay: 0) |
+| `rf3257.csv` | 74,492,920 | 74,492,920 | **0** — first measurement |
+| `rf6461.csv` | 75,005,738 | 75,005,738 | **0** — first measurement |
+| `inet.csv` | 124,733,556 | 124,733,556 | **0** — first measurement |
+| airtel1/2 opening blocks, both `-only-inserts` | 38,100 each | 38,100 | 0 |
+
+So **in every non-airtel member the peak state is exactly the insert set**:
+every inserted rule is live at line N, and none has been replaced.
+
+One defect in the run, fixed after it: the pass read every line of the block,
+not only `+` lines, so `rf1755.links.csv` reported 33,735,177 block lines —
+its 33,732,869 inserts plus its 2,308 trailing `]a,b` edge lines. It too had
+0 revisions, and that carries over to the inserts alone: the edge lines are
+distinct from each other and from every rule, and dropping distinct lines
+cannot create a duplicate. The filter is now in `survey.sh`; the run was not
+repeated for it.
 
