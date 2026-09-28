@@ -4,10 +4,14 @@ What produced `CLOUD_BENCH_PLAN.md` **§2.14 (D8)** — the measurement that clo
 the question of whether the Delta-net distribution holds any workload beyond the
 two already built.
 
-**The archive is not kept** (owner, 2026-09-18; 9.6 GB). So nothing here can be
-re-run without Claas re-supplying `deltanet-NSDI17-dataset.tar.gz`,
-sha256 `cc67472319e5d4791b96d8ceed1a5038af1ea719c360c3ce30040f3cc17f334b`.
-The method is kept anyway, because §2.14 quotes a great many figures and the
+**The archive is not part of the repository** (owner, 2026-09-18; 9.6 GB), and
+`.gitignore` names it so that a copy in the checkout cannot be committed. Claas
+re-supplied it on 2026-09-25 for this survey; whether a given checkout still
+holds a copy is not something this file can know. Re-running anything here needs
+`deltanet-NSDI17-dataset.tar.gz` with
+sha256 `cc67472319e5d4791b96d8ceed1a5038af1ea719c360c3ce30040f3cc17f334b` —
+check the hash before trusting a copy, since that is what identifies it.
+The method is committed regardless, because §2.14 quotes a great many figures and the
 alternative is that they rest on shell history — the exact debt §2.2's D0
 records settling for the vendored traces themselves.
 
