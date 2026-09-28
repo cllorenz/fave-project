@@ -18,6 +18,7 @@ records settling for the vendored traces themselves.
     ./survey.sh opmix  /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
     ./survey.sh replay /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
     ./survey.sh phase  /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
+    ./opening.sh       /path/to/deltanet-NSDI17-dataset.tar.gz /tmp/out
 
 Nothing is extracted to disk: `tar --to-command` streams each member through a
 reader, so a 16 GB member costs time and no space. One full decompression pass
@@ -138,4 +139,31 @@ What it establishes:
 * **Delivery is legible in `berkeley` and not in the Rocketfuel traces.** In
   `berkeley` every prefix is carried by all routers but one or two; in
   `rf1755` a prefix is carried by as few as 3 of 87.
+
+## The opening check: `opening.sh` (2026-09-28)
+
+`phase` found both full airtel traces opening with a 38,100-line insert-only
+block, the size of both vendored files. `opening.sh` tests the obvious reading:
+it takes each full trace's lines **before its first withdrawal** — so the
+block's length is measured, not assumed — and compares them, sorted, with the
+sorted vendored file. `--occurrence` stops tar after the two members, so it
+costs ~1.5 min (1m16s on 2026-09-28) rather than a full pass.
+
+| | opening block | rows only in it | rows only in vendored | sorted sha256 (both) | file order |
+|---|---:|---:|---:|---|---|
+| airtel1 | 38,100 | 0 | 0 | `5036ba2e…` | different |
+| airtel2 | 38,100 | 0 | 0 | `21024e37…` | different |
+
+**Each vendored `-only-inserts.csv` is its full trace's opening insert block**,
+as a set: the forwarding state before the first failure is injected. Only the
+row order differs, which no FIB can observe. airtel1's `5036ba2e…` is the
+sorted-form hash §2.14 recorded for its terminal FIB (the raw vendored file,
+unsorted, is `b8076678…` in `../traces/SHA256SUMS`).
+
+This is the mechanism §2.14 said it could not name: the vendored airtel2 file
+was never a trimmed terminal FIB but the opening state all along, and both
+files were made the same way. That airtel1's churn happens to return to its
+opening state, and airtel2's does not, is measured; why is not. (Recovering
+each single-link failure before the next, as the paper describes airtel1,
+would be consistent with it, but nothing here tests that.)
 

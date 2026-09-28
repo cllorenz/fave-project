@@ -2381,7 +2381,9 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       So §2.3's distillation question is narrowed, not closed, and the two
       vendored files were not made the same way. No defect in `wl_airtel2`;
       §2.13 stands. §2.14 has all of it, including what is inferred rather than
-      measured.
+      measured. *(CLOSED 2026-09-28, and the "not made the same way" was wrong:
+      both vendored files are their trace's opening 38,100-insert block, equal
+      as sets — §2.14.)*
 
 ---
 
@@ -2427,7 +2429,10 @@ guessed:
   **s8 and s9 home none**, and 2 x 100 is exactly the shortfall. So the gap has
   a shape rather than being a mystery. WHY those two have none — no border
   router attached, nothing advertised, or a distillation that dropped them —
-  the data does not say. They are well connected (degree 7 and 6) but not the
+  the data does not say. *(2026-09-28: the third is now excluded. The FULL
+  traces insert 1,400 distinct prefixes too — `phase`, §2.14 — so the missing
+  200 appear nowhere in the archive, and the vendored files are the traces'
+  opening blocks, not a selection from them.)* They are well connected (degree 7 and 6) but not the
   best connected: s2 has degree 8 and homes its hundred, so "pure transit"
   describes what they do rather than explaining it.
 
@@ -2461,6 +2466,17 @@ and exactly how they were distilled is not stated anywhere available here.
 > vendored files hold exactly 38,100 rules, the paper's published count for the
 > ONOS snapshot, and that is the only clue to the trimming. So the two files were
 > **not made the same way**, which the framing just below quietly assumes.
+
+> **CLOSED 2026-09-28 (§2.14, "The asymmetry …") — and both readings above were
+> wrong about the mechanism.** The files ARE a prefix of their traces, as sets:
+> each full trace opens with an insert-only block whose first withdrawal is
+> line 38,101, and those 38,100 lines equal the vendored file exactly after
+> sorting (0 rows differ either way; `archive_survey/opening.sh`). Only the row
+> order differs. So both vendored files are the forwarding state BEFORE the
+> first failure is injected, and they were made the same way; "a distillation,
+> not a prefix" above should have read "a prefix, reordered". airtel1's churn
+> happens to return to that state, which is why "replay to EOF" matched it; the
+> framing below does not assume anything false after all.
 
 ### The differential
 
@@ -3543,7 +3559,8 @@ Four further readings, each from the same pass:
   16,864,401, and a 42-bucket routers-per-prefix histogram. Stronger than the
   "identical statistics over the first 30M rows" below, still not row by row.
 * **Both full airtel traces open with a 38,100-line insert-only block**, the
-  size of both vendored files.
+  size of both vendored files. Followed up in the asymmetry section below: it
+  is what the vendored files are.
 
 **What this does NOT change:** the port-free naming (D3, below) and the scale.
 It removes the snapshot objection and leaves the topology and size ones where
@@ -3640,6 +3657,27 @@ which is the paper's published count for the ONOS snapshot. Airtel1's terminal
 FIB happens to be exactly that; airtel2's is 46,259 and was trimmed to match. No
 mechanism is claimed beyond that observation.
 
+> **MECHANISM FOUND 2026-09-28 — nothing was trimmed.** `phase` showed both full
+> traces opening with an insert-only block whose first withdrawal is line
+> 38,101. `archive_survey/opening.sh` then took each trace's lines before its
+> first withdrawal and compared them, sorted, with the sorted vendored file:
+>
+> | | opening block | rows only in it | rows only in vendored | sorted sha256 |
+> |---|---:|---:|---:|---|
+> | airtel1 | 38,100 | 0 | 0 | `5036ba2e…` (both) |
+> | airtel2 | 38,100 | 0 | 0 | `21024e37…` (both) |
+>
+> **Each vendored file is its trace's opening block**: the forwarding state
+> before any failure, in a different row order. airtel2's 46,259-rule terminal
+> FIB was never the source; the 8,159 extra rules are ones its churn inserts
+> and never withdraws. And airtel1's terminal FIB
+> matching was a coincidence of its churn returning to where it started — why
+> it does and airtel2's does not is not measured.
+>
+> One precision on the table above: "byte-identical (`5036ba2e…`)" compared
+> SORTED forms. The vendored files are not sorted; their raw hashes are the
+> `b8076678…` / `a2c23355…` in `traces/SHA256SUMS`.
+
 **Three consequences, none of them a defect in `wl_airtel2`.** The workload is
 defined as the vendored trace, the paper corroborates its 38,100 rules, and
 every result in §2.13 is about that trace and stands. But: §2.3's open question
@@ -3649,11 +3687,24 @@ routed two ways" framing quietly assumes the two files were made the same way,
 and they were not. And the vendored airtel2 model is missing 17.6% of its
 trace's terminal forwarding state, two graph nodes included.
 
+*(2026-09-28: of those three, the first is now closed and the second reversed —
+the files WERE made the same way, as opening blocks, so §2.3's framing stands.
+The third is true as arithmetic but misleading as a description: the vendored
+model is not missing state it should have had; it is the pre-failure state,
+and the 8,159 rules are what airtel2's churn adds to it.)*
+
 This is also a lesson about n=1. After airtel1 matched, this document was very
 nearly told that the distillation question was **closed**; the second trace,
 checked only because Claas asked for it, falsified that. The reference hash was
 computed and written down before the second replay ran, so the claim could not
 be retrofitted — which is the only reason the falsification is legible.
+
+And the lesson has a second half (2026-09-28). The falsification was right to
+refuse "closed", and it disclaimed any mechanism; but "was trimmed to match"
+still sat in it as a description, and it was wrong. What found the
+mechanism was measuring the ORDER, which nobody had, for a different question.
+The recorded hash again made the result checkable: the sorted opening block of
+`airtel1.csv` hashes to the `5036ba2e…` written down three days earlier.
 
 ### What is NOT claimed
 

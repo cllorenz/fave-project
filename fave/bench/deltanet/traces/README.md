@@ -61,12 +61,18 @@ anything to disk. The result, in full in `CLOUD_BENCH_PLAN.md` §2.14:
   which is what that assertion was written to do — and only here do node names
   encode `(switch, port)`, so only here can a port-annotated topology be derived
   without inventing an interface.
-* **`airtel1-only-inserts.csv` is exactly the terminal FIB of the full
-  `airtel1.csv`**, reproduced byte for byte by replaying all 14,155,633 of its
-  updates. `airtel2-only-inserts.csv` is **not** the terminal FIB of
-  `airtel2.csv` — that holds 46,259 rules and the vendored file is a strict
-  38,100-row subset of it. So the two files here were not produced the same way,
-  which nothing previously recorded.
+* **Each file here is its full trace's OPENING insert block** (measured
+  2026-09-28, `../archive_survey/opening.sh`): the 38,100 lines before the
+  first withdrawal of `airtel1.csv` / `airtel2.csv`, identical as sets, in a
+  different row order. So both were produced the same way — the forwarding
+  state before any failure is injected.
+  *(Superseded reading, 2026-09-25: "`airtel1-only-inserts.csv` is exactly the
+  terminal FIB of `airtel1.csv` … `airtel2-only-inserts.csv` is not … so the two
+  files were not produced the same way." The first half holds as a fact —
+  airtel1's churn returns to its opening state, compared after sorting — and
+  airtel2's terminal FIB does hold 46,259 rules; but neither file was ever
+  derived from a terminal FIB, and the conclusion drawn from the mismatch was
+  wrong.)*
 
 The scope decision therefore stands on measurement rather than on size alone,
 and a third re-supply would be needed to re-derive any of it.
