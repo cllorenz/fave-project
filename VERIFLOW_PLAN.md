@@ -251,6 +251,9 @@ Resolutions are appended below the question with a date.
   OpenFlow leaves it undefined. FaVe's table semantics (`TABLE_SEMANTICS_PLAN.md`)
   make every table first-match-wins in document order unless declared otherwise, so
   document position is the tie-break and the adapter encodes it into priority.
+- **Q15 — Are ECs computed only within the new rule's range?** L1 and L4 both imply it:
+  12.1/16 is not considered, and r1's part outside r4 is not affected. Path: literature
+  (step a), confirmed by L1/L4 and the oracle.
 
 **For the Delta-net authors (D5, group 1).** These are drafted now because they gate
 V1's exit (§8). Each is about what *their* experiment did, which only they can say. They
@@ -288,8 +291,7 @@ are phrased in the paper's terms only (Delta-net §4.3.2, Table 4).
   NetPlumber, APKeep (NDD) and, where it runs, ad6 (`test_backend_differential.py`).
 - **LPM guard** (`CLOUD_BENCH_PLAN.md` §3): each FIB workload must show its evidence can
   see priority — invert the order, the verdict must change.
-- **Unit tests from the literature:** §4.3's worked example (with §4.9's correction),
-  Alg. 2's branch rule, and a crafted rewrite chain for §4.5.
+- **Tests first, from the literature:** the catalogue at the end of this section (L1-L10).
 - **Optional black-box run** of `MuLx10/VeriFlow` on small forwarding-only inputs,
   recorded as behaviour, never vendored.
 
@@ -314,6 +316,49 @@ semantics (Q7); port-range expansion factor; EC count per update (VeriFlow's own
 headline metric); compiler, standard and flags (D3); thread count (1, D3); provenance `reimpl-literature` with the
 engine commit (TODO item 31's provenance column, shared by every backend). **A VeriFlow-FR number is reported as VeriFlow-FR's**,
 beside a sentence on what it interprets — as Delta-net did for Veriflow-RI.
+
+### Test-first, from the literature (owner, 2026-09-29)
+
+The owner's preference: **test-first**. Beyond tests aimed at individual functions, the
+literature's own worked examples become tests. These pin *published* behaviour, where
+function-level tests alone only show that the code agrees with itself.
+
+**The catalogue.** A source marked *derived* has no worked example; the test follows
+from the text's definition or steps, and says so.
+
+| ID | Source | Test | Phase |
+|---|---|---|---|
+| L1 | T p.36 | Existing 11.1.0.0/16 and 12.1.0.0/16; insert 11.0.0.0/8. The overlapping set is {11/8, 11.1/16}; 12.1/16 is not considered. **3 ECs:** 11.0.0.0-11.0.255.255, 11.1.0.0-11.1.255.255, **11.2.0.0**-11.255.255.255. A *deviation test*: it pins §4.9's correction of the printed "11.2.255.255". | V1 |
+| L2 | T Fig. 3.2, p.37-38 | Three nested rules on one field (A ⊂ B ⊂ C) give **5** range ECs, and ECs 2 and 4 forward identically. Pins the documented non-minimality: 5, not the minimal 3. | V1 |
+| L3 | T p.40 | Existing 0.0.0.0/0; insert 10.0.0.0/8. The /0 adds no EC boundary (1 EC), yet decides forwarding when its priority is higher. Two priority variants. Tests the second trie traversal (§4.4). | V1 |
+| L4 | Delta-net §2.1, Fig. 1 | Four switches: r1 s1→s2, r2 s2→s3, r3 s3→s4; insert r4 s1→s4 above r1. **3 ECs** inside r4's range; G1 = {s1→s4}, G2 = G1 + {s2→s3}, G3 = G2 + {s3→s4}; **no graph contains s1→s2**; no loop. The figure is schematic, so our concrete prefixes are a recorded choice: r1 = [0,16), r4 = [8,16), r2 = [12,16), r3 = [14,16) on a narrow field. This is a second group's reading of VeriFlow, which makes it doubly valuable. | V1 |
+| L5 | Delta-net §2.1 | 0.0.0.10/31 is the half-open interval [10:12) = {10, 11}. Prefix to interval. | V1 |
+| L6 | T Alg. 1/2, p.38-39 | Insert follows the rule's bits, `*` down the wildcard branch. Find-overlapping: a concrete bit visits its own branch and `*`; a `*` bit visits all three. | V1 |
+| L7 | T p.37, *derived* | An EC is one choice of range per field (a cartesian product): a two-field case gives the product of the per-field range counts. | V2 |
+| L8 | T §3.1.3, *derived* | The four rewrite steps (§4.5): a rewrite at the new rule's device transforms the EC; the next device is traversed with the transformed EC; the walk ends at a consuming device or on a revisit. Q3 and Q4 become tests as they are resolved. | V3 |
+| L9 | T §3.2.2, *derived* | A finer, higher-priority rule at another device serves part of a packet set. It becomes an exclusion, and the query's answer is primary minus excluded. | V3b |
+| L10 | T Ch. 4 (+ §3.2.3) | One small hand-built network per invariant, ten in all (§4.7). Black holes get all three causes (explicit ACL drop, missing final permit, missing default route). Strict path gets the thesis's example: packets from the Internet always visit the firewall first. Each query lands in the phase that first supports its features. | V1-V3 |
+
+The Table 4 calibration is a gate, not a test; it stays above.
+
+**The rules:**
+
+1. **Red before code.** Every phase from V1 opens by writing its L tests and its
+   per-function unit tests, and seeing them fail.
+2. **Each test cites its source** (page and figure, or *derived*) and gives the
+   derivation of its expected value in a comment. Tests that pin a deliberate deviation
+   from the literature are named as such: L1's typo, Q4's revisit-is-not-a-loop, Q9's
+   document-order tie-break.
+3. **Hand-derived expectations are checked by the oracle too.** The brute-force
+   concrete-packet oracle (D3, condition 5) enumerates every packet at small header
+   widths. It checks that each EC is action-uniform at every device, which turns the
+   definition on T p.36 into a test, and that the ECs partition the new rule's range. A
+   mistaken derivation is then caught, instead of being coded towards.
+4. **Four layers:** literature examples (L); per-function unit tests; oracle and property
+   tests; the FaVe differential above.
+5. **Framework: CppUnit, as NetPlumber.** D3's standard-library-only rule binds the timed
+   engine, not the test code. The runner joins the `integration` tier, as
+   `net_plumber --test` does.
 
 ## 9. Decisions
 
@@ -397,7 +442,7 @@ is the harness every backend runs in, not one of them.
 1. **Standard library only**, as Delta-net did. No third-party data structures, so there
    is no hidden fast library and no licence to track, and the clean room (§5) has a
    short boundary. The pybind11 binding is the one exception; it is not in the timed
-   engine.
+   engine. Test code is outside the rule too (CppUnit, §8).
 2. **NetPlumber's toolchain and flags.** g++ with `-O3`, both recorded as stamps (§8), so
    that a NetPlumber/VeriFlow-FR gap is not partly a build-flag gap.
 3. **Single-threaded**, as VeriFlow, Veriflow-RI and Delta-net were measured.
@@ -552,18 +597,23 @@ The thesis's §4.5 moved the last row from "out of scope" (the NSDI paper alone)
 
 ## 10. Phases
 
+**Test-first (§8):** every phase from V1 opens by writing its catalogue tests (L) and
+unit tests and seeing them fail, and its exit begins with those tests green.
+
 - **V0 — Spec freeze.** Survey each workload's features (fills §9's table), including
   its `vf_fields` classification (D6); resolve Q1, Q2, Q5, Q7-Q9 on paper. D2, D3 and D6
   are resolved. *Exit:* §7 has no unresolved question that blocks V1.
 - **V1 — Single-field core** (≈ Veriflow-RI): trie, EC, forwarding graph, reachability
   and loop queries over dst-IP; the link-failure query. `wl_airtel1`/`wl_airtel2`,
-  differential + LPM guard green. *Exit:* the §8 calibration against Delta-net
-  Table 4.
+  differential + LPM guard green. *Exit:* L1-L6 and V1's share of L10 green; the §8
+  calibration against Delta-net Table 4.
 - **V2 — Multi-field + ACLs.** Report EC counts and range-expansion factors against
-  APKeep's figures.
-- **V3 — Rewrites** (§4.5). Required, not optional (D1). Q3/Q4 resolved.
+  APKeep's figures. *Exit:* L7 and V2's share of L10 green.
+- **V3 — Rewrites** (§4.5). Required, not optional (D1). Q3/Q4 resolved. *Exit:* L8 and
+  the rest of L10 (VLAN isolation among them) green.
 - **V3b — The §4.6 optimisation** (D6), generalised to FaVe's fields, with excluded sets
-  under rewrites. *Exit:* verdicts identical to plain VeriFlow-FR on every workload.
+  under rewrites. *Exit:* L9 green; verdicts identical to plain VeriFlow-FR on every
+  workload.
   Fallback per D6.
 - **V4 — FaVe integration.** Adapter, `FAVE_BACKEND=veriflow`, doctor entry for the
   build, `integration`-tier gate, every accommodation entered in TODO item 31's
