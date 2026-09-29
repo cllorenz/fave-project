@@ -1010,10 +1010,11 @@ def main(argv: List[str]) -> None:
     # The configuration is measurement-affecting, so the run's own log records
     # it (the generality-debt gate). `configuration_stamp` is ad6's; the other
     # adapters do not carry one, and the backend name is the whole story there.
-    stamp = getattr(AGGREGATOR.verification_engine, 'configuration_stamp', None)
-    AggregatorService.LOGGER.info(
-        "backend: %s%s", args.backend,
-        " %s" % (stamp(),) if callable(stamp) else "")
+    engine = AGGREGATOR.verification_engine
+    detail = ""
+    if hasattr(engine, 'configuration_stamp'):
+        detail = " %s" % (engine.configuration_stamp(),)
+    AggregatorService.LOGGER.info("backend: %s%s", args.backend, detail)
 
     register_signals()
 
