@@ -1,0 +1,23 @@
+Declared 2026-09-29T11:35:04+00:00, before any run of this series. Total budget 6 h (self-set; the owner asked for the Berkeley plan to be
+executed autonomously and set none), ending 2026-09-29T17:35:04+00:00.
+
+Workload: wl_berkeley (CLOUD_BENCH_PLAN.md §2.15) at keep_every=k: 1/k of the prefixes in address order plus all 560
+LPM-witness prefixes and their ancestors (bench/deltanet/sample.py). k=1 is the whole 12,817,902-rule insert block.
+Expected verdict at every size: 0 of 520 (505 must-reach, 15 must-NOT-reach; 9 hairpin diagonals are permitted and
+unchecked). Predicted by bench/deltanet/fib_walk.py, measured beforehand to be the SAME 514-cell matrix at k=1000, 300,
+100 and 1; every run's stamp re-states it (lpm_sensitive_cells, census).
+
+Driver: fave/bench/deltanet/eval/berkeley_series.py --budget 21600 (validated first at k=1000 on NetPlumber and NDD,
+2 runs, both 0/520; those validation runs are not part of this series).
+Engines: NetPlumber; APKeep --apkeep-engine ndd; APKeep --apkeep-engine bdd. ad6 NOT run: arbiter only (owner), and
+it took ~104 s on 38,100 rules.
+Order:
+  1. one MUTATED run per engine at k=1000, permitting s22 ---> s23: expect exactly 1 violation, 520 checks.
+  2. plain runs, k = 1000, 300, 100, 30, 10, 3, 1; at each k the engines in the order above.
+Stopping: deadline 3600 s per run (status=deadline); memory floor 1500 MB MemAvailable (status=memory). An engine
+leaves the series at its first run that is not a valid verdict and is never retried. A run starts only if the
+remaining budget covers its full deadline, else it is recorded as status=skipped.
+Reported per run: check_compliance seconds and the switch_command sum (rule load) from the aggregator log; peak RSS
+per process (benchmark, aggregator, net_plumber); census (rules). One sample per cell: this series is about how cost
+SCALES, and no variance claim is made from it.
+NetPlumber logs at WARN for this workload (bench/wl_berkeley/np.conf): changes cost, not answers.
