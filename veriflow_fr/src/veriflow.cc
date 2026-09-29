@@ -194,7 +194,7 @@ std::vector<Interval> Network::intervals_of(const std::string &match) const {
   return out;
 }
 
-std::vector<EC> Network::add_rule(const Rule &rule) {
+void Network::load_rule(const Rule &rule) {
   if (rules_.count(rule.id)) throw std::invalid_argument("duplicate rule id");
   if (!tables_.count(rule.table)) throw std::invalid_argument("unknown table");
   for (uint64_t p : rule.out_ports)
@@ -207,6 +207,10 @@ std::vector<EC> Network::add_rule(const Rule &rule) {
   rules_[rule.id] = rule;
   seq_[rule.id] = next_seq_++;
   trie_.insert(rule.id, rule.match);
+}
+
+std::vector<EC> Network::add_rule(const Rule &rule) {
+  load_rule(rule);
   return affected_ecs(rule.match);
 }
 

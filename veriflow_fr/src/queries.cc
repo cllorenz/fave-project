@@ -124,6 +124,34 @@ bool path_length_within(const std::vector<Outcome> &walked, size_t hops) {
   return true;
 }
 
+std::vector<std::set<uint32_t>> deliveries(
+    const Network &net, const std::string &range,
+    const std::vector<std::pair<uint32_t, int64_t>> &starts) {
+  std::vector<std::set<uint32_t>> out(starts.size());
+  for (const EC &ec : net.affected_ecs(range)) {
+    const ForwardingGraph g = net.forwarding_graph(ec);
+    for (size_t i = 0; i < starts.size(); ++i) {
+      // Breadth-first over (table, arrival) states. It delivers where the
+      // path walk does, and a visited state is never expanded twice, so a
+      // loop ends by construction and large graphs stay linear.
+      std::set<std::pair<uint32_t, int64_t>> seen = {starts[i]};
+      std::vector<std::pair<uint32_t, int64_t>> queue = {starts[i]};
+      for (size_t k = 0; k < queue.size(); ++k) {
+        const auto [table, in_port] = queue[k];
+        const Rule *r = g.decide(table, in_port);
+        if (!r) continue;
+        if (r->consume) {
+          out[i].insert(table);
+          continue;
+        }
+        for (const auto &hop : g.next_hops(table, in_port))
+          if (seen.insert(hop).second) queue.push_back(hop);
+      }
+    }
+  }
+  return out;
+}
+
 std::vector<uint64_t> overlapping_in_table(const Network &net, const Rule &rule) {
   std::vector<uint64_t> out;
   for (uint64_t id : net.overlapping_rules(rule.match))

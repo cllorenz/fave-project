@@ -74,6 +74,7 @@ class QueriesTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_L10_4_8_path_length);
   CPPUNIT_TEST(test_L10_4_9_overlapping_rules);
   CPPUNIT_TEST(test_L10_4_10_next_hop_change);
+  CPPUNIT_TEST(test_Q21_deliveries_per_start);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -264,6 +265,33 @@ class QueriesTest : public CppUnit::TestFixture {
     CPPUNIT_ASSERT(next_hop_changes(net, vftest::rule(9, 1, 2, "01xxxxxx", {11})).empty());
     CPPUNIT_ASSERT(next_hop_changes(net, vftest::rule(9, 1, 0, "01xxxxxx", {12})).empty());
     CPPUNIT_ASSERT(net.overlapping_rules("xxxxxxxx") == (std::vector<uint64_t>{1}));
+  }
+
+  // Q21, derived. Two sources: 1 forwards everything to router 3; 2 forwards
+  // only [0,127] there. Router 3 delivers [0,127] at probe 4 and [128,255] at
+  // probe 5. For the query set "everything", source 1's packets are delivered
+  // at 4 and 5, source 2's at 4 only; for [128,255], source 2 reaches none.
+  void test_Q21_deliveries_per_start() {
+    Network net = net8();
+    tables(net, {{1, {11}}, {2, {21}}, {3, {31, 32, 33, 34}}, {4, {41}}, {5, {51}}});
+    net.add_link(11, 31);
+    net.add_link(21, 32);
+    net.add_link(33, 41);
+    net.add_link(34, 51);
+    net.add_rule(vftest::rule(1, 1, 0, "xxxxxxxx", {11}));
+    net.add_rule(vftest::rule(2, 2, 0, "0xxxxxxx", {21}));
+    net.add_rule(vftest::rule(3, 3, 0, "0xxxxxxx", {33}));
+    net.add_rule(vftest::rule(4, 3, 0, "1xxxxxxx", {34}));
+    net.add_rule(consume(5, 4, "xxxxxxxx"));
+    net.add_rule(consume(6, 5, "xxxxxxxx"));
+
+    std::vector<std::pair<uint32_t, int64_t>> starts = {{1, ANY_PORT}, {2, ANY_PORT}};
+    std::vector<std::set<uint32_t>> all = deliveries(net, "xxxxxxxx", starts);
+    CPPUNIT_ASSERT(all[0] == (std::set<uint32_t>{4, 5}));
+    CPPUNIT_ASSERT(all[1] == (std::set<uint32_t>{4}));
+    std::vector<std::set<uint32_t>> high = deliveries(net, "1xxxxxxx", starts);
+    CPPUNIT_ASSERT(high[0] == (std::set<uint32_t>{5}));
+    CPPUNIT_ASSERT(high[1].empty());
   }
 };
 

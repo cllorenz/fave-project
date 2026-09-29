@@ -178,6 +178,8 @@ class Network {
 
   // Insert a rule; returns the ECs it affects, computed with it in place.
   std::vector<EC> add_rule(const Rule &rule);
+  // Insert a rule without computing its ECs (bulk loading).
+  void load_rule(const Rule &rule);
   // Remove a rule (Q5); returns the ECs it affected.
   std::vector<EC> remove_rule(uint64_t id);
 

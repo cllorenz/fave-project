@@ -42,6 +42,7 @@ class LiteratureTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_L4_deltanet_fig1_forwarding_graphs);
   CPPUNIT_TEST(test_L5_prefix_to_interval);
   CPPUNIT_TEST(test_L6_trie_alg1_alg2);
+  CPPUNIT_TEST(test_bulk_load_equals_insertion);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -197,6 +198,19 @@ class LiteratureTest : public CppUnit::TestFixture {
     CPPUNIT_ASSERT(trie.remove(4, "01"));
     CPPUNIT_ASSERT(trie.find_overlapping("01") == (Ids{1, 3}));
     CPPUNIT_ASSERT(!trie.remove(4, "01"));
+  }
+
+  // Bulk mode loads rules without verifying each insertion. What it loads must
+  // be what insertion would have built: L1's network, loaded, gives L1's ECs.
+  void test_bulk_load_equals_insertion() {
+    Network net(Layout({{"dst", 32}}));
+    vftest::one_table(net, 1, {10, 11, 12});
+    net.load_rule(vftest::rule(1, 1, 16, ipv4_prefix("11.1.0.0/16"), {10}));
+    net.load_rule(vftest::rule(2, 1, 16, ipv4_prefix("12.1.0.0/16"), {11}));
+    net.load_rule(vftest::rule(3, 1, 8, ipv4_prefix("11.0.0.0/8"), {12}));
+    CPPUNIT_ASSERT_EQUAL((size_t)3, net.affected_ecs(ipv4_prefix("11.0.0.0/8")).size());
+    CPPUNIT_ASSERT(net.overlapping_rules(ipv4_prefix("11.0.0.0/8")) ==
+                   (std::vector<uint64_t>{1, 3}));
   }
 };
 

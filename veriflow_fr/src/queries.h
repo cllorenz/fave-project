@@ -27,6 +27,8 @@
 #define VERIFLOW_FR_QUERIES_H_
 
 #include <cstdint>
+#include <set>
+#include <utility>
 #include <vector>
 
 #include "veriflow.h"
@@ -72,6 +74,14 @@ bool loose_path(const std::vector<Outcome> &walked, const std::vector<uint32_t> 
 bool strict_path(const std::vector<Outcome> &walked, const std::vector<uint32_t> &via);
 // T §4.8: every delivered path takes at most `hops` hops.
 bool path_length_within(const std::vector<Outcome> &walked, size_t hops);
+
+// Bulk mode (Q21): a FaVe check's packet set stands in for the new rule. For
+// every start (table, arrival port), the tables at which some packet of `range`
+// is delivered. The ECs of `range` and their graphs are computed once for all
+// starts.
+std::vector<std::set<uint32_t>> deliveries(
+    const Network &net, const std::string &range,
+    const std::vector<std::pair<uint32_t, int64_t>> &starts);
 
 // T §4.9: the rules of the same table a rule overlaps, and so competes with by
 // priority. The rule itself need not be in the network.
