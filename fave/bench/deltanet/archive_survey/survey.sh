@@ -6,8 +6,9 @@
 # This exists because §2.14's figures would otherwise rest on shell history,
 # which is the exact debt D0 records settling: the vendored traces had been
 # extracted with ad-hoc `tar` commands "existing nowhere in the repository".
-# Re-deriving anything here needs the archive re-supplied -- it is 9.6 GB and
-# deliberately not kept (owner, 2026-09-18) -- but the METHOD is kept.
+# Re-deriving anything here needs the archive -- 9.6 GB, never committed, and
+# since 2026-09-29 kept in the checkout root (owner) -- and the METHOD is kept
+# either way.
 #
 # Nothing is extracted to disk. Each member is streamed through a reader by
 # `tar --to-command`, so a 16 GB member costs time and no space. One full

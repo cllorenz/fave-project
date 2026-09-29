@@ -63,7 +63,10 @@ and git is what reveals a change to them (§1.8). It is the sibling of [`AD6_PLA
 4. **Do not keep the source archives** (revised 2026-09-18): they are far too
    large, the extracted copies live in the repository instead, and git is what
    reveals a change to them. Claas will re-supply an archive if one is ever
-   needed again.
+   needed again. *(**Revised 2026-09-29 for Delta-net:** the owner keeps
+   `deltanet-NSDI17-dataset.tar.gz` in the checkout root, gitignored, so that
+   `berkeley-inserts.csv` can be derived from it by script rather than vendored
+   — §2.15. The cloud archive is still not kept.)*
 
 ---
 
@@ -1174,7 +1177,8 @@ Four properties, each enforced rather than intended:
 ### Provenance — incomplete, needs the owner
 
 The archives are **not kept** (owner decision 2026-09-18 — far too large, and
-git reveals any change to the extracted copies that replace them). Their
+git reveals any change to the extracted copies that replace them). *(Delta-net's
+is kept again since 2026-09-29 — §2.15.)* Their
 checksums are recorded here so that a re-supplied archive can be identified as
 the same one these files came from:
 
@@ -3746,7 +3750,7 @@ reason to spend that without a use for the result.
 
 The archive can go again. `.gitignore:13` already names it, so it was never at
 risk of being committed; its sha256 above is what makes a third re-supply
-identifiable.
+identifiable. *(Superseded 2026-09-29: it stays — owner, §2.15.)*
 
 ## 2.15 `wl_berkeley` — the insert block as a snapshot (2026-09-28)
 
@@ -3760,7 +3764,8 @@ registry line exists: registering it would put a 12.8M-rule generation into
 ### The extraction
 
 `archive_survey/insert_block.sh <archive> berkeley.csv
-fave/bench/wl_berkeley/berkeley-inserts.csv` streams the member, writes every
+fave/bench/wl_berkeley/berkeley-inserts.csv` (the path as run; since moved,
+below) streams the member, writes every
 line before its first withdrawal in the trace's own format and order, and keeps
 reading so it can REFUSE (and delete its output) if any insert follows the cut —
 tested on a synthetic archive both ways before use. On the real one, 3m47s:
@@ -3783,6 +3788,17 @@ the extraction should not decide them by default:
   "Why the middle tier exists"), and `wl_<trace>/` holds a driver plus generated
   artifacts. `wl_berkeley/` was the direction given; `traces/` is where the
   layout would put it.
+
+> **DECIDED 2026-09-29 (owner): `traces/`, and keep the archive.** The file now
+> lives at `fave/bench/deltanet/traces/berkeley-inserts.csv` (moved, hash
+> re-checked: `96d57987…`), and `bench/wl_berkeley/` no longer exists — it
+> returns when a driver does. It is **derived, not vendored**: gitignored,
+> re-derived from the kept archive by `insert_block.sh`, and pinned in a
+> manifest of its own, `traces/DERIVED.SHA256SUMS`. Not in the shared
+> `SHA256SUMS`, because `util/raw_data.verify_raw` fails on a listed file that
+> is absent, and a checkout without the archive — CI's — must still verify the
+> vendored airtel traces. The cost, stated: git no longer reveals a change to
+> this one file; `sha256sum -c DERIVED.SHA256SUMS` does, by hand.
 
 ### The four measurements
 

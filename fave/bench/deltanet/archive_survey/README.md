@@ -6,8 +6,10 @@ two already built.
 
 **The archive is not part of the repository** (owner, 2026-09-18; 9.6 GB), and
 `.gitignore` names it so that a copy in the checkout cannot be committed. Claas
-re-supplied it on 2026-09-25 for this survey; whether a given checkout still
-holds a copy is not something this file can know. Re-running anything here needs
+re-supplied it on 2026-09-25 for this survey, and since 2026-09-29 the owner
+KEEPS it in the checkout root, because `berkeley-inserts.csv` is derived from it
+rather than vendored (`../traces/README.md`). A checkout elsewhere may still
+lack it, which this file cannot know. Re-running anything here needs
 `deltanet-NSDI17-dataset.tar.gz` with
 sha256 `cc67472319e5d4791b96d8ceed1a5038af1ea719c360c3ce30040f3cc17f334b` —
 check the hash before trusting a copy, since that is what identifies it.
@@ -211,9 +213,11 @@ every line before its first withdrawal, in the trace's own format and order —
 to a file, and REFUSES (deleting the output) if any insert follows the cut, so
 a trace that interleaves cannot be mistaken for one that does not. Tested on a
 synthetic archive with one blocked and one interleaved member before use.
-First used for `berkeley.csv` → `fave/bench/wl_berkeley/berkeley-inserts.csv`
-(12,817,902 lines, sha256 `96d57987…`), which is gitignored pending the owner's
-decision on vendoring it; `CLOUD_BENCH_PLAN.md` §2.15.
+First used for `berkeley.csv` (12,817,902 lines, sha256 `96d57987…`), extracted
+into `bench/wl_berkeley/` and moved on 2026-09-29 to
+`fave/bench/deltanet/traces/berkeley-inserts.csv` (owner): gitignored, re-derived
+from the kept archive by this script, and pinned in `traces/DERIVED.SHA256SUMS`;
+`CLOUD_BENCH_PLAN.md` §2.15.
 
 ## Measuring a snapshot: `snapshot_survey.py` (2026-09-28)
 

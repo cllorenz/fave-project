@@ -1,14 +1,18 @@
 # Delta-net NSDI'17 traces — the scoped extract
 
-These two files are the **entire** in-repo raw data for the planned Delta-net
-workload (`CLOUD_BENCH_PLAN.md` §2). They are vendored rather than extracted on
-demand: the source archive is not kept, because at 9.6 GB it does not belong in
-a repository or on the working machine.
+The two airtel files are the **entire** in-repo raw data for the Delta-net
+workloads (`CLOUD_BENCH_PLAN.md` §2). They are vendored rather than extracted on
+demand, because at 9.6 GB the source archive does not belong in a repository.
+*(Revised 2026-09-29: the archive is no longer "not kept on the working
+machine" either — the owner keeps it in the checkout root, gitignored, so that
+larger members can be DERIVED from it by script instead of vendored. See
+"Derived, not vendored" below.)*
 
-| file | size | what |
-|---|---:|---|
-| `airtel1-only-inserts.csv` | 1.2 MB | insert-only forwarding-rule trace |
-| `airtel2-only-inserts.csv` | 1.2 MB | insert-only forwarding-rule trace |
+| file | size | what | in git |
+|---|---:|---|---|
+| `airtel1-only-inserts.csv` | 1.2 MB | insert-only forwarding-rule trace | vendored, `SHA256SUMS` |
+| `airtel2-only-inserts.csv` | 1.2 MB | insert-only forwarding-rule trace | vendored, `SHA256SUMS` |
+| `berkeley-inserts.csv` | 386 MB | `berkeley.csv`'s insert block | **derived**, gitignored, `DERIVED.SHA256SUMS` |
 
 Format is `+<prefix>,<router>,<next_hop>,<priority>`, e.g.
 
@@ -41,7 +45,8 @@ is what the planned static-snapshot phase needs.
 
 The cost of that scope is stated in `TRACES.md`: an insert-only trace that never
 overwrites a rule cannot exercise withdrawal at all, so the churn axis needs an
-archive member that is no longer here.
+archive member that is no longer here. *(It is again — re-supplied 2026-09-25,
+kept since 2026-09-29.)*
 
 ### The archive came back, and the scope held (2026-09-25)
 
@@ -108,3 +113,29 @@ Verification Using Atoms*, NSDI'17, describes the data:
 NOT line up. Nothing about the paper is derivable from the CSVs, which is why it
 is stated here and checked in `fave/test/test_deltanet_census.py` rather than
 mixed into the census.
+
+## Derived, not vendored (2026-09-29)
+
+`berkeley-inserts.csv` is the insert block of the archive's `berkeley.csv` —
+every line before its first withdrawal, which `CLOUD_BENCH_PLAN.md` §2.14
+measured to be the trace's whole insert set. At 386 MB it is not vendored (owner,
+2026-09-29): the archive is kept instead and the file is re-derived from it by
+
+    fave/bench/deltanet/archive_survey/insert_block.sh \
+        deltanet-NSDI17-dataset.tar.gz berkeley.csv \
+        fave/bench/deltanet/traces/berkeley-inserts.csv
+
+which refuses if any insert follows the cut. So git does NOT reveal a change to
+this file, which is the usual guarantee here; the pin replaces it.
+
+**It has its own manifest, `DERIVED.SHA256SUMS`, and that is deliberate.**
+`util/raw_data.verify_raw` reads `SHA256SUMS` and fails on any listed file that
+is absent, so listing a gitignored file there would make every checkout without
+the archive — CI included — refuse the vendored airtel traces too. Check the
+derived file by hand after re-deriving it:
+
+    (cd fave/bench/deltanet/traces && sha256sum -c DERIVED.SHA256SUMS)
+
+Nothing reads it yet: no workload is registered for it, and `trace.py` names
+the two airtel files explicitly and would refuse this one on D1 anyway.
+

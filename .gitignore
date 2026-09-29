@@ -3,21 +3,22 @@ Pyrex-0.9.9.tar.gz
 Pyrex-0.9.9
 pybison
 
-# Third-party benchmark source archives. These are NOT kept at all any more
-# (owner decision 2026-09-18: ~10 GB between them, far too large) -- the scoped
-# parts are vendored extracted instead, under fave/bench/wl_cloud/cloud-tf/ and
-# fave/bench/deltanet/traces/, where git reveals any change to them.
-# The patterns stay as a guard, so that re-supplying an archive to re-derive
-# something cannot end with it committed by accident.
+# Third-party benchmark source archives. NEVER committed: the scoped parts are
+# vendored extracted instead, under fave/bench/wl_cloud/cloud-tf/ and
+# fave/bench/deltanet/traces/, where git reveals any change to them. The cloud
+# archive is not kept at all (owner, 2026-09-18). The Delta-net archive IS kept
+# in the checkout root since 2026-09-29 (owner), so that files derived from it
+# can be re-derived by script rather than vendored -- which makes this guard
+# load-bearing, not just a precaution.
 cloud_bench.tar.bz2
 deltanet-NSDI17-dataset.tar.gz
 nsdi-data-sets/
-# The berkeley.csv insert block (2026-09-28): 386 MB, extracted from the
-# archive by fave/bench/deltanet/archive_survey/insert_block.sh. Whether it is
-# vendored, and where (traces/ vs wl_berkeley/), is the owner's open decision;
-# until then it is guarded like the archive it came from.
-fave/bench/wl_berkeley/berkeley-inserts.csv
-fave/bench/wl_berkeley/berkeley-inserts.csv.log
+# Derived from the kept archive, NOT vendored (owner, 2026-09-29): 386 MB,
+# re-derived by fave/bench/deltanet/archive_survey/insert_block.sh and pinned
+# in traces/DERIVED.SHA256SUMS -- a manifest of its own, because verify_raw
+# fails on a listed file that is absent, and a checkout without the archive
+# must still verify the vendored airtel traces.
+fave/bench/deltanet/traces/berkeley-inserts.csv
 
 # Python / test artifacts
 __pycache__/
