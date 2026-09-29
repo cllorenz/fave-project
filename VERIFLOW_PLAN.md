@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** PLANNING (opened 2026-09-29). No code yet. D1-D6 resolved 2026-09-29 (§9); D5's first batch (Q10-Q14) awaits sending.
+**Status:** V1 DONE 2026-09-29 (§10); V2 next. D1-D6 resolved (§9); D5's first batch (Q10-Q14) awaits sending.
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -176,7 +176,20 @@ unit test for that example asserts the correct value and cites this line.
 6. Nothing from either implementation — files, snippets, test vectors, topology files —
    enters the repo or `fave/bench/`.
 
-## 6. Architecture (proposal)
+## 6. Architecture
+
+*As built in V1 (2026-09-29):*
+- `veriflow_fr/src/veriflow.{h,cc}`: the layout, prefix intervals, the ternary trie,
+  the network, ECs and forwarding graphs.
+- `veriflow_fr/src/queries.{h,cc}`: walks, the Ch. 4 invariants, bulk `deliveries`
+  and `link_failure`.
+- `veriflow_fr/test/`: CppUnit, L1-L6, L10, the oracle.
+- `veriflow_fr/python/`: the pybind11 binding.
+- `fave/veriflow/translate.py`: the pure-Python IR translation.
+- `fave/veriflow/adapter.py`: the engine half.
+
+Registering `FAVE_BACKEND=veriflow` is V4's; V1 is driven in-process only. The sketch
+below was the proposal.
 
 Placement mirrors the existing engines: an engine directory at the repo root, a thin
 adapter under `fave/`, selection through the existing backend switch.
@@ -391,6 +404,37 @@ stated. That is a V1 exit gate. It calibrates against Veriflow-RI, not VeriFlow:
 original's per-update figures (0.38 ms, 0.59 ms with rewrites) come from a Route Views
 workload that is not available, and Delta-net's per-update tables (Table 3) use the full
 traces, which are out of scope (`CLOUD_BENCH_PLAN.md` §2.14).
+
+**Result, 2026-09-29: the gate passes, at about 2.2× Veriflow-RI.**
+
+- **Harness:** `fave/bench/veriflow_calibration.py`, commit `0e297ef6`, clean tree.
+- **The model matches Delta-net's graph exactly:** Delta-net's graph over FaVe's
+  wl_airtel1 model (`veriflow.translate.node_edges`) has **68 nodes and 158 edges**, the
+  paper's node and query counts. That confirms the snapshot identification (Q10) from
+  the model's side as well as from the trace's. wl_airtel2 has 155 edges.
+- **Stopping rule, declared beforehand:** 1 cold pass, then 5 warm passes over all 158
+  edges.
+
+| run | warm mean | median | max | ratio to 4.5 ms |
+|---|---:|---:|---:|---:|
+| 1 | 9.43 ms | 6.10 ms | 44.9 ms | 2.10× |
+| 2 | 10.42 ms | 6.41 ms | 85.6 ms | 2.32× |
+
+- **Per query:** 241 affected ECs and as many graphs built, on average (at most 1,303;
+  none empty).
+- **Timed:** affected ECs plus their forwarding graphs, inside the engine; no property
+  check.
+- **Hardware:** Intel Core i5-1135G7 @ 2.40 GHz (a 2020 laptop part with turbo; the
+  container exposes no governor, so about 10% run-to-run spread) against DN's
+  3.47 GHz Xeon. g++ 13.3, -O3, one thread.
+
+**Reading it.** VeriFlow-FR is within the gate's order of magnitude, and slower than
+Veriflow-RI, which is the direction Delta-net predicts for a ternary trie ("may
+therefore be faster than Veriflow", DN §5). The comparison is across machines. A newer
+core per clock probably flatters us, so the algorithmic gap may be somewhat above 2.2×.
+The authors' answers to Q11-Q13 (what one query computes, what is timed, what
+Veriflow-RI optimised) will sharpen this, and Q14, running Veriflow-RI here, would
+settle it.
 
 **Measurement stamps** (TODO 0a: *every measurement-affecting choice is a stamped
 result field*): trie field order; mode (incremental / bulk); field classification `vf_fields` (D6); port
@@ -769,7 +813,20 @@ unit tests and seeing them fail, and its exit begins with those tests green.
 - **V1 — Single-field core** (≈ Veriflow-RI): trie, EC, forwarding graph, reachability
   and loop queries over dst-IP; the link-failure query. `wl_airtel1`/`wl_airtel2`,
   differential + LPM guard green. *Exit:* L1-L6 and V1's share of L10 green; the §8
-  calibration against Delta-net Table 4.
+  calibration against Delta-net Table 4. **DONE 2026-09-29.** Every exit item holds:
+  - **Tests first and green:** L1-L6, and L10 for §4.1-4.4 and 4.6-4.10 (VLAN
+    isolation waits for V3), plus the concrete-packet oracle. 24 C++ tests, clean
+    under ASan+UBSan; three injected bugs failed 7, 2 and 9 of the first 10.
+  - **The differential:** on both airtel traces the matrix equals `reachable.json` and
+    NetPlumber's, through the same in-process aggregator
+    (`fave/test/test_veriflow_airtel.py`).
+  - **The LPM guard:** all 13 nested prefix pairs with different next hops are decided
+    by the longer prefix, and a guard-only inverted build fails all 13. The matrix
+    cannot see LPM here.
+  - **The calibration:** 2.1-2.3× Veriflow-RI's 4.5 ms (§8).
+
+  V1 translates switch models only and refuses the rest, with the reason: routers,
+  packet filters, rewrites, misses, negated rule fields, probe paths.
 - **V2 — Multi-field + ACLs.** Report EC counts and range-expansion factors against
   APKeep's figures. *Exit:* L7 and V2's share of L10 green, the oracle and crafted
   multi-field tests. **No FaVe differential here:** the V0 survey found no multi-field
