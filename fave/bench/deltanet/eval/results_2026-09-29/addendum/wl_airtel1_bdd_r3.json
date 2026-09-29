@@ -1,0 +1,40 @@
+{
+  "workload": "wl_airtel1",
+  "backend": "apkeep",
+  "engine": "bdd",
+  "mutated": false,
+  "deadline_s": 600.0,
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 9.007,
+  "when": "2026-09-29T08:48:45.605814+00:00",
+  "git_head": "5d4e8b21d52cdd8397c1ab0456af08488a8cdb79",
+  "apkeep_jar": "66cb88d04762020399ba402acb2daef2dc0642c6934d03e82bb9887d845c3419",
+  "ndd_jar": "1683e88b2499096a4c9451e9eb9b1697b05c10038b499c1a9a4e437d3cda21ed",
+  "check_compliance_s": [
+    4.224364519119263
+  ],
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "checks": 256,
+  "policy_has_mutation": false,
+  "input_files": {
+    "cchecks": "7176cd44e673767f19307b32f900f6077b9a9c5dfe4a2c735ceb0622132232ab",
+    "checks": "84d8bea0c85d7ca1e61c6b3a97fdfb4a444d53b2a64b047ce3a6ee024f467c86",
+    "inventory": "12526d54d7e8aa3d37937bbe0b62c5418a43585e090e10c4baaad4491f5c1c60",
+    "policies": "2dd93ea816049893b9ac83db4172162dfad1ca0d2b489a9861042482f4e0e1c5",
+    "reach_csv": "e1bc20a92e014d74eb35744210d89d217e78920599a34f5a456b7e3232de976e",
+    "reach_json": "9eb2e82ea2bbb3068661d639ac6786ebb88a24aabd24d933602d138cff4f23f3",
+    "reach_policies": "b683c675b1f014df4c9fb4d151457b976c59869685d9de0c2925c8614e2988f9",
+    "roles_json": "e4e8500353d3fd3af78fb7fe79bab2f293084c5de71bb626f7c9a98ac2b190b9",
+    "roles_services": "5c86e6f53625209b1e80f876dd43bacab92d52b742ae49de9edd87a9ef7ef191",
+    "routes": "44e3a77b5f2fa15ebbd6c59b9adbc3535f311414418751c0fcc26f852aa9e1b3",
+    "sources": "1b1f7f3bbe189e76e2ef0baa73ed6f3fc7fc29e378a2e624da696a93bdcf0702",
+    "topology": "99412471daa799fc659eb044a13797a5ebdb2aa935440d1066b44e8ae8e8dab0"
+  },
+  "s1_s8_check": [
+    "! s=source.s1 && EF p=probe.s8"
+  ],
+  "verdict_valid": true
+}

@@ -3292,7 +3292,9 @@ re-measured under the harness that produces the rest of them.
 workload itself in `bench/wl_airtel2/SOURCE.json` rather than by this sentence.
 Engines: NetPlumber; APKeep with **`--apkeep-engine ndd`**, passed explicitly
 rather than defaulted; ad6 with `--solver minisat22 --grounding rank`. BDD-APKeep
-was not run at all — concurrent work elsewhere (owner, 2026-09-25).
+was not run at all — concurrent work elsewhere (owner, 2026-09-25). *(Run
+2026-09-29 on both traces, owner direction: 0 on both, non-vacuous — "BDD-APKeep,
+2026-09-29" at the end of this section.)*
 
 ### The verdicts: all three agree, at 0
 
@@ -3314,6 +3316,17 @@ check total still 256, on all three.
 through three backends regenerates it three times. `SOURCE.json` (D6) is what
 turns "they got the same inputs" into a measurement: **`check_stamp()` reported
 no drift after every run**, so the three engines answered byte-identical files.
+
+> **That observation was vacuous as a mechanism (found 2026-09-29).** `run()`
+> re-stamps inside `_preparation` (`bench/deltanet/workload.py:131`, since A3,
+> `900ef739`, which predates D7), so `check_stamp()` after a run compares the
+> run's inputs with the stamp that same run just wrote — it cannot see drift
+> between engines. The claim itself is very likely true, since generation is a
+> pure function of the vendored trace, but D7 did not observe it. The
+> 2026-09-29 runs below observe it properly for both APKeep engines, by
+> recording every run's input hashes and comparing them ACROSS runs; for
+> NetPlumber and ad6 it has not been re-measured. `check_stamp()`'s placement
+> is unchanged — whether `run()` should verify before it re-stamps is open.
 
 ### What the second trace actually changes
 
@@ -3407,6 +3420,75 @@ verdicts, by contrast, are exact and repeated.
 And none of it manufactures an oracle. Three engines agreeing on a second trace
 is still a consensus between implementations in this tree — §0's first gap, which
 only `wl_cloud` closes.
+
+### BDD-APKeep, 2026-09-29 — both traces, and the fourth engine agrees
+
+**Owner direction 2026-09-29**, lifting D7's exclusion: run BDD-APKeep on both
+airtel traces, 6 h budget. The "concurrent work" D7 deferred to was, as far as
+the record shows, TODO item 29 — the three BDD defects, fixed by 2026-09-27 —
+and this run is on the jar with those fixes (`apkeep-1.0.0.jar` sha256
+`66cb88d0…`, rebuilt 2026-09-28; NDD jar `1683e88b…`; tree `5d4e8b21`).
+
+**Method.** `bench/deltanet/eval/engine_run.py` (new) drives the ordinary
+benchmark path with `FAVE_BACKEND=apkeep FAVE_ENGINE_OPTIONS="--apkeep-engine
+…"` and reads, per run: `completed task check_compliance in X seconds` from the
+aggregator log (the figure the table above calls compliance time; for APKeep it
+INCLUDES the model build, since `check_compliance` calls `_build()`,
+`apkeep/adapter.py:2842`); the violation lines of `report.md`, counted; the
+denominator from `checks.json`; and the input hashes, compared ACROSS runs
+(the correction above). `--mutate` inserts `s1 ---> s8` inside the policy block.
+**The driver failed its own validation first, twice**, which is recorded because
+both failures would have produced plausible numbers: the mutation was appended
+after the policy's closing `end`, where FPL ignores it without a word (the run
+reported 0 of 256 — a "passed" non-vacuity check that mutated nothing), and the
+drift check was the vacuous one. Validated on NDD before any BDD run: plain 0 of
+256, mutated exactly 1, `source.s1` does not reach `probe.s8`.
+
+**The protocol was declared before the first BDD run** —
+`bench/deltanet/eval/results_2026-09-29/PROTOCOL.txt`, with a 3600 s deadline per
+BDD run and a budget rule. It finished in **2 minutes**, so a declared addendum
+added 10 interleaved runs per (trace, engine) cell, round-robin, to spread
+machine drift over all four. Every result file is committed beside it, and
+`bench/deltanet/eval/summarize_runs.py` re-derives this table from them:
+
+| trace | engine | n | median | min–max | verdict |
+|---|---|---:|---:|---|---|
+| airtel1 | **BDD** | 13 | **4.07 s** | 3.57–4.64 s | **0 of 256**, every run |
+| airtel1 | NDD | 12 | 2.27 s | 2.05–2.49 s | 0 of 256 |
+| airtel2 | **BDD** | 13 | **3.98 s** | 3.68–5.29 s | **0 of 256**, every run |
+| airtel2 | NDD | 12 | 2.20 s | 1.94–2.55 s | 0 of 256 |
+
+* **BDD's zero is non-vacuous on both traces**: mutated, exactly 1 violation of
+  256, `source.s1` does not reach `probe.s8` — the same one the other three
+  engines give.
+* **The inputs were the same, observed**: one input-hash set per trace across
+  all 25 plain runs of it; the mutated runs differ in exactly the five
+  policy-derived files, the two traces only in `routes`; and the artifacts
+  regenerated afterwards (`gen_deltanet_inputs.sh`) equal every run's inputs.
+* **BDD costs 1.8× NDD here** (1.79 on airtel1, 1.80 on airtel2, medians) —
+  against **146×** on wl_up (§2.12), so §2.12's "BDD does not scale" is a
+  statement about wl_up's shape, not a constant factor.
+* **Neither APKeep engine distinguishes the traces**: airtel2/airtel1 median
+  ratio 0.98 (BDD) and 0.97 (NDD), and an airtel2 run is slower than an airtel1
+  run in 52% (BDD) and 42% (NDD) of cross pairs. This firms up the NDD row of
+  the table above ("no difference this can resolve") and extends it to BDD.
+  **The first three BDD runs had suggested the opposite** — 3.57–3.64 s against
+  3.68–4.17 s, disjoint — and the interleaved addendum removed it; those three
+  also ran earliest and sit below the later medians, which is the drift the
+  interleaving was declared for.
+* **NDD today is not NDD four days ago**: 2.27 s against §2.13's 3.40/3.59 s on
+  airtel1, same workload. That is why the comparator was re-run in-session and
+  why cross-day figures in this file must not be divided into each other.
+
+**Not comparable with §2.6's 1.6 s** for BDD on airtel1, and not an
+improvement or a regression against it: that run answered 14 violations wrongly
+on the 16-element translation, before §2.8's ingress demux made it 56 elements,
+and before item 29's fixes.
+
+**Not claimed:** anything about NetPlumber or ad6 today (not re-run); a cause for
+the 1.8× (no profile); stability beyond this machine and session — §2.12's
+caveat stands. **Not changed:** `TestBackendDifferentialAirtel2` still gates
+NDD only; adding `'bdd'` would cost ~4 s and is a separate decision.
 
 ---
 

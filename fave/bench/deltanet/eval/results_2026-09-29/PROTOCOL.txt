@@ -1,0 +1,19 @@
+Declared 2026-09-29T08:41:18+00:00, before any BDD run. Total budget 6 h (owner), ending 2026-09-29T14:41:18+00:00.
+
+Driver: fave/bench/deltanet/eval/engine_run.py (validated first on NDD: plain = 0/256, mutated = exactly 1 naming s1/s8).
+Engines: APKeep --apkeep-engine bdd; APKeep --apkeep-engine ndd as SAME-SESSION comparator (§2.13's NDD figures are 4 days old).
+Per trace (airtel1, then airtel2):
+  1. NDD plain x2
+  2. BDD plain, first run: deadline 3600 s
+  3. only if run 2 completed in < 600 s: BDD plain x2 more (deadline 3600 s each)
+  4. BDD mutated x1 (deadline 3600 s) -- non-vacuity; expect exactly 1 violation, 256 checks
+Stopping: a run at its deadline is recorded as status=deadline and NOT repeated; a trace whose first BDD run hits
+the deadline gets no repeats. If the budget has < 70 min left before a BDD run, that run is skipped and recorded as skipped.
+Reported figure: check_compliance seconds from the aggregator log; first run of each engine per trace reported but flagged
+(JVM/OS warm-up), as §2.13 did. Afterwards: regenerate the Delta-net artifacts and verify their stamps.
+
+ADDENDUM declared 2026-09-29T08:47:21+00:00, after the protocol above completed in 2 min and BEFORE any of these runs:
+  10 further plain runs per (trace, engine) cell -- airtel1/airtel2 x bdd/ndd, 40 runs -- INTERLEAVED round-robin
+  (a1-bdd, a1-ndd, a2-bdd, a2-ndd, repeat) so machine drift is spread over all four cells. Deadline 600 s each.
+  Purpose: the airtel1-vs-airtel2 BDD difference (3 samples each, ranges 3.57-3.64 vs 3.68-4.17) and BDD/NDD ratio.
+  Reported: all 13 (BDD) / 12 (NDD) samples per cell, median and min-max; nothing excluded unless stated.
