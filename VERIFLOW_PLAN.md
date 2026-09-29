@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** PLANNING (opened 2026-09-29). No code yet. D1 and D2 resolved 2026-09-29 (§9).
+**Status:** PLANNING (opened 2026-09-29). No code yet. D1, D2 and D3 resolved 2026-09-29 (§9).
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -179,7 +179,7 @@ Placement mirrors the existing engines: an engine directory at the repo root, a 
 adapter under `fave/`, selection through the existing backend switch.
 
 ```
-veriflow_fr/                C++17 engine (D3), CMake or make like net_plumber/
+veriflow_fr/                C++17 engine, standard library only (D3); built like libnetplumber
   field_layout             FaVe header layout -> ordered trie dimensions (order is a stamp)
   ternary_trie             §4.2: insert / remove / find-overlapping (Alg. 1/2)
   rule_store               (device, rule, priority, match, actions) — our own representation
@@ -277,7 +277,7 @@ traces, which are out of scope (`CLOUD_BENCH_PLAN.md` §2.14).
 **Measurement stamps** (TODO 0a: *every measurement-affecting choice is a stamped
 result field*): trie field order; mode (incremental / bulk); §4.6 on/off; port
 semantics (Q7); port-range expansion factor; EC count per update (VeriFlow's own
-headline metric); language/build flags; provenance `reimpl-literature` with the
+headline metric); compiler, standard and flags (D3); thread count (1, D3); provenance `reimpl-literature` with the
 engine commit (TODO item 31's provenance column, shared by every backend). **A VeriFlow-FR number is reported as VeriFlow-FR's**,
 beside a sentence on what it interprets — as Delta-net did for Veriflow-RI.
 
@@ -339,11 +339,47 @@ quoted as spelled there. Code identifiers: `veriflow_fr/` (engine), `fave/verifl
 (adapter), `FAVE_BACKEND=veriflow`. The placeholder "VeriFlow-FR" was dropped because FaVe
 is the harness every backend runs in, not one of them.
 
+### D3 — RESOLVED 2026-09-29: C++17, under five conditions (owner's call)
+
+**Why C++.** The deciding ground is fairness, not convenience:
+
+- **The calibration gate (§8) needs it.** Veriflow-RI and Delta-net are C++14,
+  single-threaded, using only the standard library (Delta-net, *Implementation*: "around 4,000 lines of
+  code"). VeriFlow exposes its query API in C++. A Python VeriFlow-FR would lose one to
+  two orders of magnitude before the algorithm counts. It would fail the gate, or pass
+  only after the gap was argued away, which is the straw man §8 exists to rule out.
+- **Symmetric overhead.** `APKEEP_BACKEND.md` §6 measures from-zero time with
+  integration overhead low and equal across backends. NetPlumber runs in-process through
+  `libnetplumber`, APKeep through JPype with a warm JVM. A C++ engine behind pybind11
+  fits that directly; Java would bring APKeep's warm-up confound to a tool that never had
+  it.
+- **Rejected:** Python, except as a test oracle (below). Java, for the reason above.
+  Rust is equal on speed and better on memory safety, but it would add a toolchain the
+  suite does not use, and "Rust versus the authors' C++" is one more difference a
+  reviewer would have to discount.
+
+**The conditions.** The language alone does not make the comparison fair:
+
+1. **Standard library only**, as Delta-net did. No third-party data structures, so there
+   is no hidden fast library and no licence to track, and the clean room (§5) has a
+   short boundary. The pybind11 binding is the one exception; it is not in the timed
+   engine.
+2. **NetPlumber's toolchain and flags.** g++ with `-O3`, both recorded as stamps (§8), so
+   that a NetPlumber/VeriFlow-FR gap is not partly a build-flag gap.
+3. **Single-threaded**, as VeriFlow, Veriflow-RI and Delta-net were measured.
+   Parallelism would be a later, declared variant.
+4. **In-process through pybind11**, built as `net_plumber/python/build_libnetplumber.sh`
+   builds `libnetplumber`. There is no JSON-RPC path.
+5. **Hardening from day one**, learned from `net_plumber/FAVE_CHANGES.md` §5 (#C1, #C4,
+   #C5): an ASan/UBSan job, and a brute-force concrete-packet oracle for the trie and EC
+   code, as `32a41069` added for header spaces. A small, obviously correct Python EC
+   model may serve as a second oracle in the tests.
+
+**C++17 rather than C++14:** it matches the NetPlumber build. The calibration compares
+timings, not language editions, and C++17 adds nothing that affects a measurement.
+
 ### Still open
 
-- **D3 — Language.** C++ proposed: the original was C++ and NetPlumber is C++, and
-  `APKEEP_BACKEND.md` §6's from-zero, low-and-symmetric-overhead boundary applies here
-  too. Python would be faster to write and slower to measure.
 - **D4 — UIUC source consultation.** Default: never. Owner may allow it per question.
 - **D5 — Ask the authors?** Godfrey (licence/permission for the original); Horn or
   Kheradmand (Veriflow-RI / Delta-net); Zhang's group (Delta-netMF).
@@ -364,7 +400,7 @@ The thesis's §4.5 moved the last row from "out of scope" (the NSDI paper alone)
 ## 10. Phases
 
 - **V0 — Spec freeze.** Survey each workload's features (fills §9's table); settle
-  D3, D6 (D2 is resolved); resolve Q1, Q2, Q5, Q7-Q9 on paper. *Exit:* §7 has no unresolved question
+  D6 (D2 and D3 are resolved); resolve Q1, Q2, Q5, Q7-Q9 on paper. *Exit:* §7 has no unresolved question
   that blocks V1.
 - **V1 — Single-field core** (≈ Veriflow-RI): trie, EC, forwarding graph, reachability
   and loop queries over dst-IP; the link-failure query. `wl_airtel1`/`wl_airtel2`,
