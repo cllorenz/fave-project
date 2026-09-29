@@ -131,9 +131,23 @@ class CloudReadme:
         'datacenter_block', 'router_services', 'internet_port',
     )
 
-    def __init__(self, **kwargs: Any) -> None:
-        for slot in self.__slots__:
-            setattr(self, slot, kwargs[slot])
+    def __init__(self, *, scalars: Dict[str, Any],
+                 services: Dict[int, List[str]],
+                 matrix: List[List[int]],
+                 datacenter_services: Dict[int, List[int]],
+                 datacenter_block: Dict[int, Any],
+                 router_services: Dict[int, List[int]],
+                 internet_port: int) -> None:
+        # Spelled out rather than a setattr loop over __slots__: the loop hid
+        # every field from pylint and mypy, and silently ignored a misspelt
+        # keyword that this signature refuses.
+        self.scalars = scalars
+        self.services = services
+        self.matrix = matrix
+        self.datacenter_services = datacenter_services
+        self.datacenter_block = datacenter_block
+        self.router_services = router_services
+        self.internet_port = internet_port
 
     # -- the derived algebra -------------------------------------------------
 
