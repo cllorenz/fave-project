@@ -402,3 +402,23 @@ class Translator:
                         nxt.append(met)
             sets = nxt
         return sets
+
+
+def node_edges(ir: Ir) -> List[Tuple[int, int, int]]:
+    """ Delta-net's graph (DN §4.3.2) over the IR: a node per (table, ingress
+    port), an edge (table, in_port) -> the port it enters wherever a rule at
+    the node forwards to a port linked there. Edges into probes are FaVe's
+    delivery wiring and are left out. Sorted (table, in_port, to_port). """
+    links: Dict[int, List[int]] = {}
+    for a, b in ir.links:
+        links.setdefault(a, []).append(b)
+    probe_tables = set(ir.probes.values())
+    edges = set()
+    for rule in ir.rules:
+        if rule.consume:
+            continue
+        for port in rule.out_ports:
+            for to in links.get(port, []):
+                if ir.port_table[to] not in probe_tables:
+                    edges.add((rule.table, rule.in_port, to))
+    return sorted(edges)

@@ -199,6 +199,8 @@ class Network {
   uint32_t port_table(uint64_t port) const { return port_table_.at(port); }
   const std::vector<uint64_t> &links_from(uint64_t port) const;
   const std::vector<uint64_t> &table_ports(uint32_t table) const;
+  // The ids of the rules at a table, in insertion order.
+  const std::vector<uint64_t> &table_rules(uint32_t table) const;
 
  private:
   std::string point_of(const EC &ec) const;
@@ -214,6 +216,7 @@ class Network {
   std::set<uint32_t> tables_;
   std::map<uint64_t, uint32_t> port_table_;
   std::map<uint32_t, std::vector<uint64_t>> table_ports_;
+  std::map<uint32_t, std::vector<uint64_t>> table_rules_;
   std::map<uint64_t, std::vector<uint64_t>> links_;
 };
 

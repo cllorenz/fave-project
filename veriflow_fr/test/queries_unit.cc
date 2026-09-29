@@ -75,6 +75,8 @@ class QueriesTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_L10_4_9_overlapping_rules);
   CPPUNIT_TEST(test_L10_4_10_next_hop_change);
   CPPUNIT_TEST(test_Q21_deliveries_per_start);
+  CPPUNIT_TEST(test_link_failure_on_L4);
+  CPPUNIT_TEST(test_link_failure_respects_the_ingress_port);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -292,6 +294,44 @@ class QueriesTest : public CppUnit::TestFixture {
     std::vector<std::set<uint32_t>> high = deliveries(net, "1xxxxxxx", starts);
     CPPUNIT_ASSERT(high[0] == (std::set<uint32_t>{5}));
     CPPUNIT_ASSERT(high[1].empty());
+  }
+
+  // DN §4.3.2 on L4's network, derived. Failing s1 -> s4 (port 14 into 41)
+  // hits the three ECs r4 decides, [8,11] [12,13] [14,15]. Failing s1 -> s2
+  // (12 into 21) hits only [0,7]: r1 forwards there, but on [8,15] r4 wins.
+  void test_link_failure_on_L4() {
+    Network net(Layout({{"dst", 4}}));
+    for (uint32_t s = 1; s <= 4; ++s) net.add_table(s);
+    net.add_port(12, 1); net.add_port(14, 1);
+    net.add_port(21, 2); net.add_port(23, 2);
+    net.add_port(31, 3); net.add_port(34, 3);
+    net.add_port(41, 4); net.add_port(43, 4);
+    net.add_link(12, 21); net.add_link(14, 41);
+    net.add_link(23, 31); net.add_link(34, 43);
+    net.add_rule(vftest::rule(1, 1, 1, "xxxx", {12}));
+    net.add_rule(vftest::rule(2, 2, 1, "11xx", {23}));
+    net.add_rule(vftest::rule(3, 3, 1, "111x", {34}));
+    net.add_rule(vftest::rule(4, 1, 2, "1xxx", {14}));
+
+    size_t graphs = 0;
+    std::vector<EC> via_s4 = link_failure(net, 1, ANY_PORT, 41, &graphs);
+    CPPUNIT_ASSERT(via_s4 == (std::vector<EC>{{{{8, 11}}}, {{{12, 13}}}, {{{14, 15}}}}));
+    CPPUNIT_ASSERT(graphs >= via_s4.size());
+    CPPUNIT_ASSERT(link_failure(net, 1, ANY_PORT, 21) == (std::vector<EC>{{{{0, 7}}}}));
+    CPPUNIT_ASSERT(link_failure(net, 2, ANY_PORT, 41).empty());  // no such edge
+  }
+
+  // A failing edge is a NODE-level edge: at table 1, a rule for arrivals on
+  // port 11 uses it, a rule for port 12 does not.
+  void test_link_failure_respects_the_ingress_port() {
+    Network net = net8();
+    tables(net, {{1, {11, 12, 13, 14}}, {2, {21}}, {3, {31}}});
+    net.add_link(13, 21);
+    net.add_link(14, 31);
+    net.add_rule(vftest::rule(1, 1, 0, "0xxxxxxx", {13}, 11));
+    net.add_rule(vftest::rule(2, 1, 0, "0xxxxxxx", {14}, 12));
+    CPPUNIT_ASSERT(link_failure(net, 1, 11, 21) == (std::vector<EC>{{{{0, 127}}}}));
+    CPPUNIT_ASSERT(link_failure(net, 1, 12, 21).empty());
   }
 };
 

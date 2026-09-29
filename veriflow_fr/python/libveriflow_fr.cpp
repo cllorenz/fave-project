@@ -26,6 +26,8 @@
    per rule and once per query set, not once per EC.
 */
 
+#include <chrono>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -111,6 +113,16 @@ class PyNetwork {
     return vf::deliveries(net_, range, starts);
   }
 
+  // DN §4.3.2's query on one node-level edge: (affected ECs, graphs built,
+  // seconds). Timed inside the engine, so the binding's overhead is not in it.
+  py::tuple link_failure(uint32_t table, int64_t in_port, uint64_t to_port) const {
+    size_t graphs = 0;
+    const auto t0 = std::chrono::steady_clock::now();
+    const size_t ecs = vf::link_failure(net_, table, in_port, to_port, &graphs).size();
+    const auto t1 = std::chrono::steady_clock::now();
+    return py::make_tuple(ecs, graphs, std::chrono::duration<double>(t1 - t0).count());
+  }
+
   size_t ec_count(const std::string &range) const {
     return net_.affected_ecs(range).size();
   }
@@ -141,5 +153,6 @@ PYBIND11_MODULE(libveriflow_fr, m) {
       .def("affected_ecs", &PyNetwork::affected_ecs)
       .def("decide_point", &PyNetwork::decide_point)
       .def("deliveries", &PyNetwork::deliveries)
+      .def("link_failure", &PyNetwork::link_failure)
       .def("ec_count", &PyNetwork::ec_count);
 }

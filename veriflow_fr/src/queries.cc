@@ -152,6 +152,41 @@ std::vector<std::set<uint32_t>> deliveries(
   return out;
 }
 
+std::vector<EC> link_failure(const Network &net, uint32_t table, int64_t in_port,
+                             uint64_t to_port, size_t *graphs) {
+  // The table's ports that the failing edge leaves by.
+  std::set<uint64_t> via;
+  for (uint64_t p : net.table_ports(table))
+    for (uint64_t q : net.links_from(p))
+      if (q == to_port) via.insert(p);
+  auto uses = [&via](const Rule *r) {
+    if (!r) return false;
+    for (uint64_t p : r->out_ports)
+      if (via.count(p)) return true;
+    return false;
+  };
+  std::set<EC> hit, tried;
+  size_t built = 0;
+  if (!via.empty()) {
+    for (uint64_t id : net.table_rules(table)) {
+      const Rule &r = net.rule(id);
+      // Only a rule that can decide at this node, and forwards on the edge,
+      // can put packets on it; its ECs are where to look.
+      const bool arrives = r.in_port == ANY_PORT ||
+                           (in_port != ANY_PORT && r.in_port == in_port);
+      if (!arrives || !uses(&r)) continue;
+      for (const EC &ec : net.affected_ecs(r.match)) {
+        if (!tried.insert(ec).second) continue;
+        const ForwardingGraph g = net.forwarding_graph(ec);
+        ++built;
+        if (uses(g.decide(table, in_port))) hit.insert(ec);
+      }
+    }
+  }
+  if (graphs) *graphs = built;
+  return std::vector<EC>(hit.begin(), hit.end());
+}
+
 std::vector<uint64_t> overlapping_in_table(const Network &net, const Rule &rule) {
   std::vector<uint64_t> out;
   for (uint64_t id : net.overlapping_rules(rule.match))

@@ -184,6 +184,12 @@ const std::vector<uint64_t> &Network::table_ports(uint32_t table) const {
   return it == table_ports_.end() ? none : it->second;
 }
 
+const std::vector<uint64_t> &Network::table_rules(uint32_t table) const {
+  static const std::vector<uint64_t> none;
+  auto it = table_rules_.find(table);
+  return it == table_rules_.end() ? none : it->second;
+}
+
 std::vector<Interval> Network::intervals_of(const std::string &match) const {
   if (match.size() != layout_.width())
     throw std::invalid_argument("match width differs from the layout");
@@ -207,6 +213,7 @@ void Network::load_rule(const Rule &rule) {
   rules_[rule.id] = rule;
   seq_[rule.id] = next_seq_++;
   trie_.insert(rule.id, rule.match);
+  table_rules_[rule.table].push_back(rule.id);
 }
 
 std::vector<EC> Network::add_rule(const Rule &rule) {
@@ -221,6 +228,8 @@ std::vector<EC> Network::remove_rule(uint64_t id) {
   // partition its insertion produced.
   std::vector<EC> ecs = affected_ecs(it->second.match);
   trie_.remove(id, it->second.match);
+  std::vector<uint64_t> &tr = table_rules_[it->second.table];
+  tr.erase(std::find(tr.begin(), tr.end(), id));
   intervals_.erase(id);
   seq_.erase(id);
   rules_.erase(it);

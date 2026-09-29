@@ -168,6 +168,18 @@ class _Airtel(unittest.TestCase):
         pairs = _nested_pairs(inverted)
         self.assertEqual(_lpm_violations(inverted, pairs), len(pairs))
 
+    #: Delta-net's graph for this snapshot: 158 edges on airtel1 (the §4.3.2
+    #: query count, bench/deltanet/TRACES.md), 155 on airtel2.
+    EDGES: Optional[int] = None
+
+    def test_node_edges_are_delta_nets(self):
+        from veriflow.translate import node_edges
+        edges = node_edges(self.engine.ir)
+        self.assertEqual(len(edges), self.EDGES)
+        self.assertEqual(len({(t, p) for (t, p, _to) in edges} |
+                             {(self.engine.ir.port_table[to], to) for (_t, _p, to) in edges}),
+                         68)
+
     def test_stamps(self):
         stamps = self.engine.ir.stamps
         self.assertEqual(stamps["impl"], "reimpl-literature")
@@ -189,12 +201,14 @@ def _gate(cls):
 class TestVeriFlowAirtel1(_Airtel):
     __test__ = True
     PREFIX = "bench/wl_airtel1"
+    EDGES = 158
 
 
 @_gate
 class TestVeriFlowAirtel2(_Airtel):
     __test__ = True
     PREFIX = "bench/wl_airtel2"
+    EDGES = 155
 
 
 if __name__ == '__main__':

@@ -83,6 +83,15 @@ std::vector<std::set<uint32_t>> deliveries(
     const Network &net, const std::string &range,
     const std::vector<std::pair<uint32_t, int64_t>> &starts);
 
+// Delta-net's "what if a link fails?" query (DN §4.3.2), which it adapts from
+// the thesis's link-failure experiment (T p.50). OUR READING, pending Q11: the
+// failing element is one node-level edge (table, in_port) -> (to_table,
+// to_port), and the query constructs the forwarding graph of every EC whose
+// packets use it -- whose deciding rule at (table, in_port) forwards on a port
+// linked to to_port. Returns those ECs, sorted; `graphs` counts the graphs built.
+std::vector<EC> link_failure(const Network &net, uint32_t table, int64_t in_port,
+                             uint64_t to_port, size_t *graphs = nullptr);
+
 // T §4.9: the rules of the same table a rule overlaps, and so competes with by
 // priority. The rule itself need not be in the network.
 std::vector<uint64_t> overlapping_in_table(const Network &net, const Rule &rule);

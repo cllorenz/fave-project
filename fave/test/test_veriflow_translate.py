@@ -48,7 +48,7 @@ from devices.probe import ProbeModel
 from devices.switch import SwitchModel
 from rule.rule_model import Forward, Match, Rewrite, Rule, RuleField
 from veriflow.translate import (
-    ANY_PORT, Translator, Unsupported, expand_negated
+    ANY_PORT, Translator, Unsupported, expand_negated, node_edges
 )
 
 
@@ -140,6 +140,23 @@ class TestPorts(unittest.TestCase):
         self.assertEqual(ir.port_table[ir.ports["s1.1"]], ir.tables["s1.1"])
         self.assertIn((ir.ports["s1.1"], ir.ports["s2.1"]), ir.links)
         self.assertEqual(ir.stamps["vf_node"], "table")
+
+
+    def test_node_edges_are_delta_nets_graph(self):
+        # DN §4.3.2's graph: a node per (switch, ingress port), an edge where a
+        # rule at a node forwards to a port linked into another node. Edges into
+        # a probe are FaVe's delivery wiring, not part of it.
+        tr = Translator()
+        _feed(tr,
+              _switch("s1", ["1", "2", "3"], [
+                  _rule("s1", 1, "10.0.0.0/8", ["s1.2"], in_ports=["s1.1"]),
+                  _rule("s1", 2, "0.0.0.0/0", ["s1.3"], in_ports=["s1.1"])]),
+              _switch("s2", ["1"], []))
+        tr.add_probe(ProbeModel("probe.p", "existential"))
+        tr.add_links_bulk([("s1.2", "s2.1"), ("s1.3", "probe.p.1")])
+        ir = tr.translate()
+        self.assertEqual(node_edges(ir), [
+            (ir.tables["s1.1"], ir.ports["s1.1"], ir.ports["s2.1"])])
 
 
 class TestSourcesAndProbes(unittest.TestCase):
