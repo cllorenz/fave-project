@@ -66,7 +66,7 @@ import logging
 import os
 
 from bench.generic_benchmark import GenericBenchmark
-from bench.input_stamp import sha256, verify, write
+from bench.input_stamp import STAMP, StampError, sha256, verify, write
 from bench.deltanet.policy import (
     emit_inventory, emit_policy, homing_switches, role_endpoints)
 from bench.deltanet.preparation import build_model
@@ -74,6 +74,29 @@ from bench.deltanet.registry import WORKLOADS, prefix_of
 from bench.deltanet.topology import derive_topology, homes
 from bench.deltanet.trace import RAW, read_trace
 from util.raw_data import verify_raw
+
+
+#: What `drift_from_previous` records when there was no earlier stamp to compare
+#: against -- a first run, or a directory someone cleaned. Not the same as "no
+#: drift", so it is not recorded as an empty list.
+NO_PREVIOUS_STAMP = 'no previous stamp'
+
+
+def previous_drift(prefix, files):
+    """ How `files`, as just regenerated, differ from the stamp the PREVIOUS
+    run left in `prefix` -- to be called BEFORE this run re-stamps.
+
+    `[]` is the only clean answer; `NO_PREVIOUS_STAMP` when there is nothing to
+    compare against. An unreadable stamp is reported as drift rather than
+    raised: this is a warn-and-record check (owner, 2026-09-29), and a stamp
+    that cannot be read is exactly the thing a reader should be told about.
+    """
+    if not os.path.isfile(os.path.join(prefix, STAMP)):
+        return NO_PREVIOUS_STAMP
+    try:
+        return verify(prefix, files)
+    except StampError as exc:
+        return ["the previous stamp is unusable: %s" % exc]
 
 
 class DeltanetBenchmark(GenericBenchmark):
@@ -128,6 +151,19 @@ class DeltanetBenchmark(GenericBenchmark):
         self._delete_artifacts()
         self._generate_policy_matrix()
         self._convert_policy_to_checks()
+        # BEFORE re-stamping: afterwards the only stamp left is this run's own,
+        # and comparing against it cannot see anything (CLOUD_BENCH_PLAN.md
+        # §2.13, found 2026-09-29 -- D7's "no drift" was that comparison).
+        # Warn and record, never refuse: the drift also lands in the new stamp.
+        self.input_drift = previous_drift(self.prefix, self._generated())
+        if self.input_drift == NO_PREVIOUS_STAMP:
+            self.logger.info("input stamp: %s in %s, nothing to compare",
+                             NO_PREVIOUS_STAMP, self.prefix)
+        elif self.input_drift:
+            self.logger.warning(
+                "INPUT DRIFT: %s now differs from the previous run's inputs "
+                "-- results are not comparable across the two runs: %s",
+                self.prefix, '; '.join(self.input_drift))
         self.stamp()
 
     def _generated(self):
@@ -138,24 +174,35 @@ class DeltanetBenchmark(GenericBenchmark):
                 if label != 'np_config' and path.startswith(self.prefix + '/')}
 
     def stamp(self):
-        """ Record what this directory now holds, and from what. """
+        """ Record what this directory now holds, and from what.
+
+        A benchmark run also records `drift_from_previous`: how its inputs
+        differed from the run before it (`previous_drift`). `generate_inputs`
+        does not check, so its stamp carries no such key -- regenerating is the
+        sanctioned way to accept new inputs, not a comparison.
+        """
+        extra = {
+            'trace': self.trace,
+            'trace_sha256': sha256(os.path.join(RAW, self.trace)),
+            'census': self.census,
+        }
+        drift = getattr(self, 'input_drift', None)
+        if drift is not None:
+            extra['drift_from_previous'] = drift
         return write(
             self.prefix,
             generator='bench.deltanet.workload',
             files=self._generated(),
-            extra={
-                'trace': self.trace,
-                'trace_sha256': sha256(os.path.join(RAW, self.trace)),
-                'census': self.census,
-            })
+            extra=extra)
 
     def check_stamp(self):
         """ The inputs are the ones the stamp recorded -- or say how they differ.
 
-        `run()` calls `_pre_preparation` itself, so driving one model through
-        three backends regenerates it three times. This is what makes "all three
-        got the same inputs" an observation rather than a belief about
-        determinism (CLOUD_BENCH_PLAN.md D7).
+        Answers "has anything edited this directory since it was stamped?". It
+        does NOT answer "did two runs get the same inputs?" when called after a
+        run, because `run()` re-stamps: that comparison is `previous_drift`,
+        made inside `_preparation` before the re-stamp, and recorded as
+        `drift_from_previous` (CLOUD_BENCH_PLAN.md §2.13, 2026-09-29).
         """
         return verify(self.prefix, self._generated())
 

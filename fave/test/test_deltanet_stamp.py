@@ -48,8 +48,9 @@ from bench.input_stamp import StampError, read, sha256, verify, write
 from test.backend_gate import require_or_skip
 
 
-class TestStampMechanism(unittest.TestCase):
-    """ `bench/input_stamp.py` on a directory nothing else owns. """
+class _TwoFilesInATempDir:
+    """ The fixture: two small files in a directory nothing else owns. A mixin
+    with no tests of its own, so a class using it runs only its own tests. """
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix='stamp_test_')
@@ -62,6 +63,10 @@ class TestStampMechanism(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
+
+
+class TestStampMechanism(_TwoFilesInATempDir, unittest.TestCase):
+    """ `bench/input_stamp.py` on a directory nothing else owns. """
 
     def test_a_fresh_stamp_verifies(self):
         write(self.tmp, 'test', self.files)
@@ -113,6 +118,42 @@ class TestStampMechanism(unittest.TestCase):
     all(os.path.isfile(os.path.join(prefix_of(n), 'SOURCE.json'))
         for n in WORKLOADS),
     "Delta-net workload inputs not generated (run test/gen_deltanet_inputs.sh)")
+class TestDriftFromPreviousRun(_TwoFilesInATempDir, unittest.TestCase):
+    """ `previous_drift`: this run's regenerated inputs against the stamp the
+    PREVIOUS run left, taken before the re-stamp (CLOUD_BENCH_PLAN.md §2.13,
+    2026-09-29). After the re-stamp the comparison is of a run with itself --
+    which is what D7's "no drift" check was. """
+
+    def test_a_first_run_says_there_was_nothing_to_compare(self):
+        from bench.deltanet.workload import NO_PREVIOUS_STAMP, previous_drift
+        self.assertEqual(previous_drift(self.tmp, self.files),
+                         NO_PREVIOUS_STAMP)
+
+    def test_identical_inputs_are_clean(self):
+        from bench.deltanet.workload import previous_drift
+        write(self.tmp, 'test', self.files)
+        self.assertEqual(previous_drift(self.tmp, self.files), [])
+
+    def test_a_regenerated_file_that_moved_is_named(self):
+        from bench.deltanet.workload import previous_drift
+        write(self.tmp, 'test', self.files)
+        with open(self.b, 'w') as handle:          # what a changed run writes
+            handle.write('{"b": 3}\n')
+        drift = previous_drift(self.tmp, self.files)
+        self.assertEqual(len(drift), 1, drift)
+        self.assertIn('b.json', drift[0])
+
+    def test_an_unreadable_stamp_is_reported_not_raised(self):
+        """ Warn-and-record: a broken stamp is something to tell, not a crash
+        that stops the benchmark. """
+        from bench.deltanet.workload import previous_drift
+        with open(os.path.join(self.tmp, 'SOURCE.json'), 'w') as handle:
+            handle.write('not json')
+        drift = previous_drift(self.tmp, self.files)
+        self.assertEqual(len(drift), 1, drift)
+        self.assertIn('unusable', drift[0])
+
+
 class TestRegisteredWorkloadsAreStamped(unittest.TestCase):
     """ The mechanism is WIRED, for every workload the registry names. """
 

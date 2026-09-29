@@ -3325,8 +3325,19 @@ no drift after every run**, so the three engines answered byte-identical files.
 > pure function of the vendored trace, but D7 did not observe it. The
 > 2026-09-29 runs below observe it properly for both APKeep engines, by
 > recording every run's input hashes and comparing them ACROSS runs; for
-> NetPlumber and ad6 it has not been re-measured. `check_stamp()`'s placement
-> is unchanged — whether `run()` should verify before it re-stamps is open.
+> NetPlumber and ad6 it has not been re-measured.
+>
+> **FIXED 2026-09-29 (owner: warn and record).** `_preparation` now calls
+> `previous_drift()` BEFORE `self.stamp()`, comparing this run's regenerated
+> inputs with the stamp the previous run left; drift is logged as an
+> `INPUT DRIFT` WARNING naming each moved file with old → new hash, and written
+> into the new stamp as `drift_from_previous` (`[]` when clean, `"no previous
+> stamp"` on a first run). It never refuses a run. `generate_inputs` records no
+> such key: regenerating is how new inputs are accepted, not a comparison.
+> Checked end to end: two plain runs `[]`; a mutated run names exactly the five
+> policy-derived files; the next plain run names them again, hashes reversed.
+> `check_stamp()` itself is unchanged and now documents that it answers "was
+> this directory edited since its stamp?", not "did two runs match?".
 
 ### What the second trace actually changes
 

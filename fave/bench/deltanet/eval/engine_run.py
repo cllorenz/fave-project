@@ -34,9 +34,10 @@ reads what §3's guardrails say a result must be read from:
 * `report.md`, whose violation lines are COUNTED, not eyeballed;
 * `checks.json`, for the denominator;
 * the workload's input hashes (`SOURCE.json`), recorded per run so that
-  "every engine got the same inputs" is checked ACROSS runs. `check_stamp()`
-  after a run cannot say it: `run()` re-stamps in `_preparation`, so the
-  comparison is of a run with itself (found 2026-09-29; §2.13).
+  "every engine got the same inputs" is checked ACROSS runs, and the stamp's
+  `drift_from_previous` -- `run()`'s own comparison with the run before it,
+  made before it re-stamps (since 2026-09-29; before that `check_stamp()` after
+  a run compared the run with itself, §2.13).
 
 `--mutate` adds `s1 ---> s8` to the generated FPL -- §2.6's non-vacuity check,
 a cell the data plane cannot satisfy because s8 homes no prefix. It is applied
@@ -184,7 +185,9 @@ def main(argv=None):
         result['policy_has_mutation'] = 's1 ---> s8' in handle.read()
 
     with open(os.path.join(prefix, 'SOURCE.json')) as handle:
-        result['input_files'] = json.load(handle)['files']
+        stamp = json.load(handle)
+    result['input_files'] = stamp['files']
+    result['drift_from_previous'] = stamp.get('drift_from_previous')
     with open(os.path.join(prefix, 'checks.json')) as handle:
         compiled = json.load(handle)
     # The mutation turns ONE must-NOT-reach check into a must-reach; say so
@@ -201,7 +204,7 @@ def main(argv=None):
         handle.write('\n')
     print(json.dumps({k: result[k] for k in (
         'workload', 'engine', 'mutated', 'status', 'wall_s',
-        'check_compliance_s', 'violations', 'checks', 's1_s8_check',
+        'check_compliance_s', 'violations', 'checks', 'drift_from_previous',
         'verdict_valid')}))
     if args.mutate:
         print("NOTE: artifacts under %s are MUTATED; regenerate with "
