@@ -3405,6 +3405,9 @@ and today is not established here and is worth its own look.
   caveat describes, met here on a tier timing rather than on a benchmark.
 * **Gated, engines.** `TestBackendDifferentialAirtel2`, `ENGINES = ('ndd',)`.
   Integration's second group goes 8 → **11** passed and 84 s → 146 s.
+  *(Both engines since 2026-09-29: the override is gone, so it inherits
+  `('bdd', 'ndd')` like airtel1. Still 3 tests; their shared setup 21.3 s →
+  29.6 s.)*
 * **NOT gated: ad6.** Exactly as for airtel1 — no `test_ad6_*` covers this
   workload, so ad6's zero on both traces is a one-off measurement. D7 does not
   change that and does not pretend to; the gap is now recorded twice rather than
@@ -3487,8 +3490,10 @@ and before item 29's fixes.
 
 **Not claimed:** anything about NetPlumber or ad6 today (not re-run); a cause for
 the 1.8× (no profile); stability beyond this machine and session — §2.12's
-caveat stands. **Not changed:** `TestBackendDifferentialAirtel2` still gates
-NDD only; adding `'bdd'` would cost ~4 s and is a separate decision.
+caveat stands. **Gate extended the same day** (owner): `TestBackendDifferentialAirtel2`
+now runs BDD as well as NDD, 3 passed, setup 21.3 s → 29.6 s — the +8.3 s is
+roughly double this section's benchmark-path estimate, because the test builds
+its own in-process matrix.
 
 ---
 

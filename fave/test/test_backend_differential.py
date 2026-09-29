@@ -248,17 +248,17 @@ class TestBackendDifferentialAirtel2(_Differential):
     22,400 `(switch, prefix)` forwarding decisions move, which is the one thing
     about airtel2 that airtel1 does not already cover.
 
-    **`ndd` alone, and for two reasons.** BDD-APKeep is under concurrent work
-    elsewhere (owner, 2026-09-25) and this must not touch it; and `ndd` is what
-    the aggregator runs by default, so it is the engine the benchmark figures in
-    §2.13 come from. `wl_up` is the precedent for a one-engine class.
+    **Both engines**, like airtel1. It ran `ndd` alone from D7 until 2026-09-29,
+    while BDD-APKeep was under concurrent work elsewhere (owner, 2026-09-25);
+    with that work landed (TODO.md item 29), BDD answers 0 of 256 on this trace
+    at ~1.8x NDD's cost (CLOUD_BENCH_PLAN.md §2.13, "BDD-APKeep, 2026-09-29"),
+    so the one-engine exception -- which exists for `wl_up`, where BDD takes
+    688 s -- has no reason to apply here.
     """
 
     __test__ = True
     PREFIX = "bench/wl_airtel2"
     GENERATOR = "gen_deltanet_inputs.sh"
-
-    ENGINES = ('ndd',)
 
 
 @_gate
