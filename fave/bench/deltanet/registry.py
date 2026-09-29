@@ -42,13 +42,34 @@ WORKLOADS: Dict[str, str] = {
     'wl_airtel2': 'airtel2-only-inserts.csv',
 }
 
+#: workload directory -> DERIVED trace (`traces/DERIVED.SHA256SUMS`).
+#:
+#: **Deliberately not in `WORKLOADS`**, and that is the whole difference. The
+#: trace is gitignored and re-derived from the kept archive, so a checkout
+#: without the archive -- CI's -- has no input for these; and `wl_berkeley`'s
+#: generation takes ~7 minutes and ~16 GB (CLOUD_BENCH_PLAN.md §2.15). A dict
+#: that `test.sh` and `gen_deltanet_inputs.sh` loop over is the wrong place for
+#: either. They are built by name (`build('wl_berkeley')`, `bash
+#: test/gen_deltanet_inputs.sh wl_berkeley`) and by nothing else.
+DERIVED: Dict[str, str] = {
+    'wl_berkeley': 'berkeley-inserts.csv',
+}
+
+
+def trace_of(name: str) -> str:
+    """ The trace a workload models, from either dict. """
+    if name in WORKLOADS:
+        return WORKLOADS[name]
+    if name in DERIVED:
+        return DERIVED[name]
+    raise KeyError(
+        "%r is not a Delta-net workload -- registered: %s; derived: %s. A "
+        "workload that is not in WORKLOADS is invisible to test.sh and to the "
+        "input generator's default, which is the point: they loop over it."
+        % (name, ', '.join(sorted(WORKLOADS)), ', '.join(sorted(DERIVED))))
+
 
 def prefix_of(name: str) -> str:
     """ The `bench/`-relative prefix a workload's artifacts live under. """
-    if name not in WORKLOADS:
-        raise KeyError(
-            "%r is not a Delta-net workload -- registered: %s. A workload that "
-            "is not here is invisible to test.sh and to the input generator, "
-            "which is the point: they loop over this dict."
-            % (name, ', '.join(sorted(WORKLOADS))))
+    trace_of(name)
     return 'bench/%s' % name

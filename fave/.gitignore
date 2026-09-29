@@ -84,6 +84,12 @@ bench/wl_airtel*/*.json
 bench/wl_airtel*/*.csv
 bench/wl_airtel*/roles_and_services.txt
 bench/wl_airtel*/reach.txt
+# wl_berkeley (CLOUD_BENCH_PLAN.md §2.15) is the same shape over a DERIVED
+# trace, so the same four lines. Its routes.json is ~2 GB.
+bench/wl_berkeley/*.json
+bench/wl_berkeley/*.csv
+bench/wl_berkeley/roles_and_services.txt
+bench/wl_berkeley/reach.txt
 
 
 *.pdf

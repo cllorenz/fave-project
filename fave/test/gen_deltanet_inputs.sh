@@ -17,6 +17,8 @@
 # them in both places is how the two come to disagree, and a workload missing
 # from the tier's generation step does not fail -- it SKIPS, which reads as
 # green. Pass names to restrict it; pass none and it does the registry.
+# A DERIVED workload (`wl_berkeley`) is built only when named: its trace is
+# gitignored and it takes minutes and ~16 GB (CLOUD_BENCH_PLAN.md §2.15).
 
 set -euo pipefail
 
@@ -28,17 +30,17 @@ export PYTHONPATH="$(pwd)"
 import logging
 import sys
 
-from bench.deltanet.registry import WORKLOADS
+from bench.deltanet.registry import DERIVED, WORKLOADS
 from bench.deltanet.workload import generate_inputs
 
 logging.basicConfig(level=logging.INFO)
 
 names = sys.argv[1:] or sorted(WORKLOADS)
 for name in names:
-    if name not in WORKLOADS:
+    if name not in WORKLOADS and name not in DERIVED:
         raise SystemExit(
             "%s is not a registered Delta-net workload -- have: %s"
-            % (name, ', '.join(sorted(WORKLOADS))))
+            % (name, ', '.join(sorted(WORKLOADS) + sorted(DERIVED))))
 
     # What "generate the inputs" MEANS is defined once, in
     # `bench.deltanet.workload`, because `run()` reaches the same steps by a

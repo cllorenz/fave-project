@@ -67,12 +67,18 @@ import os
 
 from bench.generic_benchmark import GenericBenchmark
 from bench.input_stamp import STAMP, StampError, sha256, verify, write
+from bench.deltanet.fib_walk import reachability, reached_pairs
 from bench.deltanet.policy import (
-    emit_inventory, emit_policy, homing_switches, role_endpoints)
-from bench.deltanet.preparation import build_model
-from bench.deltanet.registry import WORKLOADS, prefix_of
+    emit_inventory, emit_policy, emit_walked_policy, homing_switches,
+    role_endpoints)
+from bench.deltanet.preparation import build_model, port_rule
+from bench.deltanet.registry import DERIVED, prefix_of, trace_of
+from bench.deltanet.sample import sample
+from bench.deltanet.routers import (
+    PORT_ASSIGNMENT, derive_router_topology, router_homes, router_rule)
 from bench.deltanet.topology import derive_topology, homes
-from bench.deltanet.trace import RAW, read_trace
+from bench.deltanet.trace import (
+    FIELD4_LPM_PRIORITY, FIELD4_UNREAD, RAW, read_trace)
 from util.raw_data import verify_raw
 
 
@@ -102,6 +108,14 @@ def previous_drift(prefix, files):
 class DeltanetBenchmark(GenericBenchmark):
     """ The Delta-net snapshot under a reachability matrix we wrote. """
 
+    #: Which manifest under `traces/` pins the trace.
+    MANIFEST = 'SHA256SUMS'
+    #: How the trace's fourth field is read -- D1's assertion, for airtel.
+    FIELD4 = FIELD4_LPM_PRIORITY
+    #: `routes.json`'s indentation. 2 keeps airtel's artifacts -- and so their
+    #: stamps -- byte-identical to what they were; a 13M-rule model uses None.
+    ROUTES_INDENT = 2
+
     def __init__(self, prefix, trace, **kwargs):
         #: The vendored CSV this run models, resolved under `traces/`. Stored
         #: before the base constructor, because a subclass method may run
@@ -109,32 +123,48 @@ class DeltanetBenchmark(GenericBenchmark):
         self.trace = trace
         super().__init__(prefix, **kwargs)
 
-    def _pre_preparation(self):
-        verify_raw(RAW)
+    def _select(self, inserts):
+        """ Which of the trace's inserts the model is built from: all of them.
+        A subclass may measure a smaller snapshot, and stamps that it did. """
+        return inserts
 
-        inserts = read_trace(os.path.join(RAW, self.trace))
-        topology = derive_topology(inserts)
-        homed = homes(inserts)
+    def _derive(self, inserts):
+        """ `(topology, homing, rule reading)` -- the `s<i>-<j>` reading. """
+        return derive_topology(inserts), homes(inserts), port_rule
+
+    def _policy_text(self, topology, homed, model):
+        """ `reach.txt`. The homing states airtel's matrix (`policy.py`). The
+        model is passed so a subclass can state one the homing cannot. """
+        return emit_policy(topology, homed)
+
+    def _pre_preparation(self):
+        verify_raw(RAW, self.MANIFEST)
+
+        inserts = self._select(read_trace(os.path.join(RAW, self.trace),
+                                          field4=self.FIELD4))
+        topology, homed, rule_of = self._derive(inserts)
+        built = build_model(inserts, topology, homed, rule_of=rule_of)
+        del inserts
+        self.census = built['census']
 
         with open(self.files['roles_services'], 'w') as out:
             out.write(emit_inventory(topology, homed))
         with open(self.files['reach_policies'], 'w') as out:
-            out.write(emit_policy(topology, homed))
+            out.write(self._policy_text(topology, homed, built))
 
         with open(self.files['inventory'], 'w') as out:
             out.write(json.dumps(role_endpoints(topology), indent=2) + '\n')
 
-        built = build_model(inserts, topology, homed)
-        self.census = built['census']
-
-        for key, payload in (
-                ('topology', built['topology']),
-                ('routes', built['routes']),
-                ('sources', built['sources']),
-                ('policies', built['probes']),
+        for key, payload, indent in (
+                ('topology', built['topology'], 2),
+                ('routes', built['routes'], self.ROUTES_INDENT),
+                ('sources', built['sources'], 2),
+                ('policies', built['probes'], 2),
         ):
             with open(self.files[key], 'w') as out:
-                out.write(json.dumps(payload, indent=2) + '\n')
+                json.dump(payload, out, indent=indent)
+                out.write('\n')
+        del built
 
         self.logger.info(
             "deltanet model from %s: %d devices, %d links, %d rules "
@@ -186,6 +216,7 @@ class DeltanetBenchmark(GenericBenchmark):
             'trace_sha256': sha256(os.path.join(RAW, self.trace)),
             'census': self.census,
         }
+        extra.update(self._stamped_choices())
         drift = getattr(self, 'input_drift', None)
         if drift is not None:
             extra['drift_from_previous'] = drift
@@ -194,6 +225,11 @@ class DeltanetBenchmark(GenericBenchmark):
             generator='bench.deltanet.workload',
             files=self._generated(),
             extra=extra)
+
+    def _stamped_choices(self):
+        """ Measurement-affecting choices a subclass makes (§3). None here:
+        airtel's are all derived, and its stamp stays what it was. """
+        return {}
 
     def check_stamp(self):
         """ The inputs are the ones the stamp recorded -- or say how they differ.
@@ -207,7 +243,71 @@ class DeltanetBenchmark(GenericBenchmark):
         return verify(self.prefix, self._generated())
 
 
-def build(name, logger=None):
+class RouterTraceBenchmark(DeltanetBenchmark):
+    """ A trace that names ROUTERS and no ports -- `wl_berkeley` (§2.15).
+
+    Differs from the family in four stamped choices, each forced by the data
+    and none of them free:
+
+      * the fourth field is NOT READ. D1 does not hold outside airtel (§2.14),
+        and nothing here needs a priority: the tables declare LPM and every
+        backend orders by prefix length;
+      * the PORTS ARE INVENTED, as a renaming of the adjacency (`routers.py`);
+      * a router with NO RULE for a prefix DROPS it. The alternative -- deliver
+        it to that router's own border network -- would invent a second home
+        for 25,433 prefixes the trace delivers at exactly one router each;
+      * the MATRIX COMES FROM A WALK of the model (`fib_walk.py`), not from the
+        homing: longest-prefix fallback reaches cells the homing cannot state.
+        So the expectation is a second implementation of the forwarding
+        semantics, checked against every engine -- still a consistency
+        property, never an oracle.
+    """
+
+    MANIFEST = 'DERIVED.SHA256SUMS'
+    FIELD4 = FIELD4_UNREAD
+    ROUTES_INDENT = None
+
+    def __init__(self, prefix, trace, keep_every=1, **kwargs):
+        #: 1/k of the prefixes plus every LPM witness (`sample.py`), for the
+        #: size series; 1 is the whole trace. A constructor argument, stamped,
+        #: and never an environment variable (`FAVE_DELTANET_TRACE`'s lesson).
+        self.keep_every = keep_every
+        super().__init__(prefix, trace, **kwargs)
+
+    def _select(self, inserts):
+        return sample(inserts, router_homes(inserts), self.keep_every)
+
+    def _derive(self, inserts):
+        return (derive_router_topology(inserts), router_homes(inserts),
+                router_rule)
+
+    def _policy_text(self, topology, homed, model):
+        lpm = reached_pairs(reachability(model))
+        inverted = reached_pairs(reachability(model, resolve='shortest'))
+        #: §3's guard, run on the matrix itself: the cells inverting the
+        #: priority would change. Non-empty is what airtel's matrix is not.
+        self.lpm_sensitive_cells = sorted(lpm ^ inverted)
+        self.logger.info(
+            "fib walk: %d of %d cells reached; inverting LPM changes %d",
+            len(lpm), len(topology.switches) ** 2,
+            len(self.lpm_sensitive_cells))
+        return emit_walked_policy(topology, lpm)
+
+    def _stamped_choices(self):
+        choices = {
+            'field4': FIELD4_UNREAD,
+            'port_assignment': PORT_ASSIGNMENT,
+            'no_rule': 'dropped',
+            'matrix_from': 'bench.deltanet.fib_walk (lpm)',
+            'keep_every': self.keep_every,
+        }
+        sensitive = getattr(self, 'lpm_sensitive_cells', None)
+        if sensitive is not None:
+            choices['lpm_sensitive_cells'] = [list(cell) for cell in sensitive]
+        return choices
+
+
+def build(name, logger=None, **options):
     """ The benchmark for a registered workload -- the ONLY construction site.
 
     `use_internet` and `strict` are family properties, not per-workload ones, so
@@ -215,17 +315,24 @@ def build(name, logger=None):
     silently benchmark a different question. `--no-internet` because every
     border network is named and an unnamed outside would be a source this data
     set says nothing about; `--strict` because a border network reaching itself
-    is not something this data plane states, and the model deliberately installs
-    no rule that would let it.
+    is not something airtel's data plane states, and the model deliberately
+    installs no rule that would let it. (Berkeley's does state it, by hairpin --
+    `RouterTraceBenchmark` -- and `--strict` is what turns its unreached
+    diagonal into must-NOT-reach checks.)
+
+    `options` go to the family's constructor -- `keep_every` for a derived
+    workload's size series, and nothing for airtel, which refuses them.
     """
-    return DeltanetBenchmark(
-        prefix_of(name), WORKLOADS[name],
+    family = RouterTraceBenchmark if name in DERIVED else DeltanetBenchmark
+    return family(
+        prefix_of(name), trace_of(name),
         logger=logger if logger else logging.getLogger(name),
         use_internet=False,
-        strict=True)
+        strict=True,
+        **options)
 
 
-def generate_inputs(name, logger=None):
+def generate_inputs(name, logger=None, **options):
     """ The model, the FPL, the checks and the stamp -- everything short of an
     engine. `run()` reaches the same steps through `_preparation`; this is the
     entry point for the integration tier, which needs them without a backend.
@@ -233,7 +340,7 @@ def generate_inputs(name, logger=None):
     `_preparation` is deliberately NOT called here: it would also delete
     /dev/shm state that a concurrent run may own.
     """
-    run = build(name, logger=logger)
+    run = build(name, logger=logger, **options)
     run._pre_preparation()
     run._generate_policy_matrix()
     run._convert_policy_to_checks()
