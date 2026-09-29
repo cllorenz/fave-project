@@ -2166,6 +2166,32 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
 
   **NOT measured:** whether the full 16-router (9 491-rule) and i2 (154 974-rule) models behave as the subsets do. A patched build of those does not fit any budget here.
 
+### 30. Alternative verification backend: VeriFlow, as an independent implementation — PLAN (see [`VERIFLOW_PLAN.md`](VERIFLOW_PLAN.md))
+**Scope: the suite's representative of on-demand EC slicing** (Khurshid et al., NSDI'13; Khurshid's 2015 PhD thesis), written by us from the literature because the only published implementation is under a research licence we do not hold. **Nothing from any VeriFlow implementation is copied or vendored, and the UIUC release is not run** (plan §1, §5). D1 resolved 2026-09-29: no research question of its own — it serves item 31's unified comparison.
+- [ ] **V0 — spec freeze:** survey each workload's features; settle D2 (name), D3 (language), D6 (the 4+10 field optimisation); resolve the blocking questions of plan §7.
+- [ ] **V1 — single-field core** on `wl_airtel1`/`wl_airtel2`; **exit gate: calibration** against Delta-net Table 4 (Veriflow-RI, 4.5 ms average over the 158 link-failure queries on the same 38,100-rule snapshot).
+- [ ] **V2 — multi-field + ACLs**, EC counts and prefix-expansion factors reported.
+- [ ] **V3 — header rewrites** (thesis §3.1.3) — required, not optional: without them VF-FaVe alone has holes in the VLAN and NAT rows.
+- [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).
+- [ ] **V5 — measurement** over the whole suite, stamped.
+
+### 31. The unified comparison: declared accommodations, workload variants, the incremental axis — OPEN (owner framing 2026-09-29)
+**The work's main contribution is the unification of the benchmarks through FaVe and a fair comparison of the verification tools on a broad set of workloads** — FaVe's own and the literature's (owner, 2026-09-29). The owner's thesis compared NetPlumber only, on `wl_tum` only, against firewall tools only (fffuu, an iptables-capable SymNet). Items 10, 11, 30 and `CLOUD_BENCH_PLAN.md` are the backends and workloads closing that gap; this item is what makes the comparison *fair* rather than merely broad.
+
+**The accommodation rule (owner).** Most tools support far fewer header fields than real networks use — the 5-tuple, or IPv4 forwarding only (Delta-net). To measure a tool at all we either **implement a feature**, stating what and how, or **run a preprocessed, limited workload** — e.g. `wl_stanford`/`wl_i2` with VLANs baked into the topology — and preprocessing is declared as **tweaking of the workload, never as a trait of the tool**.
+
+Three refinements, so the two categories stay apart:
+1. **Preprocessing is either equivalence-preserving or reducing.** Baking VLANs into the topology should ask the *same* question; cutting a workload to IPv4 forwarding for Delta-net drops the ACLs and asks a *different* one. An equivalence-preserving variant needs **evidence**: an engine that runs both original and variant (NetPlumber) must give identical verdicts on both — until then it is a claim. A reducing variant is a **new workload** with its own re-derived check set, named as such, not a lesser copy of the original.
+2. **Adapter encodings are preprocessing too.** Anything done before the engine sees the rules — LPM to priority (`_reprioritise_fib_lpm`), ingress demultiplexing (`CLOUD_BENCH_PLAN.md` §2.8), port range to prefix expansion — is declared with its cost. Anything inside the engine is an **extension**, declared with what was implemented and how.
+3. **Whose extension.** When we implement a feature for a tool, prefer the authors' own published extension, then the literature's approach for that tool, then our own design — and say which. A clumsy extension penalises the tool, not us.
+
+- [ ] **Accommodation registry** — one document the write-up can cite, instead of five plan documents. Per entry: tool, kind (extension / adapter encoding / equivalence-preserving variant / reducing variant), what and how, cost, evidence, stamp field. Seed entries already in the tree, each to be classified rather than assumed: APKeep's faithful-VLAN model and its `--no-vlan` switch (`APKEEP_BACKEND.md` — `--no-vlan` is VLAN-blind, so a *reducing* encoding, "not a like-for-like comparand"); APKeep ingress demultiplexing (§2.8); LPM re-prioritisation; ad6's mandatory `--lite-acyclic` on i2 (item 0a); the Delta-net airtel workloads as a *static snapshot of an update trace* with an invented reachability policy (`CLOUD_BENCH_PLAN.md` §2.1, §2.5).
+- [ ] **Variant naming** — how a preprocessed workload is named and where it lives. `SOURCE.json` (A3) already records what produced a generated workload directory; extend it to record the preprocessing and, for an equivalence-preserving variant, the verdict-identity evidence.
+- [ ] **Result-cell schema** — every cell carries: engine provenance (native / extended / our reimplementation), workload variant, adapter encodings, and an outcome that distinguishes *correct* from *did not finish within the declared limit* from *wrong verdict*.
+- [ ] **The incremental axis** — raised from "deferred" (`CLOUD_BENCH_PLAN.md` §2.1) to a fairness requirement. APKeep and VeriFlow are update-optimised; measuring them only from zero judges them on a regime they never claimed, and FaVe's own TNSM'21 claim is continuous verification. Needs the per-update latency metric, APKeep incremental wiring (`delete_rules` exists only on `NetPlumberAdapter`), and a stated result that ad6 rebuilds per update.
+  - **Reopens D8 in part:** the five non-airtel Delta-net traces that replay to an empty FIB (measured for two, inferred for three — `CLOUD_BENCH_PLAN.md` §2.14) are *update* workloads, and `rf1755` is named for the same Rocketfuel AS 1755 that VeriFlow's own experiment used. D8's blockers still stand (the fourth field's meaning; no ports in the names), so this is a feasibility question, not a promise.
+- [ ] **OPEN (owner): Delta-net as a backend?** Atoms are a distinct family (a persistent minimal partition over one field), and its authors' traces are already in the suite. Natively it runs only the IPv4-forwarding workloads; everything else would be declared accommodations or reduced variants — itself an honest data point about the tool. No code is published (`VERIFLOW_PLAN.md` §2), so it would be a second independent implementation.
+
 ---
 
 ## Python codebase test expansion (fave/ + policy_translator/)

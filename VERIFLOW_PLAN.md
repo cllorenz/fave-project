@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** PLANNING (opened 2026-09-29). No code yet.
+**Status:** PLANNING (opened 2026-09-29). No code yet. D1 resolved 2026-09-29 (§9).
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -259,52 +259,114 @@ Resolutions are appended below the question with a date.
 - **Optional black-box run** of `MuLx10/VeriFlow` on small forwarding-only inputs,
   recorded as behaviour, never vendored.
 
+**Calibration — the gate no other engine in the suite needs.** Every other engine is
+its authors' own code, which we have patched; VF-FaVe is our reading, and a naive
+reading is the easiest straw man in the comparison. The defence is a published number
+on identical data. Delta-net §4.3.2 (Table 4) answers 158 "what if a link fails?"
+queries on the 38,100-rule Airtel data-plane snapshot — which *is* `wl_airtel1`'s
+input (`airtel1-only-inserts.csv`, 158 edges in `bench/deltanet/TRACES.md`) — and
+reports an average query time of **4.5 ms for Veriflow-RI** (0.04 ms for Delta-net),
+on a 3.47 GHz Xeon, single-threaded. VF-FaVe must reproduce that experiment on
+`wl_airtel1` — for each link, build the forwarding graphs of every EC the failure
+affects — and land within an order of magnitude of 4.5 ms, with the hardware difference
+stated. That is a V1 exit gate. It calibrates against Veriflow-RI, not VeriFlow: the
+original's per-update figures (0.38 ms, 0.59 ms with rewrites) come from a Route Views
+workload that is not available, and Delta-net's per-update tables (Table 3) use the full
+traces, which are out of scope (`CLOUD_BENCH_PLAN.md` §2.14).
+
 **Measurement stamps** (TODO 0a: *every measurement-affecting choice is a stamped
 result field*): trie field order; mode (incremental / bulk); §4.6 on/off; port
 semantics (Q7); port-range expansion factor; EC count per update (VeriFlow's own
 headline metric); language/build flags. **A VF-FaVe number is reported as VF-FaVe's**,
 beside a sentence on what it interprets — as Delta-net did for Veriflow-RI.
 
-## 9. Owner decisions pending
+## 9. Decisions
 
-- **D1 — The research question.** "EC slicing as a technique" makes VeriFlow the
-  canonical baseline. "The strongest incremental competitor" argues for Delta-net's
-  atoms instead (fully specified, datasets already in `bench/deltanet/`). The answer sets
-  the workload scope below.
+### D1 — RESOLVED 2026-09-29: VeriFlow represents a family in a unified comparison
+
+Owner framing, 2026-09-29: the work's main contribution is **the unification of the
+benchmarks through FaVe and a fair comparison of the different verification tools on a
+broad set of workloads** — FaVe's own and the literature's. The owner's thesis measured
+NetPlumber only, on `wl_tum` only, against firewall tools only (fffuu, an
+iptables-capable SymNet); the backends and workloads added since are closing that gap,
+and have already produced findings (NetPlumber is robust at scale; update-optimised
+tools can be challenged end to end, e.g. APKeep-BDD with VLANs not baked into the
+topology; ad6 is feasible within limits).
+
+So VF-FaVe needs **no research question of its own**. It is the suite's representative
+of **on-demand EC slicing** — the one family that keeps no packet-space partition
+between updates, against NetPlumber's rule graph and APKeep's persistent minimal
+partition. What follows from that:
+
+- **All workloads, not a tier.** VF-FaVe is run on the whole suite. Where it cannot
+  run a workload as given, the cell carries a **declared accommodation** (below), not
+  a gap.
+- **Rewrites (§4.5, V3) are required.** They are part of VeriFlow as the thesis
+  specifies it. Without them VF-FaVe alone would have holes in the VLAN and NAT rows,
+  which would read as VeriFlow's weakness when it is our implementation gap.
+- **Both regimes.** VeriFlow is update-optimised; judging it on from-zero time only
+  would measure it on a regime it never claimed. The incremental axis is a suite-level
+  item (TODO item 31), because fairness to APKeep needs it just as much.
+- **Calibration against Veriflow-RI** is a V1 exit gate (§8).
+
+### The accommodation rule (owner, 2026-09-29)
+
+Most tools support far fewer header fields than real networks use — the 5-tuple, or
+IPv4 forwarding only (Delta-net). To measure a tool at all we either **implement a
+feature**, declaring what and how, or **run a preprocessed workload**, declared as a
+tweak of the workload and never presented as a trait of the tool. The suite-wide
+registry and naming live in TODO item 31; for VF-FaVe:
+
+- **"Native" means as specified in the paper and thesis:** OpenFlow 1.1's 14 match
+  fields (incl. DL_VLAN and MPLS), priorities, drops, the §4.5 rewrites, the Ch. 4
+  queries. Anything beyond — IPv6, FaVe fields OpenFlow 1.1 lacks, per-port semantics
+  if Q7 resolves that way — is a **declared extension**, even though the whole tool
+  is ours.
+- **Adapter encodings are declared too,** with their cost: port range to prefix
+  expansion (factor reported), LPM to priority, ingress demultiplexing.
+- **Whose extension:** prefer the literature's approach for VeriFlow (e.g. APKeep's
+  prefix expansion) over our own design, and say which was used.
+
+### Still open
+
 - **D2 — Name.** `VF-FaVe` is a placeholder.
-- **D3 — Language.** C++ proposed: the original was C++ and NetPlumber is C++, so a
-  timing comparison is not dominated by the runtime. Python would be faster to write
-  and slower to measure.
+- **D3 — Language.** C++ proposed: the original was C++ and NetPlumber is C++, and
+  `APKEEP_BACKEND.md` §6's from-zero, low-and-symmetric-overhead boundary applies here
+  too. Python would be faster to write and slower to measure.
 - **D4 — UIUC source consultation.** Default: never. Owner may allow it per question.
 - **D5 — Ask the authors?** Godfrey (licence/permission for the original); Horn or
   Kheradmand (Veriflow-RI / Delta-net); Zhang's group (Delta-netMF).
 - **D6 — §4.6 optimisation** in scope, or a later variant (Q6)?
+- **Delta-net as a backend** is a suite-level question (TODO item 31), not this plan's.
 
-**Workload scope, by what VF-FaVe must support** (to be confirmed per workload in V0 —
-the feature column below is a hypothesis until surveyed):
+**Workload features, by what VF-FaVe must support** (a hypothesis until V0's survey):
 
-| tier | needs | candidates |
-|---|---|---|
-| A | dst-IP forwarding only | `wl_airtel1`, `wl_airtel2` (Delta-net's own regime) |
-| B | + multi-field ACLs | `wl_stanford`, `wl_i2` (minus VLAN), firewall workloads (`wl_up`, `wl_tum`, `wl_ifi`, `wl_generic_fw`) — where APKeep saw the EC explosion |
-| C | + header rewrites (§4.5) | VLAN models of `wl_i2`/`wl_stanford`; NAT in `wl_cloud` |
+| needs | workloads |
+|---|---|
+| dst-IP forwarding only | `wl_airtel1`, `wl_airtel2` (Delta-net's regime; the calibration data) |
+| + multi-field ACLs | `wl_stanford`, `wl_i2`, the firewall workloads (`wl_up`, `wl_tum`, `wl_ifi`, `wl_generic_fw`) — where APKeep saw the EC explosion |
+| + header rewrites (§4.5) | VLAN models of `wl_i2`/`wl_stanford`; NAT in `wl_cloud` |
 
-The thesis's §4.5 **moves tier C from "out of scope" to "in scope in principle"** —
-the NSDI paper alone ruled it out.
+The thesis's §4.5 moved the last row from "out of scope" (the NSDI paper alone) to
+"native".
 
 ## 10. Phases
 
-- **V0 — Spec freeze.** Survey each candidate workload's features (fills §9's table);
-  settle D1-D3, D6; resolve Q1, Q2, Q5, Q7-Q9 on paper. *Exit:* §7 has no unresolved
-  question that blocks V1.
+- **V0 — Spec freeze.** Survey each workload's features (fills §9's table); settle D2,
+  D3, D6; resolve Q1, Q2, Q5, Q7-Q9 on paper. *Exit:* §7 has no unresolved question
+  that blocks V1.
 - **V1 — Single-field core** (≈ Veriflow-RI): trie, EC, forwarding graph, reachability
-  and loop queries over dst-IP. Tier A, both modes, differential + LPM guard green.
-- **V2 — Multi-field + ACLs.** Tier B; report EC counts and range-expansion factors
-  against APKeep's figures.
-- **V3 — Rewrites** (§4.5). Tier C; Q3/Q4 resolved.
+  and loop queries over dst-IP; the link-failure query. `wl_airtel1`/`wl_airtel2`,
+  differential + LPM guard green. *Exit:* the §8 calibration against Delta-net
+  Table 4.
+- **V2 — Multi-field + ACLs.** Report EC counts and range-expansion factors against
+  APKeep's figures.
+- **V3 — Rewrites** (§4.5). Required, not optional (D1). Q3/Q4 resolved.
 - **V4 — FaVe integration.** Adapter, `FAVE_BACKEND=veriflow`, doctor entry for the
-  build, `integration`-tier gate.
-- **V5 — Measurement**, stamped per §8.
+  build, `integration`-tier gate, every accommodation entered in TODO item 31's
+  registry.
+- **V5 — Measurement** over the whole suite, both regimes where TODO item 31's
+  incremental axis exists, stamped per §8.
 
 ## 11. Citation and attribution
 
