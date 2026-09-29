@@ -1,0 +1,46 @@
+Declared 2026-09-29T14:05:23+00:00, before any run of this drill, after the size series (results_berkeley_2026-09-29/) ended.
+Owner direction 2026-09-29: drill APKeep-NDD deep before going broad; stay on this machine (19 GB RAM, 4 cores);
+run k=3 with a 3 GB memory floor (owner's choice after the sandbox died during the series' k=3 BDD run).
+Total budget 14 h (self-set upper bound), ending 2026-09-30T04:05:23+00:00. Expected use ~1-2 h: see PREDICTIONS.
+(A first draft of this protocol was written during the series and lost with the sandbox; this is its rewrite, with
+the same content and the floor raised.)
+
+Workload: wl_berkeley at keep_every=k (bench/deltanet/sample.py). Expected verdict at every size: 0 of 520, the
+fib_walk matrix every size of the series reproduced. Engine: APKeep --apkeep-engine ndd ONLY. NetPlumber left the
+series at k=30 (deadline; rule load ~size^2.2-2.6); BDD was 1.7-2.1x NDD on compliance at every size, so neither is
+drilled. Correctness stays gated: each run is checked against the walk's prediction, not against another engine.
+Driver: fave/bench/deltanet/eval/berkeley_drill.py --budget 50400 --jvm-xmx 8g --memory-floor 3000 (git 75f7620d).
+
+What changes from the series, and why:
+  * inputs generated ONCE per size in their own process (gen_k<k>.json: wall, peak RSS), then the run REUSES them
+    (--reuse-inputs, refused unless SOURCE.json verifies, keep_every and trace digest included).
+  * FAVE_JVM_XMX=8g, explicit and recorded. The default is 1/4 of RAM (~4.8 GB); the series' NDD run threw
+    java.lang.OutOfMemoryError: Java heap space at k=3.
+  * the JVM's GC log (-Xlog:gc) per run: pauses, total pause s, largest heap after a collection.
+  * memory floor 3000 MB MemAvailable (series: 1500), for generation and runs alike (status=memory).
+Validation, done BEFORE this declaration and not part of it (validation/): k=1000 NDD with --reuse-inputs and
+--jvm-xmx 8g -> 0/520, GC summary parsed, benchmark process 51 MB (3.6 GB when it regenerated), no drift.
+
+Order:
+  1. k=30, ANCHOR: generate, run. The series measured it under the old settings (load 34.3 s, compliance 67.9 s,
+     aggregator 4,141 MB).
+  2. k=10: one MUTATED run first (regenerates its own inputs; s22 ---> s23, expect exactly 1 of 520), then
+     generate, run.
+  3. k=3: generate, run.
+  4. k=1: generate, run.
+Deadlines (run / generation): k=30 1800/1800 s, k=10 3600/1800 s, k=3 10800/2700 s, k=1 28800/3600 s.
+Stopping: the drill ends at the first generation or plain run that is not a valid verdict; later sizes are not
+attempted. A step whose deadline the remaining budget cannot cover is recorded as skipped. One sample per size.
+
+PREDICTIONS, written before any drill run, from the series:
+  * rules: k=30 459,202; k=10 1,351,800; k=3 4,476,240; k=1 13,402,846.
+  * NDD is ~LINEAR from k=100 on (load and compliance exponents 0.9-1.05 between sizes): k=3 ~325 s load (the
+    series measured 324.7 s) + ~550 s compliance, if memory allows.
+  * MEMORY stops the drill, and NOT in NDD. The aggregator's Python side grows at ~1.8 KB per rule (NetPlumber runs,
+    no JVM: 69 MB at 26k rules, 840 MB at 459k): ~2.4 GB at k=10, ~8 GB at k=3, ~24 GB at k=1. The series' k=3 NDD
+    aggregator reached 15.5 GB at a ~4.8 GB heap. With an 8 GB heap: k=30 and k=10 complete; k=3 is predicted to
+    stop at the 3 GB floor; k=1 is not reached.
+  * If k=3 stops at the floor, the per-process peaks and the GC log's heap-after-GC say how much of it was the
+    JVM's live set and how much the aggregator's Python model.
+Unexplained, carried over: during the series' k=30 NetPlumber run MemAvailable fell to 3,916 MB, ~5 GB more than
+that run's processes account for; and the sandbox died during the series' k=3 BDD run, cause not established.
