@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** V1 DONE 2026-09-29 (§10); V2 next. D1-D6 resolved (§9); D5's first batch (Q10-Q14) awaits sending.
+**Status:** V1 and V2 DONE 2026-09-29 (§10); V3 next, with Q22 open. D1-D6 resolved (§9); D5's first batch (Q10-Q14) awaits sending.
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -349,6 +349,19 @@ item 31's registry.
   are built, and traversed from the source. This is the pattern of Delta-net's
   link-failure query, "the ECs affected by an event". It is our design, and declared as
   such.
+
+**Raised by V2's census.**
+
+- **Q22 — Bulk checks against the explosion.** Q21 slices a check's packet set by every
+  overlapping rule network-wide (Q1, Q15). A source that injects the whole header space
+  therefore faces the whole-space product: 5.3e10 ECs on `wl_stanford`, 2.8e17 on
+  `wl_up` (§10, V2). Enumerated, that cannot finish. The thesis's rewrite algorithm
+  (§4.5, T §3.1.3) already slices *locally*: at each device a packet set reaches, only
+  that device's rules split it. That bounds each hop's product by one device's rules,
+  not the network's. Path: the literature says this is how VeriFlow handles rewrites,
+  and V3 needs it anyway; whether bulk mode uses it for every check, rewrites or not,
+  is a design choice (owner). If it does not, the whole-space workloads are reported
+  as "did not finish within the limit" (TODO item 31's result cell), not approximated.
 
 **For the Delta-net authors (D5, group 1).** These are drafted now because they gate
 V1's exit (§8). Each is about what *their* experiment did, which only they can say. They
@@ -831,7 +844,37 @@ unit tests and seeing them fail, and its exit begins with those tests green.
   APKeep's figures. *Exit:* L7 and V2's share of L10 green, the oracle and crafted
   multi-field tests. **No FaVe differential here:** the V0 survey found no multi-field
   workload without rewrites. The metadata set/clear alone puts every router and
-  packet-filter workload under V3 (Q2).
+  packet-filter workload under V3 (Q2). **DONE 2026-09-29.**
+  - **Tests first:** L7 (the cartesian product), `ec_count` (counting without building,
+    saturating at 2^128), V2's share of L10 (black holes behind a multi-field ACL,
+    overlaps across fields). The oracle now also checks count = built on every random
+    network. 28 C++ tests.
+  - **The EC census** (`fave/bench/veriflow_ec_census.py`, pinned by
+    `fave/test/test_veriflow_census.py`) reproduces APKeep's Table 3 exactly where the
+    data is the same. On one field, VeriFlow's whole-space range ECs are Delta-net's
+    atoms.
+
+    | workload | VeriFlow-FR, FIB destinations | APKeep Table 3, Delta-netMF |
+    |---|---:|---:|
+    | `wl_airtel1`, `wl_airtel2` | **2,799** | Airtel1/2: 2,799 |
+    | `wl_stanford`, 3,844 FIB rules | **2,283** | Stanford*: 2,283 (Table 1: 3.84e3 rules) |
+    | `wl_i2`, 77,451 FIB rules | 16,232 | Internet2: 22,212 -- *different data*, 1.26e5 rules |
+
+    Over all fields the whole-space products explode, as APKeep §5.3 reports for range
+    ECs (Delta-netMF: 15 million on its Stanford encoding):
+
+    | workload | whole-space ECs |
+    |---|---:|
+    | `wl_ifi` | 2.9e6 |
+    | `wl_i2` | 5.8e6 |
+    | `wl_cloud` | 8.3e7 |
+    | `wl_stanford` | 5.3e10 |
+    | `wl_tum` | 5.1e13 |
+    | `wl_up` | 2.8e17 |
+
+  - **Expansion factors:** ingress ports (Q16) 1.0-1.69; FaVe's own port-range
+    expansion, which every engine sees alike, only on `wl_tum`: mean 1.19, max 15 rules
+    per ruleset line.
 - **V3 — Rewrites** (§4.5). Required, not optional (D1). Q3/Q4 resolved. *Exit:* L8 and
   the rest of L10 (VLAN isolation among them) green, and **the first multi-field FaVe
   differential**: every surveyed workload against NetPlumber, APKeep and ad6 (§8).

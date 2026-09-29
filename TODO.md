@@ -2198,7 +2198,12 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
   - An LPM guard that can fail: 13/13 correct, 13/13 wrong when inverted.
   - **Calibration passed:** 9.4-10.4 ms against Veriflow-RI's 4.5 ms (2.1-2.3×) on the same 158 queries. The model's Delta-net graph has exactly the paper's 68 nodes and 158 edges.
   - Files: `veriflow_fr/`, `fave/veriflow/`, `fave/bench/veriflow_calibration.py`, `fave/test/test_veriflow_{translate,airtel}.py`, wired into `test.sh`.
-- [ ] **V2 — multi-field + ACLs**, EC counts and prefix-expansion factors reported.
+- [x] **V2 — multi-field + ACLs — DONE 2026-09-29** (plan §10).
+  - Tests first: L7, `ec_count`, V2's share of L10; the oracle checks count = built. 28 C++ tests.
+  - **The EC census reproduces APKeep's Table 3 exactly where the data is the same:** Airtel1/2 2,799, Stanford* 2,283.
+  - Whole-space multi-field products explode, from 2.9e6 (`wl_ifi`) to 2.8e17 (`wl_up`).
+  - Expansion factors reported.
+  - **Open for V3, owner: Q22.** Should bulk checks slice locally per device (the thesis's rewrite algorithm) rather than network-wide? Otherwise the whole-space workloads cannot finish.
 - [ ] **V3 — header rewrites** (thesis §3.1.3) — required, not optional: without them VeriFlow-FR alone has holes in the VLAN and NAT rows.
 - [ ] **V3b — the 4+10 field optimisation** (thesis §3.2.2), generalised to FaVe's fields (a field is a trie dimension if any rule wildcards it arbitrarily, a linear-scan field otherwise), with excluded packet sets under rewrites. **Exit gate:** verdicts identical to plain VeriFlow-FR on every workload. Required, because every published VeriFlow number has it on and none measures it off (plan §9 D6). Fallback: report plain only, labelled as without §4.6.
 - [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).
