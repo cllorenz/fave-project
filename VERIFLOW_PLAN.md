@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** PLANNING (opened 2026-09-29). No code yet. D1, D2 and D3 resolved 2026-09-29 (§9).
+**Status:** PLANNING (opened 2026-09-29). No code yet. D1, D2, D3 and D6 resolved 2026-09-29 (§9).
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -131,7 +131,9 @@ fields, 10 allow only exact-or-ANY; only the 4 arbitrary-wildcard fields (DL_SRC
 DL_DST, NW_SRC, NW_DST) are trie dimensions. The other 10 are split by a linear scan
 over the rules *at the new rule's device*; finer rules met at *other* devices during
 traversal are handled by carrying an **excluded packet set** per forwarding action, so a
-query's answer is "primary set minus excluded set".
+query's answer is "primary set minus excluded set". **In scope (D6):** generalised to
+FaVe's fields and built as phase V3b; every published VeriFlow number was measured with it
+on (T p.36 fn.), and neither text measures it off.
 
 **4.7 Queries** (P §3.3, T §3.1.4, Ch. 4). An invariant is a function over one EC's
 forwarding graph. Chapter 4 lists ten: basic reachability (DFS, "does the current
@@ -238,6 +240,8 @@ Resolutions are appended below the question with a date.
   large share of the complexity and is tied to OpenFlow 1.1's field classes, which are
   not FaVe's. Proposal: V1-V3 build the plain multi-dimensional trie over *all* used
   fields; §4.6 is an optional, stamped variant later. Path: owner (D6).
+  *Resolved 2026-09-29 (D6):* in scope, as a **required, staged** variant, not an optional
+  one. V1-V3 are plain; V3b adds §4.6, with plain VeriFlow-FR as its verdict oracle. §9.
 - **Q7 — Port semantics.** See §6. Path: FaVe semantics; stamped.
 - **Q8 — Delivery.** When does a device "consume" a packet? FaVe answers this with its
   own sink nodes; no consultation needed. Recorded because §3 notes a seen-in-code
@@ -275,7 +279,7 @@ workload that is not available, and Delta-net's per-update tables (Table 3) use 
 traces, which are out of scope (`CLOUD_BENCH_PLAN.md` §2.14).
 
 **Measurement stamps** (TODO 0a: *every measurement-affecting choice is a stamped
-result field*): trie field order; mode (incremental / bulk); §4.6 on/off; port
+result field*): trie field order; mode (incremental / bulk); field classification `vf_fields` (D6); port
 semantics (Q7); port-range expansion factor; EC count per update (VeriFlow's own
 headline metric); compiler, standard and flags (D3); thread count (1, D3); provenance `reimpl-literature` with the
 engine commit (TODO item 31's provenance column, shared by every backend). **A VeriFlow-FR number is reported as VeriFlow-FR's**,
@@ -378,12 +382,56 @@ is the harness every backend runs in, not one of them.
 **C++17 rather than C++14:** it matches the NetPlumber build. The calibration compares
 timings, not language editions, and C++17 adds nothing that affects a measurement.
 
+### D6 — RESOLVED 2026-09-29: §4.6 is in scope, staged and measured both ways (owner's call)
+
+**What the texts establish:**
+
+1. **Every published VeriFlow number has §4.6 on.** "An optimization in our
+   implementation uses a condensed set of fields in the trie" (T p.36 fn., pointing to
+   §3.2.2).
+2. **Its benefit has never been measured.** Neither text turns it off. The paper's
+   experiment that varies the field count from 1 to 14 removes unused fields from the
+   trie, which is not the same thing.
+3. **Its premise is OpenFlow 1.1's, not the algorithm's.** It relies on 10 of 14 fields
+   being exact-or-ANY. The principle behind it is general: arbitrary-wildcard fields are
+   trie dimensions, exact-or-ANY fields are split by a linear scan at the device, and
+   excluded packet sets carry the finer rules met elsewhere.
+4. **The calibration does not need it.** Airtel is dst-IP only and Veriflow-RI is
+   single-field; with one field §4.6 is a no-op, so V1's exit (§8) is unaffected.
+5. **The texts never combine it with rewrites.** §4.5 and §4.6 are described apart. How
+   excluded sets behave when a rewrite moves an EC to another device is our design,
+   whichever way it goes.
+
+**Why it cannot be left out.** The multi-field rows (`wl_up`, `wl_tum`, `wl_ifi`,
+`wl_generic_fw`, `wl_stanford`, `wl_i2`) are where APKeep saw its EC explosion, and
+plausibly where §4.6 helps most, since a finer rule at another device becomes an
+exclusion instead of a network-wide EC split. A slow VeriFlow-FR there without §4.6 could
+be "VeriFlow without its own optimisation", which is the straw man item 31 forbids.
+
+**The decision:**
+
+- **Generalise the rule, not the field list.** Per workload, a field is a trie dimension
+  if any rule matches it with an arbitrary wildcard, and a linear-scan field otherwise.
+  Port ranges expanded to prefixes (an adapter encoding) therefore stay in the trie. V0's
+  survey supplies the classification.
+- **The classification is a stamp:** `vf_fields=plain`, or
+  `vf_fields=4+10:{trie=[…],scan=[…]}`.
+- **It is a declared extension** in item 31's registry: the literature's rule applied to
+  FaVe's fields. The §4.5 × §4.6 combination is entered as our own design.
+- **Phases:** V1-V3 build the plain trie over every used field. It is simpler to get right
+  and becomes the oracle. **V3b** adds §4.6; its gate is verdict identity with plain
+  VeriFlow-FR on every workload. **V5 reports both.** Where §4.6 applies, the faithful
+  variant is VeriFlow-FR's headline number and plain is the ablation, which is the first
+  published measurement of this optimisation.
+- **Fallback, declared rather than silent:** if excluded sets under rewrites prove
+  unworkable, the multi-field rows report plain VeriFlow-FR only, labelled "without §4.6,
+  which the published numbers include".
+
 ### Still open
 
 - **D4 — UIUC source consultation.** Default: never. Owner may allow it per question.
 - **D5 — Ask the authors?** Godfrey (licence/permission for the original); Horn or
   Kheradmand (Veriflow-RI / Delta-net); Zhang's group (Delta-netMF).
-- **D6 — §4.6 optimisation** in scope, or a later variant (Q6)?
 - **Delta-net as a backend** is a suite-level question (TODO item 31), not this plan's.
 
 **Workload features, by what VeriFlow-FR must support** (a hypothesis until V0's survey):
@@ -399,9 +447,9 @@ The thesis's §4.5 moved the last row from "out of scope" (the NSDI paper alone)
 
 ## 10. Phases
 
-- **V0 — Spec freeze.** Survey each workload's features (fills §9's table); settle
-  D6 (D2 and D3 are resolved); resolve Q1, Q2, Q5, Q7-Q9 on paper. *Exit:* §7 has no unresolved question
-  that blocks V1.
+- **V0 — Spec freeze.** Survey each workload's features (fills §9's table), including
+  its `vf_fields` classification (D6); resolve Q1, Q2, Q5, Q7-Q9 on paper. D2, D3 and D6
+  are resolved. *Exit:* §7 has no unresolved question that blocks V1.
 - **V1 — Single-field core** (≈ Veriflow-RI): trie, EC, forwarding graph, reachability
   and loop queries over dst-IP; the link-failure query. `wl_airtel1`/`wl_airtel2`,
   differential + LPM guard green. *Exit:* the §8 calibration against Delta-net
@@ -409,11 +457,15 @@ The thesis's §4.5 moved the last row from "out of scope" (the NSDI paper alone)
 - **V2 — Multi-field + ACLs.** Report EC counts and range-expansion factors against
   APKeep's figures.
 - **V3 — Rewrites** (§4.5). Required, not optional (D1). Q3/Q4 resolved.
+- **V3b — The §4.6 optimisation** (D6), generalised to FaVe's fields, with excluded sets
+  under rewrites. *Exit:* verdicts identical to plain VeriFlow-FR on every workload.
+  Fallback per D6.
 - **V4 — FaVe integration.** Adapter, `FAVE_BACKEND=veriflow`, doctor entry for the
   build, `integration`-tier gate, every accommodation entered in TODO item 31's
   registry.
 - **V5 — Measurement** over the whole suite, both regimes where TODO item 31's
-  incremental axis exists, stamped per §8.
+  incremental axis exists, stamped per §8. Both field variants (D6): §4.6 as the
+  headline where it applies, plain as the ablation.
 
 ## 11. Citation and attribution
 
