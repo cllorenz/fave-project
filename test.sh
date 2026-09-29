@@ -124,6 +124,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     # dependency -- and the file's own docstring says so, because a reader who
     # assumes one would hesitate to run it by hand.
     test/test_deltanet_lpm.py    # LPM is load-bearing on BOTH traces, and the matrix cannot see it (3's standing rule)
+    test/test_veriflow_airtel.py # VeriFlow-FR V1 gates: airtel matrices == oracle == NetPlumber, and an LPM guard that can fail (~50s)
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
 # chain, which TODO.md item 13a refuses by default -- so they run in their own
@@ -265,6 +266,14 @@ run_integration() {
 
     echo "== integration: NetPlumber C++ unit tests =="
     make -j -C "$ROOT/net_plumber/build" test || rc=1
+
+    # VeriFlow-FR (VERIFLOW_PLAN.md): its own C++ suite -- the literature's
+    # examples L1-L6/L10 and the concrete-packet oracle -- and the in-process
+    # binding test_veriflow_airtel.py drives. Both build in seconds, so they are
+    # built here rather than required up front.
+    echo "== integration: VeriFlow-FR C++ unit tests + libveriflow_fr =="
+    make -j -C "$ROOT/veriflow_fr" test || rc=1
+    PYTHON="$PYTHON" bash "$ROOT/veriflow_fr/python/build_libveriflow_fr.sh" || rc=1
 
     # Build APKeep (+ CLI golden pin) BEFORE the fave pytest step, so the
     # libapkeep test (test_apkeep_lib) finds the jar; it skips otherwise.
@@ -586,6 +595,12 @@ run_doctor() {
         printf '  [MISSING] %-30s %s\n' "libnetplumber .so built" \
             "-> bash net_plumber/python/build_libnetplumber.sh"
         rc=1
+    fi
+    if compgen -G "$ROOT/veriflow_fr/python/libveriflow_fr*.so" >/dev/null; then
+        printf '  [ok]      %-30s\n' "libveriflow_fr .so built"
+    else
+        printf '  [MISSING] %-30s %s\n' "libveriflow_fr .so built" \
+            "-> bash veriflow_fr/python/build_libveriflow_fr.sh   [integration; the tier builds it]"
     fi
     # The two Java engine jars, checked for FRESHNESS and not merely existence --
     # they are the same class of artifact as the .so above and fail the same way,
