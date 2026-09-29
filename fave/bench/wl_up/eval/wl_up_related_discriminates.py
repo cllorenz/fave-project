@@ -50,7 +50,7 @@ import time
 
 sys.setrecursionlimit(10**6)
 
-from ad6.adapter import Ad6Adapter
+from ad6.adapter import Ad6Adapter, TRANSLATION_LITERAL
 from util.in_process_driver import InProcessFaVe
 
 _PREFIX = "bench/wl_up"
