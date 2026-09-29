@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** PLANNING (opened 2026-09-29). No code yet. D1-D4 and D6 resolved 2026-09-29 (§9).
+**Status:** PLANNING (opened 2026-09-29). No code yet. D1-D6 resolved 2026-09-29 (§9); D5's first batch (Q10-Q14) awaits sending.
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -252,6 +252,35 @@ Resolutions are appended below the question with a date.
   make every table first-match-wins in document order unless declared otherwise, so
   document position is the tie-break and the adapter encodes it into priority.
 
+**For the Delta-net authors (D5, group 1).** These are drafted now because they gate
+V1's exit (§8). Each is about what *their* experiment did, which only they can say. They
+are phrased in the paper's terms only (Delta-net §4.3.2, Table 4).
+
+- **Q10 — Which data plane is the Airtel snapshot?** The paper says it was extracted "from
+  ONOS", with 38,100 rules and 158 queries. We identify it with the final state of
+  `airtel1-only-inserts.csv`, but by counts only: both airtel traces replay to 38,100
+  rules, and only airtel1 has 158 directed edges (`bench/deltanet/TRACES.md`). Is that
+  the same data plane? Path: authors.
+- **Q11 — What does one query compute?** The paper reads the question as "construct
+  forwarding graphs for all packet equivalence classes that are affected by a link
+  failure". Three things follow from that. Is a query one directed edge, which our count
+  of 158 suggests? Is each failure independent, with the link restored before the next?
+  Does Veriflow-RI's column include a property check, such as the forwarding-loop check
+  that Table 4's last column adds for Delta-net, or graph construction only? Path:
+  authors.
+- **Q12 — What is timed?** Per query, is the snapshot already loaded, with only the
+  failure's graph work timed? Is the reported figure the plain mean over the 158? Which
+  compiler and optimisation flags were used? Path: authors.
+- **Q13 — What did Veriflow-RI optimise?** The paper says Veriflow-RI "optimize[s] the
+  computation of equivalence classes and construction of forwarding graphs" in ways
+  "not … possible in the original … with its ternary trie", and "may therefore be faster
+  than Veriflow". Which optimisations were they? The answer decides how a gap between
+  VeriFlow-FR's ternary trie and 4.5 ms should be read. Path: authors.
+- **Q14 — Can Veriflow-RI or Delta-net be run by us?** As a binary or as code to run, and
+  under what terms. Running Veriflow-RI on our machine would turn the gate from a
+  comparison across machines into a direct one. If code is offered, D5's rule on code
+  applies. Path: authors.
+
 ## 8. Correctness and measurement gates
 
 **Correctness** needs no VeriFlow oracle: FaVe already has three engines that agree.
@@ -460,10 +489,54 @@ code would have given the original's answer. We could never have checked that fi
 anyway, since the release is not run (§1). The evidence for VeriFlow-FR is the
 calibration gate and the verdict differential (§8).
 
+### D5 — RESOLVED 2026-09-29: ask, in three narrow batches, sent by the owner (owner's call)
+
+Asking the authors is §5's step (e), the last step before a question becomes our own
+design (f). Step (b), FaVe's semantics, comes first. So only questions about **what
+VeriFlow, or an experiment, did** go to the authors; how FaVe should behave is ours.
+
+**The three groups, in order of value:**
+
+1. **Delta-net (Horn, Kheradmand, Prasad): first, because it gates V1's exit.** Q10-Q14
+   (§7): the snapshot's identity, what one query computes, what is timed, what
+   Veriflow-RI optimised, and whether Veriflow-RI or Delta-net can be run by us.
+2. **Khurshid, possibly with Godfrey in copy: for V3 and V3b, drafted after V0.**
+   - Were §3.1.3's rewrites and §3.2.2's optimisation ever combined, and how do excluded
+     sets behave when a rewrite moves an EC?
+   - Is there an unpublished measurement of what §3.2.2 saves? This bears on D6's
+     ablation.
+   - Q1: were EC ranges computed network-wide or per device?
+   - Was the rewrite version ever released?
+
+   **Not asked:** a licence to the UIUC release. A 2012-13 NOX-proxy release, probably
+   without rewrites, would be costly to use as an oracle, and a licence would have to come
+   from UIUC's technology transfer, not from its authors.
+3. **Zhang's group (APKeep): low value here.** Which "open-source version of VeriFlow"
+   did they benchmark (the source of the 686-rule, ~15 M-EC figure, §2)? Is Delta-netMF
+   available? This serves TODO item 31's Delta-net question more than this plan, and can
+   wait for it.
+
+**The rules:**
+
+- **The owner sends.** Claude drafts, and looks up current addresses and affiliations at
+  drafting time rather than guessing them. The sending identity (university or genua) is
+  the owner's choice. Sending is outward-facing and is never done by Claude.
+- **When:** each group's questions are concrete before they are sent, one batched email
+  per group. Group 1 now (V1), group 2 after V0, group 3 with item 31.
+- **Content:** our purpose (a FaVe-unified, fair comparison) and that our implementation
+  is independent; a request for prose answers and for permission to cite them as
+  personal communication. Questions use the literature's terms only and are **never
+  shaped by §3's contamination record**; for example, nothing about the
+  own-location next-hop convention.
+- **Answers** are appended verbatim to the question in §7, with date and sender.
+- **Code:** if code is offered or attached, **nobody opens it until the owner decides**.
+  It would be a new source, needing its own standing in §2 and a provenance check against
+  item 31's values.
+- **No answer:** four weeks after sending, the question goes to §5 step (f) and becomes
+  a declared design choice. The plan never waits indefinitely.
+
 ### Still open
 
-- **D5 — Ask the authors?** Godfrey (licence/permission for the original); Horn or
-  Kheradmand (Veriflow-RI / Delta-net); Zhang's group (Delta-netMF).
 - **Delta-net as a backend** is a suite-level question (TODO item 31), not this plan's.
 
 **Workload features, by what VeriFlow-FR must support** (a hypothesis until V0's survey):
