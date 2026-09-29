@@ -133,10 +133,23 @@ class _RecordingAdapter:
 def _build_apkeep(**kwargs):
     """ `build_engine` imports the adapter lazily, so a stub module in
     sys.modules is enough -- and keeps jpype out of the fast tier. """
+    built = []
+
+    def construct(*args, **options):
+        built.append(_RecordingAdapter(*args, **options))
+        return built[-1]
+
     stub = types.ModuleType("apkeep.adapter")
-    stub.APKeepAdapter = _RecordingAdapter
+    stub.APKeepAdapter = construct
     with mock.patch.dict(sys.modules, {"apkeep.adapter": stub}):
-        return build_engine(BACKEND_APKEEP, _LOG, **kwargs)
+        engine = build_engine(BACKEND_APKEEP, _LOG, **kwargs)
+    # Return the recorder we built, having checked the factory returned it:
+    # returning `engine` itself left pylint inferring the REAL adapters that
+    # build_engine can return, none of which has these attributes.
+    if len(built) != 1 or engine is not built[0]:
+        raise AssertionError("build_engine did not return the one APKeep "
+                             "adapter it constructed")
+    return built[0]
 
 
 class TestAPKeepDefaults(unittest.TestCase):
