@@ -74,8 +74,8 @@ def main(argv):
             raise SystemExit('k=%d: runs saw %d input sets' % (k, len(seen)))
 
     print('| engine | k | rules | status | rule load s | x | compliance s | x '
-          '| aggregator MB | net_plumber MB |')
-    print('|---|---:|---:|---|---:|---:|---:|---:|---:|---:|')
+          '| aggregator MB | net_plumber MB | JVM heap after GC MB |')
+    print('|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|')
     for engine in ('netplumber', 'ndd', 'bdd'):
         series = sorted((r for r in plain if r['engine'] == engine),
                         key=lambda r: -r['keep_every'])
@@ -85,7 +85,8 @@ def main(argv):
                     'load': row.get('switch_command_s'),
                     'check': (row.get('check_compliance_s') or [None])[0]}
             peak = row.get('peak_rss_by_process_mb', {})
-            print('| %s | %d | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+            gc = row.get('gc') or {}
+            print('| %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
                 engine, row['keep_every'],
                 '{:,}'.format(cell['rules']) if cell['rules'] else '?',
                 row['status'],
@@ -93,7 +94,8 @@ def main(argv):
                 _exponent(previous, cell, 'load') if previous else '',
                 '%.2f' % cell['check'] if cell['check'] else '--',
                 _exponent(previous, cell, 'check') if previous else '',
-                peak.get('aggregator', '--'), peak.get('net_plumber', '--')))
+                peak.get('aggregator', '--'), peak.get('net_plumber', '--'),
+                gc.get('max_heap_after_gc_mb', '--')))
             if row['status'] == 'completed':
                 previous = cell
     for row in rows:

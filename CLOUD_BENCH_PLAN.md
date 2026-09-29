@@ -3857,7 +3857,9 @@ Berkeley workload into `bench/wl_berkeley/`, then run the four measurements
 that decide whether a static workload can be built on it — revisions (§2.14,
 done), adjacency, delivery and loops, and LPM. **Nothing is built yet**, and no
 registry line exists: registering it would put a 12.8M-rule generation into
-`test.sh` and `gen_deltanet_inputs.sh` unasked.
+`test.sh` and `gen_deltanet_inputs.sh` unasked. *(BUILT and measured
+2026-09-29 — "Built, and what carries it", below; registered under
+`registry.DERIVED`, which neither loops over.)*
 
 ### The extraction
 
@@ -3982,7 +3984,133 @@ homing are generated — a near-complete mesh and a chunked assignment. So:
 **Not measured:** any engine run; whether the rf/inet traces share the one-hop
 shape (their 3–308 routers-per-prefix spread says they are at least different);
 what, if anything, the paper says of how the Berkeley rules were generated —
-the paper is not in the tree.
+the paper is not in the tree. *(2026-09-29: engines measured, and the paper
+is now in the checkout root — both below. The rf/inet shape is still open.)*
+
+### Built, and what carries it — 2026-09-29
+
+**Owner direction 2026-09-29:** "execute the plan for the Berkeley workload
+autonomously"; then, mid-series, "drill deep with NDD-APKeep only before going
+broad", "stay on this machine".
+
+#### What the paper says, now that it is here
+
+`2017_Horn_et_al_Delta-net…pdf`, §4.2.1: Berkeley and the four Rocketfuel
+sets are **synthetic** — prefixes from Route Views BGP updates, rules from
+shortest paths over the topology, "following the same mechanism as" Libra
+[59] — and then **"we modify the data sets so that rules are inserted with a
+random priority"**. So:
+
+* **Field 4 is a random priority.** That is what §2.14 measured without a
+  name (it falls on half of all steps). `wl_berkeley` does NOT read it
+  (`trace.FIELD4_UNREAD`, stamped) and resolves by longest prefix instead —
+  the shortest-path FIB the rules were generated as, not the randomised
+  table Delta-net verified. **A deliberate deviation from the paper's
+  experiment, and the owner's to revisit**: honouring the priorities would
+  make forwarding between nested prefixes arbitrary per router, and would need
+  a priority-ordered rather than an LPM-declared table.
+* **The model is corroborated from outside**, as airtel's was: Table 2 gives
+  Berkeley **23 nodes, 252 links, 12,817,902 rules**, and the derivation
+  (`routers.py`) gives 23 routers, 252 undirected links, 12,817,902 read rules.
+* Shortest paths over a complete graph less one link explain the one-hop
+  chains. They do NOT explain why 22 carries no rule at all for the prefixes
+  homed at 23, where a two-hop path exists. Not explained.
+
+#### The model — four stamped choices
+
+`bench/deltanet/workload.py` `RouterTraceBenchmark`, over `routers.py`,
+`fib_walk.py`, `sample.py`:
+
+| choice | what | why it is not free |
+|---|---|---|
+| field 4 | not read | D1 fails, and the paper names it random |
+| ports | 1 = border network, then one per neighbour in ascending order | invented, but a pure renaming of the 252 links |
+| no rule | **dropped** | "deliver" would invent a second home for 25,433 prefixes the trace delivers at exactly one router |
+| matrix | from a **walk of the model** (`fib_walk.py`), longest prefix first, one walk per address region and source | the homing cannot state it; below |
+
+Transit rules match ANY in-port (the trace names none); delivery rules, as in
+airtel, only the inter-router ports.
+
+**Why a walk, and what it found.** Longest-prefix FALLBACK — a router with no
+rule for a prefix uses the longest containing one it does carry — reaches cells
+the homing cannot state: **23 reaches 22** although the two share no link, and
+**9 routers reach their own border network** by a hairpin through a neighbour.
+The walk predicts 514 of 529 cells reached; the policy states exactly those
+(`policy.emit_walked_policy`), giving **520 checks: 505 must-reach, 15
+must-NOT-reach** (22 → 23 and 14 unreached diagonals; the 9 reached diagonals
+compile to no check — the roles declare no address — and are unchecked, which is
+the denominator stated). **Inverting LPM changes 14 cells**, so unlike airtel's
+this matrix sees LPM in the compliance run itself (§3). The walk is validated
+where the answer is independent: it reproduces airtel's homing-derived matrix
+on both traces cell for cell, LPM-blind there (`test_deltanet_fib_walk.py`);
+and on a four-router hand-worked trace (`test_deltanet_routers.py`).
+
+**Size series by sampling.** `keep_every=k` keeps 1/k of the prefixes in
+address order plus all 560 LPM-witness prefixes and their ancestors; k = 1000,
+300, 100 and 1 were measured to give the full trace's matrix exactly, and every
+run's stamp restates it.
+
+#### The size series — all engines (`results_berkeley_2026-09-29/`)
+
+Protocol declared before any run; `berkeley_series.py`, table by
+`berkeley_table.py`. Every completed run **0 of 520**; the mutation (s22 --->
+s23) **exactly 1 of 520 on all three engines**. Seconds from the aggregator log
+(rule load = the `switch_command` sum):
+
+| rules (k) | NetPlumber load | NDD load / compliance | BDD load / compliance |
+|---:|---:|---:|---:|
+| 26,237 (1000) | 3.5 | 1.1 / 3.8 | 1.3 / 7.4 |
+| 57,513 (300) | 15.1 | 2.8 / 7.7 | 3.0 / 14.4 |
+| 146,759 (100) | 167.9 | 10.4 / 23.6 | 10.0 / 40.5 |
+| 459,202 (30) | 2,092.6, **deadline** | 34.3 / 67.9 | 48.4 / 142.4 |
+| 1,351,800 (10) | — | 107.1 / 176.1 | 89.1 / 324.4 |
+| 4,476,240 (3) | — | 324.7 / **heap OOM** | **lost** |
+
+* **NetPlumber grows ~size^2.2–2.6 in rule load** and is out at 459k rules.
+* **BDD is 1.7–2.1× NDD** on compliance at every size.
+* **NDD is ~linear from 147k rules on** (exponents 0.9–1.05 between sizes).
+  At k=3 it loaded all 4.48M rules and then threw `OutOfMemoryError: Java heap
+  space` at the JVM's default heap (~4.8 GB, a quarter of RAM).
+* **BDD k=3 is LOST**: the sandbox died mid-run and the owner restarted it.
+  Cause not established — no kernel log, OOM counters reset. Recorded by hand
+  as lost (`k3_bdd.json`), never as a result.
+
+#### The NDD drill (`results_berkeley_ndd_2026-09-29/`)
+
+Protocol declared before any run, with its predictions; `berkeley_drill.py`.
+Inputs generated once per size in their own process and then REUSED
+(`--reuse-inputs`, refused unless the stamp verifies), `-Xmx8g`, GC log,
+memory floor 3 GB (owner's choice after the crash):
+
+| rules (k) | verdict | load s | compliance s | aggregator MB | JVM heap live after GC MB |
+|---:|---|---:|---:|---:|---:|
+| 459,202 (30) | 0/520 | 21.3 | 47.8 | 3,989 | 2,317 |
+| 1,351,800 (10), mutated | **1/520** | 71.2 | 120.6 | 8,254 | 3,299 |
+| 1,351,800 (10) | 0/520 | 80.5 | 123.3 | 8,343 | 3,303 |
+| 4,476,240 (3) | **memory floor** at 401 s | 287.9 | — | 15,566 | 3,407 |
+
+**It stopped where the protocol predicted, for the reason it predicted.** The
+explicit heap made k=30 and k=10 ~30% faster than in the series. At k=3 NDD's
+own live set was **~3.4 GB**; the aggregator's 15.6 GB is that heap as
+committed (~6.5 GB) plus **~8 GB of FaVe's Python-side model — ~1.85 KB per
+rule**, the figure predicted from the NetPlumber runs, where no JVM is in the
+process. The benchmark process, holding the loaded `routes.json`, added 3.5 GB
+(~780 B per rule).
+
+#### What this settles, and what it leaves
+
+* **NDD-APKeep carries Berkeley's scale; FaVe's harness does not, on 19 GB.**
+  Extrapolated linearly to all 13.4M rules: ~15 min of rule load, ~20 min of
+  compliance, a ~4–10 GB NDD heap — and ~25 GB of aggregator model plus ~10 GB
+  in the benchmark process. The memory wall is the Python side.
+* **So the next lever is the harness, not the engine**, and it is two
+  per-rule costs, both measured: the aggregator's retained model (~1.85 KB)
+  and the benchmark's in-memory `routes.json` (~780 B, which could be streamed
+  device by device). Neither was attempted; the owner's to decide.
+* NetPlumber and BDD need no further runs for this question.
+* Open: the field-4 deviation above; the 22 → 23 rule gap; the unexplained
+  MemAvailable drop during the series' k=30 NetPlumber run (~5 GB beyond that
+  run's processes); the cause of the sandbox death.
 
 ---
 
