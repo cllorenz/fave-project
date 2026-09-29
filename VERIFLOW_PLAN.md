@@ -255,6 +255,30 @@ Resolutions are appended below the question with a date.
   12.1/16 is not considered, and r1's part outside r4 is not affected. Path: literature
   (step a), confirmed by L1/L4 and the oracle.
 
+**Raised by the V0 survey (§9).** Each is decided from FaVe's semantics (step b), not
+from the literature, and each is entered as an adapter encoding or extension in TODO
+item 31's registry.
+
+- **Q16 — Rules with several ingress ports.** Expand to one rule per port (an adapter
+  encoding, factor stamped: 1.69× on `wl_stanford`), or make IN_PORT a set-valued scan
+  field (an extension)? Expansion is the literature-faithful default.
+- **Q17 — Negated check conditions.** Expand into non-negated vectors as NetPlumber does
+  (`_expand_negations`), applied to the query's packet set rather than to rules.
+  Refuse on a must-reach check, as NetPlumber does, for the same reason. All 8 such
+  checks in the suite (`wl_cloud`) are must-not-reach, so the refusal costs nothing
+  today.
+- **Q18 — ICMPv6 type and code in one field.** FaVe packs them into 16 bits, so "type 1,
+  any code" is a prefix. OpenFlow keeps two exact-or-ANY fields. Split the field in
+  VeriFlow-FR's layout (it moves to scan), or keep FaVe's layout (trie)? Either way it
+  is stamped.
+- **Q19 — Clear-to-ANY rewrites.** Needed for FaVe's metadata (finding 4). As an EC
+  transformation it widens the field to its full range; that is simple, but it is an
+  extension beyond the thesis's actions, and declared so.
+- **Q20 — Device or table as the graph node.** FaVe's unit is a table wired inside a
+  device. Proposal: a VeriFlow-FR node is a FaVe table, and FaVe's wiring gives the
+  edges. The thesis's own note on chaining tables within one switch (T p.38) supports
+  it. Stamped as an adapter encoding.
+
 **For the Delta-net authors (D5, group 1).** These are drafted now because they gate
 V1's exit (§8). Each is about what *their* experiment did, which only they can say. They
 are phrased in the paper's terms only (Delta-net §4.3.2, Table 4).
@@ -584,25 +608,107 @@ VeriFlow, or an experiment, did** go to the authors; how FaVe should behave is o
 
 - **Delta-net as a backend** is a suite-level question (TODO item 31), not this plan's.
 
-**Workload features, by what VeriFlow-FR must support** (a hypothesis until V0's survey):
+**Workload features, by what VeriFlow-FR must support.** This is the V0 survey,
+2026-09-29 (`fave/bench/feature_survey.py`, tests `fave/test/test_feature_survey.py`).
+It replaces the earlier hypothesis table, which had `wl_i2` among the multi-field ACL
+workloads; it matches only the destination and the VLAN.
 
-| needs | workloads |
-|---|---|
-| dst-IP forwarding only | `wl_airtel1`, `wl_airtel2` (Delta-net's regime; the calibration data) |
-| + multi-field ACLs | `wl_stanford`, `wl_i2`, the firewall workloads (`wl_up`, `wl_tum`, `wl_ifi`, `wl_generic_fw`) — where APKeep saw the EC explosion |
-| + header rewrites (§4.5) | VLAN models of `wl_i2`/`wl_stanford`; NAT in `wl_cloud` |
+**What it measures and where.** The survey records what an engine is *handed*: a
+recording engine stands behind a real in-process aggregator (`util.in_process_driver`),
+after FaVe's model building and before any adapter's encoding. So rules an adapter
+synthesises for itself are not counted; they are that adapter's accommodations (TODO
+item 31). Each field value is classified by its bit vector: ANY, exact, prefix
+(wildcards only at the end), ternary, or negated. Checks come from `checks.json`,
+parsed with the harness's own parser. The inputs were regenerated from tracked sources
+with `fave/test/gen_*_inputs.sh` the same day. The firewall workloads need
+`FAVE_ALLOW_OUT_IFACE=1`, which leaves their `-o` matches unmodelled (TODO item 13a).
+Regenerate with `python3 bench/feature_survey.py --bench <dir> [--files …]
+[--checks …] --json out.json`, from `fave/`.
 
-The thesis's §4.5 moved the last row from "out of scope" (the NSDI paper alone) to
-"native".
+| workload | devices | tables (LPM) | rules → one per in-port | rewrites | checks: must / must-not (conditioned) |
+|---|---|---|---|---|---|
+| `wl_airtel1` | 16 switch | 16 (16) | 39,500 → 42,000 | — | 210 / 46 (0) |
+| `wl_airtel2` | 16 switch | 16 (16) | 39,500 → 42,000 | — | 210 / 46 (0) |
+| `wl_i2` | 18 switch | 18 (9) | 77,841 → 78,047 | VLAN set 77,451 | 72 / 0 (0) |
+| `wl_stanford` | 48 switch | 48 (16) | 8,792 → **14,821** | VLAN set 3,417 | 240 / 0 (0) |
+| `wl_cloud` | 86 switch | 86 (0) | 1,741 → 1,741 | NAT: dst masked 14, src set 14 | 5 / 66 (12) |
+| `wl_ifi` | 1 router, 16 switch | 21 (1) | 191 → 223 | VLAN set 11; metadata set/clear | 54 / 245 (54) |
+| `wl_up` | 136 packet filter, 23 switch | 839 (0) | 7,828 → 7,836 | metadata set/clear | 3,371 / 15,440 (3,302) |
+| `wl_tum` | 1 packet filter | 3 (0) | 5,116 (from 3,794 ruleset lines, up to 15 each) | metadata set/clear | none: `checks.json` is empty |
+| `wl_example` | 1 packet filter, 2 switch | 8 (0) | 37 | metadata set/clear | 7 / 3 (9) |
+| `wl_generic_fw` (default instance) | 1 packet filter | 5 (0) | 22 | metadata set/clear | 7 / 3 (9); its policy *is* `wl_example`'s |
+
+**`vf_fields` per workload (D6).** A field is in the trie if some rule matches it with an
+arbitrary wildcard; otherwise it is scanned. No field was found constrained by nothing.
+
+| workload | trie | scan |
+|---|---|---|
+| `wl_airtel1`, `wl_airtel2` | ipv4.dst | — |
+| `wl_i2` | ipv4.dst | vlan |
+| `wl_stanford` | ipv4.dst, ipv4.src, dport, tcp.flags | vlan, proto |
+| `wl_cloud` | ipv4.dst, ipv4.src | proto, sport, dport |
+| `wl_ifi` | ipv4.dst, ipv4.src | in_port, out_port, vlan |
+| `wl_up` | ipv6.dst, ipv6.src, icmpv6.type | proto, sport, dport, related, module.limit, three ipv6header fields, in_port, out_port |
+| `wl_tum` | ipv4.dst, ipv4.src, dport | proto, sport, svlan, dvlan, related, in_port, out_port |
+| `wl_example`, `wl_generic_fw` | ipv6.dst, ipv6.src | proto, sport, dport, related, in_port, out_port |
+
+**Findings, and what each means for VeriFlow-FR:**
+
+1. **No rule anywhere carries a ternary or a negated value.** Every constrained value is
+   exact or a prefix, so the ternary trie's generality is never exercised by the current
+   suite. It is kept anyway, because the literature specifies it and it costs nothing
+   when unused. Negations occur only in **check conditions**: `wl_cloud` has 4 on the
+   protocol and 4 on the port. They are a query-side matter (Q17).
+2. **§4.6's premise largely holds for FaVe.** Only the IP addresses, the destination
+   port (`wl_stanford` 234, `wl_tum` 820: port ranges that FaVe's own parsers expand into
+   prefixes, the same for every engine), TCP flags (`wl_stanford` 24) and ICMPv6 type
+   (`wl_up` 1,766) are ever prefix-valued. The last is an artefact of FaVe's layout
+   (Q18).
+3. **Rules listing several ingress ports** are disjunctions. One OpenFlow match holds
+   one IN_PORT, so VeriFlow-FR must expand them: 1.69× on `wl_stanford`, 1.06× on the
+   airtel pair (Q16).
+4. **Rewrites come in three kinds.** A *full* set (VLAN on `wl_i2`, `wl_stanford`,
+   `wl_ifi`; NAT source on `wl_cloud`); a *masked* set (NAT destination to a subnet,
+   `wl_cloud`); and a **clear to ANY**, which is how FaVe forgets its `in_port` /
+   `out_port` metadata at post-routing in every router and packet-filter model. The
+   thesis's actions cover the first two; the third has no VeriFlow counterpart (Q19).
+5. **FaVe's pipeline metadata are header fields.** `in_port` and `out_port` are written
+   by FaVe's own pre-routing and matched later by its filters. That is FaVe's
+   modelling, the same for every engine, so VeriFlow-FR takes them as header fields
+   like any other.
+6. **Declared LPM tables** (all 16 airtel tables, 9 in `wl_i2`, 16 in `wl_stanford`, 1
+   in `wl_ifi`) need a priority encoding: prefix length becomes priority, as NetPlumber's
+   `_lpm_ordered_batch` does. The LPM guard (§8) applies.
+7. **Multi-table devices.** `wl_up` has 839 tables for 159 devices, `wl_tum` 3 tables in
+   one. VeriFlow's graph node is a device; FaVe's unit is a table wired to others inside
+   a device (Q20). There are also 552 multi-port forwards (`wl_stanford`) and explicit
+   drops (firewalls, `wl_stanford`, `wl_cloud`).
+8. **Probes with path constraints** (`wl_ifi` 10, `wl_up` 137, `wl_example` 3) are
+   FaVe's counterpart of the thesis's path invariants (Ch. 4, §4.6-4.7). All 20,271
+   checks in the suite use one temporal operator, `EF`.
+
+**Not surveyed, and why:**
+- `wl_expand` benchmarks NetPlumber's header-expansion mechanism and asks no
+  verification question.
+- `wl_shadow` asks an anomaly question, not reachability.
+- `wl_state_snapshots` streams state insertions; it calls `random` without a seed, so it
+  is not reproducible as it stands.
+- `wl_deltanet` is untracked, has no `SOURCE.json`, and its provenance is unknown.
+
+**Found on the way:** `wl_generic_fw`'s `_post_preparation` calls
+`bench/wl_generic_fw/reach_csv_to_checks.py`, which does not exist (the script is
+`bench/reach_csv_to_checks.py`), and it ignores the exit status. So that benchmark's
+checks conversion fails silently (TODO item 32).
 
 ## 10. Phases
 
 **Test-first (§8):** every phase from V1 opens by writing its catalogue tests (L) and
 unit tests and seeing them fail, and its exit begins with those tests green.
 
-- **V0 — Spec freeze.** Survey each workload's features (fills §9's table), including
-  its `vf_fields` classification (D6); resolve Q1, Q2, Q5, Q7-Q9 on paper. D2, D3 and D6
-  are resolved. *Exit:* §7 has no unresolved question that blocks V1.
+- **V0 — Spec freeze.** Survey each workload's features, including its `vf_fields`
+  classification (D6) — **done 2026-09-29** (§9). Resolve Q1, Q2, Q5, Q7-Q9, Q15 on
+  paper, and Q16-Q20 from FaVe's semantics. D2, D3 and D6 are resolved. *Exit:* §7 has
+  no unresolved question that blocks V1.
 - **V1 — Single-field core** (≈ Veriflow-RI): trie, EC, forwarding graph, reachability
   and loop queries over dst-IP; the link-failure query. `wl_airtel1`/`wl_airtel2`,
   differential + LPM guard green. *Exit:* L1-L6 and V1's share of L10 green; the §8
