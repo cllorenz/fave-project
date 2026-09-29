@@ -46,7 +46,7 @@ class RawDataError(Exception):
     """ The vendored raw data does not match its manifest. """
 
 
-def verify_raw(raw_dir: str) -> None:
+def verify_raw(raw_dir: str, manifest_name: str = 'SHA256SUMS') -> None:
     """ Check every vendored file against `SHA256SUMS`.
 
     The whole workload is regenerated from this directory on every run, so a
@@ -54,8 +54,13 @@ def verify_raw(raw_dir: str) -> None:
     and BEFORE anything is derived: a manual edit made while debugging is
     exactly how a benchmark comes to measure something nobody intended, and it
     is unrecoverable once the edit is forgotten.
+
+    `manifest_name` selects another manifest in the same directory -- the
+    Delta-net traces keep DERIVED files under `DERIVED.SHA256SUMS`, apart from
+    the vendored ones, because a checkout without the archive has none of them
+    and must still verify what it does have (CLOUD_BENCH_PLAN.md §2.15).
     """
-    manifest = os.path.join(raw_dir, 'SHA256SUMS')
+    manifest = os.path.join(raw_dir, manifest_name)
     if not os.path.isfile(manifest):
         raise RawDataError("%s is missing: the raw data has no manifest to "
                            "check against" % manifest)
@@ -67,11 +72,15 @@ def verify_raw(raw_dir: str) -> None:
         if not os.path.isfile(path):
             bad.append("%s is missing" % name)
             continue
-        digest = hashlib.sha256(open(path, 'rb').read()).hexdigest()
+        hasher = hashlib.sha256()
+        with open(path, 'rb') as handle:
+            for block in iter(lambda: handle.read(1 << 20), b''):
+                hasher.update(block)
+        digest = hasher.hexdigest()
         if digest != expected:
             bad.append("%s: expected %s, found %s" % (name, expected, digest))
 
     if bad:
         raise RawDataError(
-            "the vendored raw data under %s does not match SHA256SUMS:\n  %s"
-            % (raw_dir, "\n  ".join(bad)))
+            "the vendored raw data under %s does not match %s:\n  %s"
+            % (raw_dir, manifest_name, "\n  ".join(bad)))

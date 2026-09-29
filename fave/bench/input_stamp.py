@@ -62,8 +62,12 @@ class StampError(Exception):
 
 
 def _sha256(path: str) -> str:
+    # Streamed: wl_berkeley's routes.json is ~2 GB (CLOUD_BENCH_PLAN.md §2.15).
+    hasher = hashlib.sha256()
     with open(path, 'rb') as handle:
-        return hashlib.sha256(handle.read()).hexdigest()
+        for block in iter(lambda: handle.read(1 << 20), b''):
+            hasher.update(block)
+    return hasher.hexdigest()
 
 
 def sha256(path: str) -> str:
