@@ -1,0 +1,106 @@
+backend: apkeep
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00022912025451660156 seconds.
+worker: completed task switch in 8.654594421386719e-05 seconds.
+worker: completed task switch in 9.107589721679688e-05 seconds.
+worker: completed task switch in 8.225440979003906e-05 seconds.
+worker: completed task switch in 0.00012493133544921875 seconds.
+worker: completed task switch in 0.000156402587890625 seconds.
+worker: completed task switch in 0.00017595291137695312 seconds.
+worker: completed task switch in 0.00018787384033203125 seconds.
+worker: completed task switch in 0.00016927719116210938 seconds.
+worker: completed task switch in 0.00017571449279785156 seconds.
+worker: completed task switch in 0.00016641616821289062 seconds.
+worker: completed task switch in 0.00017762184143066406 seconds.
+worker: completed task switch in 0.0002751350402832031 seconds.
+worker: completed task switch in 0.0001595020294189453 seconds.
+worker: completed task switch in 0.0001456737518310547 seconds.
+worker: completed task switch in 0.0001685619354248047 seconds.
+worker: completed task switch in 0.000125885009765625 seconds.
+worker: completed task switch in 0.00011539459228515625 seconds.
+worker: completed task switch in 0.00013685226440429688 seconds.
+worker: completed task switch in 0.00015401840209960938 seconds.
+worker: completed task switch in 0.00017380714416503906 seconds.
+worker: completed task switch in 0.00010156631469726562 seconds.
+worker: completed task switch in 0.00010061264038085938 seconds.
+worker: completed task links in 0.0031044483184814453 seconds.
+worker: completed task switch_command in 0.2759213447570801 seconds.
+worker: completed task switch_command in 0.34554338455200195 seconds.
+worker: completed task switch_command in 0.3647611141204834 seconds.
+worker: completed task switch_command in 0.4212815761566162 seconds.
+worker: completed task switch_command in 0.3816673755645752 seconds.
+worker: completed task switch_command in 0.39702296257019043 seconds.
+worker: completed task switch_command in 0.5549664497375488 seconds.
+worker: completed task switch_command in 0.3466145992279053 seconds.
+worker: completed task switch_command in 0.4297749996185303 seconds.
+worker: completed task switch_command in 0.2841494083404541 seconds.
+worker: completed task switch_command in 0.6643402576446533 seconds.
+worker: completed task switch_command in 0.5707881450653076 seconds.
+worker: completed task switch_command in 0.6379694938659668 seconds.
+worker: completed task switch_command in 0.365938663482666 seconds.
+worker: completed task switch_command in 0.32466793060302734 seconds.
+worker: completed task switch_command in 0.5861711502075195 seconds.
+worker: completed task switch_command in 0.5824437141418457 seconds.
+worker: completed task switch_command in 0.6698029041290283 seconds.
+worker: completed task switch_command in 0.614433765411377 seconds.
+worker: completed task switch_command in 0.4071166515350342 seconds.
+worker: completed task switch_command in 0.6762495040893555 seconds.
+worker: completed task switch_command in 0.26099443435668945 seconds.
+worker: completed task switch_command in 0.24178099632263184 seconds.
+worker: completed task probe in 0.0025970935821533203 seconds.
+worker: completed task probe in 0.00010395050048828125 seconds.
+worker: completed task probe in 4.124641418457031e-05 seconds.
+worker: completed task probe in 3.9577484130859375e-05 seconds.
+worker: completed task probe in 3.3855438232421875e-05 seconds.
+worker: completed task probe in 3.0040740966796875e-05 seconds.
+worker: completed task probe in 3.0279159545898438e-05 seconds.
+worker: completed task probe in 2.2172927856445312e-05 seconds.
+worker: completed task probe in 2.0503997802734375e-05 seconds.
+worker: completed task probe in 1.9311904907226562e-05 seconds.
+worker: completed task probe in 2.2411346435546875e-05 seconds.
+worker: completed task probe in 2.0503997802734375e-05 seconds.
+worker: completed task probe in 1.8596649169921875e-05 seconds.
+worker: completed task probe in 1.9073486328125e-05 seconds.
+worker: completed task probe in 2.384185791015625e-05 seconds.
+worker: completed task probe in 1.9073486328125e-05 seconds.
+worker: completed task probe in 1.8835067749023438e-05 seconds.
+worker: completed task probe in 1.9073486328125e-05 seconds.
+worker: completed task probe in 1.9073486328125e-05 seconds.
+worker: completed task probe in 2.002716064453125e-05 seconds.
+worker: completed task probe in 4.744529724121094e-05 seconds.
+worker: completed task probe in 2.6226043701171875e-05 seconds.
+worker: completed task probe in 2.0265579223632812e-05 seconds.
+worker: completed task links in 0.0001323223114013672 seconds.
+worker: completed task generators in 0.0005228519439697266 seconds.
+worker: completed task links in 0.0001595020294189453 seconds.
+apkeep: sw.s1 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s1@101, sw.s1@102
+apkeep: sw.s10 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s10@1001, sw.s10@1002
+apkeep: sw.s11 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s11@1101, sw.s11@1102
+apkeep: sw.s12 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s12@1201, sw.s12@1202
+apkeep: sw.s13 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s13@1301, sw.s13@1302
+apkeep: sw.s14 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s14@1401, sw.s14@1402
+apkeep: sw.s15 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s15@1501, sw.s15@1502
+apkeep: sw.s16 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s16@1601, sw.s16@1602
+apkeep: sw.s17 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s17@1701, sw.s17@1702
+apkeep: sw.s18 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s18@1801, sw.s18@1802
+apkeep: sw.s19 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s19@1901, sw.s19@1902
+apkeep: sw.s2 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s2@201, sw.s2@202
+apkeep: sw.s20 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s20@2001, sw.s20@2002
+apkeep: sw.s21 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s21@2101, sw.s21@2102
+apkeep: sw.s22 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s22@2201, sw.s22@2202
+apkeep: sw.s23 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s23@2301, sw.s23@2302
+apkeep: sw.s3 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s3@301, sw.s3@302
+apkeep: sw.s4 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s4@401, sw.s4@402
+apkeep: sw.s5 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s5@501, sw.s5@502
+apkeep: sw.s6 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s6@601, sw.s6@602
+apkeep: sw.s7 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s7@701, sw.s7@702
+apkeep: sw.s8 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s8@801, sw.s8@802
+apkeep: sw.s9 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s9@901, sw.s9@902
+apkeep: ingress demultiplexing split 23 device(s) into 46 element(s) -- a representational cost of the AP model, not a change to the FaVe model
+worker: completed task check_compliance in 23.63688564300537 seconds.
+worker: completed task report in 0.0012412071228027344 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.00012183189392089844 seconds.
+worker: stop handler after 37.18709182739258 seconds.

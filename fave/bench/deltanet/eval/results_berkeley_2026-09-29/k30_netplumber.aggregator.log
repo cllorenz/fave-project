@@ -1,0 +1,111 @@
+backend: netplumber
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.0006506443023681641 seconds.
+worker: completed task switch in 0.000530242919921875 seconds.
+worker: completed task switch in 0.0004031658172607422 seconds.
+worker: completed task switch in 0.0004253387451171875 seconds.
+worker: completed task switch in 0.0003764629364013672 seconds.
+worker: completed task switch in 0.0005667209625244141 seconds.
+worker: completed task switch in 0.0005159378051757812 seconds.
+worker: completed task switch in 0.0007948875427246094 seconds.
+worker: completed task switch in 0.0007648468017578125 seconds.
+worker: completed task switch in 0.0002906322479248047 seconds.
+worker: completed task switch in 0.0008854866027832031 seconds.
+worker: completed task switch in 0.00036025047302246094 seconds.
+worker: completed task switch in 0.0023834705352783203 seconds.
+worker: completed task switch in 0.0005388259887695312 seconds.
+worker: completed task switch in 0.0006198883056640625 seconds.
+worker: completed task switch in 0.0004825592041015625 seconds.
+worker: completed task switch in 0.00024390220642089844 seconds.
+worker: completed task switch in 0.00031375885009765625 seconds.
+worker: completed task switch in 0.0005154609680175781 seconds.
+worker: completed task switch in 0.0003421306610107422 seconds.
+worker: completed task switch in 0.0002923011779785156 seconds.
+worker: completed task switch in 0.0006184577941894531 seconds.
+worker: completed task switch in 0.0006413459777832031 seconds.
+worker: completed task links in 0.06728959083557129 seconds.
+worker: completed task switch_command in 39.38546013832092 seconds.
+worker: completed task switch_command in 43.041832447052 seconds.
+worker: completed task switch_command in 51.32809925079346 seconds.
+worker: completed task switch_command in 56.2264564037323 seconds.
+worker: completed task switch_command in 52.792250871658325 seconds.
+worker: completed task switch_command in 68.11613607406616 seconds.
+worker: completed task switch_command in 78.62351441383362 seconds.
+worker: completed task switch_command in 81.077632188797 seconds.
+worker: completed task switch_command in 80.16623544692993 seconds.
+worker: completed task switch_command in 83.78381180763245 seconds.
+worker: completed task switch_command in 91.56515526771545 seconds.
+worker: completed task switch_command in 90.82877373695374 seconds.
+worker: completed task switch_command in 85.61995816230774 seconds.
+worker: completed task switch_command in 104.5236144065857 seconds.
+worker: completed task switch_command in 112.57994174957275 seconds.
+worker: completed task switch_command in 111.98217940330505 seconds.
+worker: completed task switch_command in 117.07378029823303 seconds.
+worker: completed task switch_command in 124.07373428344727 seconds.
+worker: completed task switch_command in 122.73707723617554 seconds.
+worker: completed task switch_command in 119.8019118309021 seconds.
+worker: completed task switch_command in 125.2894356250763 seconds.
+worker: completed task switch_command in 123.11029744148254 seconds.
+worker: completed task switch_command in 128.85271787643433 seconds.
+worker: completed task probe in 0.08254694938659668 seconds.
+worker: completed task probe in 0.07534098625183105 seconds.
+worker: completed task probe in 0.03326916694641113 seconds.
+worker: completed task probe in 0.0008609294891357422 seconds.
+worker: completed task probe in 0.0005300045013427734 seconds.
+worker: completed task probe in 0.0005037784576416016 seconds.
+worker: completed task probe in 0.00046539306640625 seconds.
+worker: completed task probe in 0.0003819465637207031 seconds.
+worker: completed task probe in 0.000324249267578125 seconds.
+worker: completed task probe in 0.0003235340118408203 seconds.
+worker: completed task probe in 0.0003025531768798828 seconds.
+worker: completed task probe in 0.0002951622009277344 seconds.
+worker: completed task probe in 0.0003733634948730469 seconds.
+worker: completed task probe in 0.0003478527069091797 seconds.
+worker: completed task probe in 0.0004363059997558594 seconds.
+worker: completed task probe in 0.00017070770263671875 seconds.
+worker: completed task probe in 0.00016498565673828125 seconds.
+worker: completed task probe in 0.00031185150146484375 seconds.
+worker: completed task probe in 0.0005104541778564453 seconds.
+worker: completed task probe in 0.00033164024353027344 seconds.
+worker: completed task probe in 0.00019049644470214844 seconds.
+worker: completed task probe in 0.0001842975616455078 seconds.
+worker: completed task probe in 0.00015664100646972656 seconds.
+worker: completed task links in 0.04093575477600098 seconds.
+worker: completed task generators in 0.004194021224975586 seconds.
+worker: task failed:
+Traceback (most recent call last):
+  File "/home/clorenz/fave-project/fave/aggregator/aggregator_service.py", line 402, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/clorenz/fave-project/fave/aggregator/aggregator_service.py", line 338, in _dispatch
+    self._sync_diff(model)
+  File "/home/clorenz/fave-project/fave/aggregator/aggregator_service.py", line 634, in _sync_diff
+    self.verification_engine.add_links_bulk(
+  File "/home/clorenz/fave-project/fave/netplumber/adapter.py", line 305, in add_links_bulk
+    self._rpc.add_links_bulk(
+  File "/home/clorenz/fave-project/fave/netplumber/jsonrpc.py", line 386, in add_links_bulk
+    _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
+  File "/home/clorenz/fave-project/fave/netplumber/jsonrpc.py", line 78, in _sync_recv
+    chunk = sock.recv(4096, socket.MSG_PEEK).decode('utf8')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+worker: completed task unknown in 4.094159364700317 seconds.
+worker: task failed:
+Traceback (most recent call last):
+  File "/home/clorenz/fave-project/fave/aggregator/aggregator_service.py", line 402, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/clorenz/fave-project/fave/aggregator/aggregator_service.py", line 300, in _dispatch
+    self.verification_engine.check_compliance(rules)
+  File "/home/clorenz/fave-project/fave/netplumber/adapter.py", line 281, in check_compliance
+    self._rpc.check_compliance(
+  File "/home/clorenz/fave-project/fave/netplumber/jsonrpc.py", line 824, in check_compliance
+    _asend_recv(socks, json.dumps(data))
+  File "/home/clorenz/fave-project/fave/netplumber/jsonrpc.py", line 117, in _asend_recv
+    _async_send(socks, msg)
+  File "/home/clorenz/fave-project/fave/netplumber/jsonrpc.py", line 62, in _async_send
+    sock.sendall((msg+'\n').encode('utf8'))
+BrokenPipeError: [Errno 32] Broken pipe
+worker: completed task unknown in 0.00310516357421875 seconds.

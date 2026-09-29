@@ -1,0 +1,124 @@
+{
+  "workload": "wl_berkeley",
+  "backend": "apkeep",
+  "engine": "ndd",
+  "mutated": false,
+  "mutated_cell": null,
+  "deadline_s": 3600.0,
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 122.5,
+  "memory_floor_mb": 1500,
+  "peak_rss_mb": 3580,
+  "peak_rss_by_process_mb": {
+    "benchmark": 3580,
+    "bash": 3,
+    "aggregator": 2777,
+    "sleep": 1,
+    "python3": 14,
+    "pandoc": 108,
+    "pdflatex": 35
+  },
+  "least_available_mb": 13786,
+  "when": "2026-09-29T11:54:12.692036+00:00",
+  "git_head": "a9960d9c83dbcd9cd625057d4646258a34dda472",
+  "apkeep_jar": "e22f6a59b7af92bfe55f0e9206e124c05df735c1ee3c17cf2dda697ac8f779a4",
+  "ndd_jar": "616fb6b82a530870791aa25b942ab6b3011a7360de3d783a4b2a9fb0e1a804d3",
+  "check_compliance_s": [
+    23.63688564300537
+  ],
+  "switch_command_s": 10.404400825500488,
+  "switch_commands": 23,
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "checks": 520,
+  "policy_has_mutation": false,
+  "input_files": {
+    "cchecks": "734de567f74dd5c3e4e124004cc5c9f2641f0654c0c9f1af43b9c4b5dbb0bc93",
+    "checks": "488c93ebe3baeadac9765942efb1b6016d4ed7ed8a8a812917539ba981d53242",
+    "inventory": "99a31778ca697006788d4e004e78e4e454d84d88fb6f6a6ca140cbd1491556a3",
+    "policies": "1ae06620d2bb600166cd1bdd893e50eddd8be22f5f34070b2cf1c937f943e0dd",
+    "reach_csv": "1bf7424479cf8d9b399547ec60b6da9d8e9401f0152749cac0be765f938edb5b",
+    "reach_json": "db9b6bf8fa01688220343cfdebc4b29ae6c91b4630d5a08aa7ca2339849bc884",
+    "reach_policies": "543d0c9e6c64dcf06e6205715f76649e2407e725abd0ca20dc9c45c7bfb8b31f",
+    "roles_json": "de5046ac98982de06f5b7af894e0d5561f55cd5393554b6e06d0413d4e7133a1",
+    "roles_services": "2bd1e67803d09ac648e78c43080ebfb70b32303e6cf3de97750de8aa235fabeb",
+    "routes": "cdb4e131737ed1fa2ac9260680e5f0cb910eb442c0e4e21d552cadd08a84967f",
+    "sources": "589928174bf3caafbe5db4da6f00aa6408594746c58defdafd0eedb81fcc0570",
+    "topology": "f126bb5919fea99d53de0c9d94cbb02db59d61c057fa327b9139a56e76326cda"
+  },
+  "drift_from_previous": [],
+  "census": {
+    "delivery_rules": 6404,
+    "devices": 23,
+    "links": 504,
+    "probes": 23,
+    "rules": 146759,
+    "sources": 23,
+    "transit_rules": 140355
+  },
+  "keep_every": 100,
+  "lpm_sensitive_cells": [
+    [
+      "s1",
+      "s1"
+    ],
+    [
+      "s11",
+      "s11"
+    ],
+    [
+      "s16",
+      "s16"
+    ],
+    [
+      "s17",
+      "s17"
+    ],
+    [
+      "s2",
+      "s2"
+    ],
+    [
+      "s21",
+      "s21"
+    ],
+    [
+      "s22",
+      "s22"
+    ],
+    [
+      "s22",
+      "s23"
+    ],
+    [
+      "s23",
+      "s22"
+    ],
+    [
+      "s23",
+      "s23"
+    ],
+    [
+      "s3",
+      "s3"
+    ],
+    [
+      "s5",
+      "s5"
+    ],
+    [
+      "s6",
+      "s6"
+    ],
+    [
+      "s9",
+      "s9"
+    ]
+  ],
+  "mutated_cell_check": [
+    "s=source.s1 && EF p=probe.s8"
+  ],
+  "verdict_valid": true
+}

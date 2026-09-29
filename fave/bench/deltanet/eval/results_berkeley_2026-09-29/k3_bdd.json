@@ -1,0 +1,11 @@
+{
+  "workload": "wl_berkeley",
+  "backend": "apkeep",
+  "engine": "bdd",
+  "keep_every": 3,
+  "mutated": false,
+  "status": "lost",
+  "verdict_valid": false,
+  "recorded_by": "hand, after the sandbox restart -- engine_run.py never returned, so it wrote nothing",
+  "why": "The sandbox and the session driving the series died while this run was in its compliance check (k3_bdd.stdout, last written 2026-09-29T13:46:50Z, ends at 'checking flow trees...'). The owner restarted the sandbox. The cause is NOT established: no kernel log is readable here and the cgroup OOM counters restarted with the sandbox. Memory pressure is plausible -- the k=3 NDD run just before took MemAvailable to 2,081 MB -- but not shown. No verdict, no timing."
+}
