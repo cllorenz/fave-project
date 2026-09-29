@@ -71,20 +71,12 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                 "veriflow_fr/python/build_libveriflow_fr.sh")
         Translator.__init__(self, invert_lpm=invert_lpm)
         self.logger = logger
-        # Read and written by the aggregator itself.
-        self.links: Dict[Any, List[Any]] = {}
-        self.asyncore_socks: Dict[Any, Any] = {}
-        self._port_ids: Dict[Any, int] = {}
         self._results: List[Tuple[str, str, bool, Any]] = []
         self.ir: Optional[Ir] = None
         self.net: Any = None
         self._built_for: Optional[Tuple[Any, ...]] = None
         #: seconds per phase of the last check_compliance: translate, load, query
         self.timings: Dict[str, float] = {}
-
-    def global_port(self, port: Any) -> int:
-        """ A stable number per port name, for the aggregator's bookkeeping. """
-        return self._port_ids.setdefault(port, len(self._port_ids) + 1)
 
     # -- building --------------------------------------------------------------
 

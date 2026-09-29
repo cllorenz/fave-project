@@ -123,8 +123,12 @@ class PyNetwork {
     return py::make_tuple(ecs, graphs, std::chrono::duration<double>(t1 - t0).count());
   }
 
-  size_t ec_count(const std::string &range) const {
-    return net_.affected_ecs(range).size();
+  // The EC count of a set without building the ECs: (per-field range counts,
+  // the exact product or None when it exceeds 128 bits, the product as float).
+  py::tuple ec_count(const std::string &range) const {
+    const ECCount c = net_.ec_count(range);
+    py::object exact = c.saturated ? py::object(py::none()) : py::object(to_py(c.exact));
+    return py::make_tuple(c.per_field, exact, c.approx);
   }
 
  private:

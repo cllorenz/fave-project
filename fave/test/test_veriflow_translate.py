@@ -198,6 +198,60 @@ class TestNegatedConditions(unittest.TestCase):
         self.assertIn("x" * 9 + "0" + "x" * 6, sets)
 
 
+class TestMatchCensus(unittest.TestCase):
+    """ The EC census (VERIFLOW_PLAN.md V2) needs only the matches: ECs depend
+    on no action, so every model type counts, rewrites included -- and a
+    comparison with APKeep's single-field rows (FIB destinations only) restricts
+    to the declared-LPM tables and the destination field. """
+
+    def _models(self):
+        fib = _switch("s1", ["1", "2"], [
+            _rule("s1", 1, "10.0.0.0/8", ["s1.1"]),
+            _rule("s1", 2, "10.1.0.0/16", ["s1.2"])], lpm=True)
+        acl = Rule("r1", "r1.1", 1, match=Match([
+            RuleField("packet.ipv4.source", "192.168.0.0/16"),
+            RuleField("packet.ipv4.destination", "10.2.0.0/16")]),
+            actions=[Rewrite([RuleField("packet.ether.vlan", "7")]),
+                     Forward(["r1.1"])])
+        router = _switch("r1", ["1"], [acl])
+        router.type = "router"
+        return fib, router
+
+    def test_all_rules_all_fields_any_model_type(self):
+        tr = Translator()
+        _feed(tr, *self._models())
+        layout, sets, rules = tr.match_sets()
+        self.assertEqual([n for n, _w in layout],
+                         ["packet.ipv4.source", "packet.ipv4.destination"])
+        self.assertEqual(rules, 3)
+        self.assertEqual(len(sets), 3)
+        self.assertTrue(all(len(t) == 64 for t in sets))
+
+    def test_fib_only_destination_only(self):
+        tr = Translator()
+        _feed(tr, *self._models())
+        layout, sets, rules = tr.match_sets(
+            lpm_only=True, fields=["packet.ipv4.destination"])
+        self.assertEqual(layout, [("packet.ipv4.destination", 32)])
+        self.assertEqual(rules, 2)
+        self.assertEqual(sorted(sets), sorted([
+            "00001010" + "x" * 24, "0000101000000001" + "x" * 16]))
+
+
+class TestRecorderHooks(unittest.TestCase):
+    """ The aggregator reads `links` and `asyncore_socks` and calls
+    `global_port` on whatever engine it drives; the translator is that engine
+    when it records alone (the EC census), so it provides them. """
+
+    def test_hooks(self):
+        tr = Translator()
+        self.assertEqual(tr.links, {})
+        self.assertEqual(tr.asyncore_socks, {})
+        first = tr.global_port("s1.1")
+        self.assertEqual(tr.global_port("s1.1"), first)
+        self.assertNotEqual(tr.global_port("s1.2"), first)
+
+
 class TestRefusals(unittest.TestCase):
     """ V1 refuses what it cannot translate faithfully (VERIFLOW_PLAN.md §10). """
 

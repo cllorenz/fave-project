@@ -125,6 +125,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     # assumes one would hesitate to run it by hand.
     test/test_deltanet_lpm.py    # LPM is load-bearing on BOTH traces, and the matrix cannot see it (3's standing rule)
     test/test_veriflow_airtel.py # VeriFlow-FR V1 gates: airtel matrices == oracle == NetPlumber, and an LPM guard that can fail (~50s)
+    test/test_veriflow_census.py # VeriFlow-FR V2: EC counts reproduce APKeep's Table 3 (Airtel 2,799; Stanford* 2,283); multi-field products pinned (~45s)
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
 # chain, which TODO.md item 13a refuses by default -- so they run in their own

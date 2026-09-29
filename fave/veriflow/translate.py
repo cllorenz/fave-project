@@ -155,12 +155,20 @@ class Translator:
         # SHORTEST prefix first in declared-LPM tables. Exists for one purpose:
         # to show the LPM guard can fail (test/test_veriflow_airtel.py). Stamped.
         self.invert_lpm = invert_lpm
+        # Read and written by the aggregator on the engine it drives.
+        self.links: Dict[Any, List[Any]] = {}
+        self.asyncore_socks: Dict[Any, Any] = {}
+        self._port_ids: Dict[Any, int] = {}
         self._models: List[Any] = []
         self._links: List[Tuple[str, str]] = []
         self._generators: List[Any] = []
         self._probes: List[Any] = []
 
     # -- recording: the AbstractVerificationEngine calls the aggregator makes --
+
+    def global_port(self, port: Any) -> int:
+        """ A stable number per port name, for the aggregator's bookkeeping. """
+        return self._port_ids.setdefault(port, len(self._port_ids) + 1)
 
     def add_tables(self, model: Any) -> None:
         pass
@@ -384,6 +392,34 @@ class Translator:
                     "probe %s has a path condition: path-constrained probes "
                     "are not translated in V1" % probe.node)
 
+    def match_sets(self, lpm_only: bool = False,
+                   fields: Optional[Sequence[str]] = None
+                   ) -> Tuple[List[Tuple[str, int]], List[str], int]:
+        """ Every rule's match as a ternary set, for the EC census (V2): ECs depend
+        on matches alone, so any model type counts and actions are ignored.
+        `lpm_only` keeps the declared longest-prefix-match tables only; `fields`
+        projects onto those fields (a rule's other fields are dropped). Returns
+        (layout, sets, rules counted). """
+        models = self._models
+        layout = _census_layout(models, fields)
+        names = {n for n, _w in layout}
+        ir = Ir(fields=layout, tables={}, ports={}, port_table={}, links=[],
+                rules=[], generators={}, probes={}, origin={})
+        for model in models:
+            for pname in model.ports:
+                ir.ports.setdefault(pname, len(ir.ports) + 1)
+        sets, counted = [], 0
+        for model in models:
+            for tname, rules in model.tables.items():
+                if lpm_only and model.table_semantics.get(tname) != LPM:
+                    continue
+                for rule in rules:
+                    counted += 1
+                    t = self._ternary(ir, [f for f in rule.match if f.name in names])
+                    if t is not None:
+                        sets.append(t)
+        return layout, sets, counted
+
     def condition_sets(self, ir: Ir, base: str, cond: Sequence[Any]) -> List[str]:
         """ `base` restricted by a check's condition fields; negated ones
         expand (Q17). """
@@ -422,3 +458,15 @@ def node_edges(ir: Ir) -> List[Tuple[int, int, int]]:
                 if ir.port_table[to] not in probe_tables:
                     edges.add((rule.table, rule.in_port, to))
     return sorted(edges)
+
+
+def _census_layout(models: List[Any], fields: Optional[Sequence[str]]) -> List[Tuple[str, int]]:
+    if fields is not None:
+        wanted = set(fields)
+    else:
+        wanted = {f.name for m in models for rs in m.tables.values()
+                  for r in rs for f in r.match}
+    unknown = wanted - set(FIELD_SIZES)
+    if unknown:
+        raise Unsupported("fields without a known width: %s" % sorted(unknown))
+    return [(name, FIELD_SIZES[name]) for name in FIELD_SIZES if name in wanted]
