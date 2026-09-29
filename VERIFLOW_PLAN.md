@@ -221,11 +221,20 @@ Resolutions are appended below the question with a date.
   rules that intersect the new rule". Network-wide, or per device? Network-wide is the
   reading consistent with §4.3's non-minimality example. Path: literature, then FaVe
   differential.
+  *Resolved 2026-09-29 (literature):* **network-wide.** "We consider overlapping rules at all
+  the devices because inserting a rule at a switch can alter the entire path" (T p.38);
+  "look for network-wide overlapping rules" (T p.45). The trie is network-wide too: its
+  leaves store (device, rule) pairs. The differential will confirm it.
 - **Q2 — Rules that split an EC at another device.** Without §4.6's optimisation, can a
   rule at device B split an EC formed from the rules overlapping a new rule at device
   A? If it overlaps the EC it overlaps the new rule and was already included — unless a
   *rewrite* moved the EC (§4.5), which is exactly why the thesis goes device by device.
   Path: derive, then confirm on a crafted rewrite example.
+  *Resolved 2026-09-29 (derived):* **not without rewrites; with them, ECs are re-sliced at
+  every device.** A rule that splits an EC overlaps it, hence overlaps the new rule,
+  hence was in Q1's network-wide lookup. A rewrite breaks the argument, because the
+  transformed set may overlap rules the original did not; hence §3.1.3's device-by-device
+  traversal. Consequence (§10): the only rewrite-free workloads are the airtel pair.
 - **Q3 — Rewrites that split.** After a rewrite, the transformed EC may be split by the
   next device's rules into several local ECs; does the graph fork per local EC, and are
   the forks' packet sets tracked back to the original EC? T §3.1.3 implies forking.
@@ -237,6 +246,13 @@ Resolutions are appended below the question with a date.
 - **Q5 — Deletion.** Paper and thesis state deletes are handled (all five OpenFlow
   FLOW_MOD types) but describe only insertion. Presumed symmetric: find ECs overlapping
   the removed rule, remove, rebuild their graphs. Path: derive.
+  *Resolved 2026-09-29 (literature + derived):* **symmetric to insertion.** The paper handles
+  all five FLOW_MOD types, OFPFC_DELETE(_STRICT) among them (its NOX-integration
+  passage), and describes only
+  insertion. The affected ECs are those inside the removed rule's range; the rule
+  leaves the trie; their graphs are rebuilt without it. Built and tested in V1 and
+  measured only on TODO item 31's incremental axis: FaVe's own deletion path is still
+  unfinished (`aggregator_service.py`: "TODO: fix deletion").
 - **Q6 — Is §4.6 in or out?** Implementing the 4+10 optimisation and excluded sets is a
   large share of the complexity and is tied to OpenFlow 1.1's field classes, which are
   not FaVe's. Proposal: V1-V3 build the plain multi-dimensional trie over *all* used
@@ -244,16 +260,35 @@ Resolutions are appended below the question with a date.
   *Resolved 2026-09-29 (D6):* in scope, as a **required, staged** variant, not an optional
   one. V1-V3 are plain; V3b adds §4.6, with plain VeriFlow-FR as its verdict oracle. §9.
 - **Q7 — Port semantics.** See §6. Path: FaVe semantics; stamped.
+  *Resolved 2026-09-29 (FaVe semantics):* **IN_PORT is a matched field**, one of OpenFlow's
+  14 and exact-or-ANY, hence a scan field. Its value at each hop is the port the edge
+  arrives on (with Q20, a port of a FaVe table). Not to be confused with FaVe's `in_port`
+  *header* field, which is metadata bits FaVe itself writes at pre-routing (§9, finding
+  5); a test pins the difference. A regression test pins that no rule's `in_ports` is
+  dropped, the `CLOUD_BENCH_PLAN.md` §2.8 lesson. Stamp: `vf_ports=field`.
 - **Q8 — Delivery.** When does a device "consume" a packet? FaVe answers this with its
   own sink nodes; no consultation needed. Recorded because §3 notes a seen-in-code
   convention we are deliberately *not* using.
+  *Resolved 2026-09-29 (FaVe semantics):* a packet is **consumed** when it reaches a probe
+  node's port and passes the probe's filter. It is **dropped** by an explicit drop rule,
+  when no rule of a table matches (as in NetPlumber, where a flow continues only through
+  rules it matches), or at an unwired port. These are the thesis's three black-hole
+  causes (Ch. 4, §4.3) in FaVe's terms.
 - **Q9 — Priority ties** between overlapping rules of equal priority at one device:
   OpenFlow leaves it undefined. FaVe's table semantics (`TABLE_SEMANTICS_PLAN.md`)
   make every table first-match-wins in document order unless declared otherwise, so
   document position is the tie-break and the adapter encodes it into priority.
+  *Resolved 2026-09-29 (FaVe semantics):* as stated. In a declared LPM table, priority is the
+  prefix length, and a tie cannot matter: `validate_lpm_rules` refuses two rules that
+  share a prefix and differ in action.
 - **Q15 — Are ECs computed only within the new rule's range?** L1 and L4 both imply it:
   12.1/16 is not considered, and r1's part outside r4 is not affected. Path: literature
   (step a), confirmed by L1/L4 and the oracle.
+  *Resolved 2026-09-29 (literature):* **yes.** Per field, the disjoint ranges come from the
+  network-wide overlapping rules (Q1) clipped to the new rule's range, and the ECs are
+  their product. In T p.36's example all three ECs lie inside 11/8, and "the new rule
+  will not affect packets outside the range". The oracle checks that the ECs partition
+  the new rule's range exactly.
 
 **Raised by the V0 survey (§9).** Each is decided from FaVe's semantics (step b), not
 from the literature, and each is entered as an adapter encoding or extension in TODO
@@ -262,22 +297,45 @@ item 31's registry.
 - **Q16 — Rules with several ingress ports.** Expand to one rule per port (an adapter
   encoding, factor stamped: 1.69× on `wl_stanford`), or make IN_PORT a set-valued scan
   field (an extension)? Expansion is the literature-faithful default.
+  *Resolved 2026-09-29 (owner):* **expand**, one rule per ingress port. It is an adapter
+  encoding, and its factor is stamped (`vf_inport_expansion`: 1.69 on `wl_stanford`, 1.06 on
+  the airtel pair).
 - **Q17 — Negated check conditions.** Expand into non-negated vectors as NetPlumber does
   (`_expand_negations`), applied to the query's packet set rather than to rules.
   Refuse on a must-reach check, as NetPlumber does, for the same reason. All 8 such
   checks in the suite (`wl_cloud`) are must-not-reach, so the refusal costs nothing
   today.
+  *Resolved 2026-09-29:* as stated. An adapter encoding, applied to Q21's query set.
 - **Q18 — ICMPv6 type and code in one field.** FaVe packs them into 16 bits, so "type 1,
   any code" is a prefix. OpenFlow keeps two exact-or-ANY fields. Split the field in
   VeriFlow-FR's layout (it moves to scan), or keep FaVe's layout (trie)? Either way it
   is stamped.
+  *Resolved 2026-09-29 (owner):* **keep FaVe's layout.** Every engine sees the same 16-bit
+  field, and splitting it for VeriFlow-FR alone would make the inputs asymmetric. It
+  matters only to V3b, and only on `wl_up`. A split layout remains a possible stamped
+  ablation, if `wl_up`'s V3b numbers show the extra trie dimension costs something.
 - **Q19 — Clear-to-ANY rewrites.** Needed for FaVe's metadata (finding 4). As an EC
   transformation it widens the field to its full range; that is simple, but it is an
   extension beyond the thesis's actions, and declared so.
+  *Resolved 2026-09-29:* as stated. A declared extension; after the clear, the EC is re-sliced
+  as in Q2.
 - **Q20 — Device or table as the graph node.** FaVe's unit is a table wired inside a
   device. Proposal: a VeriFlow-FR node is a FaVe table, and FaVe's wiring gives the
   edges. The thesis's own note on chaining tables within one switch (T p.38) supports
   it. Stamped as an adapter encoding.
+  *Resolved 2026-09-29:* **a node is a FaVe table**; edges come from FaVe's wiring (within a
+  device: a router is pre-routing → ACL-in → routing → ACL-out → post-routing) and its
+  links. Stamp `vf_node=table`. It also aligns loop semantics with NetPlumber's default,
+  "a flow revisits a table" (`net_plumber/FAVE_CHANGES.md` §6), which settles half of
+  Q4 in advance.
+- **Q21 — A FaVe check as a VeriFlow query (bulk mode).** VeriFlow answers for "the ECs
+  a new rule affects"; FaVe's regime loads everything and then asks checks.
+  *Resolved 2026-09-29 (owner):* **the check's packet set stands in for the new rule.**
+  That set is the source's header space intersected with the condition (after Q17). The
+  ECs inside it come from the rules overlapping it network-wide (Q1, Q15); their graphs
+  are built, and traversed from the source. This is the pattern of Delta-net's
+  link-failure query, "the ECs affected by an event". It is our design, and declared as
+  such.
 
 **For the Delta-net authors (D5, group 1).** These are drafted now because they gate
 V1's exit (§8). Each is about what *their* experiment did, which only they can say. They
@@ -706,17 +764,20 @@ checks conversion fails silently (TODO item 32).
 unit tests and seeing them fail, and its exit begins with those tests green.
 
 - **V0 — Spec freeze.** Survey each workload's features, including its `vf_fields`
-  classification (D6) — **done 2026-09-29** (§9). Resolve Q1, Q2, Q5, Q7-Q9, Q15 on
-  paper, and Q16-Q20 from FaVe's semantics. D2, D3 and D6 are resolved. *Exit:* §7 has
-  no unresolved question that blocks V1.
+  classification (D6), and resolve Q1, Q2, Q5, Q7-Q9, Q15-Q21. **Done 2026-09-29**
+  (§9, §7). Still open, and not blocking V1: Q3/Q4 (V3) and Q10-Q14 (the authors, D5).
 - **V1 — Single-field core** (≈ Veriflow-RI): trie, EC, forwarding graph, reachability
   and loop queries over dst-IP; the link-failure query. `wl_airtel1`/`wl_airtel2`,
   differential + LPM guard green. *Exit:* L1-L6 and V1's share of L10 green; the §8
   calibration against Delta-net Table 4.
 - **V2 — Multi-field + ACLs.** Report EC counts and range-expansion factors against
-  APKeep's figures. *Exit:* L7 and V2's share of L10 green.
+  APKeep's figures. *Exit:* L7 and V2's share of L10 green, the oracle and crafted
+  multi-field tests. **No FaVe differential here:** the V0 survey found no multi-field
+  workload without rewrites. The metadata set/clear alone puts every router and
+  packet-filter workload under V3 (Q2).
 - **V3 — Rewrites** (§4.5). Required, not optional (D1). Q3/Q4 resolved. *Exit:* L8 and
-  the rest of L10 (VLAN isolation among them) green.
+  the rest of L10 (VLAN isolation among them) green, and **the first multi-field FaVe
+  differential**: every surveyed workload against NetPlumber, APKeep and ad6 (§8).
 - **V3b — The §4.6 optimisation** (D6), generalised to FaVe's fields, with excluded sets
   under rewrites. *Exit:* L9 green; verdicts identical to plain VeriFlow-FR on every
   workload.

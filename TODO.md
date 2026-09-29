@@ -2168,13 +2168,28 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
 
 ### 30. Alternative verification backend: VeriFlow, as an independent implementation — PLAN (see [`VERIFLOW_PLAN.md`](VERIFLOW_PLAN.md))
 **Scope: the suite's representative of on-demand EC slicing** (Khurshid et al., NSDI'13; Khurshid's 2015 PhD thesis), written by us from the literature because the only published implementation is under a research licence we do not hold. **Nothing from any VeriFlow implementation is copied or vendored, and the UIUC release is neither run nor consulted** (plan §1, §5; D4 closed 2026-09-29: unresolved questions go to the authors (D5), then become declared design choices). D1 resolved 2026-09-29: no research question of its own — it serves item 31's unified comparison.
-- [~] **V0 — spec freeze:** ~~survey each workload's features, including its `vf_fields` classification (D6)~~ **survey DONE 2026-09-29** (plan §9; `fave/bench/feature_survey.py`, 25 tests). It found:
+- [x] **V0 — spec freeze:** ~~survey each workload's features, including its `vf_fields` classification (D6)~~ **survey DONE 2026-09-29** (plan §9; `fave/bench/feature_survey.py`, 25 tests). It found:
   - no rule in the suite carries a ternary or a negated value; negations live only in check conditions (`wl_cloud`);
   - `wl_i2` is dst plus VLAN only, not multi-field;
   - ingress-port disjunctions (1.69× on `wl_stanford`);
   - a third rewrite kind, clear-to-ANY, which FaVe uses for its `in_port`/`out_port` metadata.
 
-  **Still open:** resolve the blocking questions of plan §7: Q1, Q2, Q5, Q7-Q9 and Q15 on paper; Q16-Q20 (raised by the survey) from FaVe's semantics. *(Resolved 2026-09-29: D2, the name VeriFlow-FR; D6, §4.6 in scope as a required staged variant, measured both ways; D3, C++17 with the standard library only, single-threaded, in-process through pybind11, NetPlumber's toolchain and flags as stamps, sanitizers and a concrete-packet oracle from day one.)*
+  **Questions resolved 2026-09-29** (plan §7):
+  - Q1: overlapping rules network-wide;
+  - Q15: ECs clipped to the new rule's range;
+  - Q2: no re-slicing without rewrites, re-slicing at every device with them;
+  - Q5: deletion symmetric to insertion;
+  - Q7: IN_PORT a matched scan field;
+  - Q8: consumed at a probe, dropped by rule, no-match or unwired port;
+  - Q9: document order, LPM ties refused by the validator;
+  - Q16: expand multi-port rules;
+  - Q17: expand negated conditions;
+  - Q18: keep FaVe's ICMPv6 layout;
+  - Q19: clear-to-ANY as an extension;
+  - Q20: a node is a FaVe table;
+  - Q21 (new): a check's packet set stands in for the new rule.
+
+  **Consequence:** no multi-field workload is rewrite-free, so the first multi-field differential is V3's exit, not V2's. **V0 is complete** except the questions that do not block V1: Q3/Q4 (V3) and Q10-Q14 (the authors). *(Resolved 2026-09-29: D2, the name VeriFlow-FR; D6, §4.6 in scope as a required staged variant, measured both ways; D3, C++17 with the standard library only, single-threaded, in-process through pybind11, NetPlumber's toolchain and flags as stamps, sanitizers and a concrete-packet oracle from day one.)*
 - [ ] **D5, group 1 — email to the Delta-net authors** (plan §7 Q10-Q14: the snapshot's identity, what one query computes, what is timed, Veriflow-RI's optimisations, whether it can be run). **Claude drafts, the owner sends**; four weeks without an answer and the questions become declared design choices. Gates V1's exit. Group 2 (Khurshid, for V3/V3b) is drafted after V0; group 3 (APKeep) waits for item 31.
 - **Test-first (owner, 2026-09-29; plan §8, *Test-first, from the literature*):** every phase opens with its tests written and failing. These are the literature-derived catalogue L1-L10 plus the unit tests. Expected values are hand-derived, cite their source, and are cross-checked by the brute-force oracle. Highlights: the thesis's 11/8 example with the typo corrected (L1), Fig. 3.2's documented non-minimality (L2), and Delta-net Fig. 1's four-switch example of VeriFlow's forwarding graphs (L4).
 - [ ] **V1 — single-field core** (L1-L6 green first) on `wl_airtel1`/`wl_airtel2`; **exit gate: calibration** against Delta-net Table 4 (Veriflow-RI, 4.5 ms average over the 158 link-failure queries on the same 38,100-rule snapshot).
@@ -2194,7 +2209,9 @@ Three refinements, so the two categories stay apart:
 2. **Adapter encodings are preprocessing too.** Anything done before the engine sees the rules — LPM to priority (`_reprioritise_fib_lpm`), ingress demultiplexing (`CLOUD_BENCH_PLAN.md` §2.8), port range to prefix expansion — is declared with its cost. Anything inside the engine is an **extension**, declared with what was implemented and how.
 3. **Whose extension.** When we implement a feature for a tool, prefer the authors' own published extension, then the literature's approach for that tool, then our own design — and say which. A clumsy extension penalises the tool, not us.
 
-- [ ] **Accommodation registry** — one document the write-up can cite, instead of five plan documents. Per entry: tool, kind (extension / adapter encoding / equivalence-preserving variant / reducing variant), what and how, cost, evidence, stamp field. Seed entries already in the tree, each to be classified rather than assumed: APKeep's faithful-VLAN model and its `--no-vlan` switch (`APKEEP_BACKEND.md` — `--no-vlan` is VLAN-blind, so a *reducing* encoding, "not a like-for-like comparand"); APKeep ingress demultiplexing (§2.8); LPM re-prioritisation; ad6's mandatory `--lite-acyclic` on i2 (item 0a); the Delta-net airtel workloads as a *static snapshot of an update trace* with an invented reachability policy (`CLOUD_BENCH_PLAN.md` §2.1, §2.5).
+- [ ] **Accommodation registry** — one document the write-up can cite, instead of five plan documents. Per entry: tool, kind (extension / adapter encoding / equivalence-preserving variant / reducing variant), what and how, cost, evidence, stamp field. Seed entries already in the tree, each to be classified rather than assumed: APKeep's faithful-VLAN model and its `--no-vlan` switch (`APKEEP_BACKEND.md` — `--no-vlan` is VLAN-blind, so a *reducing* encoding, "not a like-for-like comparand"); APKeep ingress demultiplexing (§2.8); LPM re-prioritisation; ad6's mandatory `--lite-acyclic` on i2 (item 0a); the Delta-net airtel workloads as a *static snapshot of an update trace* with an invented reachability policy (`CLOUD_BENCH_PLAN.md` §2.1, §2.5). **VeriFlow-FR's entries**, from `VERIFLOW_PLAN.md` §7:
+  - adapter encodings: ingress-port expansion (Q16, factor stamped), negated-condition expansion (Q17), table as graph node (Q20), LPM to priority (Q9);
+  - extensions: clear-to-ANY rewrites (Q19), a check's packet set as the query's "new rule" (Q21), the 4+10 rule generalised to FaVe's fields (D6).
 - [ ] **Variant naming** — how a preprocessed workload is named and where it lives. `SOURCE.json` (A3) already records what produced a generated workload directory; extend it to record the preprocessing and, for an equivalence-preserving variant, the verdict-identity evidence.
 - [ ] **Result-cell schema** — every cell carries: **provenance** (below), the **accommodations** in force (extensions, from the registry above), workload variant, adapter encodings, and an outcome that distinguishes *correct* from *did not finish within the declared limit* from *wrong verdict*. *(Owner, 2026-09-29: provenance is its own column, for every backend.)* Provenance and accommodations used to be one field ("native / extended / our reimplementation"); they are two axes — *whose code runs* versus *how much of the workload the tool supports as published* — and a cell can be, say, the authors' code with a FaVe extension.
   - **Provenance column — whose code produced the number.** Values, each naming its source and its change record:
