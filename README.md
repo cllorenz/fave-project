@@ -166,6 +166,14 @@ on coverage (`coverage report --fail-under`): the tier fails if total coverage
 drops below the floor. CI runs the `fast` tier this way as a ratchet — bump the
 floor up as coverage rises, never down.
 
+Set `FAVE_SKIP_AD6=1` to leave every ad6 test module (`fave/test/test_ad6_*.py`)
+out of every tier (`FAVE_SKIP_AD6=1 ./test.sh integration`). ad6 is the costly
+backend: its units are about half of `fast`'s runtime and its differentials
+several minutes of `integration`, and routine runs use it only as an arbiter
+when NetPlumber and NDD-APKeep disagree. The `RESULT` line says when it was
+set, so a partial run is not mistaken for a whole one; CI's gating jobs do not
+set it.
+
 Alongside the test tiers there is a static type-checking gate that runs `mypy`
 over the typed modules and fails on any type error (`mypy` ships in
 `requirements.txt`, so the `fast`-tier venv already has it):

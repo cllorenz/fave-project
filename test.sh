@@ -41,6 +41,17 @@
 #              coverage drops below it. The ratchet floor -- bump it up as
 #              coverage rises, never down. Opt-in: CI sets it for the fast tier;
 #              a bare COVERAGE=1 run just prints the report.
+#   FAVE_SKIP_AD6  If set to 1, every ad6 test module (fave/test/test_ad6_*.py)
+#              is left out of every tier -- the pure-Python units in `fast`
+#              (~180 tests, about half its runtime) and the solver-backed
+#              differentials in `integration` (several minutes). For routine
+#              runs: the owner's standing direction is to use ad6 as an ARBITER,
+#              when NetPlumber and NDD-APKeep disagree, not as a third
+#              confirmation of an agreement. Measurement-affecting, so the
+#              RESULT line says so; never set it in CI's gating jobs. Tests
+#              that merely construct an Ad6Adapter or call ad6's translator
+#              without solving (test_aggregator_backend, test_table_semantics,
+#              test_reporter_engine_results) are not ad6 tests and still run.
 
 set -uo pipefail
 
@@ -80,6 +91,29 @@ resolve_net_plumber() {
     return 0
 }
 COVERAGE="${COVERAGE:-0}"
+FAVE_SKIP_AD6="${FAVE_SKIP_AD6:-0}"
+
+# `without_ad6 <files...>` prints its arguments minus fave/test/test_ad6_*.py
+# when FAVE_SKIP_AD6=1, and all of them otherwise. Applied at each call site
+# rather than to the lists themselves: the fast tier IGNORES everything in
+# those lists, so filtering the lists would move the costly ad6 differentials
+# INTO `fast` -- the opposite of skipping them.
+without_ad6() {
+    local t
+    for t in "$@"; do
+        if [ "$FAVE_SKIP_AD6" = "1" ]; then
+            case "$t" in test/test_ad6_*.py) continue ;; esac
+        fi
+        printf '%s\n' "$t"
+    done
+}
+
+# Say it where the tier's output is read, so a partial run is never mistaken
+# for a whole one.
+note_ad6_skip() {
+    [ "$FAVE_SKIP_AD6" = "1" ] && echo "   (FAVE_SKIP_AD6=1: $1)"
+    return 0
+}
 
 # FaVe test modules that are NOT pure-Python and so are excluded from `fast`.
 # Listing the *exceptions* (rather than an allow-list of fast tests) means new
@@ -233,6 +267,10 @@ run_fast() {
     local ignores=()
     local t
     for t in "${FAVE_NATIVE_TESTS[@]}"; do ignores+=("--ignore=$t"); done
+    if [ "$FAVE_SKIP_AD6" = "1" ]; then
+        ignores+=("--ignore-glob=test/test_ad6_*.py")
+        note_ad6_skip "the ad6 unit modules are ignored"
+    fi
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt test "${ignores[@]}" ) || rc=1
 
     return $rc
@@ -325,15 +363,21 @@ run_integration() {
     echo "== integration: generate Delta-net workload inputs (for test_backend_differential) =="
     bash "$ROOT/fave/test/gen_deltanet_inputs.sh" || rc=1
 
+    local group
     echo "== integration: fave bison-dependent tests (no backend) =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
+    mapfile -t group < <(without_ad6 "${FAVE_INTEGRATION_TESTS[@]}")
+    note_ad6_skip "$(( ${#FAVE_INTEGRATION_TESTS[@]} - ${#group[@]} )) ad6 module(s) left out"
+    # Never hand pytest an EMPTY list: with no paths it discovers everything.
+    [ "${#group[@]}" -gt 0 ] && { ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${group[@]}" ) || rc=1; }
 
     # Own process so the opt-in is SCOPED: test_iptables_out_iface.py, in the
     # group above, asserts that `-o` is refused by default (see
     # FAVE_OUT_IFACE_TESTS).
     echo "== integration: tests needing FAVE_ALLOW_OUT_IFACE (item 13a) =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_ALLOW_OUT_IFACE=1 \
-        $pt "${FAVE_OUT_IFACE_TESTS[@]}" ) || rc=1
+    mapfile -t group < <(without_ad6 "${FAVE_OUT_IFACE_TESTS[@]}")
+    note_ad6_skip "$(( ${#FAVE_OUT_IFACE_TESTS[@]} - ${#group[@]} )) ad6 module(s) left out"
+    [ "${#group[@]}" -gt 0 ] && { ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_ALLOW_OUT_IFACE=1 \
+        $pt "${group[@]}" ) || rc=1; }
 
     # Separate process => fresh JVM for the NDD engine (see FAVE_NDD_TESTS),
     # which also needs the item 13a opt-in -- all three replay wl_up or wl_tum.
@@ -705,9 +749,11 @@ esac
 
 coverage_report || rc=1
 
+skipped=""
+[ "$FAVE_SKIP_AD6" = "1" ] && skipped=" (ad6 tests SKIPPED: FAVE_SKIP_AD6=1)"
 if [ "$rc" -eq 0 ]; then
-    echo "RESULT: $tier PASSED"
+    echo "RESULT: $tier PASSED$skipped"
 else
-    echo "RESULT: $tier FAILED"
+    echo "RESULT: $tier FAILED$skipped"
 fi
 exit "$rc"
