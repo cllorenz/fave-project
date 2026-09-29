@@ -19,6 +19,7 @@
 # green. Pass names to restrict it; pass none and it does the registry.
 # A DERIVED workload (`wl_berkeley`) is built only when named: its trace is
 # gitignored and it takes minutes and ~16 GB (CLOUD_BENCH_PLAN.md §2.15).
+# `--keep-every K` first builds its size-series sample instead.
 
 set -euo pipefail
 
@@ -35,7 +36,17 @@ from bench.deltanet.workload import generate_inputs
 
 logging.basicConfig(level=logging.INFO)
 
-names = sys.argv[1:] or sorted(WORKLOADS)
+import resource
+import time
+
+args = sys.argv[1:]
+options = {}
+if args[:1] == ['--keep-every']:
+    # wl_berkeley's size series (CLOUD_BENCH_PLAN.md §2.15); a registered
+    # airtel workload refuses the option.
+    options['keep_every'] = int(args[1])
+    args = args[2:]
+names = args or sorted(WORKLOADS)
 for name in names:
     if name not in WORKLOADS and name not in DERIVED:
         raise SystemExit(
@@ -46,6 +57,11 @@ for name in names:
     # `bench.deltanet.workload`, because `run()` reaches the same steps by a
     # different route -- and two spellings of it are how a benchmark and its
     # generator come to produce almost the same directory.
-    run = generate_inputs(name, logger=logging.getLogger('gen_%s' % name))
-    print("generated bench/%s/ from %s" % (name, run.trace))
+    started = time.time()
+    run = generate_inputs(name, logger=logging.getLogger('gen_%s' % name),
+                          **options)
+    # Peak RSS so far of THIS process, which is the generator's, in MB.
+    print("generated bench/%s/ from %s in %.1f s, peak RSS %d MB" % (
+        name, run.trace, time.time() - started,
+        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024))
 PY

@@ -66,7 +66,7 @@ import logging
 import os
 
 from bench.generic_benchmark import GenericBenchmark
-from bench.input_stamp import STAMP, StampError, sha256, verify, write
+from bench.input_stamp import STAMP, StampError, read, sha256, verify, write
 from bench.deltanet.fib_walk import reachability, reached_pairs
 from bench.deltanet.policy import (
     emit_inventory, emit_policy, emit_walked_policy, homing_switches,
@@ -267,12 +267,43 @@ class RouterTraceBenchmark(DeltanetBenchmark):
     FIELD4 = FIELD4_UNREAD
     ROUTES_INDENT = None
 
-    def __init__(self, prefix, trace, keep_every=1, **kwargs):
+    def __init__(self, prefix, trace, keep_every=1, reuse_inputs=False,
+                 **kwargs):
         #: 1/k of the prefixes plus every LPM witness (`sample.py`), for the
         #: size series; 1 is the whole trace. A constructor argument, stamped,
         #: and never an environment variable (`FAVE_DELTANET_TRACE`'s lesson).
         self.keep_every = keep_every
+        #: Run on the inputs a previous generation stamped, instead of
+        #: regenerating them. At full size generation peaks at ~16 GB, and
+        #: `run()` would otherwise hold that process beside the engine's JVM
+        #: (the NDD drill, §2.15). Refused unless the stamp verifies.
+        self.reuse_inputs = reuse_inputs
         super().__init__(prefix, trace, **kwargs)
+
+    def _pre_preparation(self):
+        if not self.reuse_inputs:
+            super()._pre_preparation()
+            return
+        verify_raw(RAW, self.MANIFEST)
+        stamp = read(self.prefix)
+        refusals = []
+        if stamp.get('keep_every') != self.keep_every:
+            refusals.append("the stamp is for keep_every=%s, not %d"
+                            % (stamp.get('keep_every'), self.keep_every))
+        if stamp.get('trace_sha256') != sha256(os.path.join(RAW, self.trace)):
+            refusals.append("the stamp records another trace digest")
+        refusals.extend(self.check_stamp())
+        if refusals:
+            raise StampError(
+                "%s: refusing to reuse inputs -- %s. Regenerate them with "
+                "`bash test/gen_deltanet_inputs.sh --keep-every %d %s`."
+                % (self.prefix, '; '.join(refusals), self.keep_every,
+                   os.path.basename(self.prefix)))
+        self.census = stamp['census']
+        self.lpm_sensitive_cells = [tuple(c)
+                                    for c in stamp['lpm_sensitive_cells']]
+        self.logger.info("reusing the inputs stamped in %s (%d rules)",
+                         self.prefix, self.census['rules'])
 
     def _select(self, inserts):
         return sample(inserts, router_homes(inserts), self.keep_every)
@@ -300,6 +331,7 @@ class RouterTraceBenchmark(DeltanetBenchmark):
             'no_rule': 'dropped',
             'matrix_from': 'bench.deltanet.fib_walk (lpm)',
             'keep_every': self.keep_every,
+            'inputs': 'reused' if self.reuse_inputs else 'generated',
         }
         sensitive = getattr(self, 'lpm_sensitive_cells', None)
         if sensitive is not None:

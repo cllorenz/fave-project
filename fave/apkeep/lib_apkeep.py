@@ -78,6 +78,12 @@ def _ensure_jvm() -> None:
         # FAVE_JVM_XMX (e.g. "8g") raises the heap above the JVM default.
         xmx = os.environ.get("FAVE_JVM_XMX")
         args = ["-Xmx%s" % xmx] if xmx else []
+        # FAVE_JVM_GC_LOG (a path) records every collection, so a slow run
+        # can be told apart from one spending its time in GC (the wl_berkeley
+        # NDD drill, CLOUD_BENCH_PLAN.md §2.15). Unset: nothing is logged.
+        gc_log = os.environ.get("FAVE_JVM_GC_LOG")
+        if gc_log:
+            args.append("-Xlog:gc:file=%s" % gc_log)
         jpype.startJVM(*args, classpath=cp or [_APKEEP_JAR])
 
 

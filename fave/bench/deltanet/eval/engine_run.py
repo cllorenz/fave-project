@@ -158,6 +158,31 @@ def _session_rss_mb(session):
     return totals
 
 
+_GC_PAUSE = re.compile(r'GC\(\d+\) (Pause [A-Za-z ]+?) (?:\(.*\) )*'
+                       r'.*?(\d+)M->(\d+)M\((\d+)M\) ([0-9.]+)ms')
+
+
+def _gc_summary(path):
+    """ Collections, total pause and the largest heap after a collection,
+    from a JDK `-Xlog:gc` file. Pauses only: concurrent phases do not stop
+    the engine. """
+    pauses, total_ms, full, heap_after, heap_committed = 0, 0.0, 0, 0, 0
+    with open(path) as handle:
+        for line in handle:
+            match = _GC_PAUSE.search(line)
+            if match is None:
+                continue
+            pauses += 1
+            total_ms += float(match.group(5))
+            full += match.group(1).startswith('Pause Full')
+            heap_after = max(heap_after, int(match.group(3)))
+            heap_committed = max(heap_committed, int(match.group(4)))
+    return {'pauses': pauses, 'full_pauses': full,
+            'pause_s': round(total_ms / 1000, 3),
+            'max_heap_after_gc_mb': heap_after,
+            'max_heap_committed_mb': heap_committed}
+
+
 def _violations(report_text):
     """ The violation lines of the Compliance Check section, counted. """
     section = report_text.split('## Compliance Check', 1)[-1]
@@ -178,6 +203,12 @@ def main(argv=None):
     parser.add_argument('--keep-every', type=int, default=None,
                         help='a derived workload at 1/k of its prefixes plus '
                              'every LPM witness (bench/deltanet/sample.py)')
+    parser.add_argument('--reuse-inputs', action='store_true',
+                        help='run on the stamped inputs of a previous '
+                             'generation (a derived workload only)')
+    parser.add_argument('--jvm-xmx', default=None,
+                        help='FAVE_JVM_XMX for the aggregator\'s JVM, e.g. 10g; '
+                             'recorded either way')
     parser.add_argument('--mutate', action='store_true')
     parser.add_argument('--mutate-cell', default='s1,s8',
                         help='SOURCE,TARGET the mutation permits (default '
@@ -195,12 +226,25 @@ def main(argv=None):
                                     if args.backend == 'apkeep' else ''))
     cell = args.mutate_cell.split(',')
     rule = '%s ---> %s' % tuple(cell)
+    if args.mutate and args.reuse_inputs:
+        # The mutation wraps `_policy_text`, which reused inputs never call:
+        # the run would report an unmutated verdict as a mutated one.
+        parser.error('--mutate regenerates the policy; it cannot --reuse-inputs')
     options = ({} if args.keep_every is None
                else {'keep_every': args.keep_every})
+    if args.reuse_inputs:
+        options['reuse_inputs'] = True
     code = _BOOTSTRAP % {'mutate': args.mutate, 'name': args.workload,
                          'rule': rule, 'options': options}
     out_dir = os.path.dirname(os.path.abspath(args.out))
     stem = os.path.splitext(os.path.basename(args.out))[0]
+    gc_log = os.path.join(out_dir, stem + '.gc.log')
+    if os.path.exists(gc_log):
+        os.remove(gc_log)
+    if args.backend == 'apkeep':
+        env['FAVE_JVM_GC_LOG'] = gc_log
+    if args.jvm_xmx:
+        env['FAVE_JVM_XMX'] = args.jvm_xmx
 
     started = time.time()
     with open(os.path.join(out_dir, stem + '.stdout'), 'w') as log:
@@ -243,6 +287,8 @@ def main(argv=None):
         'mutated_cell': cell if args.mutate else None,
         'deadline_s': args.deadline, 'status': status, 'exit': rc,
         'wall_s': round(wall, 3),
+        'jvm_xmx': env.get('FAVE_JVM_XMX'),
+        'reuse_inputs': args.reuse_inputs,
         'memory_floor_mb': args.memory_floor, 'peak_rss_mb': peak_rss,
         'peak_rss_by_process_mb': peak_by_process,
         'least_available_mb': least_available,
@@ -268,6 +314,8 @@ def main(argv=None):
     else:
         result['check_compliance_s'] = []
         result['switch_command_s'] = None
+
+    result['gc'] = _gc_summary(gc_log) if os.path.exists(gc_log) else None
 
     if os.path.exists(REPORT):
         with open(REPORT) as handle:
@@ -311,7 +359,7 @@ def main(argv=None):
         handle.write('\n')
     print(json.dumps({k: result[k] for k in (
         'workload', 'engine', 'mutated', 'status', 'wall_s', 'peak_rss_mb',
-        'peak_rss_by_process_mb', 'switch_command_s',
+        'peak_rss_by_process_mb', 'switch_command_s', 'gc',
         'check_compliance_s', 'violations', 'checks', 'drift_from_previous',
         'verdict_valid')}))
     if args.mutate:
