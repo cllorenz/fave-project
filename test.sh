@@ -158,6 +158,10 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     # dependency -- and the file's own docstring says so, because a reader who
     # assumes one would hesitate to run it by hand.
     test/test_deltanet_lpm.py    # LPM is load-bearing on BOTH traces, and the matrix cannot see it (3's standing rule)
+    # Needs the generated reachable.json. wl_berkeley's matrix is stated FROM
+    # this walk (CLOUD_BENCH_PLAN.md 2.15), so it is validated where the answer
+    # is known independently: airtel, cell for cell.
+    test/test_deltanet_fib_walk.py # the reference FIB walk reproduces airtel's homing-derived matrix, and is LPM-blind there
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
 # chain, which TODO.md item 13a refuses by default -- so they run in their own

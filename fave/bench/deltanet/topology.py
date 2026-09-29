@@ -73,7 +73,8 @@ from __future__ import annotations
 import collections
 import re
 
-from typing import Dict, FrozenSet, Iterable, List, NamedTuple, Set, Tuple
+from typing import (
+    Callable, Dict, FrozenSet, Iterable, List, NamedTuple, Set, Tuple)
 
 from bench.deltanet.trace import Insert
 
@@ -215,7 +216,9 @@ def derive_topology(inserts: Iterable[Insert]) -> Topology:
     return topology
 
 
-def homes(inserts: Iterable[Insert]) -> Dict[str, int]:
+def homes(inserts: Iterable[Insert],
+          switch_of: Callable[[str], int] = lambda node: parse_node(node)[0],
+          ) -> Dict[str, int]:
     """ `prefix -> the switch it is delivered at`.
 
     A node that RECEIVES a prefix without carrying a rule for it is where that
@@ -223,6 +226,9 @@ def homes(inserts: Iterable[Insert]) -> Dict[str, int]:
     router advertised it. Refused if any prefix stops at more than one switch,
     because then "where traffic leaves" is not well defined and no edge-to-edge
     property can be stated over it.
+
+    `switch_of` maps a trace node to its switch: `s<i>-<j>` -> `i` here, and a
+    bare router name to itself in `routers.py`, whose traces name no ports.
     """
     carried: Dict[str, Set[str]] = collections.defaultdict(set)
     received: Dict[str, Set[str]] = collections.defaultdict(set)
@@ -233,7 +239,7 @@ def homes(inserts: Iterable[Insert]) -> Dict[str, int]:
     homed: Dict[str, int] = {}
     for prefix, nodes in sorted(carried.items()):
         terminal = received[prefix] - nodes
-        switches = {parse_node(node)[0] for node in terminal}
+        switches = {switch_of(node) for node in terminal}
         if len(switches) != 1:
             raise TopologyError(
                 "%s is delivered at %d switches (%s), so it has no single "

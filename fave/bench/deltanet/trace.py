@@ -48,6 +48,13 @@ skipped line is a rule that silently is not in the model, and a forwarding model
 missing rules still answers every query -- just wrongly. The `-` withdrawal
 these two files do not contain is refused for the same reason: `*-only-inserts`
 is a claim about the data, and it is checked rather than trusted.
+
+**D1 holds for the airtel traces ONLY** (CLOUD_BENCH_PLAN.md §2.14): every
+other member of the archive fails it on nearly every row. A trace whose fourth
+field means something else can still be read -- with `field4=FIELD4_UNREAD`,
+which does not read it at all and leaves `priority` None -- but only by saying
+so at the call site, and `wl_berkeley` stamps that it did (§2.15). The default
+stays the assertion, so nothing reaches the unread path by forgetting.
 """
 
 from __future__ import annotations
@@ -55,8 +62,9 @@ from __future__ import annotations
 import collections
 import os
 import re
+import sys
 
-from typing import Dict, Iterable, List, NamedTuple, Set, Tuple
+from typing import Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -68,6 +76,11 @@ TRACES = ('airtel1-only-inserts.csv', 'airtel2-only-inserts.csv')
 #: D1: `priority = PRIORITY_SLOPE * prefix_length + PRIORITY_BASE`.
 PRIORITY_SLOPE = 5
 PRIORITY_BASE = 100
+
+#: What `parse_trace` does with the fourth field: assert D1 on it (the
+#: default), or not read it at all.
+FIELD4_LPM_PRIORITY = 'lpm-priority'
+FIELD4_UNREAD = 'unread'
 
 _LINE = re.compile(
     r'^(?P<op>[-+])'
@@ -92,11 +105,20 @@ class Insert(NamedTuple):
     plen: int
     router: str
     next_hop: str
-    priority: int
+    #: None when the trace was read with `FIELD4_UNREAD`.
+    priority: Optional[int]
 
 
-def parse_trace(lines: Iterable[str], name: str = '<trace>') -> List[Insert]:
-    """ Every row of a trace, or an exception naming the row that stopped it. """
+def parse_trace(lines: Iterable[str], name: str = '<trace>',
+                field4: str = FIELD4_LPM_PRIORITY) -> List[Insert]:
+    """ Every row of a trace, or an exception naming the row that stopped it.
+
+    Router and next-hop names are interned: a trace names a few dozen devices
+    over millions of rows, and `wl_berkeley`'s 12.8M would otherwise hold two
+    fresh strings per row.
+    """
+    if field4 not in (FIELD4_LPM_PRIORITY, FIELD4_UNREAD):
+        raise ValueError("unknown field4 reading %r" % field4)
     inserts: List[Insert] = []
     for number, line in enumerate(lines, start=1):
         line = line.strip()
@@ -118,8 +140,10 @@ def parse_trace(lines: Iterable[str], name: str = '<trace>') -> List[Insert]:
                 % (name, number, line))
 
         plen = int(match.group('plen'))
-        priority = int(match.group('priority'))
-        if priority != lpm_priority(plen):
+        priority: Optional[int] = None
+        if field4 == FIELD4_LPM_PRIORITY:
+            priority = int(match.group('priority'))
+        if priority is not None and priority != lpm_priority(plen):
             raise TraceError(
                 "%s:%d: the fourth field is %d, and D1 established it as "
                 "%d*%d+%d = %d for a /%d. This trace encodes something else in "
@@ -130,16 +154,17 @@ def parse_trace(lines: Iterable[str], name: str = '<trace>') -> List[Insert]:
 
         inserts.append(Insert(
             prefix=match.group('prefix'), plen=plen,
-            router=match.group('router'), next_hop=match.group('next_hop'),
+            router=sys.intern(match.group('router')),
+            next_hop=sys.intern(match.group('next_hop')),
             priority=priority))
 
     return inserts
 
 
-def read_trace(path: str) -> List[Insert]:
+def read_trace(path: str, field4: str = FIELD4_LPM_PRIORITY) -> List[Insert]:
     """ `parse_trace` over a file, named by it so an error is locatable. """
     with open(path) as handle:
-        return parse_trace(handle, os.path.basename(path))
+        return parse_trace(handle, os.path.basename(path), field4=field4)
 
 
 def final_fib(inserts: Iterable[Insert]) -> Dict[Tuple[str, str], Insert]:

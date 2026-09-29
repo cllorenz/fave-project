@@ -65,7 +65,7 @@ from __future__ import annotations
 
 import collections
 
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple
 
 from devices.abstract_device import LPM
 from bench.deltanet.topology import (
@@ -130,10 +130,25 @@ def _port_name(switch: int, number: int) -> str:
     return '%s.%d' % (device_name(switch), number)
 
 
+def port_rule(insert: Insert, topology: Topology) -> Tuple[int, Tuple[int, ...], int]:
+    """ `(switch, in-ports, egress port)` for one airtel row: the in-port is the
+    `<j>` of `s<i>-<j>`, so every rule is qualified by the port it matches. """
+    switch, port = parse_node(insert.router)
+    neighbour, _ = parse_node(insert.next_hop)
+    return switch, (port,), topology.egress_port(switch, neighbour)
+
+
+#: How a trace row becomes a rule: `(insert, topology) -> (switch, in-ports,
+#: egress)`, an empty in-port tuple meaning ANY port. `port_rule` for airtel;
+#: `routers.router_rule` for a trace that names no ports.
+RuleReading = Callable[[Insert, Topology], Tuple[int, Tuple[int, ...], int]]
+
+
 def build_model(
         inserts: Iterable[Insert],
         topology: Topology,
         homed: Dict[str, int],
+        rule_of: RuleReading = port_rule,
 ) -> Dict[str, Any]:
     """ The four artifacts `GenericBenchmark` reads, from the trace. """
     inserts = list(inserts)
@@ -169,10 +184,8 @@ def build_model(
         collections.defaultdict(list))
 
     for insert in inserts:
-        switch, port = parse_node(insert.router)
-        neighbour, _ = parse_node(insert.next_hop)
-        table[switch].append(
-            ((port,), insert.prefix, topology.egress_port(switch, neighbour)))
+        switch, ingress, egress = rule_of(insert, topology)
+        table[switch].append((ingress, insert.prefix, egress))
 
     delivered = 0
     for prefix, switch in sorted(homed.items()):
