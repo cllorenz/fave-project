@@ -350,7 +350,7 @@ def _cond_related(cond: Any, source: str, probe: str) -> Optional[int]:
         if value is not None and value != parsed:
             raise ValueError(
                 "contradictory query conditions on %s: 'related' constrained to "
-                "both %d and %d. The conjunction is empty, so answering either "
+                "both %s and %s. The conjunction is empty, so answering either "
                 "one would be a different question." % (where, value, parsed))
         value = parsed
 
