@@ -95,14 +95,11 @@ class TestRefusal(unittest.TestCase):
             ), 'fw', None, ['1', '2', '3'])
 
     def test_the_message_names_the_rule_and_says_why(self):
-        try:
+        with self.assertRaises(OutInterfaceUnsupported) as raised:
             generate(_rules(
                 'ip6tables -A FORWARD -o 1 -s 2001:db8::200/120 -j ACCEPT'
             ), 'fw', None, ['1', '2', '3'])
-        except OutInterfaceUnsupported as error:
-            message = str(error)
-        else:
-            self.fail('expected OutInterfaceUnsupported')
+        message = str(raised.exception)
 
         self.assertIn('-o', message)
         self.assertIn('routing', message)
