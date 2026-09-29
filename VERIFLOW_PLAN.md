@@ -277,7 +277,8 @@ traces, which are out of scope (`CLOUD_BENCH_PLAN.md` §2.14).
 **Measurement stamps** (TODO 0a: *every measurement-affecting choice is a stamped
 result field*): trie field order; mode (incremental / bulk); §4.6 on/off; port
 semantics (Q7); port-range expansion factor; EC count per update (VeriFlow's own
-headline metric); language/build flags. **A VeriFlow-FR number is reported as VeriFlow-FR's**,
+headline metric); language/build flags; provenance `reimpl-literature` with the
+engine commit (TODO item 31's provenance column, shared by every backend). **A VeriFlow-FR number is reported as VeriFlow-FR's**,
 beside a sentence on what it interprets — as Delta-net did for Veriflow-RI.
 
 ## 9. Decisions
