@@ -2203,7 +2203,10 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
   - **The EC census reproduces APKeep's Table 3 exactly where the data is the same:** Airtel1/2 2,799, Stanford* 2,283.
   - Whole-space multi-field products explode, from 2.9e6 (`wl_ifi`) to 2.8e17 (`wl_up`).
   - Expansion factors reported.
-  - **Open for V3, owner: Q22.** Should bulk checks slice locally per device (the thesis's rewrite algorithm) rather than network-wide? Otherwise the whole-space workloads cannot finish.
+  - **Q22 resolved 2026-09-29 (owner):** bulk checks slice device by device, the thesis's final algorithm (T §3.1.3), stamped `vf_slicing=device`. The network-wide mode is kept for the airtel calibration.
+    - Local slicing cuts the largest product by 2x to 1e6x.
+    - `wl_tum` (2.9e13) and `wl_up` (2.6e11) keep theirs inside one table: an honest did-not-finish finding, reported with the predicted EC counts, never approximated.
+    - The limit is suite-wide (item 31).
 - [ ] **V3 — header rewrites** (thesis §3.1.3) — required, not optional: without them VeriFlow-FR alone has holes in the VLAN and NAT rows.
 - [ ] **V3b — the 4+10 field optimisation** (thesis §3.2.2), generalised to FaVe's fields (a field is a trie dimension if any rule wildcards it arbitrarily, a linear-scan field otherwise), with excluded packet sets under rewrites. **Exit gate:** verdicts identical to plain VeriFlow-FR on every workload. Required, because every published VeriFlow number has it on and none measures it off (plan §9 D6). Fallback: report plain only, labelled as without §4.6.
 - [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).
@@ -2223,6 +2226,7 @@ Three refinements, so the two categories stay apart:
   - adapter encodings: ingress-port expansion (Q16, factor stamped), negated-condition expansion (Q17), table as graph node (Q20), LPM to priority (Q9);
   - extensions: clear-to-ANY rewrites (Q19), a check's packet set as the query's "new rule" (Q21), the 4+10 rule generalised to FaVe's fields (D6).
 - [ ] **Variant naming** — how a preprocessed workload is named and where it lives. `SOURCE.json` (A3) already records what produced a generated workload directory; extend it to record the preprocessing and, for an equivalence-preserving variant, the verdict-identity evidence.
+- [ ] **OPEN (owner): the suite-wide limit for "did not finish"** (raised by `VERIFLOW_PLAN.md` Q22, 2026-09-29). It is one wall-clock and memory limit for every engine, so a did-not-finish cell means the same thing in every row. It must be declared before V5 measures anything. VeriFlow-FR is expected to hit it on `wl_tum` and `wl_up`, where range-based ECs explode inside one firewall table: 2.9e13 and 2.6e11 predicted, whole-space upper bounds. APKeep reports the same wall for Delta-netMF and VeriFlow, and uses a 24-hour limit and 32 GB of memory (APKeep §5.2).
 - [ ] **Result-cell schema** — every cell carries: **provenance** (below), the **accommodations** in force (extensions, from the registry above), workload variant, adapter encodings, and an outcome that distinguishes *correct* from *did not finish within the declared limit* from *wrong verdict*. *(Owner, 2026-09-29: provenance is its own column, for every backend.)* Provenance and accommodations used to be one field ("native / extended / our reimplementation"); they are two axes — *whose code runs* versus *how much of the workload the tool supports as published* — and a cell can be, say, the authors' code with a FaVe extension.
   - **Provenance column — whose code produced the number.** Values, each naming its source and its change record:
     - `authors` — the authors' code, unmodified. (No backend today.)

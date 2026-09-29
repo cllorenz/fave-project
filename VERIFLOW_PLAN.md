@@ -363,6 +363,58 @@ item 31's registry.
   is a design choice (owner). If it does not, the whole-space workloads are reported
   as "did not finish within the limit" (TODO item 31's result cell), not approximated.
 
+  *Resolved 2026-09-29 (owner):* **bulk checks slice locally, device by device**,
+  stamped `vf_slicing=device`.
+
+  **The literature.** This is the thesis's final algorithm, not our invention: "we
+  can no longer compute network-wide equivalence classes by traversing our trie
+  structure just once. We need to traverse the trie multiple times on a
+  device-by-device basis", slicing "overlapping local equivalence classes at the next
+  hop device" (T pp.40-41). The per-update figures were re-measured with it (T p.48).
+  The paper's network-wide algorithm is the earlier version. It stays as
+  `vf_slicing=network` for the rewrite-free airtel pair, so the calibration keeps
+  measuring what Veriflow-RI measured; where both apply, both are reported.
+
+  **Measured, 2026-09-29.** Whole-space product, network-wide, against the largest
+  single-table product, local:
+
+  | workload | network-wide | local |
+  |---|---:|---:|
+  | `wl_ifi` | 2.9e6 | 4.1e3 |
+  | `wl_i2` | 5.8e6 | 1.5e4 |
+  | `wl_cloud` | 8.3e7 | 2.0e4 |
+  | `wl_stanford` | 5.3e10 | 8.1e7 (`out.yoza_rtr`, 1,614 rules) |
+  | `wl_up` | 2.8e17 | 2.6e11 (`pgf` forward filter, 2,042 rules) |
+  | `wl_tum` | 5.1e13 | 2.9e13 (its one firewall table, 5,108 rules) |
+
+  These are upper bounds over the whole space. A check's arriving set is narrower, but
+  for the two firewalls an estimated 1e9-1e10 remains.
+
+  **What it rescues, and what it does not.** Local slicing makes `wl_ifi`, `wl_i2` and
+  `wl_cloud` small and `wl_stanford` heavy but plausible. It cannot help where the
+  explosion sits inside ONE table (`wl_tum`, `wl_up`); §4.6's scan still splits by the
+  scanned fields, so V3b does not help there either. That is a genuine limitation of
+  range-based ECs, the one APKeep reports for Delta-netMF and VeriFlow ("do not run
+  to completion"). For the comparison it is a **finding**, of the same class as
+  BDD-APKeep's VLAN cost. It is never approximated away; merging ECs across ranges, in
+  particular, would be APKeep's idea, not VeriFlow's.
+
+  **How it is reported:**
+  - **Did not finish within the declared limit** is the result cell (TODO item 31).
+    The limit is one for every engine and is **a suite-wide decision, recorded in item
+    31**, not a VeriFlow-FR setting.
+  - **Predicted ECs, as a diagnostic, never a verdict:** `ec_count` is cheap, so each
+    check stamps the predicted EC count at each table before enumerating. A
+    did-not-finish row says why, e.g. "2.6e11 ECs at `pgf.forward_filter`", not just
+    that time ran out.
+  - **Correctness:** the oracle gains a per-table uniformity check for local slicing,
+    and the differential against NetPlumber covers every workload that finishes.
+
+  **The cost, stated in the write-up.** The "forwarding graph per EC" becomes a tree of
+  packet sets per check, much like NetPlumber's flows; the Ch. 4 invariants still run
+  on the walks. VeriFlow-FR thereby moves structurally closer to header-space
+  propagation. That is a consequence of the thesis's algorithm, and is said so.
+
 **For the Delta-net authors (D5, group 1).** These are drafted now because they gate
 V1's exit (§8). Each is about what *their* experiment did, which only they can say. They
 are phrased in the paper's terms only (Delta-net §4.3.2, Table 4).
@@ -450,7 +502,8 @@ Veriflow-RI optimised) will sharpen this, and Q14, running Veriflow-RI here, wou
 settle it.
 
 **Measurement stamps** (TODO 0a: *every measurement-affecting choice is a stamped
-result field*): trie field order; mode (incremental / bulk); field classification `vf_fields` (D6); port
+result field*): trie field order; `vf_slicing` (Q22); predicted ECs per table (Q22,
+diagnostic); mode (incremental / bulk); field classification `vf_fields` (D6); port
 semantics (Q7); port-range expansion factor; EC count per update (VeriFlow's own
 headline metric); compiler, standard and flags (D3); thread count (1, D3); provenance `reimpl-literature` with the
 engine commit (TODO item 31's provenance column, shared by every backend). **A VeriFlow-FR number is reported as VeriFlow-FR's**,
@@ -875,7 +928,8 @@ unit tests and seeing them fail, and its exit begins with those tests green.
   - **Expansion factors:** ingress ports (Q16) 1.0-1.69; FaVe's own port-range
     expansion, which every engine sees alike, only on `wl_tum`: mean 1.19, max 15 rules
     per ruleset line.
-- **V3 — Rewrites** (§4.5). Required, not optional (D1). Q3/Q4 resolved. *Exit:* L8 and
+- **V3 — Rewrites** (§4.5) **and device-local slicing for every bulk check** (Q22,
+  `vf_slicing=device`). Required, not optional (D1). Q3/Q4 resolved. *Exit:* L8 and
   the rest of L10 (VLAN isolation among them) green, and **the first multi-field FaVe
   differential**: every surveyed workload against NetPlumber, APKeep and ad6 (§8).
 - **V3b — The §4.6 optimisation** (D6), generalised to FaVe's fields, with excluded sets
