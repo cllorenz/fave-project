@@ -76,6 +76,8 @@ class QueriesTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_L10_4_10_next_hop_change);
   CPPUNIT_TEST(test_Q21_deliveries_per_start);
   CPPUNIT_TEST(test_link_failure_on_L4);
+  CPPUNIT_TEST(test_L10_V2_multi_field_acl_black_holes);
+  CPPUNIT_TEST(test_L10_V2_multi_field_overlaps);
   CPPUNIT_TEST(test_link_failure_respects_the_ingress_port);
   CPPUNIT_TEST_SUITE_END();
 
@@ -332,6 +334,55 @@ class QueriesTest : public CppUnit::TestFixture {
     net.add_rule(vftest::rule(2, 1, 0, "0xxxxxxx", {14}, 12));
     CPPUNIT_ASSERT(link_failure(net, 1, 11, 21) == (std::vector<EC>{{{{0, 127}}}}));
     CPPUNIT_ASSERT(link_failure(net, 1, 12, 21).empty());
+  }
+
+  // L10, V2's share: T §4.3 with a MULTI-FIELD ACL, derived. Fields src, dst,
+  // dport, 4 bits each. Router 1 sends everything to ACL 2, which denies
+  // src 0xxx to dport 1010 and permits the rest to probe 3. Over the whole
+  // space, an EC is black-holed (an explicit drop at 2) exactly when it lies in
+  // the deny box, and is delivered otherwise.
+  void test_L10_V2_multi_field_acl_black_holes() {
+    Network net(Layout({{"src", 4}, {"dst", 4}, {"dport", 4}}));
+    tables(net, {{1, {11}}, {2, {21, 22}}, {3, {31}}});
+    net.add_link(11, 21);
+    net.add_link(22, 31);
+    net.add_rule(vftest::rule(1, 1, 0, "xxxxxxxxxxxx", {11}));
+    net.add_rule(vftest::rule(2, 2, 1, "0xxx" "xxxx" "1010", {}));   // deny
+    net.add_rule(vftest::rule(3, 2, 0, "xxxxxxxxxxxx", {22}));       // permit
+    net.add_rule(consume(4, 3, "xxxxxxxxxxxx"));
+
+    std::vector<EC> ecs = net.affected_ecs("xxxxxxxxxxxx");
+    // src splits at 8, dport at 10 and 11: 2 x 1 x 3 ECs.
+    CPPUNIT_ASSERT_EQUAL((size_t)6, ecs.size());
+    size_t dropped = 0;
+    for (const EC &ec : ecs) {
+      const bool in_deny = ec.ranges[0].hi <= 7 && ec.ranges[2].lo == 10 &&
+                           ec.ranges[2].hi == 10;
+      std::vector<Outcome> w = walk(net.forwarding_graph(ec), 1, ANY_PORT);
+      std::vector<Outcome> bh = black_holes(w);
+      if (in_deny) {
+        ++dropped;
+        CPPUNIT_ASSERT_EQUAL((size_t)1, bh.size());
+        CPPUNIT_ASSERT(bh[0].end == End::DROP_RULE);
+        CPPUNIT_ASSERT_EQUAL((uint64_t)2, bh[0].rule);
+      } else {
+        CPPUNIT_ASSERT(bh.empty());
+        CPPUNIT_ASSERT(reaches(w, 3));
+      }
+    }
+    CPPUNIT_ASSERT_EQUAL((size_t)1, dropped);
+  }
+
+  // L10, V2's share: T §4.9 across fields, derived. A = (src 0xxx, any dst),
+  // C = (src 1xxx, dst 0xxx). A new B = (any src, dst 1xxx) overlaps A in
+  // the box src 0xxx x dst 1xxx, and misses C, whose dst is disjoint from its.
+  void test_L10_V2_multi_field_overlaps() {
+    Network net(Layout({{"src", 4}, {"dst", 4}}));
+    tables(net, {{1, {11}}});
+    net.add_rule(vftest::rule(1, 1, 0, "0xxx" "xxxx", {11}));  // A
+    net.add_rule(vftest::rule(2, 1, 0, "1xxx" "0xxx", {11}));  // C
+    Rule b = vftest::rule(9, 1, 1, "xxxx" "1xxx", {11});
+    CPPUNIT_ASSERT(overlapping_in_table(net, b) == (std::vector<uint64_t>{1}));
   }
 };
 

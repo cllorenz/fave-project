@@ -132,6 +132,16 @@ struct EC {
   bool operator<(const EC &o) const { return ranges < o.ranges; }
 };
 
+// The number of ECs of a set, without building them (§4.3): the product of the
+// per-field range counts. `exact` holds it unless it exceeds 128 bits, in which
+// case `saturated` is set; `approx` is always the product in floating point.
+struct ECCount {
+  std::vector<size_t> per_field;
+  u128 exact = 0;
+  bool saturated = false;
+  double approx = 0;
+};
+
 class Network;
 
 // The forwarding graph of one EC (§4.4): which rule decides at each table, per
@@ -188,6 +198,7 @@ class Network {
   // clipped to the set (Q15); an EC is one range per field (a cartesian product,
   // not minimal, T p.37).
   std::vector<EC> affected_ecs(const std::string &range) const;
+  ECCount ec_count(const std::string &range) const;
   // Rules, at every table, whose match overlaps `range`. Sorted by id.
   std::vector<uint64_t> overlapping_rules(const std::string &range) const;
 
@@ -204,6 +215,8 @@ class Network {
 
  private:
   std::string point_of(const EC &ec) const;
+  // Per field, the disjoint ranges of `range` that no overlapping rule splits.
+  std::vector<std::vector<Interval>> field_ranges(const std::string &range) const;
   // Per field, the interval a match denotes; refuses a non-prefix field.
   std::vector<Interval> intervals_of(const std::string &match) const;
 

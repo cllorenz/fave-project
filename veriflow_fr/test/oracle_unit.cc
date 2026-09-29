@@ -121,6 +121,10 @@ void check(const Network &net, const Oracle &oracle, const Rule &inserted,
         }
     }
   }
+  // Counting agrees with building.
+  ECCount count = net.ec_count(inserted.match);
+  CPPUNIT_ASSERT(!count.saturated);
+  CPPUNIT_ASSERT(count.exact == (u128)ecs.size());
   // The ECs partition exactly the new rule's range.
   for (unsigned long p = 0; p < (1ul << width); ++p) {
     bool in_rule = matches(inserted.match, to_bits(p, width));

@@ -240,7 +240,7 @@ std::vector<uint64_t> Network::overlapping_rules(const std::string &range) const
   return trie_.find_overlapping(range);
 }
 
-std::vector<EC> Network::affected_ecs(const std::string &range) const {
+std::vector<std::vector<Interval>> Network::field_ranges(const std::string &range) const {
   const std::vector<Interval> bounds = intervals_of(range);
   const std::vector<uint64_t> overlap = trie_.find_overlapping(range);
 
@@ -262,6 +262,29 @@ std::vector<EC> Network::affected_ecs(const std::string &range) const {
     for (size_t k = 0; k < cuts.size(); ++k)
       per_field[f].push_back({cuts[k], k + 1 < cuts.size() ? cuts[k + 1] - 1 : r.hi});
   }
+  return per_field;
+}
+
+ECCount Network::ec_count(const std::string &range) const {
+  ECCount c;
+  c.exact = 1;
+  c.approx = 1;
+  for (const auto &ranges : field_ranges(range)) {
+    const size_t n = ranges.size();
+    c.per_field.push_back(n);
+    c.approx *= (double)n;
+    if (!c.saturated) {
+      const u128 max = ~(u128)0;
+      if (c.exact > max / n) c.saturated = true;
+      else c.exact *= n;
+    }
+  }
+  if (c.saturated) c.exact = ~(u128)0;
+  return c;
+}
+
+std::vector<EC> Network::affected_ecs(const std::string &range) const {
+  const std::vector<std::vector<Interval>> per_field = field_ranges(range);
 
   // An EC is one range per field: the cartesian product, first field
   // outermost, so the result is sorted.

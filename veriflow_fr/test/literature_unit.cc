@@ -43,6 +43,8 @@ class LiteratureTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_L5_prefix_to_interval);
   CPPUNIT_TEST(test_L6_trie_alg1_alg2);
   CPPUNIT_TEST(test_bulk_load_equals_insertion);
+  CPPUNIT_TEST(test_L7_ecs_are_a_cartesian_product);
+  CPPUNIT_TEST(test_ec_count_without_materialising);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -211,6 +213,66 @@ class LiteratureTest : public CppUnit::TestFixture {
     CPPUNIT_ASSERT_EQUAL((size_t)3, net.affected_ecs(ipv4_prefix("11.0.0.0/8")).size());
     CPPUNIT_ASSERT(net.overlapping_rules(ipv4_prefix("11.0.0.0/8")) ==
                    (std::vector<uint64_t>{1, 3}));
+  }
+
+  // L7 -- T p.37, DERIVED (the thesis has no multi-field example): "For each
+  // field, we find a set of disjoint ranges ... An EC is then defined by a
+  // particular choice of one of the ranges for each of the fields." Two 4-bit
+  // fields, src then dst. Existing rules: src 01xx (any dst), and dst 1xxx (any
+  // src). Inserting the all-wildcard rule, src splits into [0,3] [4,7] [8,15]
+  // and dst into [0,7] [8,15]: 3 x 2 = 6 ECs, first field outermost. It is
+  // not minimal: [0,3]x* and [8,15]x* forward alike.
+  void test_L7_ecs_are_a_cartesian_product() {
+    Network net(Layout({{"src", 4}, {"dst", 4}}));
+    vftest::one_table(net, 1, {10, 11, 12});
+    net.add_rule(vftest::rule(1, 1, 2, "01xx" "xxxx", {10}));
+    net.add_rule(vftest::rule(2, 1, 1, "xxxx" "1xxx", {11}));
+    std::vector<EC> ecs = net.add_rule(vftest::rule(3, 1, 0, "xxxxxxxx", {12}));
+    std::vector<EC> expected;
+    for (Interval s : {Interval{0, 3}, Interval{4, 7}, Interval{8, 15}})
+      for (Interval d : {Interval{0, 7}, Interval{8, 15}})
+        expected.push_back({{s, d}});
+    CPPUNIT_ASSERT(ecs == expected);
+    CPPUNIT_ASSERT_EQUAL((uint64_t)1, net.forwarding_graph(ecs[2]).decide(1, ANY_PORT)->id);
+    CPPUNIT_ASSERT_EQUAL((uint64_t)2, net.forwarding_graph(ecs[1]).decide(1, ANY_PORT)->id);
+    CPPUNIT_ASSERT_EQUAL((uint64_t)3, net.forwarding_graph(ecs[0]).decide(1, ANY_PORT)->id);
+  }
+
+  // Counting ECs must not require building them: on a multi-field workload the
+  // product runs far past memory (APKeep's Table 3: Delta-netMF, 15 million on
+  // Stanford). ec_count() is the product of the per-field range counts --
+  // L7's 3 x 2 -- and saturates rather than wrapping.
+  void test_ec_count_without_materialising() {
+    Network net(Layout({{"src", 4}, {"dst", 4}}));
+    vftest::one_table(net, 1, {10});
+    net.add_rule(vftest::rule(1, 1, 2, "01xx" "xxxx", {10}));
+    net.add_rule(vftest::rule(2, 1, 1, "xxxx" "1xxx", {10}));
+    ECCount c = net.ec_count("xxxxxxxx");
+    CPPUNIT_ASSERT(!c.saturated);
+    CPPUNIT_ASSERT(c.exact == 6);
+    CPPUNIT_ASSERT_EQUAL((size_t)3, c.per_field[0]);
+    CPPUNIT_ASSERT_EQUAL((size_t)2, c.per_field[1]);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(6.0, c.approx, 1e-9);
+
+    // Saturation, cheaply: 81 two-bit fields, each cut into three ranges by
+    // "0x" and "00" -- [0,0] [1,1] [2,3]. 3^81 = 4.4e38 exceeds 2^128 = 3.4e38.
+    std::vector<Field> fields;
+    for (int f = 0; f < 81; ++f) fields.push_back({"f" + std::to_string(f), 2});
+    Network big{Layout(fields)};
+    vftest::one_table(big, 1, {10});
+    const std::string all(162, 'x');
+    uint64_t id = 1;
+    for (int f = 0; f < 81; ++f)
+      for (const char *v : {"0x", "00"}) {
+        std::string m = all;
+        m[2 * f] = v[0];
+        m[2 * f + 1] = v[1];
+        big.load_rule(vftest::rule(id++, 1, 0, m, {10}));
+      }
+    ECCount b = big.ec_count(all);
+    CPPUNIT_ASSERT(b.saturated);
+    CPPUNIT_ASSERT_EQUAL((size_t)3, b.per_field[80]);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(4.434e38, b.approx, 1e36);
   }
 };
 
