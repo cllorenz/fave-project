@@ -28,9 +28,10 @@ FaVe added carry their directory's licence (e.g. `array_packet_set.cc` Apache-2.
 `4079ee0d`, `a669e49e`); those headers do not say *what* changed, and this file does.
 
 **Contributors.** Claas Lorenz (661 commits), Jan Sohre (42, pipe slicing, 2018–19), one
-commit as "System Administrator" (`1495778e`, pipe slicing). Sebastian Kiekheben is named
-as an author in the files the 2017 drop touched (§1) but has no commits of his own; that
-drop's per-change authorship is not recoverable from git. Commits from 2026 carry a
+commit as "System Administrator" (`1495778e`, pipe slicing). Sebastian Kiekheben has no
+commits of his own: the 2017 drop (§1) is **joint work of Claas Lorenz and Sebastian
+Kiekheben**, and Kiekheben implemented the first version of the dynamic header-space
+expansion (§2) (owner, 2026-09-29; git records the drop as one squashed commit). Commits from 2026 carry a
 Claude co-author line.
 
 **How to read this.** There are 700 commits (`git log -- hassel/net_plumber net_plumber/`);
@@ -62,7 +63,8 @@ flags are listed in §9 as off. The canonical build is what a stamp should name.
 ## 1. The 2017 pre-repository drop  **[NEW]**
 
 `9259da12` ("Merge changes into hassel subtree", 2017-10-30) brought 2,579 lines of
-earlier work into the fresh subtree in one squashed commit. It added:
+earlier work, joint by Claas Lorenz and Sebastian Kiekheben, into the fresh subtree in
+one squashed commit. It added:
 
 - **header expansion** — `NetPlumber::expand`, `Node::enlarge`, the `expand` RPC (§2);
 - **firewall rule nodes** (`firewall_rule_node.{h,cc}`) and **policy rules and policy
@@ -80,7 +82,8 @@ The "dynamic" in DHSA. Upstream fixes the header length when the network is crea
 FaVe grows it at runtime whenever the model gains a field, and every node, flow and
 table is enlarged in place.
 
-- `expand` RPC, `NetPlumber::expand`, `Node::enlarge`, `SourceProbeNode::enlarge` (`9259da12`).
+- `expand` RPC, `NetPlumber::expand`, `Node::enlarge`, `SourceProbeNode::enlarge` (`9259da12`):
+  the first version, by Sebastian Kiekheben.
 - Lengths are expanded in **multiples of 8** (`98617ba3`).
 - Generic enlargement padding (`b672527d`, `9a460e43`). Rule masks are padded with `0`,
   not with `x`, which triggered a `has_x` assertion before (`da53af82`).
