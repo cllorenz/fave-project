@@ -19,11 +19,11 @@ TOBJ     := $(TSRC:test/%.cc=build/test/%.o)
 
 all: build/libveriflow_fr.a build/veriflow_fr_test
 
-build/%.o: src/%.cc src/veriflow.h
+build/%.o: src/%.cc src/veriflow.h src/queries.h
 	@mkdir -p build
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-build/test/%.o: test/%.cc src/veriflow.h test/test_util.h
+build/test/%.o: test/%.cc src/veriflow.h src/queries.h test/test_util.h
 	@mkdir -p build/test
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

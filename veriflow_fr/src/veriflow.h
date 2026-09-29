@@ -151,6 +151,7 @@ class ForwardingGraph {
   std::set<std::pair<uint32_t, uint32_t>> table_edges() const;
   // A path that revisits a table (Q20), from any table and arrival.
   bool has_loop() const;
+  const Network &network() const { return *net_; }
 
   // Valid while the network is unchanged: it points into the rule store.
 
