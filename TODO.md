@@ -2168,10 +2168,10 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
 
 ### 30. Alternative verification backend: VeriFlow, as an independent implementation — PLAN (see [`VERIFLOW_PLAN.md`](VERIFLOW_PLAN.md))
 **Scope: the suite's representative of on-demand EC slicing** (Khurshid et al., NSDI'13; Khurshid's 2015 PhD thesis), written by us from the literature because the only published implementation is under a research licence we do not hold. **Nothing from any VeriFlow implementation is copied or vendored, and the UIUC release is not run** (plan §1, §5). D1 resolved 2026-09-29: no research question of its own — it serves item 31's unified comparison.
-- [ ] **V0 — spec freeze:** survey each workload's features; settle D2 (name), D3 (language), D6 (the 4+10 field optimisation); resolve the blocking questions of plan §7.
+- [ ] **V0 — spec freeze:** survey each workload's features; settle D3 (language), D6 (the 4+10 field optimisation); resolve the blocking questions of plan §7. *(D2 resolved 2026-09-29: VeriFlow-FR.)*
 - [ ] **V1 — single-field core** on `wl_airtel1`/`wl_airtel2`; **exit gate: calibration** against Delta-net Table 4 (Veriflow-RI, 4.5 ms average over the 158 link-failure queries on the same 38,100-rule snapshot).
 - [ ] **V2 — multi-field + ACLs**, EC counts and prefix-expansion factors reported.
-- [ ] **V3 — header rewrites** (thesis §3.1.3) — required, not optional: without them VF-FaVe alone has holes in the VLAN and NAT rows.
+- [ ] **V3 — header rewrites** (thesis §3.1.3) — required, not optional: without them VeriFlow-FR alone has holes in the VLAN and NAT rows.
 - [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).
 - [ ] **V5 — measurement** over the whole suite, stamped.
 

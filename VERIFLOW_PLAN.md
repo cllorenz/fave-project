@@ -1,12 +1,12 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** PLANNING (opened 2026-09-29). No code yet. D1 resolved 2026-09-29 (§9).
+**Status:** PLANNING (opened 2026-09-29). No code yet. D1 and D2 resolved 2026-09-29 (§9).
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
 [`CLOUD_BENCH_PLAN.md`](CLOUD_BENCH_PLAN.md) §2 (the Delta-net workloads).
 
-Working name for our implementation: **VF-FaVe** (placeholder — §9, decision D2). It
+Name of our implementation: **VeriFlow-FR** (FaVe reimplementation; §9, decision D2). It
 is *not* "VeriFlow", and no result from it is to be reported as VeriFlow's.
 
 ---
@@ -179,7 +179,7 @@ Placement mirrors the existing engines: an engine directory at the repo root, a 
 adapter under `fave/`, selection through the existing backend switch.
 
 ```
-vf_fave/                    C++17 engine (D3), CMake or make like net_plumber/
+veriflow_fr/                C++17 engine (D3), CMake or make like net_plumber/
   field_layout             FaVe header layout -> ordered trie dimensions (order is a stamp)
   ternary_trie             §4.2: insert / remove / find-overlapping (Alg. 1/2)
   rule_store               (device, rule, priority, match, actions) — our own representation
@@ -250,7 +250,7 @@ Resolutions are appended below the question with a date.
 ## 8. Correctness and measurement gates
 
 **Correctness** needs no VeriFlow oracle: FaVe already has three engines that agree.
-- **Differential:** every workload VF-FaVe runs is compared pair by pair against
+- **Differential:** every workload VeriFlow-FR runs is compared pair by pair against
   NetPlumber, APKeep (NDD) and, where it runs, ad6 (`test_backend_differential.py`).
 - **LPM guard** (`CLOUD_BENCH_PLAN.md` §3): each FIB workload must show its evidence can
   see priority — invert the order, the verdict must change.
@@ -260,13 +260,13 @@ Resolutions are appended below the question with a date.
   recorded as behaviour, never vendored.
 
 **Calibration — the gate no other engine in the suite needs.** Every other engine is
-its authors' own code, which we have patched; VF-FaVe is our reading, and a naive
+its authors' own code, which we have patched; VeriFlow-FR is our reading, and a naive
 reading is the easiest straw man in the comparison. The defence is a published number
 on identical data. Delta-net §4.3.2 (Table 4) answers 158 "what if a link fails?"
 queries on the 38,100-rule Airtel data-plane snapshot — which *is* `wl_airtel1`'s
 input (`airtel1-only-inserts.csv`, 158 edges in `bench/deltanet/TRACES.md`) — and
 reports an average query time of **4.5 ms for Veriflow-RI** (0.04 ms for Delta-net),
-on a 3.47 GHz Xeon, single-threaded. VF-FaVe must reproduce that experiment on
+on a 3.47 GHz Xeon, single-threaded. VeriFlow-FR must reproduce that experiment on
 `wl_airtel1` — for each link, build the forwarding graphs of every EC the failure
 affects — and land within an order of magnitude of 4.5 ms, with the hardware difference
 stated. That is a V1 exit gate. It calibrates against Veriflow-RI, not VeriFlow: the
@@ -277,7 +277,7 @@ traces, which are out of scope (`CLOUD_BENCH_PLAN.md` §2.14).
 **Measurement stamps** (TODO 0a: *every measurement-affecting choice is a stamped
 result field*): trie field order; mode (incremental / bulk); §4.6 on/off; port
 semantics (Q7); port-range expansion factor; EC count per update (VeriFlow's own
-headline metric); language/build flags. **A VF-FaVe number is reported as VF-FaVe's**,
+headline metric); language/build flags. **A VeriFlow-FR number is reported as VeriFlow-FR's**,
 beside a sentence on what it interprets — as Delta-net did for Veriflow-RI.
 
 ## 9. Decisions
@@ -293,16 +293,16 @@ and have already produced findings (NetPlumber is robust at scale; update-optimi
 tools can be challenged end to end, e.g. APKeep-BDD with VLANs not baked into the
 topology; ad6 is feasible within limits).
 
-So VF-FaVe needs **no research question of its own**. It is the suite's representative
+So VeriFlow-FR needs **no research question of its own**. It is the suite's representative
 of **on-demand EC slicing** — the one family that keeps no packet-space partition
 between updates, against NetPlumber's rule graph and APKeep's persistent minimal
 partition. What follows from that:
 
-- **All workloads, not a tier.** VF-FaVe is run on the whole suite. Where it cannot
+- **All workloads, not a tier.** VeriFlow-FR is run on the whole suite. Where it cannot
   run a workload as given, the cell carries a **declared accommodation** (below), not
   a gap.
 - **Rewrites (§4.5, V3) are required.** They are part of VeriFlow as the thesis
-  specifies it. Without them VF-FaVe alone would have holes in the VLAN and NAT rows,
+  specifies it. Without them VeriFlow-FR alone would have holes in the VLAN and NAT rows,
   which would read as VeriFlow's weakness when it is our implementation gap.
 - **Both regimes.** VeriFlow is update-optimised; judging it on from-zero time only
   would measure it on a regime it never claimed. The incremental axis is a suite-level
@@ -315,7 +315,7 @@ Most tools support far fewer header fields than real networks use — the 5-tupl
 IPv4 forwarding only (Delta-net). To measure a tool at all we either **implement a
 feature**, declaring what and how, or **run a preprocessed workload**, declared as a
 tweak of the workload and never presented as a trait of the tool. The suite-wide
-registry and naming live in TODO item 31; for VF-FaVe:
+registry and naming live in TODO item 31; for VeriFlow-FR:
 
 - **"Native" means as specified in the paper and thesis:** OpenFlow 1.1's 14 match
   fields (incl. DL_VLAN and MPLS), priorities, drops, the §4.5 rewrites, the Ch. 4
@@ -327,9 +327,19 @@ registry and naming live in TODO item 31; for VF-FaVe:
 - **Whose extension:** prefer the literature's approach for VeriFlow (e.g. APKeep's
   prefix expansion) over our own design, and say which was used.
 
+### D2 — RESOLVED 2026-09-29: the name is VeriFlow-FR (owner's call)
+
+**VeriFlow-FR** — "FaVe reimplementation". The name must say that this is not the
+authors' code, and it must not collide with Delta-net's reimplementation, which its
+authors call **Veriflow-RI** (the owner's first choice, hence taken); both appear side by
+side in the §8 calibration gate. Spelling follows the original: the paper and the thesis
+write "VeriFlow" throughout; Delta-net writes "Veriflow", and its reimplementation is
+quoted as spelled there. Code identifiers: `veriflow_fr/` (engine), `fave/veriflow/`
+(adapter), `FAVE_BACKEND=veriflow`. The placeholder "VeriFlow-FR" was dropped because FaVe
+is the harness every backend runs in, not one of them.
+
 ### Still open
 
-- **D2 — Name.** `VF-FaVe` is a placeholder.
 - **D3 — Language.** C++ proposed: the original was C++ and NetPlumber is C++, and
   `APKEEP_BACKEND.md` §6's from-zero, low-and-symmetric-overhead boundary applies here
   too. Python would be faster to write and slower to measure.
@@ -339,7 +349,7 @@ registry and naming live in TODO item 31; for VF-FaVe:
 - **D6 — §4.6 optimisation** in scope, or a later variant (Q6)?
 - **Delta-net as a backend** is a suite-level question (TODO item 31), not this plan's.
 
-**Workload features, by what VF-FaVe must support** (a hypothesis until V0's survey):
+**Workload features, by what VeriFlow-FR must support** (a hypothesis until V0's survey):
 
 | needs | workloads |
 |---|---|
@@ -352,8 +362,8 @@ The thesis's §4.5 moved the last row from "out of scope" (the NSDI paper alone)
 
 ## 10. Phases
 
-- **V0 — Spec freeze.** Survey each workload's features (fills §9's table); settle D2,
-  D3, D6; resolve Q1, Q2, Q5, Q7-Q9 on paper. *Exit:* §7 has no unresolved question
+- **V0 — Spec freeze.** Survey each workload's features (fills §9's table); settle
+  D3, D6 (D2 is resolved); resolve Q1, Q2, Q5, Q7-Q9 on paper. *Exit:* §7 has no unresolved question
   that blocks V1.
 - **V1 — Single-field core** (≈ Veriflow-RI): trie, EC, forwarding graph, reachability
   and loop queries over dst-IP; the link-failure query. `wl_airtel1`/`wl_airtel2`,
