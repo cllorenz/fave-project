@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** PLANNING (opened 2026-09-29). No code yet. D1, D2, D3 and D6 resolved 2026-09-29 (§9).
+**Status:** PLANNING (opened 2026-09-29). No code yet. D1-D4 and D6 resolved 2026-09-29 (§9).
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -42,7 +42,7 @@ that would permit use, and we do not hold it. It is therefore **not a test oracl
 | Horn et al., *Delta-net*, NSDI'17, §5 | describes *Veriflow-RI*, their own reimplementation | interpretation precedent; states that "neither Veriflow's implementation (or its algorithm) nor any of the data sets … are publicly available" |
 | Zhang et al., *APKeep*, NSDI'20, §6 | benchmarks "an open-source version of VeriFlow" and *Delta-netMF* | prior measurement: VeriFlow-style EC explosion on ACLs (686 ACL rules → ~15 M ECs) |
 | `MuLx10/VeriFlow` (GitHub, GPL-3, 2020) | a small Python reimplementation, unvetted | may be **run** as a black-box oracle; code consulted only under §5's protocol |
-| UIUC release (`xwu64/…`, commit `d31f03c`) | the original C++ | **not run**; consulted only under §5's protocol, and only if the owner lifts the default (D4) |
+| UIUC release (`xwu64/…`, commit `d31f03c`) | the original C++ | **not run and not consulted** (D4, closed) |
 
 Searched for and **not found** (2026-09-29): Veriflow-RI code; Delta-net code (the
 `delta-net` GitHub organisation holds only `datasets`; neither author's personal account
@@ -162,16 +162,17 @@ unit test for that example asserts the correct value and cites this line.
    semantics and record the reasoning — *most questions should end here*, because we
    are building a FaVe backend, not a VeriFlow replica; (c) run `MuLx10/VeriFlow` as a
    black box on a crafted input and record the observed behaviour; (d) only then,
-   consult an implementation's *source*.
+   consult `MuLx10/VeriFlow`'s *source*; (e) ask the authors (D5); (f) failing all of
+   these, **decide it as our own design** and enter it in TODO item 31's accommodation
+   registry. Where the literature is silent, the choice is ours, and it is declared.
 4. **Source consultation (step d) is done by a separate subagent** that is given the
    question, reads the code outside the repo, and answers **in prose, describing
    behaviour only** — no code, no identifiers beyond those the literature already
    publishes, no data-structure layouts. The answer is appended to §7 verbatim with the
    date and which implementation was read. The implementing agent never has the code
    open.
-5. **The UIUC source is off-limits by default** (D4). Consulting it at all is an owner
-   call per question, because even reading an unlicensed copy sits uneasily with its
-   §3.
+5. **The UIUC source is never consulted** (D4, closed 2026-09-29), for no question and by
+   no one, subagents included. The §3 record of what was already seen stands.
 6. Nothing from either implementation — files, snippets, test vectors, topology files —
    enters the repo or `fave/bench/`.
 
@@ -427,9 +428,40 @@ be "VeriFlow without its own optimisation", which is the straw man item 31 forbi
   unworkable, the multi-field rows report plain VeriFlow-FR only, labelled "without §4.6,
   which the published numbers include".
 
+### D4 — CLOSED 2026-09-29: the UIUC source is never consulted (owner's call)
+
+The earlier default was "never, unless the owner allows it per question". That left an
+approval path open, and the path cannot be made clean:
+
+1. **Legally, approval does not cure anything.** We hold no licence, the licence's §3
+   treats the code as confidential, and the surviving copy is very likely an
+   unauthorised redistribution (§1). A clean room protects against copying *expression*;
+   it does not change having *read confidential material from an unauthorised source*. A
+   per-question approval would only attach the owner's name to each instance. The
+   product was commercialised and has a corporate successor (§1).
+2. **Our clean room is procedural.** The subagent of §5.4 is the same model, and its
+   answer enters the implementer's context. That is adequate for `MuLx10/VeriFlow`, where
+   reading is lawful and the separation only protects the independence of our reading,
+   but a reviewer or lawyer would rightly discount it for the UIUC code.
+3. **It would falsify the provenance value.** TODO item 31 defines `reimpl-literature`
+   as "our implementation from the publications alone". One consulted question would
+   make that false.
+4. **It would settle little.** Most §7 questions end at step (b), FaVe's own semantics.
+   The hard ones are rewrites (V3) and §4.6 under rewrites (V3b), both from the 2015
+   thesis. The release is the 2012-13 NSDI version and may predate them. That is
+   unknown, since no `.cpp` body was read (§3).
+5. **A better channel exists:** asking the authors (D5) gives citable answers, raises no
+   licence question and keeps the provenance clean. Without an answer the question
+   becomes a declared design choice (§5 step f), which is the honest outcome where the
+   literature is silent.
+
+**The cost, accepted:** some questions will be decided by our design where reading the
+code would have given the original's answer. We could never have checked that fidelity
+anyway, since the release is not run (§1). The evidence for VeriFlow-FR is the
+calibration gate and the verdict differential (§8).
+
 ### Still open
 
-- **D4 — UIUC source consultation.** Default: never. Owner may allow it per question.
 - **D5 — Ask the authors?** Godfrey (licence/permission for the original); Horn or
   Kheradmand (Veriflow-RI / Delta-net); Zhang's group (Delta-netMF).
 - **Delta-net as a backend** is a suite-level question (TODO item 31), not this plan's.
@@ -472,4 +504,4 @@ The thesis's §4.5 moved the last row from "out of scope" (the NSDI paper alone)
 Cite the NSDI'13 paper and the thesis for the algorithm. Because nothing is derived
 from the UIUC software, its licence's notice and acknowledgement clauses (§2.7-2.8) do
 not apply — **that is only true while §5 holds**, which is the practical reason the
-protocol is strict.
+protocol is strict, and why D4 is closed rather than left to per-question approval.
