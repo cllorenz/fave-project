@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -41,6 +42,22 @@ from netplumber.mapping import FIELD_SIZES
 FieldValue = Union[str, "Vector", None]
 
 
+def _interned(value: Any) -> Any:
+    """ One shared copy of a string that recurs across rules -- a node, a table,
+    a field name, a port. A large FIB repeats a few hundred such strings
+    millions of times, and each rule otherwise kept its own decoded copy
+    (CLOUD_BENCH_PLAN.md §2.15: ~390 B per rule on wl_berkeley). Anything that
+    is not a string passes through unchanged. """
+    return sys.intern(value) if isinstance(value, str) else value
+
+
+def _intern_in_place(items: List[Any]) -> List[Any]:
+    """ `_interned` over a list, keeping the LIST: a caller that shares it with
+    the rule must go on seeing the same object. """
+    items[:] = [_interned(item) for item in items]
+    return items
+
+
 class RuleField(object):
     """ This class provides a model for switch rules.
     """
@@ -48,7 +65,7 @@ class RuleField(object):
     def __init__(
             self, name: str, value: FieldValue, negated: bool = False
     ) -> None:
-        self.name = name
+        self.name = _interned(name)
         # Canonicalize at the construction boundary so equivalent
         # representations (IPv6 syntax variants, CIDR compact/expanded, protocol
         # name vs IANA number) are stored identically -- model equality, and
@@ -150,7 +167,8 @@ class Forward(RuleAction):
 
     def __init__(self, ports: Optional[List[str]] = None) -> None:
         super(Forward, self).__init__("forward")
-        self.ports: List[str] = ports if ports is not None else []
+        self.ports: List[str] = (
+            _intern_in_place(ports) if ports is not None else [])
 
 
     def __str__(self) -> str:
@@ -403,11 +421,12 @@ class Rule(object):
             raw_line_no: Optional[int] = None,
             raw_line: Optional[str] = None
     ) -> None:
-        self.node = node
+        self.node = _interned(node)
         self.mtype = "switch_rule"
-        self.tid = tid
+        self.tid = _interned(tid)
         self.idx = idx
-        self.in_ports: List[str] = in_ports if in_ports is not None else []
+        self.in_ports: List[str] = (
+            _intern_in_place(in_ports) if in_ports is not None else [])
         self.match: Match = match if match else Match()
         self.actions: List[RuleAction] = actions if actions is not None else []
         self.raw_line_no = raw_line_no

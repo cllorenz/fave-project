@@ -141,8 +141,10 @@ class SwitchModel(AbstractDeviceModel):
 
 
     def add_rules(self, rules: Iterable[Rule]) -> None:
+        # One string for the whole table, not a fresh copy per rule.
+        tid = sys.intern(self.node+'.1')
         for rule in rules:
-            rule.tid = self.node+'.1'
+            rule.tid = tid
         super(SwitchModel, self).add_rules(rules)
 
 
