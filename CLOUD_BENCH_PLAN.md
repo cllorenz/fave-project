@@ -4112,6 +4112,33 @@ process. The benchmark process, holding the loaded `routes.json`, added 3.5 GB
   MemAvailable drop during the series' k=30 NetPlumber run (~5 GB beyond that
   run's processes); the cause of the sandbox death.
 
+#### Slimming the harness, first two steps — 2026-09-30
+
+Owner, 2026-09-30: "Do 1 and 2, then remeasure at k=3." Measured first with
+`tracemalloc` on an in-process replay at k=100, the aggregator's Python side
+held **2,160 B per rule**: ~930 in the APKeep adapter (three copies of every
+rule), ~550 in FaVe's rule model, ~390 in decoded JSON strings, ~95 in the LPM
+validation index. The two cheap steps:
+
+1. **`routes.json` streamed one table at a time** (`iter_json_array`,
+   `add_routes_streamed`; opt-in via `STREAM_ROUTES`, on for `wl_berkeley`
+   only). Same commands as before; refuses routes not grouped by table.
+2. **Recurring rule strings interned** — node, table id, field name, ports.
+   It saved **211 B per rule** (2,160 → 1,901), about half the ~390 B first
+   attributed to it: the rest is values each rule really owns.
+
+**k=3 again, the drill's settings unchanged** (`results_berkeley_slim_2026-09-30/`,
+prediction declared before the run): **the memory floor again, but at 725 s
+instead of 401 s.** The benchmark process fell from 3,501 to **671 MB**, and
+the aggregator's non-heap part by ~1.5 GB — but the aggregator's total fell
+only 0.44 GB, because **the JVM's committed heap grew from 6.5 to 7.5 GB**
+while its live set after GC was only ~4.0 GB. At `-Xmx8g`, G1 expanded into
+the room the Python side freed. So at k=3 the binding limit is now, for a
+large part, the heap size the drill chose, not FaVe. Rule load took 537 s
+against the drill's 288 s — one sample each, not explained (interning is far
+too cheap for 56 µs per rule; GC pauses total 5.5 s; swapping near the floor is
+plausible and unmeasured).
+
 ---
 
 ---

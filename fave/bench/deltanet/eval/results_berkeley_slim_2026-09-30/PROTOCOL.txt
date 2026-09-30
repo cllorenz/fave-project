@@ -1,0 +1,16 @@
+Declared 2026-09-30T12:50:11+00:00, before the run below, after options 1 and 2 of the harness-slimming
+discussion (owner, 2026-09-30: "Do 1 and 2, then remeasure at k=3"): routes.json streamed one table at a time
+(77ae3aad), recurring rule strings interned (5434bf69). git 77ae3aad.
+
+One run, NDD, wl_berkeley k=3 (4,476,240 rules), settings IDENTICAL to the NDD drill's k=3 step
+(results_berkeley_ndd_2026-09-29/k3_ndd.json: memory floor reached at 401 s, rule load 287.9 s, aggregator
+15,566 MB, benchmark 3,501 MB, MemAvailable 2,644 MB at the kill): inputs generated first in their own process and
+REUSED; --jvm-xmx 8g; --memory-floor 3000; deadline 10800 s. Expected verdict 0 of 520. Driver: engine_run.py.
+
+Already measured before this run (tracemalloc, in-process replay at k=100): the aggregator's Python retention fell
+from 2,160 to 1,901 B per rule -- interning saved 211 B, not the ~390 B first attributed to it.
+
+PREDICTION: the benchmark process falls from ~3.5 GB to a few hundred MB (one table, ~195k rules); the aggregator
+by ~0.9 GB (211 B x 4.48M). ~4 GB more headroom than the drill had at its kill. Either the run completes, or it
+reaches the floor later than 401 s; which one is not predicted -- the drill did not measure how much more the
+compliance check would have needed. One sample.
