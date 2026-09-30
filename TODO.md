@@ -2213,6 +2213,7 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
     - Rewrites, routers and packet filters translate.
     - **Equal to NetPlumber** on `wl_ifi`, `wl_cloud`, `wl_example`, `wl_airtel1` and `wl_i2`.
     - **Did not finish** within 5e7 local ECs on `wl_stanford`, `wl_up` and `wl_tum`, each at the firewall or out-stage table Q22 predicted.
+    - **With a 2e9 budget, `wl_stanford` finishes and equals NetPlumber:** 165 pairs, 5.67e8 local ECs, 33 min and 0.9 GB against NetPlumber's 12 s, about 166x. That is the measured price of range ECs there.
     - **Open, owner:** Q4, NetPlumber's `path` rule or the thesis's `state`; they differ in no measured verdict, and `state` does up to 9x less work. The suite-wide limit is in item 31.
 - [ ] **V3b — the 4+10 field optimisation** (thesis §3.2.2), generalised to FaVe's fields (a field is a trie dimension if any rule wildcards it arbitrarily, a linear-scan field otherwise), with excluded packet sets under rewrites. **Exit gate:** verdicts identical to plain VeriFlow-FR on every workload. Required, because every published VeriFlow number has it on and none measures it off (plan §9 D6). Fallback: report plain only, labelled as without §4.6.
 - [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).

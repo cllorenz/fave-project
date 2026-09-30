@@ -965,7 +965,7 @@ unit tests and seeing them fail, and its exit begins with those tests green.
     | `wl_example` (packet filters) | **equal**, 6 | 0.4 s / 0.3 s | <0.1 s |
     | `wl_airtel1` (device slicing) | **equal**, 210 | 9.4 s / 9.6 s | 12.8 s |
     | `wl_i2` (VLAN mesh) | **equal**, 61 | 493 s / 444 s | 876 s |
-    | `wl_stanford` | did not finish; the work is at `out.yoza_rtr.1` | -- | -- |
+    | `wl_stanford` | did not finish within 5e7; **under 2e9: equal**, 165 pairs, 5.67e8 local ECs, 0.9 GB peak | 1,973 s / -- | 11.9 s |
     | `wl_up` | did not finish; the work is at the `pgf` forward filter (3.2e7) | -- | -- |
     | `wl_tum` | did not finish; its firewall table alone predicts 1.74e10 | -- | -- |
 
@@ -978,9 +978,11 @@ unit tests and seeing them fail, and its exit begins with those tests green.
     NetPlumber's `path` (the default now, and Q4's recorded path "FaVe's loop
     semantics decide"), or switch to the thesis's `state`?
   - **The limit** for "did not finish" is the open suite-wide decision in TODO
-    item 31. 5e7 local ECs is a working budget, not that limit. wl_stanford
-    under 2e9 is being measured (wall time and peak memory), to say whether it
-    is feasible at all.
+    item 31. 5e7 local ECs is a working budget, not that limit. With room to
+    run, wl_stanford **finishes and agrees**: 33 minutes and 0.9 GB against
+    NetPlumber's 12 s. About 166x is the measured price of range-based ECs on
+    its out-stage ACLs, a finding and not a failure. Whether wl_up and wl_tum
+    finish under the suite's limit is for V5 to measure once the limit is set.
 
 - **V3b — The §4.6 optimisation** (D6), generalised to FaVe's fields, with excluded sets
   under rewrites. *Exit:* L9 green; verdicts identical to plain VeriFlow-FR on every
