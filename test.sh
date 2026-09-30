@@ -153,6 +153,7 @@ FAVE_OUT_IFACE_TESTS=(
     # was invisible. The wl_ifi and wl_airtel1 classes in the same file carry no
     # iptables ruleset, so taking the opt-in wholesale is a no-op for them.
     test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
+    test/test_veriflow_differential.py # VeriFlow-FR V3 vs NetPlumber on the rewriting workloads; wl_tum a measured did-not-finish; wl_i2 opt-in (VERIFLOW_FULL_DIFFERENTIAL=1)
 )
 # Also integration-tier, but these must run in their OWN pytest process. JPype
 # allows exactly one JVM per process and APKeep holds its network in Java static
