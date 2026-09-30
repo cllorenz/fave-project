@@ -4139,6 +4139,26 @@ against the drill's 288 s — one sample each, not explained (interning is far
 too cheap for 56 µs per rule; GC pauses total 5.5 s; swapping near the floor is
 plausible and unmeasured).
 
+**k=3 at `-Xmx5g`, swap recorded** (owner: "Rerun k=3 with -Xmx5g and record
+swap"; `k3_ndd_xmx5g.json`, prediction declared before): **`OutOfMemoryError:
+Java heap space` in the compliance check**, at 540 s, with the live heap at the
+5,119 MB ceiling, 56.6 s of GC pauses (8g: 5.5 s), and 3.3 GB still available.
+So **NDD's live set at 4.48M rules exceeds 5 GB**; the 8g run's 4.0 GB was only
+where it had got to when the floor killed it. k=3 therefore needs a heap
+above 5 GB and fails the machine at 8 GB; whether 6–7 GB fits is not
+predictable from these two runs. **Swap: zero pages in or out** during this run,
+and rule load took 352 s (drill 288 s, 8g rerun 537 s): swapping is ruled out
+for this run, the 8g rerun's swap was not recorded, and the load-time spread
+stays unexplained — GC now falls inside the load phase too.
+
+*A correction to the paragraph above:* "the aggregator's non-heap part fell by
+~1.5 GB" subtracts the committed heap from the aggregator's peak RSS. The same
+subtraction gives ~9.5 GB here against ~7.6 GB there, because the two peaks
+need not coincide and the JVM's off-heap memory (metaspace, GC structures,
+anything native in NDD) is in the total. The tracemalloc figures (2,160 →
+1,901 B per rule) are the reliable measure of the Python side; the RSS
+decomposition is rough.
+
 ---
 
 ---
