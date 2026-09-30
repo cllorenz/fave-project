@@ -71,10 +71,11 @@ class PyNetwork {
   }
 
   // Add a rule without computing its ECs: bulk loading, where no insertion is
-  // verified on its own.
+  // verified on its own. `rewrites`: (field index, the ternary value it is set to).
   void load_rule(uint64_t id, uint32_t table, int64_t priority, int64_t in_port,
                  const std::string &match, const std::vector<uint64_t> &out,
-                 bool consume) {
+                 bool consume,
+                 const std::vector<std::pair<size_t, std::string>> &rewrites) {
     Rule r;
     r.id = id;
     r.table = table;
@@ -83,7 +84,22 @@ class PyNetwork {
     r.match = match;
     r.out_ports = out;
     r.consume = consume;
+    for (const auto &rw : rewrites) r.rewrites.push_back({rw.first, prefix_to_interval(rw.second)});
     net_.load_rule(r);
+  }
+
+  // Q22's bulk query: (delivered per start, finished, stopped_at, predicted,
+  // local ECs sliced, states expanded).
+  py::tuple local_deliveries(const std::string &range,
+                             const std::vector<std::pair<uint32_t, int64_t>> &starts,
+                             uint64_t budget) const {
+    LocalResult r;
+    {
+      py::gil_scoped_release release;
+      r = vf::local_deliveries(net_, range, starts, budget);
+    }
+    return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
+                          r.local_ecs, r.hops);
   }
 
   size_t remove_rule(uint64_t id) { return net_.remove_rule(id).size(); }
@@ -152,7 +168,10 @@ PYBIND11_MODULE(libveriflow_fr, m) {
       .def("add_link", &PyNetwork::add_link)
       .def("remove_link", &PyNetwork::remove_link)
       .def("add_rule", &PyNetwork::add_rule)
-      .def("load_rule", &PyNetwork::load_rule)
+      .def("load_rule", &PyNetwork::load_rule, py::arg("id"), py::arg("table"),
+           py::arg("priority"), py::arg("in_port"), py::arg("match"), py::arg("out"),
+           py::arg("consume"), py::arg("rewrites") = std::vector<std::pair<size_t, std::string>>())
+      .def("local_deliveries", &PyNetwork::local_deliveries)
       .def("remove_rule", &PyNetwork::remove_rule)
       .def("affected_ecs", &PyNetwork::affected_ecs)
       .def("decide_point", &PyNetwork::decide_point)

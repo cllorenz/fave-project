@@ -178,7 +178,7 @@ struct Slicer {
     // The rules that apply here (IN_PORT is a matched field, Q7) and overlap
     // the set; best first.
     std::vector<uint64_t> cand;
-    for (uint64_t id : net.table_rules(table)) {
+    for (uint64_t id : net.table_candidates(table, box)) {
       const Rule &r = net.rule(id);
       if (r.in_port != ANY_PORT && (arrival == ANY_PORT || r.in_port != arrival)) continue;
       const std::vector<Interval> &iv = net.rule_intervals(id);

@@ -222,6 +222,12 @@ class Network {
   // priority tie-break: the earlier insertion wins).
   const std::vector<Interval> &rule_intervals(uint64_t id) const { return intervals_.at(id); }
   uint64_t insertion_seq(uint64_t id) const { return seq_.at(id); }
+  // The rules of `table` that may overlap the per-field intervals `box`: found
+  // by traversing that table's trie (T p.40's "traverse the trie a second
+  // time") with the box's enclosing prefix per field -- a superset, which the
+  // caller filters by exact overlap. Sorted by id.
+  std::vector<uint64_t> table_candidates(uint32_t table,
+                                         const std::vector<Interval> &box) const;
   // Whether any rule transforms headers (§4.5).
   bool has_rewrites() const { return rewriting_ > 0; }
 
@@ -243,6 +249,7 @@ class Network {
   std::map<uint64_t, uint32_t> port_table_;
   std::map<uint32_t, std::vector<uint64_t>> table_ports_;
   std::map<uint32_t, std::vector<uint64_t>> table_rules_;
+  std::map<uint32_t, TernaryTrie> table_tries_;
   std::map<uint64_t, std::vector<uint64_t>> links_;
 };
 

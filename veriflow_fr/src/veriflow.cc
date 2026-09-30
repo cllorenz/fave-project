@@ -184,6 +184,25 @@ const std::vector<uint64_t> &Network::table_ports(uint32_t table) const {
   return it == table_ports_.end() ? none : it->second;
 }
 
+std::vector<uint64_t> Network::table_candidates(uint32_t table,
+                                                const std::vector<Interval> &box) const {
+  auto it = table_tries_.find(table);
+  if (it == table_tries_.end()) return {};
+  // Per field, the longest prefix common to the interval's two ends: the
+  // smallest prefix set enclosing it.
+  std::string q(layout_.width(), 'x');
+  for (size_t f = 0; f < layout_.size(); ++f) {
+    const unsigned w = layout_.field(f).width, off = layout_.offset(f);
+    for (unsigned b = 0; b < w; ++b) {
+      const unsigned shift = w - 1 - b;
+      const bool lo = (box[f].lo >> shift) & 1, hi = (box[f].hi >> shift) & 1;
+      if (lo != hi) break;
+      q[off + b] = lo ? '1' : '0';
+    }
+  }
+  return it->second.find_overlapping(q);
+}
+
 const std::vector<uint64_t> &Network::table_rules(uint32_t table) const {
   static const std::vector<uint64_t> none;
   auto it = table_rules_.find(table);
@@ -218,6 +237,7 @@ void Network::load_rule(const Rule &rule) {
   seq_[rule.id] = next_seq_++;
   trie_.insert(rule.id, rule.match);
   table_rules_[rule.table].push_back(rule.id);
+  table_tries_.try_emplace(rule.table, layout_.width()).first->second.insert(rule.id, rule.match);
 }
 
 std::vector<EC> Network::add_rule(const Rule &rule) {
@@ -233,6 +253,7 @@ std::vector<EC> Network::remove_rule(uint64_t id) {
   std::vector<EC> ecs = affected_ecs(it->second.match);
   if (!it->second.rewrites.empty()) --rewriting_;
   trie_.remove(id, it->second.match);
+  table_tries_.at(it->second.table).remove(id, it->second.match);
   std::vector<uint64_t> &tr = table_rules_[it->second.table];
   tr.erase(std::find(tr.begin(), tr.end(), id));
   intervals_.erase(id);
