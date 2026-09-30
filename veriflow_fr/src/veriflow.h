@@ -123,6 +123,12 @@ struct Rule {
   std::string match;           // ternary over the layout
   std::vector<uint64_t> out_ports;  // empty: drop (Q8)
   bool consume = false;        // a probe's rule: the packet is delivered here (Q8)
+  // Header transformations (§4.5, T §3.1.3): (field index, the interval the field
+  // is SET to). FaVe rewrites whole fields to a ternary value, whose 'x' bits
+  // become wildcards (NetPlumber's STRICT_RW): an exact value, a subnet (NAT to
+  // a /24), or ANY (FaVe clearing its in_port/out_port metadata, Q19). Each is
+  // an interval, so a box stays a box.
+  std::vector<std::pair<size_t, Interval>> rewrites;
 };
 
 // An equivalence class: one interval per field (§4.3, T p.37).
@@ -212,6 +218,12 @@ class Network {
   const std::vector<uint64_t> &table_ports(uint32_t table) const;
   // The ids of the rules at a table, in insertion order.
   const std::vector<uint64_t> &table_rules(uint32_t table) const;
+  // A rule's match as one interval per field, and its insertion sequence (the
+  // priority tie-break: the earlier insertion wins).
+  const std::vector<Interval> &rule_intervals(uint64_t id) const { return intervals_.at(id); }
+  uint64_t insertion_seq(uint64_t id) const { return seq_.at(id); }
+  // Whether any rule transforms headers (§4.5).
+  bool has_rewrites() const { return rewriting_ > 0; }
 
  private:
   std::string point_of(const EC &ec) const;
@@ -226,6 +238,7 @@ class Network {
   std::map<uint64_t, std::vector<Interval>> intervals_;
   std::map<uint64_t, uint64_t> seq_;  // id -> insertion sequence (tie-break)
   uint64_t next_seq_ = 0;
+  uint64_t rewriting_ = 0;  // rules with rewrites
   std::set<uint32_t> tables_;
   std::map<uint64_t, uint32_t> port_table_;
   std::map<uint32_t, std::vector<uint64_t>> table_ports_;

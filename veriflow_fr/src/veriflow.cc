@@ -210,6 +210,10 @@ void Network::load_rule(const Rule &rule) {
        port_table_.at((uint64_t)rule.in_port) != rule.table))
     throw std::invalid_argument("in_port is not a port of the rule's table");
   intervals_[rule.id] = intervals_of(rule.match);  // refuses a non-prefix field
+  for (const auto &rw : rule.rewrites)
+    if (rw.first >= layout_.size())
+      throw std::invalid_argument("rewrite of an unknown field");
+  if (!rule.rewrites.empty()) ++rewriting_;
   rules_[rule.id] = rule;
   seq_[rule.id] = next_seq_++;
   trie_.insert(rule.id, rule.match);
@@ -227,6 +231,7 @@ std::vector<EC> Network::remove_rule(uint64_t id) {
   // Q5: the ECs the rule affects, computed while it is still in place, the same
   // partition its insertion produced.
   std::vector<EC> ecs = affected_ecs(it->second.match);
+  if (!it->second.rewrites.empty()) --rewriting_;
   trie_.remove(id, it->second.match);
   std::vector<uint64_t> &tr = table_rules_[it->second.table];
   tr.erase(std::find(tr.begin(), tr.end(), id));

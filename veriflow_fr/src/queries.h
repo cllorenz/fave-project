@@ -92,6 +92,39 @@ std::vector<std::set<uint32_t>> deliveries(
 std::vector<EC> link_failure(const Network &net, uint32_t table, int64_t in_port,
                              uint64_t to_port, size_t *graphs = nullptr);
 
+// ---- device-local slicing (§4.5, T §3.1.3; Q3, Q4, Q22) -------------------
+
+// A packet set: one interval per field.
+typedef std::vector<Interval> Box;
+
+struct LocalResult {
+  std::vector<std::set<uint32_t>> delivered;  // per start: where packets arrive
+  bool finished = true;       // false: the budget was exceeded (did not finish)
+  uint32_t stopped_at = 0;    // the table whose local ECs would have exceeded it
+  double predicted = 0;       // how many local ECs it predicted there
+  uint64_t local_ecs = 0;     // local ECs sliced in total
+  uint64_t hops = 0;          // (table, arrival, set) states expanded
+};
+
+// Bulk checks the thesis's way: device by device. At each table a packet set
+// reaches, only the rules that apply there (matching its arrival, Q7) split it
+// into LOCAL ECs; each is decided, rewritten, and forwarded, forking per local EC
+// (Q3). A path ends where a rule consumes, drops or matches nothing, or where it
+// revisits a table -- as NetPlumber's does, whatever the header (Q4, Q20).
+// `budget` bounds the local ECs sliced in total (0: none); before slicing at a
+// table the count is predicted, and a query that would exceed the budget stops,
+// unfinished, naming the table (Q22). Starts are (table, arrival port).
+LocalResult local_deliveries(const Network &net, const std::string &range,
+                             const std::vector<std::pair<uint32_t, int64_t>> &starts,
+                             uint64_t budget = 0);
+
+// T §4.5, VLAN isolation: can a packet of `range` from `start`, on some path,
+// come to carry `to_value` in `field` (e.g. a VLAN it must not leak into)? The
+// thesis keeps track of the VLANs a packet set traverses; with rewrites that is
+// the field's interval at every hop.
+bool may_carry(const Network &net, const std::string &range,
+               std::pair<uint32_t, int64_t> start, size_t field, u128 to_value);
+
 // T §4.9: the rules of the same table a rule overlaps, and so competes with by
 // priority. The rule itself need not be in the network.
 std::vector<uint64_t> overlapping_in_table(const Network &net, const Rule &rule);
