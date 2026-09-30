@@ -2208,6 +2208,12 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
     - `wl_tum` (2.9e13) and `wl_up` (2.6e11) keep theirs inside one table: an honest did-not-finish finding, reported with the predicted EC counts, never approximated.
     - The limit is suite-wide (item 31).
 - [ ] **V3 — header rewrites** (thesis §3.1.3) — required, not optional: without them VeriFlow-FR alone has holes in the VLAN and NAT rows.
+  - [~] **Status 2026-09-30: built and gated** (plan §10).
+    - Tests first: L8, VLAN isolation, a rewriting concrete-packet oracle under both revisit rules. 39 C++ tests.
+    - Rewrites, routers and packet filters translate.
+    - **Equal to NetPlumber** on `wl_ifi`, `wl_cloud`, `wl_example`, `wl_airtel1` and `wl_i2`.
+    - **Did not finish** within 5e7 local ECs on `wl_stanford`, `wl_up` and `wl_tum`, each at the firewall or out-stage table Q22 predicted.
+    - **Open, owner:** Q4, NetPlumber's `path` rule or the thesis's `state`; they differ in no measured verdict, and `state` does up to 9x less work. The suite-wide limit is in item 31.
 - [ ] **V3b — the 4+10 field optimisation** (thesis §3.2.2), generalised to FaVe's fields (a field is a trie dimension if any rule wildcards it arbitrarily, a linear-scan field otherwise), with excluded packet sets under rewrites. **Exit gate:** verdicts identical to plain VeriFlow-FR on every workload. Required, because every published VeriFlow number has it on and none measures it off (plan §9 D6). Fallback: report plain only, labelled as without §4.6.
 - [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).
 - [ ] **V5 — measurement** over the whole suite, stamped. Both field variants: §4.6 as the headline where it applies, plain as the ablation.

@@ -932,6 +932,56 @@ unit tests and seeing them fail, and its exit begins with those tests green.
   `vf_slicing=device`). Required, not optional (D1). Q3/Q4 resolved. *Exit:* L8 and
   the rest of L10 (VLAN isolation among them) green, and **the first multi-field FaVe
   differential**: every surveyed workload against NetPlumber, APKeep and ad6 (§8).
+  **Status 2026-09-30: built and gated; two owner decisions open (Q4, the limit).**
+  - **Tests first:**
+    - L8 (a rewrite transforms the EC; Q3's reslicing and forks; Q19's clear to
+      ANY; the revisit rule);
+    - the rest of L10 (§4.5 VLAN isolation);
+    - the budget and its diagnostics;
+    - an oracle that simulates concrete packets through rewrites, where a rewrite
+      to a set branches over its values, on 60 random networks under each revisit
+      rule;
+    - local = network-wide slicing on 30 rewrite-free random networks.
+
+    39 C++ tests, clean under ASan+UBSan. Dropping rewrites, ignoring revisits,
+    and deciding by the wrong candidate fail 5, 2 and 5 of the 37 tests that
+    existed then.
+  - **The adapter:**
+    - translates rewrites (VLAN, NAT source and subnet destination, FaVe's
+      metadata set and clear) and router and packet-filter pipelines;
+    - mirrors NetPlumber's skipped internal wires, which describe the pipeline;
+    - does NOT mirror NetPlumber's pre-routing mask quirk (one rule, wl_ifi); the
+      differential shows no difference;
+    - accepts probe paths, which NetPlumber's compliance ignores too.
+  - **Per-table tries** for local slicing's candidates (T p.40's second trie
+    traversal) cut wl_airtel1 from 48.6 s to 8.9 s.
+  - **The first multi-field differential, against NetPlumber,** measured under a
+    budget of 5e7 local ECs with both revisit rules:
+
+    | workload | outcome | VeriFlow-FR `path` / `state` | NetPlumber |
+    |---|---|---:|---:|
+    | `wl_ifi` | **equal**, 54 pairs | 0.2 s / 0.2 s | 0.1 s |
+    | `wl_cloud` (NAT) | **equal**, 53 | 0.6 s / 0.7 s | 0.5 s |
+    | `wl_example` (packet filters) | **equal**, 6 | 0.4 s / 0.3 s | <0.1 s |
+    | `wl_airtel1` (device slicing) | **equal**, 210 | 9.4 s / 9.6 s | 12.8 s |
+    | `wl_i2` (VLAN mesh) | **equal**, 61 | 493 s / 444 s | 876 s |
+    | `wl_stanford` | did not finish; the work is at `out.yoza_rtr.1` | -- | -- |
+    | `wl_up` | did not finish; the work is at the `pgf` forward filter (3.2e7) | -- | -- |
+    | `wl_tum` | did not finish; its firewall table alone predicts 1.74e10 | -- | -- |
+
+    APKeep and ad6 are compared with NetPlumber on these workloads by their own
+    differentials. VeriFlow-FR's agreement with them follows by transitivity
+    where those hold, and was not run separately.
+  - **Q4, measured:** the two revisit rules differ in no verdict on any
+    workload that finishes. `state` never does more work (wl_i2: 0.94M local
+    ECs against 1.93M; wl_ifi: 716 against 6,255). **Owner decision:** keep
+    NetPlumber's `path` (the default now, and Q4's recorded path "FaVe's loop
+    semantics decide"), or switch to the thesis's `state`?
+  - **The limit** for "did not finish" is the open suite-wide decision in TODO
+    item 31. 5e7 local ECs is a working budget, not that limit. wl_stanford
+    under 2e9 is being measured (wall time and peak memory), to say whether it
+    is feasible at all.
+
 - **V3b — The §4.6 optimisation** (D6), generalised to FaVe's fields, with excluded sets
   under rewrites. *Exit:* L9 green; verdicts identical to plain VeriFlow-FR on every
   workload.
