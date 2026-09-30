@@ -14,3 +14,17 @@ PREDICTION: the benchmark process falls from ~3.5 GB to a few hundred MB (one ta
 by ~0.9 GB (211 B x 4.48M). ~4 GB more headroom than the drill had at its kill. Either the run completes, or it
 reaches the floor later than 401 s; which one is not predicted -- the drill did not measure how much more the
 compliance check would have needed. One sample.
+
+---
+RUN 2, declared 2026-09-30T13:17:51+00:00, before it ran. Owner, 2026-09-30: "Rerun k=3 with -Xmx5g and record
+swap." Identical to run 1 (k3_ndd.json) except: --jvm-xmx 5g (run 1: 8g), and engine_run.py now records swap --
+system-wide in use at start and at peak, per-process VmSwap peaks, and pswpin/pswpout pages during the run. Same
+k=3 inputs, reused (stamp verified). Output k3_ndd_xmx5g.json. git eec444d1 + the swap sampler.
+
+Why 5g: run 1's live heap after GC peaked at 4,045 MB while the committed heap grew to 7,532 MB; a ceiling just
+above the live set should keep the Python-side savings as margin instead of heap.
+PREDICTION: either it COMPLETES (0 of 520) with more GC pause time than run 1's 5.5 s, or it throws
+OutOfMemoryError: Java heap space if the live set passes ~5 GB during compliance -- run 1 was killed mid-
+compliance, so the final live set is unknown. Peak aggregator RSS ~2.5 GB below run 1's 15,128 MB. On the slow
+load (537 s vs the drill's 288 s): if swap traffic during rule load is substantial, swapping is the likely cause;
+if it is near zero, swapping is ruled out and the cause stays open.

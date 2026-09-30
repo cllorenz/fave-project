@@ -119,6 +119,29 @@ def _available_mb():
     raise RuntimeError('no MemAvailable in /proc/meminfo')
 
 
+def _swap_used_mb():
+    """ System-wide swap in use -- SwapTotal minus SwapFree. """
+    fields = {}
+    with open('/proc/meminfo') as handle:
+        for line in handle:
+            name, _, rest = line.partition(':')
+            fields[name] = int(rest.split()[0])
+    return (fields['SwapTotal'] - fields['SwapFree']) // 1024
+
+
+def _swap_traffic():
+    """ Pages swapped in and out since boot (`/proc/vmstat`); a run's
+    difference says whether it actually swapped, which occupancy alone
+    cannot -- pages can sit in swap from before the run. """
+    counts = {}
+    with open('/proc/vmstat') as handle:
+        for line in handle:
+            name, value = line.split()
+            if name in ('pswpin', 'pswpout'):
+                counts[name] = int(value)
+    return counts
+
+
 def _label(pid):
     """ Which part of the run a process is: the `-c` bootstrap is the
     benchmark, the aggregator carries APKeep in-process (JPype), and
@@ -134,10 +157,11 @@ def _label(pid):
     return os.path.basename(argv[0].decode(errors='replace')) or 'other'
 
 
-def _session_rss_mb(session):
+def _session_rss_mb(session, field='VmRSS:'):
     """ `{label: summed RSS}` over every process in `session` -- the
     benchmark, the aggregator and whatever engine it started
-    (`start_new_session`). """
+    (`start_new_session`). `field='VmSwap:'` sums swapped-out memory
+    instead. """
     totals = {}
     for pid in os.listdir('/proc'):
         if not pid.isdigit():
@@ -150,7 +174,7 @@ def _session_rss_mb(session):
             label = _label(pid)
             with open('/proc/%s/status' % pid) as handle:
                 for line in handle:
-                    if line.startswith('VmRSS:'):
+                    if line.startswith(field):
                         totals[label] = (totals.get(label, 0)
                                          + int(line.split()[1]) // 1024)
         except (OSError, IndexError, ValueError):
@@ -253,6 +277,9 @@ def main(argv=None):
                                 start_new_session=True)
         peak_rss = 0
         peak_by_process = {}
+        swap_by_process = {}
+        swap_at_start = peak_swap = _swap_used_mb()
+        traffic_at_start = _swap_traffic()
         least_available = _available_mb()
         status = None
         while status is None:
@@ -266,6 +293,9 @@ def main(argv=None):
             peak_rss = max(peak_rss, sum(sampled.values()))
             for label, mb in sampled.items():
                 peak_by_process[label] = max(peak_by_process.get(label, 0), mb)
+            for label, mb in _session_rss_mb(proc.pid, 'VmSwap:').items():
+                swap_by_process[label] = max(swap_by_process.get(label, 0), mb)
+            peak_swap = max(peak_swap, _swap_used_mb())
             least_available = min(least_available, _available_mb())
             if least_available < args.memory_floor:
                 status = 'memory'
@@ -292,6 +322,11 @@ def main(argv=None):
         'memory_floor_mb': args.memory_floor, 'peak_rss_mb': peak_rss,
         'peak_rss_by_process_mb': peak_by_process,
         'least_available_mb': least_available,
+        'swap_used_at_start_mb': swap_at_start,
+        'peak_swap_used_mb': peak_swap,
+        'peak_swap_by_process_mb': swap_by_process,
+        'swap_pages': {name: _swap_traffic()[name] - count
+                       for name, count in traffic_at_start.items()},
         'when': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'git_head': subprocess.run(['git', 'rev-parse', 'HEAD'],
                                    capture_output=True, text=True,
@@ -360,6 +395,7 @@ def main(argv=None):
     print(json.dumps({k: result[k] for k in (
         'workload', 'engine', 'mutated', 'status', 'wall_s', 'peak_rss_mb',
         'peak_rss_by_process_mb', 'switch_command_s', 'gc',
+        'peak_swap_used_mb', 'swap_pages',
         'check_compliance_s', 'violations', 'checks', 'drift_from_previous',
         'verdict_valid')}))
     if args.mutate:
