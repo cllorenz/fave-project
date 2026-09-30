@@ -173,6 +173,20 @@ class TestRouterOnAStick(unittest.TestCase):
                          "Update this test and the item.")
         self.assertFalse(netplumber(self.loop))
 
+    def test_netplumber_reports_the_loops_that_truncate(self):
+        # NetPlumber stops a flow exactly where it fires its loop callback, so
+        # the count of loop reports is what the item-33 count relies on: zero
+        # reports on a workload proves the table rule truncated nothing there.
+        # Here it reports on BOTH networks -- the stick's is the false one.
+        from netplumber.lib_adapter import NetPlumberLibAdapter, libnetplumber
+        self._need(libnetplumber is not None, "libnetplumber")
+        from util.in_process_driver import InProcessFaVe
+        for prefix in (self.stick, self.loop):
+            eng = NetPlumberLibAdapter(_log())
+            with InProcessFaVe(eng) as fave:
+                fave.replay(prefix)
+            self.assertGreater(eng.loop_reports(), 0, prefix)
+
     def test_apkeep_known_defect_over_approximates_the_loop(self):
         from apkeep.adapter import available
         self._need(available(), "APKeep (JPype + jar)")

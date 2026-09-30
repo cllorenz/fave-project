@@ -194,12 +194,34 @@ class LibNetPlumber {
         self->compliance_results_.push_back({r->src, r->dst, r->valid, cond});
     }
 
+    // Loop reports, per NetPlumber instance. Replaces default_loop_callback,
+    // which only logs (and in-process log4cxx has no appender, so nothing).
+    // The flow is stopped in RuleNode::process_src_flow whether or not a
+    // callback is set, so counting changes no behaviour -- and a count of zero
+    // proves the table-granular loop rule truncated nothing (TODO item 33).
+    static std::map<void *, uint64_t> &loop_counts() {
+        static std::map<void *, uint64_t> counts;
+        return counts;
+    }
+    static void count_loop(NetPlumber<hs, array_t> *N, Flow<hs, array_t> * /*f*/,
+                           void * /*data*/) {
+        ++loop_counts()[(void *)N];
+    }
+
   public:
     explicit LibNetPlumber(size_t length) : length_(length) {
         np_ = new NetPlumber<hs, array_t>(length);
         np_->compliance_callback = &LibNetPlumber::collect_compliance;
+        np_->loop_callback = &LibNetPlumber::count_loop;
     }
-    ~LibNetPlumber() { delete np_; }
+    ~LibNetPlumber() { loop_counts().erase((void *)np_); delete np_; }
+
+    // How many times this network's loop callback fired: once per flow that
+    // revisited a table and was stopped there.
+    uint64_t loop_reports() const {
+        auto it = loop_counts().find((void *)np_);
+        return it == loop_counts().end() ? 0 : it->second;
+    }
 
     size_t get_length() const { return length_; }
 
@@ -337,6 +359,7 @@ PYBIND11_MODULE(libnetplumber, m) {
              "Compliance violations collected since the last clear_results(), "
              "as (src, dst, valid, cond) tuples.")
         .def("clear_results", &LibNetPlumber::clear_results)
+        .def("loop_reports", &LibNetPlumber::loop_reports)
         .def("dump_plumbing_network", &LibNetPlumber::dump_plumbing_network, py::arg("dir"))
         .def("dump_flows", &LibNetPlumber::dump_flows, py::arg("dir"))
         .def("dump_flow_trees", &LibNetPlumber::dump_flow_trees, py::arg("dir"),

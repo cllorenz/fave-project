@@ -192,7 +192,13 @@ input, needs this section.
 - **Probes keep flows in lazy-subtraction form** (`4fafd88c`): the explicit `hs_comp_diff`
   at a probe is off, because it could explode memory. This changes the representation,
   not the set; a verdict depends on the diff-aware operations of §5 being right.
-- **Loop checking is unchanged from upstream** (a flow that revisits a table). FaVe added
+- **Loop checking is unchanged from upstream** (a flow that revisits a table). **It
+  is FaVe's declared semantics** (owner, 2026-09-30; TODO item 33): a second pass
+  through a table counts as a loop and stops the flow, whatever its header. The
+  NetPlumber paper states it so ("determine if the flow has passed through the
+  current table before", §4.2), loosening HSA's port-granular check. So a packet
+  that legitimately passes a table twice (a router on a stick) is lost:
+  `fave/test/test_revisit_router_on_a_stick.py` pins it. FaVe added
   optional per-rule "dense" checking (`d2f95032`), off by default. Its commented-out line
   in `build/sources.mk` reads `DDENSE_LOOPS`, missing the `-`, so uncommenting it as it
   stands would not enable it.
@@ -265,5 +271,10 @@ table):
   - a failing suite now returns a non-zero exit code (`b5e46260`).
 
   `net_plumber --test`: OK (119).
+- **Loop reports, counted in-process** (2026-09-30): `libnetplumber` replaces the
+  logging-only loop callback with a per-instance counter, `loop_reports()`. This
+  changes no behaviour, since the flow is stopped whether or not a callback is set.
+  A count of zero proves the table rule truncated nothing on a workload
+  (`fave/bench/netplumber_loop_census.py`).
 - **Removed:** upstream `list.h` and `map.h`; code no longer used (`b18bddb7`, `31268590`,
   `c26bdf04`).
