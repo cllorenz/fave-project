@@ -32,6 +32,7 @@
 #include <cppunit/extensions/HelperMacros.h>
 
 #include <functional>
+#include <tuple>
 #include <random>
 #include <sstream>
 
@@ -81,6 +82,8 @@ class RewriteTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_L10_4_5_vlan_isolation);
   CPPUNIT_TEST(test_Q22_budget_stops_unfinished_and_names_the_table);
   CPPUNIT_TEST(test_oracle_random_rewrites);
+  CPPUNIT_TEST(test_Q4_state_revisit_continues_with_a_new_header);
+  CPPUNIT_TEST(test_Q22_diagnostics_say_where_the_work_went);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -241,6 +244,62 @@ class RewriteTest : public CppUnit::TestFixture {
   // it -- with the same path rule (a revisited table ends the path). The
   // deliveries must equal the engine's, from every table, for random query sets.
   void test_oracle_random_rewrites() {
+    oracle_random_rewrites(Revisit::PATH);
+    oracle_random_rewrites(Revisit::STATE);
+  }
+
+  // Q4, the thesis's reading (Revisit::STATE), on L8's revisit network: the
+  // packet comes back to table 1 with vlan 1111, a packet set table 1 has not
+  // seen, so the walk continues and table 1 delivers it at probe 3. PATH, as
+  // test_L8_Q4 shows, delivers nothing.
+  void test_Q4_state_revisit_continues_with_a_new_header() {
+    Network net = net44();
+    tables(net, {{1, {11, 12, 13}}, {2, {21, 22}}, {3, {31}}});
+    net.add_link(11, 21); net.add_link(22, 12); net.add_link(13, 31);
+    net.add_rule(vftest::rule(1, 1, 1, "0000" "xxxx", {11}));
+    net.add_rule(vftest::rule(2, 1, 1, "1111" "xxxx", {13}));
+    net.add_rule(with_rewrite(vftest::rule(3, 2, 0, "xxxxxxxx", {22}), 0, "1111"));
+    net.add_rule(consume(4, 3, "xxxxxxxx"));
+
+    LocalResult st = local_deliveries(net, "0000" "xxxx", {{1, ANY_PORT}}, 0, Revisit::STATE);
+    CPPUNIT_ASSERT(st.delivered[0] == (Tables{3}));
+    // A true loop -- the SAME packet set back at the same table and arrival --
+    // ends under both rules: s2 sends vlan 0000 back unchanged here.
+    Network loop = net44();
+    tables(loop, {{1, {11, 12}}, {2, {21, 22}}});
+    loop.add_link(11, 21); loop.add_link(22, 12);
+    loop.add_rule(vftest::rule(1, 1, 0, "xxxxxxxx", {11}));
+    loop.add_rule(vftest::rule(2, 2, 0, "xxxxxxxx", {22}));
+    LocalResult ends = local_deliveries(loop, "xxxxxxxx", {{1, ANY_PORT}}, 0, Revisit::STATE);
+    CPPUNIT_ASSERT(ends.finished);
+    CPPUNIT_ASSERT(ends.delivered[0].empty());
+  }
+
+  // Q22: a did-not-finish must say where the work went. Here the budget is
+  // exhausted by many small slicings, not one large one: per-table totals name
+  // where, and `single_table` says it was not one table's product.
+  void test_Q22_diagnostics_say_where_the_work_went() {
+    Network net = net44();
+    tables(net, {{1, {11}}, {2, {21}}, {3, {31}}});
+    net.add_link(11, 21); net.add_link(21, 31);
+    for (uint64_t v = 0; v < 8; ++v) {
+      std::string dst;
+      for (int b = 2; b >= 0; --b) dst += ((v >> b) & 1) ? '1' : '0';
+      net.add_rule(vftest::rule(v + 1, 1, 1, "xxxx" "0" + dst, {11}));
+    }
+    net.add_rule(vftest::rule(20, 2, 0, "xxxxxxxx", {21}));
+    net.add_rule(consume(21, 3, "xxxxxxxx"));
+    LocalResult r = local_deliveries(net, "xxxx" "0xxx", {{1, ANY_PORT}}, 12);
+    CPPUNIT_ASSERT(!r.finished);
+    CPPUNIT_ASSERT(!r.single_table);
+    CPPUNIT_ASSERT_EQUAL((uint64_t)8, r.per_table[1]);
+    LocalResult big = local_deliveries(net, "xxxx" "0xxx", {{1, ANY_PORT}}, 5);
+    CPPUNIT_ASSERT(!big.finished);
+    CPPUNIT_ASSERT(big.single_table);
+    CPPUNIT_ASSERT_EQUAL((uint32_t)1, big.stopped_at);
+  }
+
+  void oracle_random_rewrites(Revisit revisit) {
     std::mt19937 rng(20260930);
     const Layout layout({{"a", 3}, {"b", 3}});
     for (int trial = 0; trial < 60; ++trial) {
@@ -273,10 +332,18 @@ class RewriteTest : public CppUnit::TestFixture {
       }
 
       // The oracle's simulation of one concrete packet.
+      // PATH: a path revisiting a table ends. STATE: per start, a concrete
+      // (table, arrival, packet) seen before ends -- the concrete-packet form
+      // of the thesis's visited packet sets.
+      std::set<std::tuple<uint32_t, int64_t, unsigned>> seen;
       std::function<void(uint32_t, int64_t, unsigned, std::vector<uint32_t> &, std::set<uint32_t> &)> sim;
       sim = [&](uint32_t t, int64_t arr, unsigned pkt, std::vector<uint32_t> &path,
                 std::set<uint32_t> &out) {
-        if (std::find(path.begin(), path.end(), t) != path.end()) return;
+        if (revisit == Revisit::PATH) {
+          if (std::find(path.begin(), path.end(), t) != path.end()) return;
+        } else if (!seen.insert({t, arr, pkt}).second) {
+          return;
+        }
         const Rule *best = nullptr;
         const unsigned a = pkt >> 3, b = pkt & 7;
         for (const Rule &r : rules) {
@@ -311,13 +378,14 @@ class RewriteTest : public CppUnit::TestFixture {
         Interval qb = prefix_to_interval(range.substr(3, 3));
         for (uint32_t start = 1; start <= 4; ++start) {
           std::set<uint32_t> want;
+          seen.clear();
           for (unsigned p = 0; p < 64; ++p) {
             unsigned a = p >> 3, b = p & 7;
             if (a < qa.lo || a > qa.hi || b < qb.lo || b > qb.hi) continue;
             std::vector<uint32_t> path;
             sim(start, ANY_PORT, p, path, want);
           }
-          LocalResult got = local_deliveries(net, range, {{start, ANY_PORT}});
+          LocalResult got = local_deliveries(net, range, {{start, ANY_PORT}}, 0, revisit);
           CPPUNIT_ASSERT(got.finished);
           if (got.delivered[0] != want) {
             std::ostringstream msg;

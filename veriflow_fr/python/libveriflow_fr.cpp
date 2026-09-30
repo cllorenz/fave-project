@@ -89,17 +89,20 @@ class PyNetwork {
   }
 
   // Q22's bulk query: (delivered per start, finished, stopped_at, predicted,
-  // local ECs sliced, states expanded).
+  // single_table, local ECs sliced, states expanded, local ECs per table).
+  // `state`: Q4's revisit rule -- the thesis's visited states, or NetPlumber's
+  // path rule.
   py::tuple local_deliveries(const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
-                             uint64_t budget) const {
+                             uint64_t budget, bool state) const {
     LocalResult r;
     {
       py::gil_scoped_release release;
-      r = vf::local_deliveries(net_, range, starts, budget);
+      r = vf::local_deliveries(net_, range, starts, budget,
+                               state ? Revisit::STATE : Revisit::PATH);
     }
     return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
-                          r.local_ecs, r.hops);
+                          r.single_table, r.local_ecs, r.hops, r.per_table);
   }
 
   size_t remove_rule(uint64_t id) { return net_.remove_rule(id).size(); }

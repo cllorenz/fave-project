@@ -27,6 +27,7 @@
 #define VERIFLOW_FR_QUERIES_H_
 
 #include <cstdint>
+#include <map>
 #include <set>
 #include <utility>
 #include <vector>
@@ -97,13 +98,27 @@ std::vector<EC> link_failure(const Network &net, uint32_t table, int64_t in_port
 // A packet set: one interval per field.
 typedef std::vector<Interval> Box;
 
+// How a walk treats a table it comes back to (Q4).
+enum class Revisit {
+  // NetPlumber's rule: a PATH that revisits a table ends there, whatever the
+  // header (net_plumber/FAVE_CHANGES.md §6). Work grows with the paths.
+  PATH,
+  // The thesis's: stop "at a device ... already visited for a previously
+  // encountered packet set" (T §3.1.3) -- a visited set of (table, arrival,
+  // packet set) states, per start, over VeriFlow's forwarding GRAPH (T §4.1:
+  // a DFS). Work grows with the states.
+  STATE,
+};
+
 struct LocalResult {
   std::vector<std::set<uint32_t>> delivered;  // per start: where packets arrive
   bool finished = true;       // false: the budget was exceeded (did not finish)
-  uint32_t stopped_at = 0;    // the table whose local ECs would have exceeded it
-  double predicted = 0;       // how many local ECs it predicted there
+  uint32_t stopped_at = 0;    // the table where the budget was exceeded
+  double predicted = 0;       // the local ECs predicted there
+  bool single_table = false;  // that one prediction alone exceeds the budget
   uint64_t local_ecs = 0;     // local ECs sliced in total
   uint64_t hops = 0;          // (table, arrival, set) states expanded
+  std::map<uint32_t, uint64_t> per_table;  // local ECs sliced, per table
 };
 
 // Bulk checks the thesis's way: device by device. At each table a packet set
@@ -116,7 +131,7 @@ struct LocalResult {
 // unfinished, naming the table (Q22). Starts are (table, arrival port).
 LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
-                             uint64_t budget = 0);
+                             uint64_t budget = 0, Revisit revisit = Revisit::PATH);
 
 // T §4.5, VLAN isolation: can a packet of `range` from `start`, on some path,
 // come to carry `to_value` in `field` (e.g. a VLAN it must not leak into)? The

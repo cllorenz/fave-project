@@ -65,11 +65,18 @@ class DidNotFinish(Exception):
     """ A check could not be answered within the declared budget (VERIFLOW_PLAN.md
     Q22): reported as such, never as "no violation". Carries where it stopped. """
 
-    def __init__(self, source: str, table: str, predicted: float, budget: int) -> None:
+    def __init__(self, source: str, table: str, predicted: float, budget: int,
+                 single_table: bool = True,
+                 top: Optional[List[Tuple[str, int]]] = None) -> None:
+        cause = ("that table alone would slice %.3g local ECs" % predicted
+                 if single_table else
+                 "the running total ran out there; where the work went: %s"
+                 % ", ".join("%s %d" % t for t in (top or [])))
         super().__init__(
-            "VeriFlow-FR did not finish: the check from %s would slice %.3g local "
-            "ECs at %s, past the budget of %d (Q22)" % (source, predicted, table, budget))
+            "VeriFlow-FR did not finish the check from %s: past the budget of %d "
+            "local ECs at %s -- %s (Q22)" % (source, budget, table, cause))
         self.source, self.table, self.predicted, self.budget = source, table, predicted, budget
+        self.single_table, self.top = single_table, top or []
 
 
 class VeriFlowAdapter(Translator, AbstractVerificationEngine):
@@ -81,9 +88,12 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
     set may slice (0: none); past it, check_compliance raises DidNotFinish. """
 
     def __init__(self, logger: Any = None, invert_lpm: bool = False,
-                 slicing: str = "device", budget: int = 0) -> None:
+                 slicing: str = "device", budget: int = 0,
+                 revisit: str = "path") -> None:
         if slicing not in ("device", "network"):
             raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
+        if revisit not in ("path", "state"):
+            raise ValueError("revisit is 'path' or 'state', not %r" % revisit)
         if libveriflow_fr is None:
             raise RuntimeError(
                 "libveriflow_fr is not built; run "
@@ -92,6 +102,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self.logger = logger
         self.slicing = slicing
         self.budget = budget
+        #: Q4: "path" (NetPlumber's rule) or "state" (the thesis's)
+        self.revisit = revisit
         #: per check set answered: (source, local ECs sliced, states expanded)
         self.work: List[Tuple[str, int, int]] = []
         self._results: List[Tuple[str, str, bool, Any]] = []
@@ -113,6 +125,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         ir = self.translate(extra_fields)
         ir.stamps["vf_slicing"] = self.slicing
         ir.stamps["vf_budget"] = self.budget
+        ir.stamps["vf_revisit"] = self.revisit
         t1 = time.perf_counter()
         net = libveriflow_fr.Network(ir.fields)
         for tid in sorted(set(ir.tables.values())):
@@ -174,12 +187,16 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             if self.slicing == "network":
                 answers = self.net.deliveries(qs, starts)
             else:
-                answers, finished, stopped_at, predicted, local_ecs, hops = \
-                    self.net.local_deliveries(qs, starts, self.budget)
+                (answers, finished, stopped_at, predicted, single, local_ecs, hops,
+                 per_table) = self.net.local_deliveries(
+                     qs, starts, self.budget, self.revisit == "state")
                 self.work.append((owners[0][0], local_ecs, hops))
                 if not finished:
-                    name = {v: k for k, v in ir.tables.items()}.get(stopped_at, stopped_at)
-                    raise DidNotFinish(owners[0][0], name, predicted, self.budget)
+                    names = {v: k for k, v in ir.tables.items()}
+                    top = sorted(per_table.items(), key=lambda kv: -kv[1])[:3]
+                    raise DidNotFinish(owners[0][0], names.get(stopped_at, str(stopped_at)),
+                                       predicted, self.budget, single,
+                                       [(names.get(t, str(t)), n) for t, n in top])
             for key, tables in zip(owner_of, answers):
                 delivered[key].update(tables)
 

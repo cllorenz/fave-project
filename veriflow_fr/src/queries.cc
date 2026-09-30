@@ -23,6 +23,7 @@
 #include <functional>
 #include <set>
 #include <stdexcept>
+#include <tuple>
 
 namespace vf {
 
@@ -166,13 +167,22 @@ struct Slicer {
   uint64_t budget;
   LocalResult &res;
   std::function<void(uint32_t, const Box &)> on_state;
+  Revisit revisit = Revisit::PATH;
+  // STATE: the (table, arrival, packet set) states this start has reached.
+  std::set<std::tuple<uint32_t, int64_t, Box>> visited;
 
   struct Abort {};
 
   void walk(uint32_t table, int64_t arrival, const Box &box,
             std::vector<uint32_t> &path, std::set<uint32_t> &out) {
-    // Q4, Q20: a path that revisits a table ends there, whatever the header.
-    if (std::find(path.begin(), path.end(), table) != path.end()) return;
+    if (revisit == Revisit::PATH) {
+      // Q4, NetPlumber's rule: a path that revisits a table ends there,
+      // whatever the header.
+      if (std::find(path.begin(), path.end(), table) != path.end()) return;
+    } else if (!visited.insert({table, arrival, box}).second) {
+      // Q4, the thesis's rule: a state already reached for this packet set.
+      return;
+    }
     if (on_state) on_state(table, box);
 
     // The rules that apply here (IN_PORT is a matched field, Q7) and overlap
@@ -214,9 +224,11 @@ struct Slicer {
       res.finished = false;
       res.stopped_at = table;
       res.predicted = predicted;
+      res.single_table = predicted > (double)budget;
       throw Abort{};
     }
     res.local_ecs += (uint64_t)predicted;
+    res.per_table[table] += (uint64_t)predicted;
     ++res.hops;
 
     path.push_back(table);
@@ -270,13 +282,14 @@ Box box_of(const Network &net, const std::string &range) {
 
 LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
-                             uint64_t budget) {
+                             uint64_t budget, Revisit revisit) {
   LocalResult res;
   res.delivered.resize(starts.size());
   const Box box = box_of(net, range);
-  Slicer s{net, budget, res, nullptr};
+  Slicer s{net, budget, res, nullptr, revisit, {}};
   try {
     for (size_t i = 0; i < starts.size(); ++i) {
+      s.visited.clear();
       std::vector<uint32_t> path;
       s.walk(starts[i].first, starts[i].second, box, path, res.delivered[i]);
     }
@@ -291,7 +304,7 @@ bool may_carry(const Network &net, const std::string &range,
   bool carries = false;
   Slicer s{net, 0, res, [&](uint32_t, const Box &b) {
              if (b[field].lo <= to_value && to_value <= b[field].hi) carries = true;
-           }};
+           }, Revisit::PATH, {}};
   std::vector<uint32_t> path;
   std::set<uint32_t> out;
   s.walk(start.first, start.second, box_of(net, range), path, out);
