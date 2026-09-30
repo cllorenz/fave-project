@@ -140,6 +140,7 @@ class TestPorts(unittest.TestCase):
         self.assertEqual(ir.port_table[ir.ports["s1.1"]], ir.tables["s1.1"])
         self.assertIn((ir.ports["s1.1"], ir.ports["s2.1"]), ir.links)
         self.assertEqual(ir.stamps["vf_node"], "table")
+        self.assertEqual(ir.stamps["vf_slicing"], "device")
 
 
     def test_node_edges_are_delta_nets_graph(self):
@@ -174,6 +175,17 @@ class TestSourcesAndProbes(unittest.TestCase):
         self.assertEqual(len(sets), 2)
         self.assertTrue(all(len(s) == 32 for s in sets))
         self.assertTrue(sets[0].startswith("00001010") and sets[0].endswith("x"))
+
+    def test_a_probe_path_is_accepted_as_netplumber_ignores_it(self):
+        # NetPlumber's check_compliance reads the flows arriving at a probe;
+        # the probe's test path feeds only its own check, never compliance.
+        from util.path_util import Path
+        tr = Translator()
+        _feed(tr, _switch("s1", ["1"], []))
+        path = Path.from_json({"pathlets": [{"type": "start"}, {"type": "end"}]})
+        tr.add_probe(ProbeModel("probe.b", "existential", test_path=path))
+        tr.add_links_bulk([("s1.1", "probe.b.1")])
+        self.assertIn("probe.b", tr.translate().probes)
 
     def test_probe_is_a_consuming_table(self):
         tr = Translator()
@@ -252,24 +264,75 @@ class TestRecorderHooks(unittest.TestCase):
         self.assertNotEqual(tr.global_port("s1.2"), first)
 
 
-class TestRefusals(unittest.TestCase):
-    """ V1 refuses what it cannot translate faithfully (VERIFLOW_PLAN.md §10). """
+class TestRewrites(unittest.TestCase):
+    """ V3: rewrites translate per field (VERIFLOW_PLAN.md §4.5, Q19). """
 
-    def test_a_router_model_is_refused(self):
+    def _ir(self, *actions):
+        rule = Rule("s1", "s1.1", 1, match=_dst("10.0.0.0/8"),
+                    actions=list(actions) + [Forward(["s1.1"])])
         tr = Translator()
-        model = _switch("r1", ["1"], [])
-        model.type = "router"
+        _feed(tr, _switch("s1", ["1", "2"], [rule]))
+        return tr.translate()
+
+    def test_a_vlan_set(self):
+        ir = self._ir(Rewrite([RuleField("packet.ether.vlan", "7")]))
+        (field, bits), = ir.rules[0].rewrites
+        self.assertEqual(ir.fields[field][0], "packet.ether.vlan")
+        self.assertNotIn("x", bits)
+
+    def test_a_nat_to_a_subnet_is_a_prefix(self):
+        ir = self._ir(Rewrite([RuleField("packet.ipv4.destination", "192.168.1.0/24")]))
+        (_field, bits), = ir.rules[0].rewrites
+        self.assertEqual(bits, "110000001010100000000001" + "x" * 8)
+
+    def test_metadata_set_and_clear(self):
+        ir = self._ir(Rewrite([RuleField("in_port", "s1.2"),
+                               RuleField("out_port", "x" * 32)]))
+        rewrites = dict((ir.fields[f][0], b) for f, b in ir.rules[0].rewrites)
+        self.assertEqual(rewrites["in_port"], "{:032b}".format(ir.ports["s1.2"]))
+        self.assertEqual(rewrites["out_port"], "x" * 32)
+
+    def test_rewritten_fields_are_in_the_layout(self):
+        ir = self._ir(Rewrite([RuleField("packet.ether.vlan", "7")]))
+        self.assertIn("packet.ether.vlan", [n for n, _w in ir.fields])
+
+
+class TestPipelines(unittest.TestCase):
+    """ V3: router and packet-filter pipelines (VERIFLOW_PLAN.md Q20). """
+
+    def test_router_and_packet_filter_models_translate(self):
+        for mtype in ("router", "packet_filter"):
+            tr = Translator()
+            model = _switch("r1", ["1"], [_rule("r1", 1, "10.0.0.0/8", ["r1.1"])])
+            model.type = mtype
+            _feed(tr, model)
+            self.assertEqual(len(tr.translate().rules), 1)
+
+    def test_other_model_types_are_refused(self):
+        tr = Translator()
+        model = _switch("a1", ["1"], [])
+        model.type = "application_layer_gateway"
         _feed(tr, model)
-        with self.assertRaisesRegex(Unsupported, "router"):
+        with self.assertRaisesRegex(Unsupported, "application_layer_gateway"):
             tr.translate()
 
-    def test_a_rewrite_is_refused(self):
-        rule = Rule("s1", "s1.1", 1, match=_dst("10.0.0.0/8"), actions=[
-            Rewrite([RuleField("packet.ether.vlan", "7")]), Forward(["s1.1"])])
+    def test_the_wires_netplumber_skips_are_skipped(self):
+        # NetPlumberAdapter.add_wiring: "The internals input and the post
+        # routing output are never the source of an internal wire" -- and the
+        # internals output and post routing are never targeted internally.
+        model = _switch("f1", ["1", "2"], [])
+        model.type = "packet_filter"
+        model.ports.update({"f1.internals_in": "f1.1", "f1.internals_out": "f1.1"})
+        model.wiring = [("f1.internals_in", "f1.1"), ("f1.1", "f1.internals_out"),
+                        ("f1.1", "f1.2")]
         tr = Translator()
-        _feed(tr, _switch("s1", ["1"], [rule]))
-        with self.assertRaisesRegex(Unsupported, "rewrite"):
-            tr.translate()
+        _feed(tr, model)
+        ir = tr.translate()
+        self.assertEqual(ir.links, [(ir.ports["f1.1"], ir.ports["f1.2"])])
+
+
+class TestRefusals(unittest.TestCase):
+    """ What VeriFlow-FR cannot translate faithfully is refused (VERIFLOW_PLAN.md §10). """
 
     def test_a_negated_rule_field_is_refused(self):
         rule = Rule("s1", "s1.1", 1, match=Match([

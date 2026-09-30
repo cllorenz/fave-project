@@ -61,16 +61,39 @@ def available() -> bool:
     return libveriflow_fr is not None
 
 
-class VeriFlowAdapter(Translator, AbstractVerificationEngine):
-    """ FaVe model -> VeriFlow-FR, bulk mode. """
+class DidNotFinish(Exception):
+    """ A check could not be answered within the declared budget (VERIFLOW_PLAN.md
+    Q22): reported as such, never as "no violation". Carries where it stopped. """
 
-    def __init__(self, logger: Any = None, invert_lpm: bool = False) -> None:
+    def __init__(self, source: str, table: str, predicted: float, budget: int) -> None:
+        super().__init__(
+            "VeriFlow-FR did not finish: the check from %s would slice %.3g local "
+            "ECs at %s, past the budget of %d (Q22)" % (source, predicted, table, budget))
+        self.source, self.table, self.predicted, self.budget = source, table, predicted, budget
+
+
+class VeriFlowAdapter(Translator, AbstractVerificationEngine):
+    """ FaVe model -> VeriFlow-FR, bulk mode.
+
+    `slicing` is Q22's stamp: "device" (the thesis's algorithm, T §3.1.3, and
+    the only one that follows rewrites) or "network" (the paper's, kept for the
+    rewrite-free calibration workloads). `budget` bounds the local ECs one check
+    set may slice (0: none); past it, check_compliance raises DidNotFinish. """
+
+    def __init__(self, logger: Any = None, invert_lpm: bool = False,
+                 slicing: str = "device", budget: int = 0) -> None:
+        if slicing not in ("device", "network"):
+            raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
         if libveriflow_fr is None:
             raise RuntimeError(
                 "libveriflow_fr is not built; run "
                 "veriflow_fr/python/build_libveriflow_fr.sh")
         Translator.__init__(self, invert_lpm=invert_lpm)
         self.logger = logger
+        self.slicing = slicing
+        self.budget = budget
+        #: per check set answered: (source, local ECs sliced, states expanded)
+        self.work: List[Tuple[str, int, int]] = []
         self._results: List[Tuple[str, str, bool, Any]] = []
         self.ir: Optional[Ir] = None
         self.net: Any = None
@@ -88,6 +111,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             return
         t0 = time.perf_counter()
         ir = self.translate(extra_fields)
+        ir.stamps["vf_slicing"] = self.slicing
+        ir.stamps["vf_budget"] = self.budget
         t1 = time.perf_counter()
         net = libveriflow_fr.Network(ir.fields)
         for tid in sorted(set(ir.tables.values())):
@@ -98,7 +123,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             net.add_link(a, b)
         for r in ir.rules:
             net.load_rule(r.id, r.table, r.priority, r.in_port, r.match,
-                          r.out_ports, r.consume)
+                          r.out_ports, r.consume, r.rewrites)
         t2 = time.perf_counter()
         self.ir, self.net, self._built_for = ir, net, key
         self.timings = {"translate": t1 - t0, "load": t2 - t1}
@@ -146,7 +171,16 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                 for start in ir.generators[key[0]][0]:
                     starts.append(start)
                     owner_of.append(key)
-            for key, tables in zip(owner_of, self.net.deliveries(qs, starts)):
+            if self.slicing == "network":
+                answers = self.net.deliveries(qs, starts)
+            else:
+                answers, finished, stopped_at, predicted, local_ecs, hops = \
+                    self.net.local_deliveries(qs, starts, self.budget)
+                self.work.append((owners[0][0], local_ecs, hops))
+                if not finished:
+                    name = {v: k for k, v in ir.tables.items()}.get(stopped_at, stopped_at)
+                    raise DidNotFinish(owners[0][0], name, predicted, self.budget)
+            for key, tables in zip(owner_of, answers):
                 delivered[key].update(tables)
 
         for dst, checks in rules.items():

@@ -45,10 +45,30 @@ VERIFLOW_PLAN.md §7 it implements is unit-tested without the native engine
     and this does the same; a probe with a PATH is refused in V1;
   * negated check conditions expand into non-negated sets (Q17).
 
-Everything V1 cannot translate faithfully is REFUSED, at translation time, with
-the reason -- never approximated: router and packet-filter models (they rewrite
-FaVe's in_port/out_port metadata, which is V3), rewrites, table misses and
-negated rule fields.
+V3 adds rewrites (§4.5) -- a whole field set to a ternary value, 'x' bits
+becoming wildcards, as NetPlumber's STRICT_RW has it: a VLAN or NAT source set,
+a NAT destination set to a subnet, FaVe's in_port/out_port metadata set to a
+port or cleared to ANY (Q19) -- and with them router and packet-filter
+pipelines. Two NetPlumber-adapter behaviours were checked against every
+surveyed model (VERIFLOW_PLAN.md V3):
+
+  * the internal wires NetPlumberAdapter.add_wiring skips -- out of a device's
+    `internals_in` or `post_routing`, into its `internals_out` or
+    `post_routing` -- are skipped here too: they describe the pipeline, not
+    NetPlumber;
+  * NetPlumber's pre-routing rules build a non-port field's rewrite MASK from
+    the rewritten value itself, so only its 1-bits are written. That is NOT
+    mirrored: VeriFlow-FR sets the whole field, as the model says. It concerns
+    one rule in the suite (wl_ifi, VLAN 4095, all twelve id bits 1), and the
+    differential shows whether it matters.
+
+A probe's test path is accepted and does not affect compliance, as in
+NetPlumber, whose check_compliance reads the flows arriving at a probe.
+
+Everything VeriFlow-FR cannot translate faithfully is REFUSED, at translation
+time, with the reason -- never approximated: model types other than switches,
+routers and packet filters, table misses, negated rule fields, and rewrites to
+a value that is no interval.
 """
 
 import itertools
@@ -71,7 +91,7 @@ ANY_PORT = -1
 _PORT_FIELDS = ("interface", "in_port", "out_port")
 
 #: Model types V1 translates.
-_SUPPORTED_MODELS = ("switch",)
+_SUPPORTED_MODELS = ("switch", "router", "packet_filter")
 
 
 class Unsupported(Exception):
@@ -87,6 +107,8 @@ class IrRule:
     match: str
     out_ports: List[int]
     consume: bool = False
+    #: (layout field index, the ternary value the field is SET to)
+    rewrites: List[Tuple[int, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -213,10 +235,8 @@ class Translator:
         for model in self._models:
             if model.type not in _SUPPORTED_MODELS:
                 raise Unsupported(
-                    "%s model %s: VeriFlow-FR V1 translates switch models only. "
-                    "Routers and packet filters rewrite FaVe's in_port/out_port "
-                    "metadata, which arrives with V3 (VERIFLOW_PLAN.md §10)."
-                    % (model.type, model.node))
+                    "%s model %s: VeriFlow-FR translates switch, router and "
+                    "packet-filter models only" % (model.type, model.node))
 
         layout = self._layout(extra_fields)
         ir = Ir(fields=layout, tables={}, ports={}, port_table={}, links=[],
@@ -249,6 +269,11 @@ class Translator:
         starts: Dict[str, List[Tuple[int, int]]] = {g.node: [] for g in self._generators}
         for model in self._models:
             for a, b in model.wiring:
+                # NetPlumberAdapter.add_wiring's rule: these wires are listed but
+                # never exist -- the pipeline, not NetPlumber.
+                if a in (model.node + ".internals_in", model.node + ".post_routing") or \
+                        b in (model.node + ".internals_out", model.node + ".post_routing"):
+                    continue
                 ir.links.append((ir.ports[a], ir.ports[b]))
         for a, b in self._links:
             if a in gen_ports:
@@ -266,7 +291,6 @@ class Translator:
                 self._translate_table(ir, model, tname, rules)
 
         for probe in self._probes:
-            self._reject_probe_paths(probe)
             match = self._ternary(ir, probe.match)
             if match is None:
                 continue  # contradictory match fields: it consumes nothing
@@ -284,6 +308,7 @@ class Translator:
             "vf_node": "table",
             "vf_ports": "field",
             "vf_fields": "plain",
+            "vf_slicing": "device",
             "vf_invert_lpm": self.invert_lpm,
             "vf_field_order": [n for n, _w in layout],
             "vf_inport_expansion": (
@@ -300,6 +325,9 @@ class Translator:
             for rules in model.tables.values():
                 for rule in rules:
                     used.update(f.name for f in rule.match)
+                    for action in rule.actions:
+                        if isinstance(action, Rewrite):
+                            used.update(f.name for f in action.rewrite)
         for gen in self._generators:
             used.update(gen.fields.keys())
         for probe in self._probes:
@@ -351,13 +379,12 @@ class Translator:
                 raise Unsupported("%s holds two rules with index %s" % (tname, rule.idx))
             seen.add(rule.idx)
             out: List[int] = []
+            rewrites: List[Tuple[int, str]] = []
             for action in rule.actions:
                 if isinstance(action, Forward):
                     out.extend(ir.ports[p] for p in action.ports)
                 elif isinstance(action, Rewrite):
-                    raise Unsupported(
-                        "rewrite in %s rule %s: rewrites arrive with V3 "
-                        "(VERIFLOW_PLAN.md §10)" % (tname, rule.idx))
+                    rewrites.extend(self._rewrite(ir, tname, rule, f) for f in action.rewrite)
                 elif isinstance(action, Miss):
                     raise Unsupported("table miss in %s rule %s" % (tname, rule.idx))
                 else:
@@ -370,7 +397,7 @@ class Translator:
                 ir.rules.append(IrRule(
                     rid, tid, prio[id(rule)],
                     ANY_PORT if in_port is None else ir.ports[in_port],
-                    match, out))
+                    match, out, False, list(rewrites)))
                 ir.origin[rid] = (model.node, tname, rule.idx, in_port)
 
     def _header_space(self, ir: Ir, gen: Any) -> List[str]:
@@ -384,13 +411,20 @@ class Translator:
                 sets.append(t)
         return sets
 
-    @staticmethod
-    def _reject_probe_paths(probe: Any) -> None:
-        for path in (probe.test_path, probe.filter_path):
-            if path is not None and path.to_json().get("pathlets"):
-                raise Unsupported(
-                    "probe %s has a path condition: path-constrained probes "
-                    "are not translated in V1" % probe.node)
+    def _rewrite(self, ir: Ir, tname: str, rule: Any, fld: Any) -> Tuple[int, str]:
+        """ One rewritten field: (layout index, the ternary value it is set to).
+        A port-typed field is set to a port's engine id, or cleared to ANY. """
+        idx = [n for n, _w in ir.fields].index(fld.name)
+        value = str(fld.value)
+        if fld.name in _PORT_FIELDS and set(value) == {'x'}:
+            bits = 'x' * FIELD_SIZES[fld.name]
+        else:
+            bits = self._field_bits(ir, fld)
+        wild = bits.find('x')
+        if wild >= 0 and set(bits[wild:]) != {'x'}:
+            raise Unsupported("rewrite of %s in %s rule %s to %s: not an interval"
+                              % (fld.name, tname, rule.idx, value))
+        return idx, bits
 
     def match_sets(self, lpm_only: bool = False,
                    fields: Optional[Sequence[str]] = None
