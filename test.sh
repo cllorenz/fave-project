@@ -171,6 +171,7 @@ FAVE_NDD_TESTS=(
     test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs
+    test/test_revisit_router_on_a_stick.py # Q4 / TODO item 33: a packet passing one table twice -- VeriFlow-FR(state) and ad6 right; NetPlumber and APKeep defects pinned (starts NDD too)
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py

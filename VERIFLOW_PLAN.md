@@ -256,6 +256,25 @@ Resolutions are appended below the question with a date.
   for a previously encountered packet set (which also indicates presence of a routing
   loop)". With rewrites, revisiting a device with a *different* header is not a loop.
   Path: FaVe's loop semantics decide; record the divergence if we differ.
+  *Resolved 2026-09-30 (owner):* **the thesis's rule, `vf_revisit=state`, by default.**
+  A walk stops at a (table, arrival, packet set) it has already reached. NetPlumber's
+  rule, `vf_revisit=path`, where a path revisiting a table stops whatever the header,
+  is kept as a stamped option for parity runs.
+  - **The divergence, recorded as the path asked.** FaVe's own loop semantics, which
+    are NetPlumber's and unchanged from upstream, lose deliveries that legitimately
+    pass a table twice. Measured on a router on a stick
+    (`fave/test/test_revisit_router_on_a_stick.py`): host A on VLAN 10 crosses one
+    switch table twice to reach host B on VLAN 20.
+    - VeriFlow-FR `state` and ad6: reached. That is the truth.
+    - VeriFlow-FR `path` and NetPlumber: not reached.
+    - The genuine-loop control is not reached by all of these.
+
+    APKeep reaches B in both networks, the loop included, with either engine and
+    either VLAN mode: a separate over-approximation. Both defects are TODO item 33.
+  - **On the suite:** no verdict differs between the rules on the six workloads that
+    finish (§10, V3), and `state` never does more work (up to 9x less). The thesis's
+    rule is also what keeps VeriFlow-FR independent of NetPlumber, instead of agreeing
+    with it by inheriting its limitation.
 - **Q5 — Deletion.** Paper and thesis state deletes are handled (all five OpenFlow
   FLOW_MOD types) but describe only insertion. Presumed symmetric: find ECs overlapping
   the removed rule, remove, rebuild their graphs. Path: derive.
@@ -972,11 +991,11 @@ unit tests and seeing them fail, and its exit begins with those tests green.
     APKeep and ad6 are compared with NetPlumber on these workloads by their own
     differentials. VeriFlow-FR's agreement with them follows by transitivity
     where those hold, and was not run separately.
-  - **Q4, measured:** the two revisit rules differ in no verdict on any
-    workload that finishes. `state` never does more work (wl_i2: 0.94M local
-    ECs against 1.93M; wl_ifi: 716 against 6,255). **Owner decision:** keep
-    NetPlumber's `path` (the default now, and Q4's recorded path "FaVe's loop
-    semantics decide"), or switch to the thesis's `state`?
+  - **Q4, resolved (owner, 2026-09-30): `state`, the thesis's rule,** by
+    default. The two rules differ in no verdict on any workload that finishes.
+    `state` never does more work (wl_i2: 0.94M local ECs against 1.93M; wl_ifi:
+    716 against 6,255). The router-on-a-stick experiment shows the path rule
+    losing a real delivery, as NetPlumber does (§7 Q4, TODO item 33).
   - **The limit** for "did not finish" is the open suite-wide decision in TODO
     item 31. 5e7 local ECs is a working budget, not that limit. With room to
     run, wl_stanford **finishes and agrees**: 33 minutes and 0.9 GB against

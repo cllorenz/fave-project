@@ -2214,7 +2214,8 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
     - **Equal to NetPlumber** on `wl_ifi`, `wl_cloud`, `wl_example`, `wl_airtel1` and `wl_i2`.
     - **Did not finish** within 5e7 local ECs on `wl_stanford`, `wl_up` and `wl_tum`, each at the firewall or out-stage table Q22 predicted.
     - **With a 2e9 budget, `wl_stanford` finishes and equals NetPlumber:** 165 pairs, 5.67e8 local ECs, 33 min and 0.9 GB against NetPlumber's 12 s, about 166x. That is the measured price of range ECs there.
-    - **Open, owner:** Q4, NetPlumber's `path` rule or the thesis's `state`; they differ in no measured verdict, and `state` does up to 9x less work. The suite-wide limit is in item 31.
+    - **Q4 resolved (owner, 2026-09-30): the thesis's `state` rule by default**, with `path` stamped as an option (plan §7). The router-on-a-stick experiment behind it is item 33.
+    - **Still open, owner:** the suite-wide limit, in item 31.
 - [ ] **V3b — the 4+10 field optimisation** (thesis §3.2.2), generalised to FaVe's fields (a field is a trie dimension if any rule wildcards it arbitrarily, a linear-scan field otherwise), with excluded packet sets under rewrites. **Exit gate:** verdicts identical to plain VeriFlow-FR on every workload. Required, because every published VeriFlow number has it on and none measures it off (plan §9 D6). Fallback: report plain only, labelled as without §4.6.
 - [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).
 - [ ] **V5 — measurement** over the whole suite, stamped. Both field variants: §4.6 as the headline where it applies, plain as the ablation.
@@ -2250,6 +2251,23 @@ Three refinements, so the two categories stay apart:
 ### 32. Found by the V0 feature survey — OPEN (2026-09-29)
 - [ ] **`wl_generic_fw` converts its checks with a script that does not exist.** `bench/wl_generic_fw/benchmark.py` `_post_preparation` runs `python3 bench/wl_generic_fw/reach_csv_to_checks.py`; the script is `bench/reach_csv_to_checks.py`. `os.system`'s exit status is ignored, so the step fails silently: *"can't open file"* on stderr, and the run carries on with whatever `checks.json` the base class wrote. It also hard-codes `python3` where the base class uses `PYTHON`. Found by running the default instance's preparation for the survey (plan §9).
 - [ ] **`wl_state_snapshots` is not reproducible:** it draws addresses and ports from `random` without a seed. It is the suite's only state-update stream, so before it can serve item 31's incremental axis it needs a seed, stamped.
+
+### 33. A packet that passes one table twice: NetPlumber under-, APKeep over-approximates — OPEN (found 2026-09-30)
+Found while deciding VeriFlow-FR's revisit rule (`VERIFLOW_PLAN.md` Q4). Pinned by `fave/test/test_revisit_router_on_a_stick.py`, whose two small networks are replayed through the real aggregator on every engine.
+- **Router on a stick:** host A (VLAN 10) goes to switch `sw`, then to `rtr`, which rewrites VLAN 10 to 20, then back through `sw`'s **same table** to host B.
+- **Control, a genuine loop:** `rtr` returns VLAN 10 unchanged and `sw` sends it back up.
+
+| | stick | loop |
+|---|:---:|:---:|
+| ground truth | reached | not reached |
+| VeriFlow-FR (`state`), ad6 | reached | not reached |
+| **NetPlumber**, VeriFlow-FR (`path`) | **not reached** | not reached |
+| **APKeep**, bdd and ndd, `faithful_vlan` on and off | reached | **reached** |
+
+- [ ] **NetPlumber under-approximates reachability** wherever a packet legitimately passes a table twice (router on a stick, hairpin NAT, a DMZ through one switch). Cause, verified: its loop check stops a flow whose path revisits a table whatever the header (`net_plumber/FAVE_CHANGES.md` §6, unchanged from upstream). Question for the owner: is that FaVe's intended semantics, or a defect to fix?
+  - A fix would end a flow only when it revisits a table with a header space it already carried, the thesis's rule.
+  - Any fix changes a verdict wherever the case occurs. None of the six workloads VeriFlow-FR finishes shows a difference, so the suite may not contain it, but that is not yet proven for `wl_up`, `wl_tum` or `wl_stanford`'s full check set.
+- [ ] **APKeep over-approximates the loop.** Its answer on these switch tables does not depend on their VLAN matches, so its "reached" on the stick is coincidental. Cause **not verified**. The first suspect is how `apkeep/adapter.py` translates a switch rule that matches a VLAN and no destination: perhaps as a destination-any forward. Check it before assuming anything about other workloads.
 
 ---
 

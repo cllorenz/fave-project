@@ -85,11 +85,12 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
     `slicing` is Q22's stamp: "device" (the thesis's algorithm, T §3.1.3, and
     the only one that follows rewrites) or "network" (the paper's, kept for the
     rewrite-free calibration workloads). `budget` bounds the local ECs one check
-    set may slice (0: none); past it, check_compliance raises DidNotFinish. """
+    set may slice (0: none); past it, check_compliance raises DidNotFinish.
+    `revisit` is Q4's: "state" (default) or "path". """
 
     def __init__(self, logger: Any = None, invert_lpm: bool = False,
                  slicing: str = "device", budget: int = 0,
-                 revisit: str = "path") -> None:
+                 revisit: str = "state") -> None:
         if slicing not in ("device", "network"):
             raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
         if revisit not in ("path", "state"):
@@ -102,7 +103,11 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self.logger = logger
         self.slicing = slicing
         self.budget = budget
-        #: Q4: "path" (NetPlumber's rule) or "state" (the thesis's)
+        #: Q4 (owner, 2026-09-30): "state", the thesis's rule, by default --
+        #: a walk stops at a (table, arrival, packet set) it has reached before.
+        #: "path" is NetPlumber's (a path revisiting a table stops, whatever the
+        #: header), kept for parity runs; it loses deliveries that legitimately
+        #: pass a table twice (test/test_revisit_router_on_a_stick.py).
         self.revisit = revisit
         #: per check set answered: (source, local ECs sliced, states expanded)
         self.work: List[Tuple[str, int, int]] = []
