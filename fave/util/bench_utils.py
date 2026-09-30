@@ -195,6 +195,90 @@ def add_routes(routes, use_unix=False):
         _add_rules(routes, use_unix=use_unix)
 
 
+def iter_json_array(path, chunk=1 << 20):
+    """ The elements of a file holding ONE top-level JSON array, one at a time.
+
+    What `json.load` would return, without holding it: wl_berkeley's
+    routes.json is ~2 GB at full size, and loading it whole cost the
+    benchmark process ~780 B per rule (CLOUD_BENCH_PLAN.md §2.15). An element
+    is only accepted once the character AFTER it is in the buffer, so one cut
+    by a chunk boundary is never decoded as complete.
+    """
+    decoder = json.JSONDecoder()
+    with open(path) as handle:
+        buf, pos, eof = '', 0, False
+
+        def fill():
+            nonlocal buf, pos, eof
+            more = handle.read(chunk)
+            if not more:
+                eof = True
+            buf, pos = buf[pos:] + more, 0
+
+        def skip():
+            nonlocal pos
+            while True:
+                while pos < len(buf) and buf[pos].isspace():
+                    pos += 1
+                if pos < len(buf) or eof:
+                    return
+                fill()
+
+        skip()
+        if buf[pos:pos + 1] != '[':
+            raise ValueError("%s does not hold a JSON array" % path)
+        pos += 1
+        skip()
+        if buf[pos:pos + 1] == ']':
+            return
+        while True:
+            try:
+                item, end = decoder.raw_decode(buf, pos)
+                if end >= len(buf) and not eof:
+                    raise ValueError('may be truncated')
+            except ValueError:
+                if eof:
+                    raise
+                fill()
+                continue
+            yield item
+            pos = end
+            skip()
+            if buf[pos:pos + 1] == ']':
+                return
+            if buf[pos:pos + 1] != ',':
+                raise ValueError("%s: expected ',' or ']' at offset %d"
+                                 % (path, pos))
+            pos += 1
+            skip()
+
+
+def add_routes_streamed(routes, use_unix=False):
+    """ `add_routes` for an ITERABLE of routes grouped by table: each table is
+    sent as soon as the next one starts, so only one table is ever in memory.
+
+    Sends exactly what `add_routes` sends for such input -- one command per
+    table, in the same order. Input that is NOT grouped is refused rather than
+    split into several commands per table, which would change what the engine
+    is sent without anybody choosing it.
+    """
+    sent = set()
+    table, batch = None, []
+    for route in routes:
+        if route[0] != table:
+            if batch:
+                _add_rules(batch, use_unix=use_unix)
+                sent.add(table)
+            table, batch = route[0], []
+            if table in sent:
+                raise ValueError(
+                    "routes for %s reappear after the table was sent: stream "
+                    "only routes grouped by table, or use add_routes" % table)
+        batch.append(route)
+    if batch:
+        _add_rules(batch, use_unix=use_unix)
+
+
 def add_rulesets(devices, use_unix=False, interweave=True):
     """ Add rulesets to a set of devices.
 

@@ -31,7 +31,9 @@ import json
 
 import netplumber.dump_np as dumper
 
-from util.bench_utils import create_topology, add_routes, add_sources, add_policies
+from util.bench_utils import (
+    create_topology, add_routes, add_routes_streamed, add_sources, add_policies,
+    iter_json_array)
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util import barrier
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
@@ -120,6 +122,11 @@ def _exit_code(status):
 class GenericBenchmark(object):
     """ This class provides a canonical benchmark and can be customized by sub classes.
     """
+
+    #: Send `routes.json` one table at a time instead of loading it whole.
+    #: Opt-in, because it requires the routes to be grouped by table (it
+    #: refuses otherwise); `wl_berkeley` needs it (CLOUD_BENCH_PLAN.md §2.15).
+    STREAM_ROUTES = False
 
     def __init__(
             self,
@@ -420,10 +427,14 @@ class GenericBenchmark(object):
 
 
         self.logger.info("initialize routes...")
-        with open(self.files['routes'], 'r') as raw_routes:
-            routes = json.load(raw_routes)
+        if self.STREAM_ROUTES:
+            add_routes_streamed(iter_json_array(self.files['routes']),
+                                use_unix=self.use_unix)
+        else:
+            with open(self.files['routes'], 'r') as raw_routes:
+                routes = json.load(raw_routes)
 
-            add_routes(routes, use_unix=self.use_unix)
+                add_routes(routes, use_unix=self.use_unix)
         self.logger.info("routes sent to fave")
 
         self.logger.info("initialize probes...")

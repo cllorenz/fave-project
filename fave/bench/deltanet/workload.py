@@ -266,6 +266,9 @@ class RouterTraceBenchmark(DeltanetBenchmark):
     MANIFEST = 'DERIVED.SHA256SUMS'
     FIELD4 = FIELD4_UNREAD
     ROUTES_INDENT = None
+    #: `build_model` emits routes sorted by device, which is what streaming
+    #: needs; the benchmark then holds one table, not 13.4M rules.
+    STREAM_ROUTES = True
 
     def __init__(self, prefix, trace, keep_every=1, reuse_inputs=False,
                  **kwargs):
