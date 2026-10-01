@@ -918,7 +918,7 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   (`git diff ai..testing` over those paths is empty); the finding is simply that no one had yet
   run that tier with the flag CI uses.
 
-### 41. The doctor checks the two Java jars for FRESHNESS and the three native artifacts for EXISTENCE (found 2026-10-01)
+### 41. The doctor checks the two Java jars for FRESHNESS and the three native artifacts for EXISTENCE — FIXED 2026-10-01
 Item 1v's 2026-09-25 extension added `check_jar`, because a jar older than its sources still
 **loads**, so every jar-backed test runs against an engine that predates the source change and
 fails as a wrong answer rather than as a missing file. The comment directly above `check_jar`
@@ -942,7 +942,13 @@ then applied to one of the two halves.
   (`setup-fave-native/action.yml:90`), once per job, on a runner with no previous build. So a
   developer's `.so` is refreshed by nothing they routinely run, which is the condition this
   item is about.
-- [ ] **Generalise `check_jar` into one artifact-freshness check and use it for all five.**
+- [x] **Generalise `check_jar` into one artifact-freshness check and use it for all five** —
+  DONE (`a9340be6`). `check_jar` became two helpers: `check_freshness` (mtime against sources,
+  `[STALE]` fatal, naming the file that outran it) and `check_artifact` (existence policy on top
+  of it). They are separate because `net_plumber` cannot use the second half — it is checked for
+  **resolvability on PATH**, deliberately, since `start_np.sh` invokes a bare `net_plumber` and
+  a doctor that validates something other than what the scripts use certifies a broken
+  environment. Its repair line is `clean && all`, not `all`, per item 0's follow-up.
   The mechanic is already right -- mtime against the sources, `[STALE]` fatal and naming the
   file that outran it -- and only the inputs differ:
   | artifact | sources to compare against | absent means |
@@ -951,11 +957,24 @@ then applied to one of the two halves.
   | `libnetplumber*.so` | `net_plumber/python/libnetplumber.cpp` + `net_plumber/src/**` | `[MISSING]`, fatal -- no tier builds it |
   | `libveriflow_fr*.so` | `veriflow_fr/src/**` + its binding | `[warn]` -- the tier builds it |
   | APKeep / NDD jars | `*.java` + `pom.xml` (already done) | `[warn]` -- the tier builds them |
-- [ ] **While there: `libveriflow_fr` absent prints `[MISSING]` but does not set `rc=1`**
-  (`test.sh:623-627`), so it neither fails the doctor nor matches the convention the jars
-  established, where "the tier builds it" is reported as `[warn]`. The three states and their
-  labels should mean the same thing for every artifact; today `[MISSING]` means fatal for two
-  of them and advisory for the third.
+- [x] **While there: `libveriflow_fr` absent printed `[MISSING]` but set no `rc=1`** — DONE.
+  Absent is now `[warn]` wherever a tier builds it (libveriflow_fr, both jars) and `[MISSING]`
+  where none does (the net_plumber binary, libnetplumber), for every artifact. The three labels
+  finally mean the same thing everywhere.
+- **Verified 2026-10-01 by aging each artifact to 2000-01-01 and restoring its mtime.** All five
+  report `[STALE]`, each naming the source that outran it, and the doctor exits 1:
+
+  | artifact | named as stale against |
+  |---|---|
+  | `net_plumber` binary | `net_plumber/src/net_plumber/packet_set.h` |
+  | `libnetplumber .so` | `net_plumber/python/libnetplumber.cpp` |
+  | `libveriflow_fr .so` | `veriflow_fr/python/libveriflow_fr.cpp` |
+  | APKeep engine jar | `apkeep/src/main/java/apkeep/main/ExampleExp.java` |
+  | NDD engine jar | `ndd/src/main/java/application/CompareResults.java` |
+
+  And the absent cases: `libveriflow_fr` removed → `[warn]`, exit **0**; `libnetplumber`
+  removed → `[MISSING]`, exit **1**. Everything present and current → `RESULT: doctor PASSED`.
+  A check that cannot fail is worth nothing, so each of the four states was made to happen.
 - **Related, already on record:** item 0's follow-up notes that `make all` will not rebuild a
   stale `net_plumber` binary after a system library moves under it (`undefined symbol:
   ...log4cxx...`), and that `make clean && make all` is the repair. Same class -- an artifact
@@ -2899,7 +2918,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
-   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); ~~eight cross-engine differentials have never executed (**36**)~~ (**36** FIXED 2026-10-01); ~~and one `fast`-tier module silently depends on an `integration` artifact (**37**)~~ (**37** FIXED 2026-10-01, which surfaced **42**: an invariant whose tier and whose input disagree, so it runs in no CI job). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** is done too (the gate now opens on the raw dataset, the generator runs in the tier, and the eight tests have executed), and so is **37** (`inventorygen.py` takes its paths, and the module is confirmed pure-`fast` against a pristine export). What is left in this step: **41** (the doctor's freshness blind spot), **42** (filed by 37), **1s**, and the decision in **39**. ~~**40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates.~~ (**40** FIXED 2026-10-01.) **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); ~~eight cross-engine differentials have never executed (**36**)~~ (**36** FIXED 2026-10-01); ~~and one `fast`-tier module silently depends on an `integration` artifact (**37**)~~ (**37** FIXED 2026-10-01, which surfaced **42**: an invariant whose tier and whose input disagree, so it runs in no CI job). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** is done too (the gate now opens on the raw dataset, the generator runs in the tier, and the eight tests have executed), and so is **37** (`inventorygen.py` takes its paths, and the module is confirmed pure-`fast` against a pristine export). What is left in this step: **42** (filed by 37 -- needs the owner's view on the split), **1s**, and the decision in **39**. **41** and **43** are done. ~~**40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates.~~ (**40** FIXED 2026-10-01.) ~~**41** (the doctor's freshness blind spot) belongs here too~~ (**41** FIXED 2026-10-01: one freshness check for all five artifacts, each state exercised). Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
