@@ -28,7 +28,21 @@
 # pylint exit bitmask: 1=fatal 2=error 4=warning 8=refactor 16=convention 32=usage.
 
 export TMP=$(mktemp -d -p /tmp pylint.XXXXXX)
-export RCFILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.pylintrc"
+# SELF-LOCATE, then run from fave/. Everything below is written relative to
+# this directory -- IGNORE_FILES names `./examples/demo_slicing.py`, the find
+# prunes `./deprecated/*`, and `PYTHONPATH=.` means fave/ -- but the script had
+# no `cd`, so it linted whatever directory it was invoked from. From the repo
+# root that is the whole tree: ad6/, stl-anomalies/, z3-anomalies/,
+# np_reproduction/ and policy_translator/deprecated/ all get linted, none of the
+# skips match (their paths gain a `fave/` segment), and the gate reports 31
+# failing files where CI, which invokes it as `cd fave && bash test/lint_test.sh`
+# (ci.yml), reports none. A gate whose verdict depends on the caller's cwd is
+# one that will be read wrong, and has been. `typecheck_test.sh:32,41` already
+# locates itself this way; this is the same two lines.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # -> fave/
+cd "$HERE"
+
+export RCFILE="$HERE/.pylintrc"
 
 # Specific files to skip, by exact path relative to the fave/ directory.
 # (Vendored Hassel trees and deprecated/ are pruned at the find stage below.)

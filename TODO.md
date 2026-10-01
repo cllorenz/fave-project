@@ -1023,6 +1023,35 @@ then applied to one of the two halves.
   `fast` job could assert a skip budget (`-rs` plus a count), which is the mechanical version of
   item 36's lesson.
 
+### 43. The lint gate's verdict depended on the caller's working directory — FIXED 2026-10-01
+- **Finding:** `fave/test/lint_test.sh` had no `cd`, while everything in it is written relative
+  to `fave/`: `IGNORE_FILES` names `./examples/demo_slicing.py` and `./util/dynamic_distribution.py`,
+  the `find` prunes `./deprecated/*`, and `PYTHONPATH=.` is meant to be `fave/`. So it linted
+  whatever directory it was invoked from.
+- **Measured 2026-10-01, the same tree both times:**
+
+  | invoked as | scans | skipped | failed | exit |
+  |---|---|---:|---:|---:|
+  | `cd fave && bash test/lint_test.sh` (CI, `ci.yml:118`) | `fave/` | 2 | **0** | 0 |
+  | `bash fave/test/lint_test.sh` (repo root) | the whole tree | 0 | **31** | 1 |
+
+  From the root the two `IGNORE_FILES` never match (the real paths gain a `fave/` segment), the
+  `./deprecated/*` prune misses `policy_translator/deprecated/`, and `ad6/`, `stl-anomalies/`,
+  `z3-anomalies/` and `np_reproduction/` — none of them in this gate's scope — are linted and
+  fail. Verified against `cd0a43e9` too: the same 31, so this long predates today's work.
+- **It has misled a reader at least once:** this is how the gate came to be read as red here
+  while CI's `lint` job was green. Item 38 records `bash fave/test/lint_test.sh` exiting 1 with
+  59 error-class findings, 56 of them dismissed as `E1101` false positives — that run used the
+  root-relative invocation, so what its scope actually was is worth re-reading before the
+  "false positive" classification is relied on again. **Not re-opened here**; item 38 is closed
+  and its one real finding was fixed on `ai`.
+- [x] **Self-locate and `cd`, as the sibling gate already does.** `typecheck_test.sh:32,41`
+  resolves its own path and `cd`s before doing anything; `lint_test.sh` now does the same two
+  lines. Both invocations above now give an identical `skipped 2, ok 16, style-only 272,
+  failed 0` and exit 0.
+- **The general point:** a gate whose verdict depends on the caller's cwd will be read wrong,
+  and the reading is as likely to be a false red as a false green.
+
 ---
 
 ## Medium priority — structural improvements
