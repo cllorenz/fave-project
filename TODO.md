@@ -479,6 +479,11 @@ share. **Decision needed before building anything.**
   `UNCLASSIFIED` rather than ignored, so the table cannot quietly fall behind.
 - [x] **`.yolobox.toml`** now declares the full package set in `[customize] packages`,
   cross-checked against the Dockerfile, so a fresh sandbox starts complete.
+  - **NOT in effect 2026-10-01:** that block is at present commented out in full in
+    `.yolobox.toml` (an uncommented copy sits untracked at `.yolobox.toml-bak`, alongside an
+    added `env = [...]` proxy block), so this sandbox again started with none of the apt set.
+    The doctor caught it and its repair line was accurate — the box working as intended — but
+    the box above describes a state the file no longer has.
 - [x] **README** — a "Checking the environment first" section with the three
   misleading-symptom cases in a table.
 - [x] **EXTENDED 2026-09-25: the doctor checks the two Java engine jars for FRESHNESS,
