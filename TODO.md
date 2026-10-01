@@ -572,6 +572,62 @@ There are now four, and they disagree in ways that change what CI actually runs.
   `pybison`). Consider `pip install -r requirements.txt` plus an explicit native-extras line, so
   there is one list and one list of exceptions.
 
+### 36. Eight cross-engine differential tests have never run — the gate pre-empts its own `setUpClass` (found 2026-10-01)
+- **Finding:** `test.sh` invokes six of the seven `gen_wl_*_inputs.sh` generators.
+  `gen_wl_cloud_inputs.sh` is in **no** tier, so `bench/wl_cloud/`'s derived inputs never exist
+  and both wl_cloud differentials skip in every tier and every CI run:
+  - `test_apkeep_cloud_differential.py` (5 tests) -- APKeep-NDD vs libnetplumber, one engine per
+    process;
+  - `test_ad6_cloud_differential.py` (3 tests) -- ad6 vs libnetplumber, anchored to the
+    dataset's own SMT verdicts.
+- **The gate cannot open on its own.** Both classes carry a class-level
+  `@require_or_skip(all(os.path.isfile(f) for f in _INPUTS), ...)` evaluated at **import** time,
+  while the thing that would create `_INPUTS` is each class's `setUpClass`, which runs the
+  generator itself (`test_apkeep_cloud_differential.py:143-149`). On any checkout where the
+  generator has not been run by hand: inputs missing -> class skips -> `setUpClass` never runs
+  -> inputs stay missing.
+- **`FAVE_REQUIRE_BACKENDS=1` does not catch it.** The CI `integration` job sets that flag
+  exactly so a differential cannot skip green, but it converts *backend-unavailable* skips into
+  failures; this skip is on generated inputs, so it stays green. This is the
+  "a skip is NOT a pass" hazard `test/backend_gate.py` was written for, arriving through the one
+  door that gate does not cover.
+- **It is also the workload the ingress work came out of** -- `CLOUD_BENCH_PLAN.md` §2.6 credits
+  wl_cloud with exposing APKeep's ingress gap, and item 29's three upstream defects were all
+  found there.
+- **Measured 2026-10-01:** `bash fave/test/gen_wl_cloud_inputs.sh` succeeds in seconds (6 oracle
+  queries; 86 devices / 2,941 rules; 26 roles / 65 endpoints / 226 authorised pairs). With the
+  inputs present, `test_ad6_cloud_differential` -> **3 passed in 55s** and
+  `test_apkeep_cloud_differential` -> **5 passed in 2.3s**. Nothing is broken; the tests have
+  simply never been reached.
+- [ ] **Add `gen_wl_cloud_inputs.sh` to `run_integration`**, beside the other six.
+- [ ] **Move the gate so it cannot pre-empt the generation it guards** -- condition on the *raw*
+  dataset (`bench/wl_cloud/cloud-tf/`, which is tracked) rather than on the derived files, and
+  let `setUpClass` do the deriving.
+
+### 37. A `fast`-tier test needs an `integration`-tier artifact — and reads a different matrix than the one it builds (found 2026-10-01)
+- **Finding:** `test_wl_up_policy_artifacts.py` appears in no exclusion list in `test.sh`, so it
+  runs in `fast`. Its `setUpClass` builds a policy matrix into a `TemporaryDirectory` and then
+  shells out to `bench/wl_up/inventorygen.py` under the comment *"inventorygen reads the matrix,
+  so it runs against the one just built"*. It does not: `inventorygen.py` takes no arguments and
+  hardcodes `bench/wl_up/roles_and_services.txt` (`:14`), `bench/wl_up/reachability.csv` (`:26`)
+  and `bench/wl_up/inventory.json` (`:33`). Two consequences, and the second is the worse one:
+  - `reachability.csv` is gitignored and produced by `test/gen_wl_up_inputs.sh`, which runs in
+    **integration**. On a clean checkout the subprocess raises `FileNotFoundError`, `check=True`
+    turns that into `CalledProcessError`, and all six tests **error**.
+  - When the file *does* exist, the test validates the tracked/generated matrix rather than the
+    one it just derived -- so the premise is wrong in both states, and the passing state is the
+    quieter failure.
+- **Self-demonstrating, 2026-10-01:** those six errored before `./test.sh integration` ran and
+  passed afterwards, solely because the integration tier had left
+  `fave/bench/wl_up/reachability.csv` behind (timestamped 08:26, test run 08:29). In CI the
+  `fast` job is a separate runner on a fresh checkout, so it only ever sees the first state.
+- **Side effect worth removing either way:** a `fast`-tier unit test writes
+  `bench/wl_up/inventory.json` into the source tree.
+- [ ] **Give `inventorygen.py` its three paths as arguments** (defaulting to today's values) and
+  have the test pass its tmpdir, so the test checks what it built.
+- [ ] **Then re-confirm the module belongs in `fast`** -- with the hardcoded paths gone it needs
+  no generated input, and genuinely does.
+
 ---
 
 ## Medium priority — structural improvements
