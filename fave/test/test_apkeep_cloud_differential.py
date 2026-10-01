@@ -58,9 +58,23 @@ import unittest
 from test.backend_gate import require_or_skip
 
 _PREFIX = 'bench/wl_cloud'
-_INPUTS = ['%s/%s' % (_PREFIX, f) for f in
-           ('topology.json', 'routes.json', 'sources.json', 'policies.json',
-            'mapping.json')]
+#: The RAW scenario plus the hand-written policy -- everything this test needs
+#: that it does not derive itself, and all of it TRACKED. So in any checkout the
+#: gate below is satisfied, and it asks the only question an availability gate
+#: should ask here: is the dataset present at all?
+#:
+#: It must NOT name the DERIVED model (topology/routes/sources/policies/
+#: mapping.json). Those are what `setUpClass` generates, so a gate on them
+#: pre-empts the generation it guards -- inputs missing -> the class skips ->
+#: `setUpClass` never runs -> the inputs stay missing. That is how both wl_cloud
+#: differentials went unexecuted in every tier and every CI run (TODO item 36).
+#:
+#: The six .smt2 instances are not named: `gen_wl_cloud_inputs.sh` verifies the
+#: whole raw directory against SHA256SUMS before deriving anything, so a missing
+#: or edited one fails there, loudly, instead of silently narrowing this list.
+_RAW = ['%s/%s' % (_PREFIX, f) for f in
+        ('cloud-tf/network.tf', 'cloud-tf/README.txt', 'cloud-tf/SHA256SUMS',
+         'roles_and_services.txt', 'reach.txt')]
 
 #: The cells the dataset determines for the UNCONDITIONED question, with the
 #: same reasoning as `test_ad6_cloud_differential._ORACLE`: a `sat` verdict
@@ -127,8 +141,9 @@ def _matrix(which, tmpdir):
         return dict((tuple(k.split('|')), v) for k, v in json.load(raw).items())
 
 
-@require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
-                 "wl_cloud inputs not generated (run test/gen_wl_cloud_inputs.sh)")
+@require_or_skip(all(os.path.isfile(f) for f in _RAW),
+                 "the raw wl_cloud scenario is missing (bench/wl_cloud/cloud-tf/"
+                 " and the FPL beside it) -- setUpClass derives the rest")
 class TestAPKeepCloudDifferential(unittest.TestCase):
     """ Two engines, one model, and a dataset that predates both. """
 
