@@ -222,10 +222,23 @@ class _RecordingVeriFlow:
 
 
 def _build_veriflow(**kwargs):
+    """ As `_build_apkeep`: a stub module keeps the native engine out of the
+    fast tier, and the recorder is returned -- checked to be what the factory
+    returned -- so pylint does not infer the real adapters' attributes. """
+    built = []
+
+    def construct(*args, **options):
+        built.append(_RecordingVeriFlow(*args, **options))
+        return built[-1]
+
     stub = types.ModuleType("veriflow.adapter")
-    stub.VeriFlowAdapter = _RecordingVeriFlow
+    stub.VeriFlowAdapter = construct
     with mock.patch.dict(sys.modules, {"veriflow.adapter": stub}):
-        return build_engine(BACKEND_VERIFLOW, _LOG, **kwargs)
+        engine = build_engine(BACKEND_VERIFLOW, _LOG, **kwargs)
+    if len(built) != 1 or engine is not built[0]:
+        raise AssertionError("build_engine did not return the one VeriFlow-FR "
+                             "adapter it constructed")
+    return built[0]
 
 
 class TestVeriFlowDefaults(unittest.TestCase):
