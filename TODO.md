@@ -666,8 +666,11 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   agree today, and `./test.sh doctor` cross-checks the apt half; the pip half is still two
   lists that a reviewer has to compare by eye.
 
-### 36. Eight cross-engine differential tests have never run — the gate pre-empts its own `setUpClass` (found 2026-10-01)
-- **Finding:** `test.sh` invokes six of the seven `gen_wl_*_inputs.sh` generators.
+### 36. Eight cross-engine differential tests have never run — the gate pre-empts its own `setUpClass` — FIXED 2026-10-01
+- **Finding:** of the six `gen_wl_*_inputs.sh` generators, `test.sh` invoked five.
+  *(Corrected 2026-10-01: this read "six of the seven". There are six such generators, not
+  seven — `gen_deltanet_inputs.sh` is a seventh generator but not a `gen_wl_*` one, and it was
+  already wired. The conclusion was right, the count was not.)*
   `gen_wl_cloud_inputs.sh` is in **no** tier, so `bench/wl_cloud/`'s derived inputs never exist
   and both wl_cloud differentials skip in every tier and every CI run:
   - `test_apkeep_cloud_differential.py` (5 tests) -- APKeep-NDD vs libnetplumber, one engine per
@@ -680,11 +683,23 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   generator itself (`test_apkeep_cloud_differential.py:143-149`). On any checkout where the
   generator has not been run by hand: inputs missing -> class skips -> `setUpClass` never runs
   -> inputs stay missing.
-- **`FAVE_REQUIRE_BACKENDS=1` does not catch it.** The CI `integration` job sets that flag
-  exactly so a differential cannot skip green, but it converts *backend-unavailable* skips into
-  failures; this skip is on generated inputs, so it stays green. This is the
-  "a skip is NOT a pass" hazard `test/backend_gate.py` was written for, arriving through the one
-  door that gate does not cover.
+- **`FAVE_REQUIRE_BACKENDS=1` DOES catch it — and that is worse, not better.**
+  *(Corrected 2026-10-01, measured. This item first claimed the flag "converts
+  backend-unavailable skips into failures; this skip is on generated inputs, so it stays green."
+  That is wrong, and `test/backend_gate.py`'s own docstring says so: "It is deliberately
+  per-precondition: every reason a required test could fail to run (backend unavailable,
+  generated inputs missing) becomes a hard failure under the flag.")*
+  Measured with the derived inputs absent: `FAVE_REQUIRE_BACKENDS=1 pytest` on the two modules
+  gives **8 errors**, `AssertionError: wl_cloud inputs not generated ... [FAVE_REQUIRE_BACKENDS
+  set -> required, must not skip]`; without the flag, **8 skips**. So the two halves of the
+  defect were not one quiet failure but two loud-in-different-places ones: locally the eight
+  tests skipped silently, and in CI's `integration` job (`ci.yml:148` sets the flag) they
+  errored — with nothing able to clear the error, because the only thing that creates the
+  inputs is the `setUpClass` the error pre-empts. It was never observed because `integration`
+  was aborting earlier, at pytest collection, for items 34 and 35.
+- **The general rule, now pinned:** an availability gate may name only data a clean checkout
+  already has. Anything else makes the gate's precondition some other step's side effect — at
+  best an ordering dependency between tiers (item 37), at worst, as here, a cycle.
 - **It is also the workload the ingress work came out of** -- `CLOUD_BENCH_PLAN.md` §2.6 credits
   wl_cloud with exposing APKeep's ingress gap, and item 29's three upstream defects were all
   found there.
@@ -693,10 +708,34 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   inputs present, `test_ad6_cloud_differential` -> **3 passed in 55s** and
   `test_apkeep_cloud_differential` -> **5 passed in 2.3s**. Nothing is broken; the tests have
   simply never been reached.
-- [ ] **Add `gen_wl_cloud_inputs.sh` to `run_integration`**, beside the other six.
-- [ ] **Move the gate so it cannot pre-empt the generation it guards** -- condition on the *raw*
-  dataset (`bench/wl_cloud/cloud-tf/`, which is tracked) rather than on the derived files, and
-  let `setUpClass` do the deriving.
+- [x] **Move the gate so it cannot pre-empt the generation it guards** — DONE (`a93e8cc0`).
+  Both classes now gate on `_RAW`: the raw scenario (`cloud-tf/network.tf`, `README.txt`,
+  `SHA256SUMS`) and the hand-written FPL beside it (`roles_and_services.txt`, `reach.txt`) — all
+  tracked, so present in any checkout — and `setUpClass` derives the rest, as it already knew
+  how to. The six `.smt2` are deliberately not named: `gen_wl_cloud_inputs.sh` verifies the
+  whole raw directory against `SHA256SUMS` before deriving anything, so a missing or edited one
+  fails there rather than silently narrowing the gate. **The pattern was already in the tree**
+  — `test_cloud_fpl.py:64` and `test_cloud_provenance.py:97` have gated on the raw scenario all
+  along (`@unittest.skipUnless(os.path.isfile(_RAW), 'raw scenario not present')`); only these
+  two reached for the derived model.
+- [x] **Add `gen_wl_cloud_inputs.sh` to `run_integration`**, beside the other five — DONE
+  (`1653ee8b`). Note what this does and does not do: it is **not** what repairs the
+  differentials (the gate fix is; each regenerates in its own `setUpClass` anyway, because the
+  oracle and matrix phases share `bench/wl_cloud/*.json` and whichever ran last wins). It is
+  there so the raw scenario's `sha256sum -c` is a named tier step rather than a truncated line
+  inside a differential's `setUpClass`, and so wl_cloud is still checked on runs where both
+  differentials are absent (`FAVE_SKIP_AD6=1`, or no JVM).
+- [x] **Regression test — `fave/test/test_input_generators_are_reachable.py`** (`0a0da451`),
+  pure Python, in the `fast` tier. Two halves, pinned separately: every `gen_*_inputs.sh` is
+  invoked by a `bash ...` line in `test.sh` (a mention in a comment is not a tier); and every
+  path a self-deriving test's class gate names is **tracked by git**, which is what "present in
+  a clean checkout" means. It also rejects an *empty* gate list, since `all(... for f in [])`
+  is True and so a gate naming nothing always opens. Checked against `cd0a43e9`, where both
+  halves fail — the first naming `gen_wl_cloud_inputs.sh`, the second the five derived files.
+- **Verified 2026-10-01, from a tree with every derived `bench/wl_cloud/` file removed**, under
+  `FAVE_REQUIRE_BACKENDS=1`: `test_apkeep_cloud_differential` → **5 passed in 2.3 s** and
+  `test_ad6_cloud_differential` → **3 passed in 55.2 s**, each having generated its own inputs.
+  The eight tests have now run.
 
 ### 37. A `fast`-tier test needs an `integration`-tier artifact — and reads a different matrix than the one it builds (found 2026-10-01)
 - **Finding:** `test_wl_up_policy_artifacts.py` appears in no exclusion list in `test.sh`, so it
@@ -2734,7 +2773,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
-   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. ~~**40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates.~~ (**40** FIXED 2026-10-01.) **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); ~~eight cross-engine differentials have never executed (**36**)~~ (**36** FIXED 2026-10-01); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** is done too (the gate now opens on the raw dataset, the generator runs in the tier, and the eight tests have executed); **37** is next. ~~**40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates.~~ (**40** FIXED 2026-10-01.) **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
