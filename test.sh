@@ -574,6 +574,29 @@ check_import_advisory() {
     fi
 }
 
+# ONE freshness check, for every build artifact this tree produces (TODO item 41).
+#
+# The comment below was written for the two Java jars and said they were "the
+# same class of artifact as the .so above" -- and then the .so above, and the
+# net_plumber binary, and libveriflow_fr, went on being checked with a bare
+# `compgen -G`. The reasoning was written down and applied to one of the halves.
+#
+# What existence alone misses, MEASURED 2026-10-01:
+# `net_plumber/python/libnetplumber.so` was built at 08:21; `23265ec2` had added
+# `loop_reports` to `libnetplumber.cpp` the day before. The doctor printed
+# `[ok] libnetplumber .so built` and the verdict "environment complete for every
+# tier", while `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration` died in
+# `test_revisit_router_on_a_stick.py` with `AttributeError: ... has no attribute
+# 'loop_reports'`. Rebuilding the .so -> 6 passed, no code change. That one was
+# loud because the method was simply absent; a stale .so whose signatures still
+# matched would have answered, wrongly.
+#
+# The NetPlumber artifacts are MORE exposed than the jars, not less. The
+# integration tier builds the APKeep jar, the NDD jar and libveriflow_fr, so a
+# stale one of those is repaired by running the tier. NOTHING a developer
+# routinely runs builds `net_plumber` or `libnetplumber` -- only the CI composite
+# does, once per job, on a runner with no previous build.
+#
 # Java build artifacts. apkeep/ and ndd/ are Maven subtrees whose target/ is
 # gitignored, so the three states below are genuinely different and only one of
 # them is worth failing on:
@@ -602,28 +625,68 @@ check_import_advisory() {
 # The paths are the CONSUMERS' own -- lib_apkeep.py and lib_ndd.py hardcode these
 # two -- on the rule stated for net_plumber above: check what the scripts use,
 # never something merely equivalent to it.
-check_jar() {
-    local label="$1" jar="$2" src="$3" pom="$4" build="$5" newer
-    if [ ! -f "$jar" ]; then
-        printf '  [warn]    %-30s %s\n' "$label" \
-            "not built -- jar-backed tests SKIP; built by ./test.sh integration, or: bash $build"
-        return 0
-    fi
-    # mtime, which is what a rebuild moves. The pom counts as a source: a
-    # dependency or a compiler-target change makes a jar stale exactly as an edit
-    # to a .java does.
-    newer="$(find "$src" "$pom" \( -name '*.java' -o -name 'pom.xml' \) \
-                  -newer "$jar" -print -quit 2>/dev/null)"
+# The staleness half, on its own, because one artifact cannot use the other half:
+# `net_plumber` is checked for RESOLVABILITY rather than for existence at a path
+# (see the comment at its call site), and still wants its mtime compared.
+#
+#   $1 label   as printed
+#   $2 file    the artifact, a real path -- the CONSUMER's own, never something
+#              merely equivalent to it
+#   $3 srcs    space-separated files/dirs to compare against (word-split)
+#   $4 pats    space-separated find(1) -name patterns selecting the sources
+#   $5 note    trailing text for the [STALE] line (the repair, and who it bites)
+#   $6 ok      optional trailing text for the [ok] line
+check_freshness() {
+    local label="$1" file="$2" srcs="$3" pats="$4" note="$5" ok="${6:-}"
+    local newer pat
+    local -a expr=()
+    for pat in $pats; do
+        if [ "${#expr[@]}" -eq 0 ]; then expr=( -name "$pat" ); else expr+=( -o -name "$pat" ); fi
+    done
+    # mtime, which is what a rebuild moves. A build FILE counts as a source: a
+    # pom's dependency or compiler-target change makes a jar stale exactly as an
+    # edit to a .java does, and the same holds for a Makefile.
+    newer="$(find $srcs \( "${expr[@]}" \) -newer "$file" -print -quit 2>/dev/null)"
     if [ -n "$newer" ]; then
         printf '  [STALE]   %-30s %s\n' "$label" \
-            "older than ${newer#"$ROOT"/} -> bash $build   [fast: WRONG failures; integration rebuilds it]"
+            "older than ${newer#"$ROOT"/}${note:+   $note}"
         return 1
     fi
-    printf '  [ok]      %-30s\n' "$label"
+    if [ -n "$ok" ]; then
+        printf '  [ok]      %-30s %s\n' "$label" "$ok"
+    else
+        printf '  [ok]      %-30s\n' "$label"
+    fi
+}
+
+# Existence policy + freshness, for the four artifacts that live at a known path.
+#
+#   $3 absent  "fatal" when NO tier builds it (its absence blocks one), "warn"
+#              when the integration tier does (the tests skip until it has).
+#              The three labels now mean the same thing for every artifact:
+#              before this, [MISSING] was fatal for two and advisory for
+#              libveriflow_fr, which printed it and set no rc.
+#   $4 repair  the command that produces it, named in every message
+#   $7 note    extra trailing text for [STALE] only -- it says who the stale
+#              artifact bites, which is not the same audience as "not built".
+check_artifact() {
+    local label="$1" glob="$2" absent="$3" repair="$4" srcs="$5" pats="$6" note="${7:-}"
+    local found
+    found="$(compgen -G "$glob" 2>/dev/null | head -1)"
+    if [ -z "$found" ]; then
+        if [ "$absent" = "fatal" ]; then
+            printf '  [MISSING] %-30s %s\n' "$label" "-> $repair"
+            return 1
+        fi
+        printf '  [warn]    %-30s %s\n' "$label" \
+            "not built -- its tests SKIP; built by ./test.sh integration, or: $repair"
+        return 0
+    fi
+    check_freshness "$label" "$found" "$srcs" "$pats" "-> $repair${note:+   $note}"
 }
 
 run_doctor() {
-    local rc=0 missing_apt=() advisory_apt=() advisory_pip=() pkg status
+    local rc=0 missing_apt=() advisory_apt=() advisory_pip=() pkg status np_ok
 
     echo "== env doctor: interpreter =="
     printf '  %s\n' "$("$PYTHON" -c 'import sys; print(sys.executable)' 2>/dev/null || echo "$PYTHON NOT RUNNABLE")"
@@ -685,12 +748,19 @@ run_doctor() {
     # validates something other than what the scripts use is worse than no
     # doctor: it actively certifies a broken environment.
     if command -v net_plumber >/dev/null 2>&1; then
-        if [ -n "${NET_PLUMBER_FROM_BUILD_DIR:-}" ]; then
-            printf '  [ok]      %-30s %s\n' "net_plumber binary" \
-                "(from net_plumber/build; not installed on PATH)"
-        else
-            printf '  [ok]      %-30s\n' "net_plumber binary"
-        fi
+        # Freshness against net_plumber/src, on the binary PATH actually
+        # resolves to. The repair is `clean && all`, not `all`: item 0's
+        # follow-up records a binary left linked against an older liblog4cxx,
+        # failing at runtime with `undefined symbol: ...log4cxx...`, while
+        # `make all` reported "nothing to be done" because the object
+        # timestamps were current.
+        np_ok=""
+        [ -n "${NET_PLUMBER_FROM_BUILD_DIR:-}" ] && \
+            np_ok="(from net_plumber/build; not installed on PATH)"
+        check_freshness "net_plumber binary" "$(command -v net_plumber)" \
+            "$ROOT/net_plumber/src" '*.cc *.cpp *.c *.h *.hh' \
+            "-> make -C net_plumber/build clean && make -C net_plumber/build all   [no tier builds it]" \
+            "$np_ok" || rc=1
     else
         # No "built but unreachable" branch: resolve_net_plumber has already
         # prepended the build directory, so reaching here means the binary is
@@ -699,27 +769,35 @@ run_doctor() {
             "-> make -C net_plumber/build all && make -C net_plumber/build install   [smoke/integration/e2e/bench]"
         rc=1
     fi
-    if compgen -G "$ROOT/net_plumber/python/libnetplumber*.so" >/dev/null; then
-        printf '  [ok]      %-30s\n' "libnetplumber .so built"
-    else
-        printf '  [MISSING] %-30s %s\n' "libnetplumber .so built" \
-            "-> bash net_plumber/python/build_libnetplumber.sh"
-        rc=1
-    fi
-    if compgen -G "$ROOT/veriflow_fr/python/libveriflow_fr*.so" >/dev/null; then
-        printf '  [ok]      %-30s\n' "libveriflow_fr .so built"
-    else
-        printf '  [MISSING] %-30s %s\n' "libveriflow_fr .so built" \
-            "-> bash veriflow_fr/python/build_libveriflow_fr.sh   [integration; the tier builds it]"
-    fi
+    # fatal when absent: no tier builds this one, so its absence blocks
+    # integration and e2e. Its sources are the binding AND the engine it wraps --
+    # the measured case was an engine header change the binding exposes.
+    check_artifact "libnetplumber .so built" \
+        "$ROOT/net_plumber/python/libnetplumber*.so" \
+        fatal "bash net_plumber/python/build_libnetplumber.sh" \
+        "$ROOT/net_plumber/python $ROOT/net_plumber/src" '*.cc *.cpp *.c *.h *.hh' \
+        "[no tier builds it; integration then fails as a WRONG ANSWER]" || rc=1
+    # warn when absent, like the jars: run_integration builds it (test.sh's
+    # build_libveriflow_fr.sh step), so absence is the normal clean-checkout
+    # state. This used to print [MISSING] and set no rc -- the one artifact
+    # whose three labels did not mean what they mean everywhere else.
+    check_artifact "libveriflow_fr .so built" \
+        "$ROOT/veriflow_fr/python/libveriflow_fr*.so" \
+        warn "bash veriflow_fr/python/build_libveriflow_fr.sh" \
+        "$ROOT/veriflow_fr/python $ROOT/veriflow_fr/src" '*.cc *.cpp *.c *.h *.hh' \
+        "[integration rebuilds it]" || rc=1
     # The two Java engine jars, checked for FRESHNESS and not merely existence --
     # they are the same class of artifact as the .so above and fail the same way,
     # as a wrong answer rather than as a missing file. See check_jar's notes for
     # why only STALE is fatal here.
-    check_jar "APKeep engine jar" "$ROOT/apkeep/target/apkeep-1.0.0.jar" \
-        "$ROOT/apkeep/src" "$ROOT/apkeep/pom.xml" "fave/test/apkeep_smoke.sh" || rc=1
-    check_jar "NDD engine jar" "$ROOT/ndd/target/ndd-1.0.1-jar-with-dependencies.jar" \
-        "$ROOT/ndd/src" "$ROOT/ndd/pom.xml" "fave/test/ndd_build.sh" || rc=1
+    check_artifact "APKeep engine jar" "$ROOT/apkeep/target/apkeep-1.0.0.jar" \
+        warn "bash fave/test/apkeep_smoke.sh" \
+        "$ROOT/apkeep/src $ROOT/apkeep/pom.xml" '*.java pom.xml' \
+        "[fast: WRONG failures; integration rebuilds it]" || rc=1
+    check_artifact "NDD engine jar" "$ROOT/ndd/target/ndd-1.0.1-jar-with-dependencies.jar" \
+        warn "bash fave/test/ndd_build.sh" \
+        "$ROOT/ndd/src $ROOT/ndd/pom.xml" '*.java pom.xml' \
+        "[fast: WRONG failures; integration rebuilds it]" || rc=1
 
     echo "== env doctor: runtime limits (advisory, never fatal) =="
     local shm mem
