@@ -4159,6 +4159,27 @@ anything native in NDD) is in the total. The tracemalloc figures (2,160 →
 1,901 B per rule) are the reliable measure of the Python side; the RSS
 decomposition is rough.
 
+**Option 4, then k=3 again at `-Xmx8g`** (owner, 2026-10-01: "Do option 4, then
+remeasure at k=3"; `k3_ndd_opt4.json`, prediction declared before). The APKeep
+adapter now releases its three per-rule buffers once the engine holds the
+rules, keeps slotted rows, and interns ports. `tracemalloc` at k=100: Python
+held per rule **1,901 → 1,595 B after load, and 971 B after the build**
+(2,160 B before any slimming). Predicted: ~4.2 GB less during compliance, so the
+run completes. **It did not: the memory floor again, at 478 s**, ~140 s into the
+compliance check; aggregator peak 14.3 GB (8g rerun: 15.1 GB), committed heap
+7.9 GB, live heap after GC 4.5 GB, rule load 341 s, essentially no swap
+(3 pages in, 510 out).
+
+**Why the prediction failed — measured at k=100, hypothesis-level:** across the
+build, `tracemalloc` shows Python freeing 92 MB, yet the process's RSS outside
+the JVM heap ROSE by 181 MB. The freed memory is not visibly returned to the
+operating system. The likely reason is the allocator: the released rows and
+strings were allocated interleaved with the rule-model objects that stay alive,
+so CPython's 1 MiB arenas are left partly used and are never handed back —
+reusable by Python, not by the JVM. Not proven: the build also grows the JVM's
+off-heap memory, which can hide a small return. **Releasing memory late
+therefore does not help; not allocating it does.**
+
 ---
 
 ---

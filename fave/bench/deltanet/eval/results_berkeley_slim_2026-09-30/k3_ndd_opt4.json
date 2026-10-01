@@ -1,0 +1,141 @@
+{
+  "workload": "wl_berkeley",
+  "backend": "apkeep",
+  "engine": "ndd",
+  "mutated": false,
+  "mutated_cell": null,
+  "deadline_s": 10800.0,
+  "status": "memory",
+  "exit": null,
+  "wall_s": 477.622,
+  "jvm_xmx": "8g",
+  "reuse_inputs": true,
+  "memory_floor_mb": 3000,
+  "peak_rss_mb": 14674,
+  "peak_rss_by_process_mb": {
+    "benchmark": 658,
+    "bash": 3,
+    "aggregator": 14295,
+    "sleep": 2,
+    "python3": 14
+  },
+  "least_available_mb": 2918,
+  "swap_used_at_start_mb": 28,
+  "peak_swap_used_mb": 31,
+  "peak_swap_by_process_mb": {
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0,
+    "python3": 0
+  },
+  "swap_pages": {
+    "pswpin": 3,
+    "pswpout": 510
+  },
+  "when": "2026-10-01T07:42:57.341747+00:00",
+  "git_head": "559d944beef4fdc1740f796104242bf6f1b5aee8",
+  "apkeep_jar": "3ac0454ec5536942ada9ccc91791cef52940c252d01d56ac6abad63e462cca57",
+  "ndd_jar": "ff6f5b3e3b789a71de1ea21571524044c8619dde7df1367d969b4ae82031c6c8",
+  "check_compliance_s": [],
+  "switch_command_s": 340.7722234725952,
+  "switch_commands": 23,
+  "gc": {
+    "pauses": 102,
+    "full_pauses": 54,
+    "pause_s": 7.013,
+    "max_heap_after_gc_mb": 4501,
+    "max_heap_committed_mb": 7868
+  },
+  "report": false,
+  "violations": null,
+  "checks": 520,
+  "policy_has_mutation": false,
+  "input_files": {
+    "cchecks": "734de567f74dd5c3e4e124004cc5c9f2641f0654c0c9f1af43b9c4b5dbb0bc93",
+    "checks": "488c93ebe3baeadac9765942efb1b6016d4ed7ed8a8a812917539ba981d53242",
+    "inventory": "99a31778ca697006788d4e004e78e4e454d84d88fb6f6a6ca140cbd1491556a3",
+    "policies": "1ae06620d2bb600166cd1bdd893e50eddd8be22f5f34070b2cf1c937f943e0dd",
+    "reach_csv": "1bf7424479cf8d9b399547ec60b6da9d8e9401f0152749cac0be765f938edb5b",
+    "reach_json": "db9b6bf8fa01688220343cfdebc4b29ae6c91b4630d5a08aa7ca2339849bc884",
+    "reach_policies": "543d0c9e6c64dcf06e6205715f76649e2407e725abd0ca20dc9c45c7bfb8b31f",
+    "roles_json": "e19658d71eb6aa2912b9a0ef2c62dcf6b2dbe824445b051ed404335cea4e09f8",
+    "roles_services": "12c162b8bc315ff05970f746143692d87affe59e0ee38e2f7a8172c9f754eed2",
+    "routes": "b8952af3eadd21196508b363dce09e640d2f6fd47859d3244f692d83ff8a73a8",
+    "sources": "589928174bf3caafbe5db4da6f00aa6408594746c58defdafd0eedb81fcc0570",
+    "topology": "f126bb5919fea99d53de0c9d94cbb02db59d61c057fa327b9139a56e76326cda"
+  },
+  "drift_from_previous": [],
+  "census": {
+    "delivery_rules": 195357,
+    "devices": 23,
+    "links": 504,
+    "probes": 23,
+    "rules": 4476240,
+    "sources": 23,
+    "transit_rules": 4280883
+  },
+  "keep_every": 3,
+  "lpm_sensitive_cells": [
+    [
+      "s1",
+      "s1"
+    ],
+    [
+      "s11",
+      "s11"
+    ],
+    [
+      "s16",
+      "s16"
+    ],
+    [
+      "s17",
+      "s17"
+    ],
+    [
+      "s2",
+      "s2"
+    ],
+    [
+      "s21",
+      "s21"
+    ],
+    [
+      "s22",
+      "s22"
+    ],
+    [
+      "s22",
+      "s23"
+    ],
+    [
+      "s23",
+      "s22"
+    ],
+    [
+      "s23",
+      "s23"
+    ],
+    [
+      "s3",
+      "s3"
+    ],
+    [
+      "s5",
+      "s5"
+    ],
+    [
+      "s6",
+      "s6"
+    ],
+    [
+      "s9",
+      "s9"
+    ]
+  ],
+  "mutated_cell_check": [
+    "s=source.s1 && EF p=probe.s8"
+  ],
+  "verdict_valid": false
+}
