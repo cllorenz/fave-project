@@ -508,6 +508,70 @@ share. **Decision needed before building anything.**
   `test_ad6_wl_up.py` from a core dump to 3 passed — with no code change, only container
   repair. The doctor now reports "environment complete for every tier".
 
+### 34. The `fast` tier is not pure-Python, so the merge gate has been red since 2026-09-12 (found 2026-10-01)
+- **Finding:** `requirements.txt`'s header states that installing it into a clean virtualenv
+  "is all that the native `fast` test tier needs", naming `pybison` as the single deliberate
+  exception. That has been false since `5c29fff5` (2026-09-12). Four `fast`-tier modules reach
+  ad6, which is not pure Python:
+  - `test_ad6_translate.py:29` and `test_ad6_translation_flag.py:32` `import lxml.etree` at
+    module level;
+  - `test_ad6_bridge_cond.py:74` imports `ad6/fave_bridge.py`, which pulls `lxml` (`:58`) and
+    then `src/solver/incremental.py:70` -> `pysat.solvers`;
+  - `test_ad6_translate.py` additionally imports `src.solver.pycosat` **inside** six test
+    bodies (`:1097`, `:1131`, `:1190`, ...), so `pycosat` is a fast-tier *runtime* dependency
+    that collection does not reveal.
+
+  `lxml==6.1.2`, `pycosat==0.6.6` and `python-sat==1.9.dev15` are all pinned in the
+  `Dockerfile` (`:115-118`) and **none of the three is in `requirements.txt`**, which has not
+  been touched since `553e005d` (2026-06-24).
+- **Why this is worse than a failing test:** the module-level imports produce a pytest
+  **collection error**, and pytest then aborts the whole session
+  (`Interrupted: 3 errors during collection`) -- so the tier reports nothing at all about the
+  915 tests that would otherwise have run. `fast` is the required merge gate; `lint` and
+  `typecheck` install the same file and break the same way the moment either reaches an ad6
+  module.
+- [ ] **Add `lxml`, `pycosat` and `python-sat` to `requirements.txt` at the `Dockerfile`'s
+  pins** -- or move the four modules out of the fast tier. Prefer the former: the tier's whole
+  value is that it runs anywhere, and ad6 is now a first-class backend rather than an optional
+  research track.
+- [ ] **Make the doctor name the tier these actually block.** `test.sh:534-536` labels them
+  `[ad6]` / `[ad6 incremental]`, which reads as "the `ad6/` subtree", not "`./test.sh fast`".
+  Naming the blocked tier is the doctor's entire job here, and it names the wrong one.
+- **Measured 2026-10-01** on a container repaired per item 1v: with the three packages added,
+  `./test.sh fast` -> **915 passed, 1 skipped**; `integration` -> **PASSED** (176 + 14 + 16
+  passed, 11 skipped; C++ `OK (119)`); `e2e` -> **PASSED** (5 + all three smoke benchmarks);
+  `typecheck` clean (36 + 8 modules). The tier content is sound; only its declared
+  dependencies are wrong.
+- **Noted in passing:** item 1v's `.yolobox.toml` box is ticked, but the `[customize] packages`
+  block in that file is at present commented out in full (an uncommented copy sits untracked at
+  `.yolobox.toml-bak`), so a fresh sandbox starts with none of the apt set again.
+
+### 35. Four dependency manifests have drifted — and CI installs the pybison wheel the Dockerfile exists to avoid (found 2026-10-01)
+Item 0 already flagged the DRY problem ("the three lists ... are kept in sync by hand").
+There are now four, and they disagree in ways that change what CI actually runs.
+- [ ] **`.github/actions/setup-fave-native/action.yml:55` runs `pip install -r requirements.txt
+  pybison JPype1`** -- a bare `pybison`, with no `--no-binary`. `Dockerfile:96-102` calls that
+  flag "load-bearing, not belt-and-braces": PyPI ships a prebuilt `cp312` manylinux wheel which
+  pip prefers by default and which **segfaults at runtime** in `BisonParser.__init__`, taking
+  the whole pytest process down. Confirmed still served, 2026-10-01:
+  `pip download --only-binary :all: pybison==0.6.4` ->
+  `pybison-0.6.4-cp312-cp312-manylinux_2_28_x86_64.whl`. So `integration` (and `lint`, via
+  `ci.yml:69`) installs precisely the artifact the Dockerfile was written to avoid.
+- [ ] **The composite also omits `lxml` / `python-sat` / `pycosat`**, so `integration` breaks at
+  collection for the same reason as item 30: `test_ad6_port_pair.py` is in
+  `FAVE_INTEGRATION_TESTS` and imports `lxml`, and `test_ad6_wl_up.py` reaches `pysat` through
+  the bridge.
+- [ ] **`fave/setup.sh:80` cannot install into the venv it has just created.**
+  `export PATH="~/.venv/bin:$PATH"` -- bash performs no tilde expansion inside double quotes, so
+  the entry is the literal string `~/.venv/bin` and every following `pip3 install` targets the
+  system interpreter instead. On Ubuntu 24.04 that now fails outright
+  (`error: externally-managed-environment`), so the documented setup path installs none of the
+  seven pip dependencies it lists. Use `$HOME/.venv/bin/pip` explicitly.
+- [ ] **`fave/setup.sh` hand-lists its pip set** instead of using `requirements.txt`, and the two
+  already disagree (`setup.sh` has no `pytest`/`mypy`/`coverage`; `requirements.txt` has no
+  `pybison`). Consider `pip install -r requirements.txt` plus an explicit native-extras line, so
+  there is one list and one list of exceptions.
+
 ---
 
 ## Medium priority — structural improvements
