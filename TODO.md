@@ -737,7 +737,7 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   `test_ad6_cloud_differential` → **3 passed in 55.2 s**, each having generated its own inputs.
   The eight tests have now run.
 
-### 37. A `fast`-tier test needs an `integration`-tier artifact — and reads a different matrix than the one it builds (found 2026-10-01)
+### 37. A `fast`-tier test needs an `integration`-tier artifact — and reads a different matrix than the one it builds — FIXED 2026-10-01
 - **Finding:** `test_wl_up_policy_artifacts.py` appears in no exclusion list in `test.sh`, so it
   runs in `fast`. Its `setUpClass` builds a policy matrix into a `TemporaryDirectory` and then
   shells out to `bench/wl_up/inventorygen.py` under the comment *"inventorygen reads the matrix,
@@ -756,10 +756,34 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   `fast` job is a separate runner on a fresh checkout, so it only ever sees the first state.
 - **Side effect worth removing either way:** a `fast`-tier unit test writes
   `bench/wl_up/inventory.json` into the source tree.
-- [ ] **Give `inventorygen.py` its three paths as arguments** (defaulting to today's values) and
-  have the test pass its tmpdir, so the test checks what it built.
-- [ ] **Then re-confirm the module belongs in `fast`** -- with the hardcoded paths gone it needs
-  no generated input, and genuinely does.
+- [x] **Give `inventorygen.py` its three paths as arguments** (defaulting to today's values) and
+  have the test pass its tmpdir, so the test checks what it built — DONE (`75f2ec73`).
+  `--fpl` / `--matrix` / `--out`, defaulting to the former literals, so the two zero-argument
+  callers (`test/gen_wl_up_inputs.sh`, `GenericBenchmark._preparation`) are untouched. The test
+  passes its tmpdir for the matrix and the output and keeps the **tracked** FPL inventory, since
+  deriving from the FPL sources alone is the class's premise.
+  - **Equivalence measured, not assumed:** run in a sandbox tree against `cd0a43e9`'s script,
+    the output is byte-identical (6,117 bytes, `diff` clean) both zero-argument and with
+    explicit paths from another cwd.
+  - The matrix/FPL drift check survives and reads better: the bare `assert role in roles`
+    preceded by a stray `print(role)` is now one assertion naming both files.
+  - **Not touched:** `wl_ifi/inventorygen.py` and `wl_example/inventorygen.py` still hardcode
+    their paths. `test_wl_example_policy_artifacts.py:159-169` works around that by copying the
+    tracked source and the fresh matrix into a sandbox tree and running the script with
+    `cwd=tmp` — correct, and its comment says why. Only wl_up's test claimed something untrue.
+- [x] **Then re-confirm the module belongs in `fast`** — DONE, and it does. **Measured in a
+  pristine `git archive` export** (no gitignored artifact anywhere), which is what CI's `fast`
+  job sees: at `cd0a43e9` → **6 errors** (`CalledProcessError`, the subprocess dying on the
+  absent `bench/wl_up/reachability.csv`), exactly as this item predicted; at `HEAD` →
+  **5 passed, 1 skipped**. Every remaining input is tracked (`roles_and_services.txt`,
+  `reach.txt`, `inventorygen.py`, `reach_csv_to_checks.py`, `policy_translator.py`).
+- [x] **Side effect removed:** the module no longer writes `bench/wl_up/inventory.json`.
+  Confirmed by mtime — the file kept the timestamp the integration tier's generator gave it
+  across a full run of the six tests.
+- **The 1 skip is a residual finding, filed as item 42** — `test_the_artifacts_match_the_generated
+  _tree` is the one test here that genuinely wants the generated tree, and it skips without it.
+  That is deliberate and correct per-test behaviour; what is not is that the module runs in
+  `fast` **only**, so in CI that invariant never executes at all.
 
 ### 38. The gating `lint` job currently fails, and one finding is real — RESOLVED 2026-10-01, elsewhere
 - **Finding:** `bash fave/test/lint_test.sh` exits **1** with 59 error-class findings, against
@@ -925,6 +949,33 @@ then applied to one of the two halves.
   stale `net_plumber` binary after a system library moves under it (`undefined symbol:
   ...log4cxx...`), and that `make clean && make all` is the repair. Same class -- an artifact
   that is present, out of date, and reported as fine.
+
+### 42. An invariant that runs in no CI job, because its tier and its input disagree (found 2026-10-01, doing item 37)
+- **Finding:** `test_wl_up_policy_artifacts.py::test_the_artifacts_match_the_generated_tree`
+  asserts the one invariant that module exists for — *whatever sits in `bench/wl_up/` is what
+  the FPL sources produce* — and it `skipTest`s when `bench/wl_up/checks.json` is absent. That
+  self-skip is deliberate and right. What is wrong is where the module runs: `fast` discovers it
+  (`pytest test` minus `FAVE_NATIVE_TESTS`), and `integration` runs only its explicit lists, so
+  the module runs in **`fast` alone** — and CI's `fast` job is a separate runner on a fresh
+  checkout, where `checks.json` never exists. **So the invariant executes in no CI job at all.**
+  Locally it runs only after someone has run `test/gen_wl_up_inputs.sh` in the same tree.
+- **Measured 2026-10-01** in a pristine `git archive` export of `HEAD`: `5 passed, 1 skipped`,
+  the skip being this test, reason `bench/wl_up/checks.json not generated`.
+- **Same family as items 36 and 40, third variant.** Not a gate that pre-empts itself (36), nor
+  a cost opt-in wired through an availability gate (40), but a test whose *tier membership* and
+  whose *input* are decided separately and disagree. `FAVE_REQUIRE_BACKENDS` cannot help: this
+  is a plain `skipTest` inside the body, not a `backend_gate` decorator.
+- **Why it is not simply "move the module":** the other five tests need nothing generated and
+  belong in the inner loop — that is item 37's conclusion, re-confirmed by measurement. And a
+  module cannot be in both tiers: `FAVE_NATIVE_TESTS` is the union of the four lists
+  (`test.sh:240`), so listing it for `integration` removes it from `fast`.
+- [ ] **Decide and implement.** The obvious shape is to split this one test into its own module
+  (deriving the same artifacts) listed in `FAVE_INTEGRATION_TESTS`, leaving five in `fast`. That
+  duplicates the ~20-line derivation unless the setUpClass is shared through a helper, which is
+  the design question worth an owner's view before it is written. Alternative, cheaper and
+  weaker: have `run_integration` run this module too, by moving it out of the union.
+- **Worth a sweep, not just this test:** the same shape is any `self.skipTest(...)` in a
+  `fast`-tier module conditioned on a gitignored path. Not surveyed yet.
 
 ---
 
@@ -2773,7 +2824,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
-   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); ~~eight cross-engine differentials have never executed (**36**)~~ (**36** FIXED 2026-10-01); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** is done too (the gate now opens on the raw dataset, the generator runs in the tier, and the eight tests have executed); **37** is next. ~~**40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates.~~ (**40** FIXED 2026-10-01.) **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); ~~eight cross-engine differentials have never executed (**36**)~~ (**36** FIXED 2026-10-01); ~~and one `fast`-tier module silently depends on an `integration` artifact (**37**)~~ (**37** FIXED 2026-10-01, which surfaced **42**: an invariant whose tier and whose input disagree, so it runs in no CI job). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** is done too (the gate now opens on the raw dataset, the generator runs in the tier, and the eight tests have executed), and so is **37** (`inventorygen.py` takes its paths, and the module is confirmed pure-`fast` against a pristine export). What is left in this step: **41** (the doctor's freshness blind spot), **42** (filed by 37), **1s**, and the decision in **39**. ~~**40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates.~~ (**40** FIXED 2026-10-01.) **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
