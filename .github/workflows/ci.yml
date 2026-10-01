@@ -48,8 +48,38 @@ jobs:
       # fixed in test.sh, which recovers 70% -> 78.34%. The remaining ~1 point
       # is genuine drift. Raise this floor again as the coverage roadmap in
       # TESTING_STRATEGY_PYTHON.md lands; do not lower it further.
+      #
+      # RE-BASELINED AGAIN 78 -> 77 (measured 77.24%), 2026-10-01, TODO item 34 --
+      # and the paragraph above said not to, so here is why this is the same kind
+      # of exception it was, not an erosion of the rule.
+      #
+      # The 78 floor was measured on 2026-09-09, when this tier was still green.
+      # Three days later (5c29fff5) fast-tier modules began importing lxml at
+      # module level, and from then on THIS JOB MEASURED NOTHING: the tier aborted
+      # at pytest collection, so no coverage number has gated anything for three
+      # weeks. 78 was never a figure CI had reproduced.
+      #
+      # Item 30 moves four modules to `integration`, where their dependency
+      # footprint puts them (test_ad6_translate needs pycosat, which ships no
+      # wheel; the three test_apkeep_* need JPype1 + both engine jars). Measured
+      # under identical conditions, that is 916 passed / 80.00% -> 741 passed /
+      # 77.24%. The denominator fell 19,951 -> 17,589 statements, so the drop is
+      # not drift: those tests covered a higher-than-average share of what they
+      # imported, while the modules themselves (fave/apkeep/adapter.py,
+      # ad6/translate.py) stay in the graph because OTHER fast tests import them.
+      #
+      # The 80% was only ever reachable on a workstation carrying JPype1, both
+      # jars and a C toolchain. 77.24% is the first number this job can actually
+      # produce from `pip install -r requirements.txt`, which is the whole point
+      # of the tier. A floor that no runner can meet gates nothing.
+      #
+      # The lost coverage is not lost from the SUITE -- those 175 tests run in
+      # `integration`, which also gates and also uploads coverage. The way back up
+      # is to split test_ad6_translate's ten solver-backed tests from its 143 pure
+      # ones (see test.sh); that returns most of it to this tier. Raise the floor
+      # then, and do not lower it again.
       - name: Run fast tier (with coverage ratchet)
-        run: COVERAGE=1 COVERAGE_MIN=78 bash test.sh fast
+        run: COVERAGE=1 COVERAGE_MIN=77 bash test.sh fast
 
   # --- Lint: non-gating until TODO item 2 makes lint_test.sh fail on errors. ---
   lint:

@@ -1,18 +1,32 @@
 # FaVe Python dependencies -- pure-Python, pinned for reproducibility.
 #
 # Installing this into a clean virtualenv is all that the native "fast" test
-# tier needs (no system packages required):
+# tier needs (no system packages, no compiler):
 #
 #     python3 -m venv .venv
 #     . .venv/bin/activate
 #     pip install -r requirements.txt
 #     ./test.sh fast
 #
-# NOTE: The integration tier additionally needs `pybison`, which is a NATIVE
-# build requiring the system `flex` and `bison` packages. It is intentionally
-# NOT listed here so that the fast tier stays pure-Python and runnable anywhere.
-# pybison is installed in the Docker image (see Dockerfile), which is the
-# environment used for the integration/smoke/bench tiers.
+# THE RULE FOR THIS FILE, and why it has exceptions. Everything listed here must
+# install from a WHEEL on a bare runner. A package that compiles at install time
+# drags a toolchain into the one tier whose whole value is that it runs anywhere,
+# so such a package is installed by the Dockerfile / the CI composite action /
+# fave/setup.sh instead, and the test that needs it belongs in `integration`, not
+# `fast` (test.sh decides tier membership by dependency footprint, never by
+# runtime). The deliberate exclusions, each a source build:
+#
+#     pybison==0.6.4    NATIVE build needing system flex/bison. Additionally must
+#                       be installed with `--no-binary :all:` -- the prebuilt
+#                       cp312 wheel segfaults at runtime. See the Dockerfile.
+#     pycosat==0.6.6    ad6's in-process SAT solver. Ships NO wheel, so it needs
+#                       python3-dev to build. test_ad6_translate.py is in the
+#                       integration tier for exactly this reason.
+#     JPype1==1.7.1     drives the APKeep/NDD backends in-process; needs a JVM,
+#                       which no amount of pip can supply.
+#
+# Keep the pins below in step with the Dockerfile, which is the canonical
+# definition of this project's environment; `./test.sh doctor` diffs the two.
 
 # --- runtime ---
 cachetools==7.1.4
@@ -20,6 +34,15 @@ dd==0.6.0
 filelock==3.29.4
 graphviz==0.21
 pyparsing==3.3.2
+
+# --- ad6 backend (fast tier: the translator and bridge tests import these) ---
+# Both ship wheels, so the tier stays compiler-free. ADDED 2026-10-01 (TODO item
+# 34): three fast-tier modules have imported lxml at module level since 5c29fff5
+# (2026-09-12) and one reaches pysat through ad6/fave_bridge.py, so the tier had
+# been aborting at pytest COLLECTION -- which reports nothing at all, rather than
+# reporting a missing dependency.
+lxml==6.1.2
+python-sat==1.9.dev15
 
 # --- testing ---
 coverage==7.14.2
