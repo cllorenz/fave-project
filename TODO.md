@@ -950,7 +950,7 @@ then applied to one of the two halves.
   ...log4cxx...`), and that `make clean && make all` is the repair. Same class -- an artifact
   that is present, out of date, and reported as fine.
 
-### 42. An invariant that runs in no CI job, because its tier and its input disagree (found 2026-10-01, doing item 37)
+### 42. Fifteen `fast`-tier tests run in no CI job: their tier and their inputs disagree (found 2026-10-01, doing item 37)
 - **Finding:** `test_wl_up_policy_artifacts.py::test_the_artifacts_match_the_generated_tree`
   asserts the one invariant that module exists for — *whatever sits in `bench/wl_up/` is what
   the FPL sources produce* — and it `skipTest`s when `bench/wl_up/checks.json` is absent. That
@@ -974,8 +974,43 @@ then applied to one of the two halves.
   duplicates the ~20-line derivation unless the setUpClass is shared through a helper, which is
   the design question worth an owner's view before it is written. Alternative, cheaper and
   weaker: have `run_integration` run this module too, by moving it out of the union.
-- **Worth a sweep, not just this test:** the same shape is any `self.skipTest(...)` in a
-  `fast`-tier module conditioned on a gitignored path. Not surveyed yet.
+- **SWEPT 2026-10-01, and it is fifteen tests, not one.** `PYTEST_ADDOPTS=-rs ./test.sh fast`
+  run inside a pristine `git archive` export of `HEAD` — a clean checkout, which is exactly what
+  CI's `fast` job gets — gives **808 passed, 15 skipped**, every skip for want of a gitignored
+  generated artifact. The working tree gives **823 passed, 0 skipped**, and 808 + 15 = 823: the
+  whole difference between the two is this.
+
+  | module | tests | skip reason | listed in `test.sh` |
+  |---|---:|---|---|
+  | `test_ad6_wl_ifi_stateful.py` | 5 | wl_ifi inputs not generated | no |
+  | `test_ad6_grounding.py` | 4 | wl_ifi inputs not generated | no |
+  | `test_ad6_wl_ifi.py` | 3 | wl_ifi inputs not generated | no |
+  | `test_wl_up_policy_artifacts.py` | 1 | `bench/wl_up/checks.json` not generated | no |
+  | `test_wl_ifi_policy_artifacts.py` | 1 | `bench/wl_ifi/checks.json` not generated | no |
+  | `test_wl_example_policy_artifacts.py` | 1 | `bench/wl_example/reachability.csv` not generated | no |
+
+  **None of the six modules is named in any `test.sh` list**, so each runs in `fast` and nowhere
+  else — while the generator that would satisfy it (`gen_wl_ifi_inputs.sh`, `gen_wl_up_inputs.sh`)
+  runs in `integration`. On a developer's machine the artifacts are lying around from an earlier
+  `integration` run and all fifteen pass, which is why this has never looked like anything.
+- **The twelve ad6 tests are the sharper half.** They gate with `require_or_skip`, so they would
+  be hard failures under `FAVE_REQUIRE_BACKENDS=1` — but that flag is set only by the
+  `integration` job, and these modules are not in it. The gate written precisely to stop a
+  differential passing by skipping is attached to tests that no job requiring it ever runs.
+- [ ] **Decide and implement.** Two shapes, and the choice is per module:
+  - the three ad6 modules need a generated workload, which is a **dependency footprint** — the
+    same argument item 34 used to move three modules out of `fast`. Adding them to
+    `FAVE_INTEGRATION_TESTS` is the whole change;
+  - the three `*_policy_artifacts` modules are mostly pure and want to stay, so only their one
+    tree-comparison test moves. That needs either a split module or a shared derivation helper,
+    which is the design question worth an owner's view.
+  - Cheaper and weaker for all six: let `run_integration` run them too, which means taking them
+    out of the `FAVE_NATIVE_TESTS` union so membership of one list stops implying exclusion from
+    `fast`.
+- **The general gap this exposes:** nothing measures what `fast` SKIPS on a clean checkout, so a
+  test can drift out of every tier without any gate going red. The sweep above is a one-off; the
+  `fast` job could assert a skip budget (`-rs` plus a count), which is the mechanical version of
+  item 36's lesson.
 
 ---
 
