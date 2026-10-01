@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** V1, V2, V3 and V3b DONE (2026-09-29 to 2026-10-01, §10); V4 next. V5 waits for the larger machine (TODO item 31). D1-D6 resolved (§9); D5's first batch (Q10-Q14) awaits sending.
+**Status:** V1-V4 DONE (2026-09-29 to 2026-10-01, §10). V5 waits for the larger machine (TODO item 31). D1-D6 resolved (§9); D5's first batch (Q10-Q14) awaits sending.
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -1059,7 +1059,22 @@ unit tests and seeing them fail, and its exit begins with those tests green.
 
 - **V4 — FaVe integration.** Adapter, `FAVE_BACKEND=veriflow`, doctor entry for the
   build, `integration`-tier gate, every accommodation entered in TODO item 31's
-  registry.
+  registry. **DONE 2026-10-01.**
+  - **The backend:** `FAVE_BACKEND=veriflow` beside the other three. It runs
+    in-process, starts no net_plumber, and skips the anomaly step. Its
+    measurement-affecting choices are aggregator options (`--vf-fields`,
+    `--vf-revisit`, `--vf-slicing`, `--vf-budget`), reached through
+    `FAVE_ENGINE_OPTIONS`, with the decided defaults: D6's 4+10, Q4's state,
+    Q22's device, no internal budget.
+  - **Stamps:** `configuration_stamp()` is logged next to the backend name, and
+    the model's stamps are logged at build.
+  - **Gates:**
+    - `test_aggregator_backend.py`, the integration tests (V1-V3b);
+    - the smoke tier: `wl_ifi` through its normal benchmark, with only
+      FAVE_BACKEND changed, reports NetPlumber's 27 violations line for line.
+  - **Registry:** `ACCOMMODATIONS.md` holds every VeriFlow-FR accommodation,
+    with kind, cost, evidence and stamp, and a fast-tier test keeps it
+    complete.
 - **V5 — Measurement** over the whole suite, both regimes where TODO item 31's
   incremental axis exists, stamped per §8. **Under the suite-wide limit** (TODO item
   31, decided 2026-10-01): 24 h and 32 GB per cell, on the larger machine to come.
