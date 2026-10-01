@@ -722,7 +722,7 @@ There were four, and they disagreed in ways that changed what CI actually ran.
 - [ ] **Then re-confirm the module belongs in `fast`** -- with the hardcoded paths gone it needs
   no generated input, and genuinely does.
 
-### 38. The gating `lint` job currently fails, and one finding is real (found 2026-10-01)
+### 38. The gating `lint` job currently fails, and one finding is real — RESOLVED 2026-10-01, elsewhere
 - **Finding:** `bash fave/test/lint_test.sh` exits **1** with 59 error-class findings, against
   item 2's recorded "Local gate is GREEN ... failed 0" (2026-06) and its
   "CONFIRMED green on real CI". The job gates, so this blocks merges.
@@ -739,12 +739,30 @@ There were four, and they disagreed in ways that changed what CI actually ran.
 - **Two are benign:** `apkeep/adapter.py:352` `E1307` (a `%d` whose argument can be `None` on a
   diagnostic path) and `test/test_iptables_out_iface.py:107` `E0601` (pylint cannot see that
   `self.fail()` does not return).
-- [ ] **Fix the `NameError`** -- decide which translation mode that driver meant, and import it.
-- [ ] **Decide the `E1101` policy** the way item 2 decided the import-error one: either disable
-  `no-member` at the gate, or annotate the adapter sites so the union narrows. Leaving it is not
-  an option while the job gates.
-- [ ] **Re-check `apkeep/adapter.py:352`** -- confirm the `None` branch is unreachable, or format
-  it defensively.
+- [x] **All three closed by the parallel work on `ai`, between 2026-09-29 and 2026-10-01** --
+  not here. Re-measured on the merged tree: `bash fave/test/lint_test.sh` exits **0**,
+  `skipped 2, ok 16, style-only 271, failed 0`, and **zero** error/fatal findings remain.
+  - [x] The `NameError` -- `d373e0a0`, which also dates it: the import had been missing since
+    AD6_PLAN.md §9.26, so the driver had been dead longer than this item knew.
+  - [x] `apkeep/adapter.py`'s `E1307` -- `43609fb1`, formatted with `%s`. Not papered over: the
+    `None` IS reachable, and it is the contradictory-`related` diagnostic that prints it.
+  - [x] `test_iptables_out_iface.py`'s `E0601` -- `6fd6d822`, rewritten to use `assertRaises` as
+    a context manager, so the variable pylint could not follow no longer exists.
+  - [x] The 56 `E1101`s -- `0f913579`, `9dfb4e85`, `acd4496d`.
+- **This item offered two options and the answer was a third, better one.** The box above asked
+  to disable `no-member` or annotate the adapter sites -- both of which treat the findings as
+  noise to be silenced. What `ai` did instead was remove the constructs that made pylint infer a
+  union at all: `CloudReadme` had been assigning its fields in a `setattr` loop (44 of the 56
+  findings came from that one loop) and now spells them out; `test_aggregator_backend` had been
+  returning `build_engine`'s result where it meant the recording stub it had installed.
+- **And one "false positive" was load-bearing after all.** That second one is the correction
+  this item owes: it classified all 56 as noise, and `9dfb4e85` shows the finding on
+  `test_aggregator_backend` was pointing at a test that asserted nothing about the object it
+  received. The fix returns the recorder *and* checks the factory actually produced it
+  (`raise AssertionError("build_engine did not return the one APKeep adapter it constructed")`)
+  -- an assertion the test had never made. "Pylint cannot infer this" and "a reader cannot
+  either" turned out to be the same finding, which is the general lesson and the reason not to
+  reach for a `--disable` first.
 
 ### 39. `ad6/`'s own test suite runs in no tier and in no CI job (found 2026-10-01)
 - **Finding:** `make -C ad6 test` runs **143 tests across ten suites** and is referenced in
@@ -2693,7 +2711,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
-   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); `lint` fails (**38**); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. **40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates. **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. **40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates. **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
