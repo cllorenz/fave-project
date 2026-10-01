@@ -513,6 +513,11 @@ share. **Decision needed before building anything.**
   - All three branches exercised before landing (fresh → `[ok]`/exit 0; backdated jar →
     `[STALE]`/exit 1; moved-aside jar → `[warn]`/exit 0), and the verdict's failure line
     now reads "see the `[MISSING]`/`[STALE]` lines above".
+  - **Applied to the jars only — see item 41 (2026-10-01).** The comment introducing
+    `check_jar` says the jars are "the same class of artifact as the .so above and fail the
+    same way", and the `.so` above is still checked for existence alone. A `libnetplumber.so`
+    one day older than its binding passed this doctor as "environment complete for every tier"
+    while the integration tier died on the method it was missing.
 - **Effect, measured:** the `integration` tier went from *entirely unavailable* (pybison
   segfault killed the process) to **51 passed / 2 skipped + 8 NDD tests**, and
   `test_ad6_wl_up.py` from a core dump to 3 passed — with no code change, only container
@@ -797,6 +802,49 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   `backend_gate.py` and `veriflow_fr/` are byte-identical to `ai` on the branch that found this
   (`git diff ai..testing` over those paths is empty); the finding is simply that no one had yet
   run that tier with the flag CI uses.
+
+### 41. The doctor checks the two Java jars for FRESHNESS and the three native artifacts for EXISTENCE (found 2026-10-01)
+Item 1v's 2026-09-25 extension added `check_jar`, because a jar older than its sources still
+**loads**, so every jar-backed test runs against an engine that predates the source change and
+fails as a wrong answer rather than as a missing file. The comment directly above `check_jar`
+says the jars are *"the same class of artifact as the .so above and fail the same way"* -- and
+the `.so` above is still checked with a bare `compgen -G`. The reasoning was written down and
+then applied to one of the two halves.
+- **Measured, the same day this was written.** `net_plumber/python/libnetplumber.so` was built
+  at 08:21; `23265ec2` on `ai` had added `loop_reports` to
+  `net_plumber/python/libnetplumber.cpp` the day before. `./test.sh doctor` reported
+  `[ok] libnetplumber .so built` and the verdict **"environment complete for every tier"**,
+  while `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration` died in
+  `test_revisit_router_on_a_stick.py` with
+  `AttributeError: 'libnetplumber.LibNetPlumber' object has no attribute 'loop_reports'`
+  from `netplumber/lib_adapter.py:90`. Rebuilding the `.so` -> **6 passed**, no code change.
+  That one was loud because the method was simply absent; a stale `.so` whose signatures still
+  matched would have answered, wrongly, and that is exactly the case `check_jar` exists for.
+- **The `.so` is MORE exposed than the jars, not less.** `run_integration` builds the APKeep jar
+  (`apkeep_smoke.sh`), the NDD jar (`ndd_build.sh`) and now `libveriflow_fr`
+  (`test.sh:299`) -- so a stale one of those is repaired by running the tier. **No tier builds
+  `libnetplumber`.** The only thing that does is the CI composite
+  (`setup-fave-native/action.yml:90`), once per job, on a runner with no previous build. So a
+  developer's `.so` is refreshed by nothing they routinely run, which is the condition this
+  item is about.
+- [ ] **Generalise `check_jar` into one artifact-freshness check and use it for all five.**
+  The mechanic is already right -- mtime against the sources, `[STALE]` fatal and naming the
+  file that outran it -- and only the inputs differ:
+  | artifact | sources to compare against | absent means |
+  |---|---|---|
+  | `net_plumber` binary | `net_plumber/src/**` | `[MISSING]`, fatal -- no tier builds it |
+  | `libnetplumber*.so` | `net_plumber/python/libnetplumber.cpp` + `net_plumber/src/**` | `[MISSING]`, fatal -- no tier builds it |
+  | `libveriflow_fr*.so` | `veriflow_fr/src/**` + its binding | `[warn]` -- the tier builds it |
+  | APKeep / NDD jars | `*.java` + `pom.xml` (already done) | `[warn]` -- the tier builds them |
+- [ ] **While there: `libveriflow_fr` absent prints `[MISSING]` but does not set `rc=1`**
+  (`test.sh:623-627`), so it neither fails the doctor nor matches the convention the jars
+  established, where "the tier builds it" is reported as `[warn]`. The three states and their
+  labels should mean the same thing for every artifact; today `[MISSING]` means fatal for two
+  of them and advisory for the third.
+- **Related, already on record:** item 0's follow-up notes that `make all` will not rebuild a
+  stale `net_plumber` binary after a system library moves under it (`undefined symbol:
+  ...log4cxx...`), and that `make clean && make all` is the repair. Same class -- an artifact
+  that is present, out of date, and reported as fine.
 
 ---
 
@@ -2636,7 +2684,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
-   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); `lint` fails (**38**); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. **40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); `lint` fails (**38**); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. **40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates. **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
