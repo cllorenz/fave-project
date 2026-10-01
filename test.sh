@@ -410,6 +410,24 @@ run_integration() {
     echo "== integration: generate wl_up inputs (for test_ad6_wl_up, test_apkeep_ndd_wlup) =="
     bash "$ROOT/fave/test/gen_wl_up_inputs.sh" || rc=1
 
+    # Generate the wl_cloud inputs. The sixth and last of the gen_wl_*_inputs.sh
+    # generators to be wired in: until 2026-10-01 it ran in no tier, which is
+    # what let TODO item 36 (the two differentials' self-pre-empting gate) go
+    # unnoticed for as long as it did.
+    #
+    # It is NOT what makes those differentials run -- each regenerates in its own
+    # setUpClass, because bench/wl_cloud/*.json is shared by the oracle and
+    # matrix phases and whichever ran last wins. It is here for the two things
+    # that regeneration cannot do:
+    #   * the raw scenario's INTEGRITY check (sha256sum -c against cloud-tf/
+    #     SHA256SUMS) becomes a named tier step, so an edited dataset fails where
+    #     a reader can see it, instead of inside a differential's setUpClass as a
+    #     truncated "could not regenerate the wl_cloud inputs";
+    #   * it still runs when both differentials do not -- FAVE_SKIP_AD6=1, or no
+    #     JVM -- so wl_cloud is never the one workload the tier stopped checking.
+    echo "== integration: generate wl_cloud inputs (raw-scenario integrity + both cloud differentials) =="
+    bash "$ROOT/fave/test/gen_wl_cloud_inputs.sh" || rc=1
+
     # Every Delta-net workload's directory is derived from the vendored traces,
     # so a clean checkout has none of it and the backend differential would skip
     # the workload that exposed APKeep's ingress gap in the first place
