@@ -434,6 +434,11 @@ share. **Decision needed before building anything.**
   - **Also pruned in-repo virtualenvs** (`*/.venv/*`, `*/venv/*`, `*/site-packages/*`): a local `.venv` inside `fave/` was being swept by `find` (804 files, 94 venv-internal "failures"). CI didn't hit this (uses `setup-python`, no in-repo venv), but it's a real robustness gap. Removed the stale `examples/example-traverse.py` ignore (file no longer exists).
 - [x] **Local gate is GREEN:** `skipped 2, ok 16, style-only 111, failed 0` over the 129 real fave files — even without `pybison` locally (CI has it, so will be ≥ as clean). All 14 original CI failures addressed.
 - [x] **CONFIRMED green on real CI** (user-verified). The `lint` job now gates. This was the last "check that doesn't gate" — `fast`, `integration`, and `lint` all gate; `e2e`/`bench` are non-blocking by design.
+- **PARTLY SUPERSEDED 2026-10-01 — see item 38.** The gate still *gates*; it is no longer
+  *green*. `lint_test.sh` exits 1 with 59 error-class findings (56 `E1101` false positives on
+  duck-typed adapter unions, plus one real `NameError` in an eval driver). The sentence above
+  about `fast` and `integration` has stopped holding too: both abort at pytest collection for
+  want of three pip declarations (item 34). A gate that aborts is not a gate that passes.
 - **Finding (original):** `lint_test.sh` recorded counts but always exited 0, so `lint_fave` could never fail.
 
 ### 3. Re-enable coverage reporting — mostly absorbed by item 1b
@@ -627,6 +632,30 @@ There are now four, and they disagree in ways that change what CI actually runs.
   have the test pass its tmpdir, so the test checks what it built.
 - [ ] **Then re-confirm the module belongs in `fast`** -- with the hardcoded paths gone it needs
   no generated input, and genuinely does.
+
+### 38. The gating `lint` job currently fails, and one finding is real (found 2026-10-01)
+- **Finding:** `bash fave/test/lint_test.sh` exits **1** with 59 error-class findings, against
+  item 2's recorded "Local gate is GREEN ... failed 0" (2026-06) and its
+  "CONFIRMED green on real CI". The job gates, so this blocks merges.
+- **56 of the 59 are `E1101 no-member` false positives** from duck-typed adapter unions: pylint
+  infers `NetPlumberAdapter | APKeepAdapter | Ad6Adapter` at a single site and then reports every
+  member absent from any one of the three (`test/test_aggregator_backend.py`,
+  `test/test_cloud_readme.py`, `test/test_cloud_policy.py`, `test/test_cloud_encodings_agree.py`,
+  `bench/wl_cloud/cloud_readme.py`). Same character as the `import-error` /
+  `no-name-in-module` findings item 2 already decided not to gate on.
+- **One is a real defect:** `bench/wl_up/eval/wl_up_related_discriminates.py:102` passes
+  `translation=TRANSLATION_LITERAL`, and that name is neither defined nor imported anywhere in
+  the file -- the script raises `NameError` on every run. It is an eval driver, so no tier covers
+  it and nothing else would have caught it.
+- **Two are benign:** `apkeep/adapter.py:352` `E1307` (a `%d` whose argument can be `None` on a
+  diagnostic path) and `test/test_iptables_out_iface.py:107` `E0601` (pylint cannot see that
+  `self.fail()` does not return).
+- [ ] **Fix the `NameError`** -- decide which translation mode that driver meant, and import it.
+- [ ] **Decide the `E1101` policy** the way item 2 decided the import-error one: either disable
+  `no-member` at the gate, or annotate the adapter sites so the union narrows. Leaving it is not
+  an option while the job gates.
+- [ ] **Re-check `apkeep/adapter.py:352`** -- confirm the `None` branch is unreachable, or format
+  it defensively.
 
 ---
 
