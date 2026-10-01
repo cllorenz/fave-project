@@ -79,14 +79,32 @@ class TestAPKeepAdapter(unittest.TestCase):
         cls.adapter.add_generator(SimpleNamespace(node='source.A'))
         cls.adapter.add_probe(SimpleNamespace(node='probe.B'))
         cls.adapter.add_probe(SimpleNamespace(node='probe.C'))
+        # Taken BEFORE any query: the build releases the translation buffers
+        # (`_release_build_buffers`), so they are only readable until then.
+        cls.translated = list(cls.adapter._fwd_rules)
+        cls.rewritten_before_build = cls.adapter._rewritten_fields()
 
     def test_translation(self):
         # "+ fwd <dev> <prefix> <len> <port> <priority>"; priority == prefix len
         # so longest-prefix-match wins regardless of rule arrival order.
-        self.assertIn("+ fwd r 167772160 8 2 8", self.adapter._fwd_rules)  # 10.0.0.0/8 -> port 2
-        self.assertIn("+ fwd sw 167772160 8 3 8", self.adapter._fwd_rules)  # 10.0.0.0/8 -> port 3
+        self.assertIn("+ fwd r 167772160 8 2 8", self.translated)  # 10.0.0.0/8 -> port 2
+        self.assertIn("+ fwd sw 167772160 8 3 8", self.translated)  # 10.0.0.0/8 -> port 3
         self.assertIn("source.A 1 r 1", self.adapter._edges)
         self.assertIn("sw 3 probe.B 1", self.adapter._edges)
+
+    def test_the_build_releases_its_buffers(self):
+        """ Once the engine holds the rules, the per-rule buffers go -- as
+        None, so a later reader fails instead of seeing an empty table -- and
+        the one query-time reader is answered from what they held. """
+        self.adapter.clear_results()
+        self.adapter.check_compliance({"probe.B": [("source.A", False, None)]})
+        self.assertIsNone(self.adapter._fwd_rules)
+        self.assertIsNone(self.adapter._fwd_ingress)
+        self.assertIsNone(self.adapter._fwd_table)
+        self.assertEqual(self.adapter._rewritten_fields(),
+                         self.rewritten_before_build)
+        self.assertEqual(self.adapter._build_metrics['fwd_rules_translated'],
+                         len(self.translated))
 
     def test_compliant_reach_no_violation(self):
         self.adapter.clear_results()

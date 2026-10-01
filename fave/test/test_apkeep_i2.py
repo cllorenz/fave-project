@@ -133,7 +133,8 @@ class TestAPKeepI2(unittest.TestCase):
         self.assertEqual(len(self.engine._fwd_devices), 18)
         self.assertEqual(len(self.sources), 9)
         self.assertEqual(len(self.probes), 9)
-        self.assertGreater(len(self.engine._fwd_rules), 50000)
+        self.assertGreater(
+            self.engine._build_metrics['fwd_rules_translated'], 50000)
 
     def test_the_plain_model_behaves_as_documented(self):
         """ Reaches every pair, drops nothing the data plane delivers, and

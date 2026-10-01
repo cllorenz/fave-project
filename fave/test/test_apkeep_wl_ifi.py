@@ -112,7 +112,8 @@ class TestAPKeepWlIfi(unittest.TestCase):
         self.assertEqual(len(self.engine._fwd_devices), 17)
         self.assertEqual(len(self.sources), 17)
         self.assertEqual(len(self.probes), 17)
-        self.assertGreater(len(self.engine._fwd_rules), 17)
+        self.assertGreater(
+            self.engine._build_metrics['fwd_rules_translated'], 17)
 
     def test_acls_translated(self):
         # the router's ACLs were captured and translated.

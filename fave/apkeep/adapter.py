@@ -38,7 +38,9 @@ NotImplemented stubs and APKEEP_BACKEND.md.
 from __future__ import annotations
 
 import logging
+import sys
 
+from types import MappingProxyType
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Set
 
 from aggregator.abstract_engine import AbstractVerificationEngine
@@ -527,7 +529,38 @@ def _split_port(fave_port: str) -> Tuple[str, str]:
             fave_port = fave_port[:-len(suffix)]
             break
     device, _, port = fave_port.rpartition('.')
-    return device, port
+    # Interned: a FIB names a few hundred devices and ports millions of times,
+    # and every call otherwise returned two fresh substrings that the buffers
+    # below then kept (~130 B per rule on wl_berkeley, CLOUD_BENCH_PLAN.md §2.15).
+    return sys.intern(device), sys.intern(port)
+
+
+#: The `rw` of a row that rewrites nothing -- most of them -- shared and
+#: read-only, so it costs nothing per rule and cannot be written by accident.
+_NO_REWRITE: Any = MappingProxyType({})
+
+
+class _FwdRow:
+    """ One buffered forwarding-table rule, as `_capture_fwd_table_rule` keeps
+    it: what a dict with the same five keys held, at a fraction of the memory
+    (no per-row dict; `rw` shared when empty). Read as `row['match']` like the
+    dicts it replaced, which tests still construct directly. """
+
+    __slots__ = ('idx', 'ports', 'in_ports', 'match', 'rw')
+
+    def __init__(self, idx: Any, ports: List[str], in_ports: List[str],
+                 match: Dict[str, Any], rw: Any) -> None:
+        self.idx = idx
+        self.ports = ports
+        self.in_ports = in_ports
+        self.match = match
+        self.rw = rw
+
+    def __getitem__(self, key: str) -> Any:
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key) from None
 
 
 def _dedup(items: List[str]) -> List[str]:
@@ -668,6 +701,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._generators: Dict[str, str] = {}  # name -> ingress port (FaVe)
         self._probes: Dict[str, str] = {}      # name -> port (FaVe)
         self._built = False
+        #: `_rewritten_fields`, frozen by `_release_build_buffers`.
+        self._rewritten_cache: set = set()
         self._single_universe = False           # Phase 7: set in _build()
         self._build_metrics: Dict[str, int] = {}
         self._results: List[Tuple[int, int, bool, str]] = []
@@ -940,23 +975,20 @@ class APKeepAdapter(AbstractVerificationEngine):
         as written is what lets `_build` decide, per device, which of the two a
         table actually is.
         """
-        row: Dict[str, Any] = {
-            'idx': rule.idx,
-            'ports': self._out_ports(rule),
+        match = {field.name: field.value for field in (rule.match or [])}
+        rw = {field.name: field.value
+              for action in (rule.actions or []) if isinstance(action, Rewrite)
+              for field in action.rewrite}
+        row = _FwdRow(
+            idx=rule.idx,
+            ports=self._out_ports(rule),
             # The INGRESS ports the rule applies at. Kept because APKeep's
             # ForwardElement is a per-DEVICE trie and cannot carry them, which
             # is precisely why they have to be accounted for rather than
             # dropped -- see `_assert_ingress_accounted`.
-            'in_ports': [_split_port(p)[1] for p in (rule.in_ports or [])],
-            'match': {},
-            'rw': {},
-        }
-        for field in (rule.match or []):
-            row['match'][field.name] = field.value
-        for action in (rule.actions or []):
-            if isinstance(action, Rewrite):
-                for field in action.rewrite:
-                    row['rw'][field.name] = field.value
+            in_ports=[_split_port(p)[1] for p in (rule.in_ports or [])],
+            match=match,
+            rw=rw if rw else _NO_REWRITE)
         self._fwd_table.setdefault(device, []).append(row)
 
     def _capture_pf_rule(self, device: str, chain: str, rule: Any) -> None:
@@ -1787,6 +1819,7 @@ class APKeepAdapter(AbstractVerificationEngine):
                 self._build_metrics = {}
             self._single_universe = True
             self._build_metrics.update(self._cost_metrics(all_rules))
+            self._release_build_buffers()
             self._built = True
             return
         self._lib.init_in_memory("fave", edges, fwd_devices,
@@ -1806,7 +1839,27 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._single_universe = (m["ACLElement"] == 0 and m["NATElement"] == 0)
         self._build_metrics = dict(m)
         self._build_metrics.update(self._cost_metrics(all_rules))
+        self._release_build_buffers()
         self._built = True
+
+    def _release_build_buffers(self) -> None:
+        """ Drop the per-rule buffers once the engine holds the rules.
+
+        `_fwd_rules`, `_fwd_ingress` and `_fwd_table` exist to be translated,
+        and `_build` runs once: nothing re-translates, and a rule added after
+        the build was never picked up (it still is not). Kept, they cost ~930 B
+        per rule for the whole compliance check, which is where wl_berkeley at
+        k=3 ran out (CLOUD_BENCH_PLAN.md §2.15). The one query-time reader,
+        `_rewritten_fields`, is answered once here instead. Set to None, not
+        emptied, so a reader added later fails loudly rather than reading an
+        empty table as "no rules".
+        """
+        self._rewritten_cache = self._rewritten_fields()
+        # What a test or a report could otherwise only count from the buffer.
+        self._build_metrics['fwd_rules_translated'] = len(self._fwd_rules)
+        self._fwd_rules = None  # type: ignore[assignment]
+        self._fwd_ingress = None  # type: ignore[assignment]
+        self._fwd_table = None  # type: ignore[assignment]
 
     def _cost_metrics(self, all_rules: List[str]) -> Dict[str, int]:
         """ What this translation ASKED the engine to do.
@@ -2757,6 +2810,8 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _rewritten_fields(self) -> set:
         """ Every header field some rule in this model rewrites (`out_port`
         excluded -- rewriting it IS the forward). Read by `_query_conditions`. """
+        if self._fwd_table is None:
+            return self._rewritten_cache
         fields: set = set()
         for rows in self._fwd_table.values():
             for row in rows:
