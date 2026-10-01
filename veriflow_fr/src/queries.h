@@ -129,9 +129,23 @@ struct LocalResult {
 // `budget` bounds the local ECs sliced in total (0: none); before slicing at a
 // table the count is predicted, and a query that would exceed the budget stops,
 // unfinished, naming the table (Q22). Starts are (table, arrival port).
+// `scan` (V3b, D6; T §3.2.2's 4 + 10 optimisation, generalised to FaVe's
+// fields): per layout field, true if it is a SCAN field -- one every rule
+// matches exactly or not at all. Empty: plain slicing, every field a trie
+// dimension. With scan fields, only the TRIE fields cut a table's local ECs; on
+// the scan fields a table walks its rules by priority, a finer rule taking its
+// part of the packet set as a branch of its own and that part joining the
+// remainder's EXCLUDED set, until a rule covers the whole remainder ("the
+// primary packet set minus the set of excluded packets", T p.45). Our design
+// where the thesis is silent (VERIFLOW_PLAN.md D6): exclusions at every table,
+// including the first; and a rewrite of a field an exclusion constrains first
+// materialises the difference, because the image of P minus X is not the image
+// of P minus the image of X. Throws std::invalid_argument if a rule is not
+// exact-or-ANY on a scan field.
 LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
-                             uint64_t budget = 0, Revisit revisit = Revisit::PATH);
+                             uint64_t budget = 0, Revisit revisit = Revisit::PATH,
+                             const std::vector<bool> &scan = {});
 
 // T §4.5, VLAN isolation: can a packet of `range` from `start`, on some path,
 // come to carry `to_value` in `field` (e.g. a VLAN it must not leak into)? The

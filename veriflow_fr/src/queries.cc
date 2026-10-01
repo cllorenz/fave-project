@@ -170,8 +170,183 @@ struct Slicer {
   Revisit revisit = Revisit::PATH;
   // STATE: the (table, arrival, packet set) states this start has reached.
   std::set<std::tuple<uint32_t, int64_t, Box>> visited;
+  // V3b: per field, a SCAN field (exact-or-ANY in every rule); empty: plain.
+  std::vector<bool> scan;
+  // STATE under V3b: the packet set is a primary box minus excluded boxes.
+  std::set<std::tuple<uint32_t, int64_t, Box, std::vector<Box>>> visited46;
 
   struct Abort {};
+
+  // ---- boxes (V3b) ----------------------------------------------------------
+
+  static bool meets(const Box &a, const Box &b) {
+    for (size_t f = 0; f < a.size(); ++f)
+      if (a[f].hi < b[f].lo || b[f].hi < a[f].lo) return false;
+    return true;
+  }
+  static Box meet(const Box &a, const Box &b) {
+    Box m(a.size());
+    for (size_t f = 0; f < a.size(); ++f)
+      m[f] = {std::max(a[f].lo, b[f].lo), std::min(a[f].hi, b[f].hi)};
+    return m;
+  }
+  // a minus b, as disjoint boxes: per field, the parts of `a` below and above
+  // `b`, with the fields before it clipped to `b`.
+  static std::vector<Box> minus(const Box &a, const Box &b) {
+    if (!meets(a, b)) return {a};
+    std::vector<Box> out;
+    Box rest = a;
+    for (size_t f = 0; f < a.size(); ++f) {
+      if (rest[f].lo < b[f].lo) {
+        Box below = rest;
+        below[f].hi = b[f].lo - 1;
+        out.push_back(below);
+        rest[f].lo = b[f].lo;
+      }
+      if (rest[f].hi > b[f].hi) {
+        Box above = rest;
+        above[f].lo = b[f].hi + 1;
+        out.push_back(above);
+        rest[f].hi = b[f].hi;
+      }
+    }
+    return out;
+  }
+  // primary minus the union of the excluded, as disjoint boxes.
+  static std::vector<Box> materialise(const Box &primary, const std::vector<Box> &excl) {
+    std::vector<Box> parts = {primary};
+    for (const Box &x : excl) {
+      std::vector<Box> next;
+      for (const Box &p : parts)
+        for (const Box &q : minus(p, x)) next.push_back(q);
+      parts.swap(next);
+      if (parts.empty()) break;
+    }
+    return parts;
+  }
+  static bool nonempty(const Box &primary, const std::vector<Box> &excl) {
+    return !materialise(primary, excl).empty();
+  }
+
+  // ---- the V3b walk ---------------------------------------------------------
+
+  void forward46(const Rule &r, const Box &b, const std::vector<Box> &excl,
+                 std::vector<uint32_t> &path, std::set<uint32_t> &out) {
+    // A rewrite of a field an exclusion constrains (does not cover the whole
+    // field range of the set) cannot be applied to primary and exclusions
+    // alike: setting the field maps the excluded packets onto the same value.
+    // Materialise the difference first, then each part is a plain box.
+    bool conflict = false;
+    for (const auto &rw : r.rewrites)
+      for (const Box &x : excl)
+        if (x[rw.first].lo > b[rw.first].lo || x[rw.first].hi < b[rw.first].hi) conflict = true;
+    std::vector<std::pair<Box, std::vector<Box>>> sets;
+    if (conflict) {
+      for (const Box &p : materialise(b, excl)) sets.push_back({p, {}});
+    } else {
+      sets.push_back({b, excl});
+    }
+    for (auto &set : sets) {
+      for (const auto &rw : r.rewrites) {
+        set.first[rw.first] = rw.second;
+        for (Box &x : set.second) x[rw.first] = rw.second;
+      }
+      if (on_state) on_state(0, set.first);
+      for (uint64_t p : r.out_ports)
+        for (uint64_t to : net.links_from(p))
+          walk46(net.port_table(to), (int64_t)to, set.first, set.second, path, out);
+    }
+  }
+
+  void walk46(uint32_t table, int64_t arrival, const Box &box, std::vector<Box> excl,
+              std::vector<uint32_t> &path, std::set<uint32_t> &out) {
+    std::sort(excl.begin(), excl.end());
+    excl.erase(std::unique(excl.begin(), excl.end()), excl.end());
+    if (revisit == Revisit::PATH) {
+      if (std::find(path.begin(), path.end(), table) != path.end()) return;
+    } else if (!visited46.insert({table, arrival, box, excl}).second) {
+      return;
+    }
+
+    std::vector<uint64_t> cand;
+    for (uint64_t id : net.table_candidates(table, box)) {
+      const Rule &r = net.rule(id);
+      if (r.in_port != ANY_PORT && (arrival == ANY_PORT || r.in_port != arrival)) continue;
+      if (meets(net.rule_intervals(id), box)) cand.push_back(id);
+    }
+    std::sort(cand.begin(), cand.end(), [this](uint64_t a, uint64_t b) {
+      const Rule &ra = net.rule(a), &rb = net.rule(b);
+      if (ra.priority != rb.priority) return ra.priority > rb.priority;
+      return net.insertion_seq(a) < net.insertion_seq(b);
+    });
+
+    // Local ECs over the TRIE fields only; a scan field keeps the set's range.
+    std::vector<std::vector<Interval>> per_field(box.size());
+    double predicted = 1;
+    for (size_t f = 0; f < box.size(); ++f) {
+      if (scan[f]) {
+        per_field[f] = {box[f]};
+        continue;
+      }
+      std::vector<u128> cuts = {box[f].lo};
+      for (uint64_t id : cand) {
+        const Interval i = net.rule_intervals(id)[f];
+        if (i.lo > box[f].lo) cuts.push_back(i.lo);
+        if (i.hi < box[f].hi) cuts.push_back(i.hi + 1);
+      }
+      std::sort(cuts.begin(), cuts.end());
+      cuts.erase(std::unique(cuts.begin(), cuts.end()), cuts.end());
+      for (size_t k = 0; k < cuts.size(); ++k)
+        per_field[f].push_back({cuts[k], k + 1 < cuts.size() ? cuts[k + 1] - 1 : box[f].hi});
+      predicted *= (double)per_field[f].size();
+    }
+    if (budget && (double)res.local_ecs + predicted > (double)budget) {
+      res.finished = false;
+      res.stopped_at = table;
+      res.predicted = predicted;
+      res.single_table = predicted > (double)budget;
+      throw Abort{};
+    }
+    res.local_ecs += (uint64_t)predicted;
+    res.per_table[table] += (uint64_t)predicted;
+    ++res.hops;
+
+    path.push_back(table);
+    std::vector<size_t> pick(box.size(), 0);
+    while (true) {
+      Box ec(box.size());
+      for (size_t f = 0; f < box.size(); ++f) ec[f] = per_field[f][pick[f]];
+      std::vector<Box> rest;  // the EC's exclusions, growing as finer rules serve it
+      for (const Box &x : excl)
+        if (meets(x, ec)) rest.push_back(meet(x, ec));
+      for (uint64_t id : cand) {
+        const std::vector<Interval> &iv = net.rule_intervals(id);
+        if (!meets(iv, ec)) continue;
+        const Box share = meet(iv, ec);   // the part this rule matches
+        std::vector<Box> share_excl;
+        for (const Box &x : rest)
+          if (meets(x, share)) share_excl.push_back(meet(x, share));
+        if (!nonempty(share, share_excl)) continue;  // it would serve only the excluded
+        const Rule &r = net.rule(id);
+        if (r.consume) {
+          out.insert(table);
+        } else if (!r.out_ports.empty()) {
+          forward46(r, share, share_excl, path, out);
+        }
+        if (share == ec) break;           // it covers the EC: nothing is left
+        rest.push_back(share);            // a finer rule: its share is excluded
+      }
+      size_t f = box.size();
+      bool done = true;
+      while (f > 0) {
+        --f;
+        if (++pick[f] < per_field[f].size()) { done = false; break; }
+        pick[f] = 0;
+      }
+      if (done) break;
+    }
+    path.pop_back();
+  }
 
   void walk(uint32_t table, int64_t arrival, const Box &box,
             std::vector<uint32_t> &path, std::set<uint32_t> &out) {
@@ -282,15 +457,38 @@ Box box_of(const Network &net, const std::string &range) {
 
 LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
-                             uint64_t budget, Revisit revisit) {
+                             uint64_t budget, Revisit revisit,
+                             const std::vector<bool> &scan) {
   LocalResult res;
   res.delivered.resize(starts.size());
   const Box box = box_of(net, range);
-  Slicer s{net, budget, res, nullptr, revisit, {}};
+  const bool v3b = std::find(scan.begin(), scan.end(), true) != scan.end();
+  if (v3b) {
+    const Layout &l = net.layout();
+    if (scan.size() != l.size()) throw std::invalid_argument("scan: one flag per field");
+    // A scan field is exact-or-ANY in every rule (D6); anything else is refused.
+    for (size_t f = 0; f < l.size(); ++f) {
+      if (!scan[f]) continue;
+      const u128 all = l.field(f).width == 128 ? ~(u128)0
+                                               : (((u128)1 << l.field(f).width) - 1);
+      for (uint64_t id : net.overlapping_rules(std::string(l.width(), 'x'))) {
+        const Interval i = net.rule_intervals(id)[f];
+        if (i.lo != i.hi && !(i.lo == 0 && i.hi == all))
+          throw std::invalid_argument("rule " + std::to_string(id) + " is not exact-or-ANY on "
+                                      "scan field " + l.field(f).name + " (D6)");
+      }
+    }
+  }
+  Slicer s{net, budget, res, nullptr, revisit, {}, v3b ? scan : std::vector<bool>(), {}};
   try {
     for (size_t i = 0; i < starts.size(); ++i) {
       s.visited.clear();
+      s.visited46.clear();
       std::vector<uint32_t> path;
+      if (v3b) {
+        s.walk46(starts[i].first, starts[i].second, box, {}, path, res.delivered[i]);
+        continue;
+      }
       s.walk(starts[i].first, starts[i].second, box, path, res.delivered[i]);
     }
   } catch (const Slicer::Abort &) {
@@ -304,7 +502,7 @@ bool may_carry(const Network &net, const std::string &range,
   bool carries = false;
   Slicer s{net, 0, res, [&](uint32_t, const Box &b) {
              if (b[field].lo <= to_value && to_value <= b[field].hi) carries = true;
-           }, Revisit::PATH, {}};
+           }, Revisit::PATH, {}, {}, {}};
   std::vector<uint32_t> path;
   std::set<uint32_t> out;
   s.walk(start.first, start.second, box_of(net, range), path, out);
