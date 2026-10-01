@@ -33,7 +33,7 @@ VLAN 10 back up, so the packet circles and never reaches B.
     ad6                    reached           not reached     (SAT, independent)
     VeriFlow-FR, path      NOT reached       not reached     (NetPlumber's rule)
     NetPlumber             NOT reached       not reached     -- KNOWN DEFECT
-    APKeep, bdd and ndd    reached           REACHED         -- KNOWN DEFECT
+    APKeep, bdd and ndd    REFUSED           REFUSED         (item 33, fixed)
 
 The correct engines are asserted correct. The two defects are PINNED as they
 are measured (2026-09-30), so that a fix fails this test and is seen rather
@@ -43,10 +43,16 @@ than silently changing a number elsewhere:
     (`net_plumber/FAVE_CHANGES.md` §6, unchanged from upstream): it
     UNDER-approximates reachability wherever a packet legitimately passes a
     table twice;
-  * APKeep answers "reached" on both networks, with either engine and either
-    VLAN mode: its answer here does not depend on the switches' VLAN matches,
-    so the stick's "reached" is coincidental and the loop's is a false
-    positive. The cause is not yet verified.
+  * APKeep used to answer "reached" on both networks: its adapter classified a
+    VLAN-matching table as a destination FIB (`_LPM_MATCH_FIELDS` held the
+    VLAN), whose translation keeps the destination only, so both of `sw`'s
+    rules became the same default route. Fixed 2026-09-30: outside the
+    in./mid./out. stages a VLAN match or rewrite makes a table first-match. Both
+    networks are now REFUSED, each for a stated reason: the stick because a
+    first-match FilterElement cannot rewrite a VLAN, the loop because nothing
+    accounts for in-port-qualified rules on a first-match table (the ingress
+    demultiplexing covers destination FIBs). Loud, never wrong: a capability
+    gap, no longer a false positive.
 
 Built through FaVe's real input path (JSON replayed by the in-process
 aggregator), so every engine sees what a workload gives it. Needs the native
@@ -187,14 +193,15 @@ class TestRouterOnAStick(unittest.TestCase):
                 fave.replay(prefix)
             self.assertGreater(eng.loop_reports(), 0, prefix)
 
-    def test_apkeep_known_defect_over_approximates_the_loop(self):
+    def test_apkeep_refuses_both_instead_of_answering_wrong(self):
         from apkeep.adapter import available
+        from util.barrier import BarrierError
         self._need(available(), "APKeep (JPype + jar)")
         for engine in ("bdd", "ndd"):
-            self.assertTrue(apkeep(self.stick, engine))
-            self.assertTrue(apkeep(self.loop, engine),
-                            "APKeep(%s) no longer reaches B in the loop: TODO item 33 "
-                            "fixed? Update this test and the item." % engine)
+            with self.assertRaisesRegex(BarrierError, r"rewrites.*packet\.ether\.vlan"):
+                apkeep(self.stick, engine)
+            with self.assertRaisesRegex(BarrierError, r"in-port-qualified forwarding"):
+                apkeep(self.loop, engine)
 
 
 if __name__ == '__main__':

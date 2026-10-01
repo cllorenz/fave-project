@@ -336,3 +336,44 @@ little (`ap_num` 16 485 -> 17 925, +8.7 %) but the build slows 2.8x (150 s ->
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the
 roadmap) lives in `../APKEEP_BACKEND.md`.*
+
+## 10. A VLAN on a destination FIB outside the HSA stages  **[FIX]**
+
+TODO item 33, 2026-09-30. `_is_dst_lpm_table` classified a forwarding table as a
+destination-prefix FIB whenever its rules matched only the destination, the
+ingress port and the VLAN (`_LPM_MATCH_FIELDS`), and rewrote only `out_port` or
+the VLAN (`_LPM_REWRITE_FIELDS`). A FIB is translated by `_translate_fwd_rule`,
+which keeps the destination alone, so for any device outside the
+`in.`/`mid.`/`out.` stages the VLAN match and the VLAN rewrite were dropped
+without a word. That contradicts this adapter's own `UntranslatedSemantics`
+contract.
+
+Found on a router on a stick (`fave/test/test_revisit_router_on_a_stick.py`).
+Both of a switch's VLAN-qualified rules became the same default route, and APKeep
+reached host B **through a genuine loop**, where VeriFlow-FR, ad6 and NetPlumber
+all answer "not reached".
+
+**Fix.** The VLAN moved to `_LPM_STAGE_FIELDS`, which is allowed only where a
+mechanism carries it:
+- **a VLAN match or rewrite in an HSA stage** (`_is_staged`), whose mechanisms
+  carry it (`_build_stanford_faithful`, `_build_i2_faithful`, plain mode's
+  `_demux_ingress`);
+- **a VLAN rewrite in a router's routing table** (`_router_devices`), which
+  `_capture_vlan_port` maps to the egress port wiring the acl_out groups. That
+  models egress selection, not the header change: a later table matching the new
+  VLAN would see the old one. Nothing in the suite does that.
+
+Anywhere else a VLAN match or rewrite makes the table first-match, and its
+`FilterElement` carries the VLAN match and refuses a VLAN rewrite.
+
+A first cut allowed the VLAN in HSA stages only, and the integration tier refused
+`wl_ifi`: its router's declared-LPM routing table rewrites the egress VLAN. The
+census behind "the suite is unaffected" had counted match fields, not rewrites.
+The router case was then added, test-first. Both small networks are now **refused**, each
+with its reason: the VLAN rewrite, and in-port-qualified rules on a first-match
+table. That is a declared capability gap in place of a false positive.
+Classifier tests: `test/test_apkeep_first_match.py`, including `wl_ifi`'s router
+shape. On the suite nothing changes: every VLAN match in a forwarding table sits
+in an HSA stage, and every VLAN rewrite in an HSA stage or a router's routing
+table. Confirmed by the integration tier's APKeep differentials.
+
