@@ -757,6 +757,47 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   `minisat`/`clasp`, which the doctor already classifies as `ad6`), or record in `README.md` that
   it is deliberately outside the gate.
 
+### 40. A cost opt-in wired through the availability gate turns `integration` red (found 2026-10-01)
+- **Finding:** `fave/test/test_veriflow_differential.py:141` gates `TestI2` with
+  `@require_or_skip(os.environ.get("VERIFLOW_FULL_DIFFERENTIAL") == "1", "wl_i2 takes minutes
+  per engine: ...")`. That decorator does not mean "skip unless": `backend_gate.require_or_skip`
+  converts an unmet condition into a hard **failure** whenever `FAVE_REQUIRE_BACKENDS` is set,
+  which is the whole reason it exists -- a CI job that owns the differential gate must not pass
+  it by skipping. The CI `integration` job sets exactly that flag
+  (`ci.yml:148`), so the condition it is handed here is never a skip and always an error.
+- **Two different conditions, one gate.** `require_or_skip` answers *"is the backend there?"* --
+  an unmet condition is an environment fault and skipping it green is the hazard. A cost opt-in
+  answers *"do we want to spend the minutes?"* -- an unmet condition is a deliberate choice and
+  skipping is the correct outcome. Using one for the other makes the expensive case
+  unrunnable rather than optional.
+- **The correct pattern is already in the tree, two files away.**
+  `fave/test/test_ad6_wl_stanford.py:165-172` stacks both decorators and keeps them apart:
+  `@require_or_skip(inputs present, ...)` for availability, then
+  `@unittest.skipUnless(_RUN_FULL_DIFFERENTIAL, "... set AD6_STANFORD_FULL_DIFFERENTIAL=1 to
+  opt in")` for cost. Under the same `FAVE_REQUIRE_BACKENDS=1` run it reports `.s` -- one test
+  passes, the expensive one skips, nothing errors.
+- **Measured 2026-10-01**, `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration`: the
+  `FAVE_ALLOW_OUT_IFACE` group reports **18 passed, 2 skipped, 1 error**, and
+  `RESULT: integration FAILED`. The error is
+  `AssertionError: wl_i2 takes minutes per engine: set VERIFLOW_FULL_DIFFERENTIAL=1
+  [FAVE_REQUIRE_BACKENDS set -> required, must not skip]`, raised from the `setUpClass`
+  `require_or_skip` substitutes. Nothing in the test body runs, so this says nothing about
+  VeriFlow-FR -- the tier is red on the decorator alone.
+- **Only one occurrence:** `grep -rn "require_or_skip(os.environ" fave/test/*.py` returns this
+  line and no other, so every other cost opt-in in the suite already uses `skipUnless`.
+- [ ] **Swap the one decorator** at `test_veriflow_differential.py:141` to
+  `@unittest.skipUnless(...)`, leaving the `@_gate` above it (that one IS an availability
+  check) untouched.
+- [ ] **Consider making the distinction impossible to get wrong**, since the two decorators read
+  almost identically at the call site and differ only in what an unmet condition MEANS: a
+  `backend_gate.skip_for_cost(condition, reason)` -- a thin `unittest.skipUnless` that exists to
+  be named -- would let a reader see which question is being asked, and would let the module
+  say in one place that cost opt-ins are deliberately outside `FAVE_REQUIRE_BACKENDS`.
+- **Not a VeriFlow defect, and not caused by the rebase.** `test_veriflow_differential.py`,
+  `backend_gate.py` and `veriflow_fr/` are byte-identical to `ai` on the branch that found this
+  (`git diff ai..testing` over those paths is empty); the finding is simply that no one had yet
+  run that tier with the flag CI uses.
+
 ---
 
 ## Medium priority — structural improvements
@@ -2595,7 +2636,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
-   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); `lint` fails (**38**); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); `lint` fails (**38**); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. **40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
