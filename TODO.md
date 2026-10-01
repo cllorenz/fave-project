@@ -657,6 +657,22 @@ There are now four, and they disagree in ways that change what CI actually runs.
 - [ ] **Re-check `apkeep/adapter.py:352`** -- confirm the `None` branch is unreachable, or format
   it defensively.
 
+### 39. `ad6/`'s own test suite runs in no tier and in no CI job (found 2026-10-01)
+- **Finding:** `make -C ad6 test` runs **143 tests across ten suites** and is referenced in
+  `README.md` only as an aside about activating the venv. `test.sh` names `ad6` eleven times --
+  every one of them about *FaVe's* ad6-bridge tests or about the solver binaries the doctor
+  checks -- and runs `ad6/test/test.py` in no tier. The GitHub workflow does not run it either.
+  Item 1t made that runner propagate failures (2026-09-09), so the mechanism to gate on it
+  exists; nothing calls it.
+- **Measured 2026-10-01:** `PYTHON=.venv/bin/python3 make -C ad6 test` -> **143 passed, exit 0**
+  (~14 s, `minisat`/`clasp` present). An un-wired suite, not a broken one.
+- [ ] **Decide whether ad6 is gated.** It is a vendored 2014 proof-of-concept that this tree now
+  treats as a third backend and has fixed two core encoding bugs in (item 11,
+  `ad6/FAVE_CHANGES.md` §7-8), each with a dedicated regression test -- and those regressions are
+  currently protected by nobody running them. Either add it to `integration` (it needs
+  `minisat`/`clasp`, which the doctor already classifies as `ad6`), or record in `README.md` that
+  it is deliberately outside the gate.
+
 ---
 
 ## Medium priority — structural improvements
