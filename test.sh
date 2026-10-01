@@ -151,6 +151,21 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     # (a sys.executable subprocess), but these reach past it:
     test/test_ad6_wl_stanford.py # full-model structural translation (48 tables, ~1s, ALWAYS runs) + the 256-query differential vs a libnetplumber worker, which is opt-in (AD6_STANFORD_FULL_DIFFERENTIAL) and normally skips
     test/test_ad6_wl_stanford_plain.py # N=2 differential vs a libnetplumber worker (bench.apkeep_convergence._emit_worker)
+    # MOVED here from the fast tier 2026-10-01 (TODO item 42). All three need
+    # bench/wl_ifi/'s GENERATED model, which only this tier produces
+    # (gen_wl_ifi_inputs.sh, above) -- so in `fast` they were twelve tests that
+    # skipped on every clean checkout, and since no list named them they ran in
+    # NO CI job at all. Measured: `./test.sh fast` in a pristine git-archive
+    # export gives 808 passed / 15 skipped against the working tree's 823 / 0,
+    # and twelve of those fifteen are these. Tier membership follows the
+    # DEPENDENCY FOOTPRINT (see the header), and a generated workload is one --
+    # the same argument item 34 used for the three APKeep modules above.
+    # Sharper here than for the other three: these gate with require_or_skip, so
+    # under FAVE_REQUIRE_BACKENDS=1 they are hard failures rather than skips --
+    # and that flag is set by the integration job, which did not run them.
+    test/test_ad6_wl_ifi.py          # ad6 vs the wl_ifi model (3)
+    test/test_ad6_wl_ifi_stateful.py # the stateful wl_ifi variant (5)
+    test/test_ad6_grounding.py       # the grounding constraint on wl_ifi (4)
     test/test_ad6_cloud_differential.py # ad6 vs libnetplumber on wl_cloud, anchored to the dataset's own verdicts (~2 min)
     test/test_apkeep_first_match.py  # a forwarding table decides its APKeep element by its RULES, not by the device name; skips if unavailable
     test/test_apkeep_nat_rewrite.py  # a NAT's rewrite outputs stay atomic predicates across rules applied to OTHER elements (TODO item 29); skips if unavailable
