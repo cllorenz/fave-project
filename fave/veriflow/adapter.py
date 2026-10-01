@@ -90,7 +90,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
 
     def __init__(self, logger: Any = None, invert_lpm: bool = False,
                  slicing: str = "device", budget: int = 0,
-                 revisit: str = "state", fields: str = "plain") -> None:
+                 revisit: str = "state", fields: str = "4+10") -> None:
         if slicing not in ("device", "network"):
             raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
         if revisit not in ("path", "state"):
@@ -111,8 +111,9 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         #: header), kept for parity runs; it loses deliveries that legitimately
         #: pass a table twice (test/test_revisit_router_on_a_stick.py).
         self.revisit = revisit
-        #: D6 / V3b: "plain" (every field a trie dimension) or "4+10" (T §3.2.2
-        #: generalised: exact-or-ANY fields scanned, finer rules excluded)
+        #: D6 / V3b: "4+10" by default (T §3.2.2 generalised: exact-or-ANY fields
+        #: scanned, finer rules excluded -- VeriFlow-FR's headline, D6), or
+        #: "plain" (every field a trie dimension: the ablation)
         self.fields = fields
         self._scan: List[bool] = []
         #: per check set answered: (source, local ECs sliced, states expanded)

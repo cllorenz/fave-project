@@ -2554,7 +2554,11 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
     - **With a 2e9 budget, `wl_stanford` finishes and equals NetPlumber:** 165 pairs, 5.67e8 local ECs, 33 min and 0.9 GB against NetPlumber's 12 s, about 166x. That is the measured price of range ECs there.
     - **Q4 resolved (owner, 2026-09-30): the thesis's `state` rule by default**, with `path` stamped as an option (plan §7). The router-on-a-stick experiment behind it is item 33.
     - **Still open, owner:** the suite-wide limit, in item 31.
-- [ ] **V3b — the 4+10 field optimisation** (thesis §3.2.2), generalised to FaVe's fields (a field is a trie dimension if any rule wildcards it arbitrarily, a linear-scan field otherwise), with excluded packet sets under rewrites. **Exit gate:** verdicts identical to plain VeriFlow-FR on every workload. Required, because every published VeriFlow number has it on and none measures it off (plan §9 D6). Fallback: report plain only, labelled as without §4.6.
+- [x] **V3b — the 4+10 field optimisation — DONE 2026-10-01** (thesis §3.2.2), generalised to FaVe's fields (a field is a trie dimension if any rule wildcards it arbitrarily, a linear-scan field otherwise), with excluded packet sets under rewrites. **Exit gate:** verdicts identical to plain VeriFlow-FR on every workload. Required, because every published VeriFlow number has it on and none measures it off (plan §9 D6). Fallback: report plain only, labelled as without §4.6.
+  - **Results:** L9 and verdict identity green.
+  - **Equal to NetPlumber on all nine workloads**, including `wl_up` (3,660 pairs) and `wl_tum`, which plain slicing could not finish.
+  - `wl_example`'s local ECs drop from 40,097 to 218, and `wl_stanford`'s time from 911 s to 303 s (dev-class timings).
+  - The default is now `fields="4+10"`, with plain as the ablation (plan §10).
 - [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).
 - [ ] **V5 — measurement** over the whole suite, stamped. Both field variants: §4.6 as the headline where it applies, plain as the ablation.
 

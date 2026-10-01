@@ -1,6 +1,6 @@
 # VeriFlow as a FaVe Verification Backend — an Independent Implementation
 
-**Status:** V1 and V2 DONE 2026-09-29 (§10); V3 next, with Q22 open. D1-D6 resolved (§9); D5's first batch (Q10-Q14) awaits sending.
+**Status:** V1, V2, V3 and V3b DONE (2026-09-29 to 2026-10-01, §10); V4 next. V5 waits for the larger machine (TODO item 31). D1-D6 resolved (§9); D5's first batch (Q10-Q14) awaits sending.
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work — a further engine family
 beside NetPlumber (HSA), APKeep (atomic predicates, BDD/NDD) and ad6 (SAT/ASP).
 Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md),
@@ -1007,6 +1007,52 @@ unit tests and seeing them fail, and its exit begins with those tests green.
   under rewrites. *Exit:* L9 green; verdicts identical to plain VeriFlow-FR on every
   workload.
   Fallback per D6.
+  **DONE 2026-10-01.**
+  - **Tests first:**
+    - L9, a finer rule serves a subset and the coarse rule the rest;
+    - an exclusion surviving a rewrite of its own field: the pitfall our design
+      guards, where subtracting after the rewrite would empty the set;
+    - refusal of a prefix on a scan field;
+    - fewer local ECs than plain;
+    - D6's gate, verdict identity with plain on 120 random rewriting networks
+      under both revisit rules.
+
+    Never materialising, never excluding, and skipping the emptiness test each
+    fail a test. 44 C++ tests.
+  - **The design where the thesis is silent, declared (D6):**
+    - exclusions at every table: bulk mode has no "new rule's device" to split
+      at fully;
+    - a rewrite of a field an exclusion constrains first materialises "primary
+      minus excluded" by exact box subtraction.
+
+    `scan_fields(ir)` classifies per workload (the V0 survey's `vf_fields`),
+    stamped `vf_fields=4+10:trie=[...],scan=[...]`.
+  - **The gate, met.**
+    - Verdict identity with plain VeriFlow-FR on every workload where plain
+      finishes: `wl_ifi`, `wl_cloud`, `wl_example`, `wl_airtel1`, `wl_i2`,
+      `wl_stanford`.
+    - **Agreement with NetPlumber on all nine**, including the two plain could
+      never finish:
+
+    | workload | plain | 4+10 | NetPlumber |
+    |---|---|---|---:|
+    | `wl_example` | 40,097 local ECs | **218** | -- |
+    | `wl_cloud` | 47,611 | **14,684** | -- |
+    | `wl_i2` | 444 s | **254 s** | 788 s |
+    | `wl_stanford` | 911 s, 1.07e8 | **303 s**, 3.7e7 | 6.4 s |
+    | `wl_up` | did not finish (2.6e11 predicted at `pgf`) | **3,660 pairs = NP**, 788 s, 2.24e7 | 33 s |
+    | `wl_tum` | did not finish (1.74e10 predicted) | **finishes, = NP**, 612 s, 1.17e6 | 10 s |
+
+    Times are `limit_class=dev`, not reportable; the verdict equality is
+    evidence on any machine. wl_tum's comparison is ONE existential pair
+    (`source.tum` reaches `probe.tum` on both), since its only source and probe
+    share a name.
+  - **Default:** `fields="4+10"`, VeriFlow-FR's headline per D6; plain is the
+    ablation. The wl_tum did-not-finish test now pins plain explicitly.
+  - **What it changes for the comparison:** the explosion inside single firewall
+    tables (Q22) was plain slicing's, not VeriFlow's as specified. The thesis's
+    own optimisation removes it, which is exactly why D6 made §4.6 required.
+
 - **V4 — FaVe integration.** Adapter, `FAVE_BACKEND=veriflow`, doctor entry for the
   build, `integration`-tier gate, every accommodation entered in TODO item 31's
   registry.

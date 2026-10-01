@@ -32,7 +32,9 @@ budget of local ECs. A workload that exceeds it is not a pass and not a
 failure of this gate but a MEASURED did-not-finish, and it is asserted as
 such, with the table where it stopped (VERIFLOW_PLAN.md Q22).
 
-Measured 2026-09-30 (VERIFLOW_PLAN.md V3), both revisit rules (Q4) alike:
+Measured 2026-09-30 (VERIFLOW_PLAN.md V3) with plain slicing, both revisit
+rules (Q4) alike -- and since V3b (2026-10-01) the default 4+10 fields finish
+wl_up, wl_tum and wl_stanford too, equal to NetPlumber:
   * equal to NetPlumber -- wl_ifi 54 pairs, wl_cloud 53, wl_example 6,
     wl_airtel1 210, wl_i2 61;
   * did not finish within 5e7 local ECs -- wl_stanford (out.yoza_rtr),
@@ -76,8 +78,9 @@ def _matrix(engine, prefix, files, sources_of, probes_of, missing_of):
             for p in probes}
 
 
-def veriflow_matrix(prefix, files=None, budget=BUDGET):
-    engine = VeriFlowAdapter(logging.getLogger("test_veriflow_differential"), budget=budget)
+def veriflow_matrix(prefix, files=None, budget=BUDGET, fields="4+10"):
+    engine = VeriFlowAdapter(logging.getLogger("test_veriflow_differential"),
+                             budget=budget, fields=fields)
     return engine, _matrix(
         engine, prefix, files,
         lambda e: sorted(g.node for g in e._generators),
@@ -149,15 +152,17 @@ class TestI2(_Agrees):
 
 @_gate
 class TestTumDidNotFinish(unittest.TestCase):
-    """ wl_tum's single firewall table explodes into range ECs (Q22): the check
-    stops, unfinished, naming that table -- a measured outcome, not a pass. """
+    """ Under PLAIN slicing wl_tum's single firewall table explodes into range
+    ECs (Q22): the check stops, unfinished, naming that table -- the measured
+    outcome V3b's 4+10 fields remove (it finishes, 1.17e6 local ECs, and agrees
+    with NetPlumber; VERIFLOW_PLAN.md V3b). Pinned on plain, the ablation. """
 
     def test_stops_at_the_firewall_table(self):
         from util.barrier import BarrierError
         if not os.path.isfile("bench/wl_tum/routes.json"):
             raise unittest.SkipTest("wl_tum inputs not generated")
         with self.assertRaisesRegex(BarrierError, r"fw\.tum\.forward_filter.*alone would slice"):
-            veriflow_matrix("bench/wl_tum")
+            veriflow_matrix("bench/wl_tum", fields="plain")
 
 
 if __name__ == '__main__':
