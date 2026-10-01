@@ -112,13 +112,27 @@ class TestWlUpPolicyArtifacts(unittest.TestCase):
             + [os.path.join(_FAVE, f) for f in _SOURCES])
         cls.csv_path, cls.roles_path = csv_path, roles_path
 
-        # inventorygen reads the matrix, so it runs against the one just built.
-        run([sys.executable, "%s/inventorygen.py" % _W])
+        # inventorygen reads the matrix, so it is GIVEN the one just built, and
+        # writes beside it. Until TODO item 37 this line passed no arguments and
+        # the script hardcoded `bench/wl_up/...`, so the comment that stood here
+        # ("it runs against the one just built") was wrong in both directions:
+        # the script read the TRACKED matrix rather than this one, and wrote
+        # `bench/wl_up/inventory.json` into the source tree from a `fast`-tier
+        # unit test. It also gave this module a dependency on an
+        # `integration`-tier artifact -- `bench/wl_up/reachability.csv`, which
+        # `test/gen_wl_up_inputs.sh` produces -- so on a clean checkout all six
+        # tests ERRORED, and on a machine where integration had run they passed
+        # while checking the wrong thing. The FPL inventory stays the tracked
+        # one: deriving from the FPL sources alone is this class's premise.
+        cls.inventory_path = os.path.join(tmp, "inventory.json")
+        run([sys.executable, "%s/inventorygen.py" % _W,
+             "--fpl", _SOURCES[0], "--matrix", csv_path,
+             "--out", cls.inventory_path])
 
         cls.checks_path = os.path.join(tmp, "checks.json")
         cls.reach_path = os.path.join(tmp, "reachable.json")
         run([sys.executable, "bench/reach_csv_to_checks.py",
-             "-p", csv_path, "-m", "%s/inventory.json" % _W,
+             "-p", csv_path, "-m", cls.inventory_path,
              "--roles", roles_path, "--strict",
              "-c", cls.checks_path, "--cchecks", os.path.join(tmp, "cchecks.json"),
              "-j", cls.reach_path])
