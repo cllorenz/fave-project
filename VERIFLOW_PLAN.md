@@ -409,6 +409,10 @@ item 31's registry.
   These are upper bounds over the whole space. A check's arriving set is narrower, but
   for the two firewalls an estimated 1e9-1e10 remains.
 
+  *Superseded in part, 2026-10-01 (V3b):* the single-table explosion below was PLAIN
+  slicing's. With §4.6's scan fields, `wl_up` and `wl_tum` finish and agree with
+  NetPlumber (§10, V3b). Kept as written, as the plain ablation's record.
+
   **What it rescues, and what it does not.** Local slicing makes `wl_ifi`, `wl_i2` and
   `wl_cloud` small and `wl_stanford` heavy but plausible. It cannot help where the
   explosion sits inside ONE table (`wl_tum`, `wl_up`); §4.6's scan still splits by the
