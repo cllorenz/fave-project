@@ -82,3 +82,9 @@ class NetPlumberLibAdapter(NetPlumberAdapter):
 
     def clear_results(self) -> None:
         self._lib.clear_results()
+
+    def loop_reports(self) -> int:
+        """ How many flows NetPlumber stopped because their path revisited a
+        table (its loop callback, counted in-process). Zero proves its
+        table-granular loop rule truncated nothing (TODO item 33). """
+        return int(self._lib.loop_reports())

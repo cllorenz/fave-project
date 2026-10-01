@@ -136,6 +136,17 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_wl_ifi_stateless_gate.py  # wl_ifi's <--> policy variant end to end: zero violations; needs the JVM + generated stateless inputs
     test/test_apkeep_i2_admission.py  # wl_i2 faithful VLAN admission is per (ingress port, VLAN) and applies to transit hops; skips if unavailable
     test/test_apkeep_stanford_admission.py  # wl_stanford faithful VLAN admission is per (ingress port, VLAN) and gates the arrival edge; skips if unavailable
+    # MOVED here from the fast tier 2026-10-01 (TODO item 34). All three build an
+    # APKeepAdapter, whose __init__ constructs a LibNDD and so needs JPype1 + a
+    # built NDD jar -- neither of which the fast tier's `pip install -r
+    # requirements.txt` can provide, and a JVM is not something pip supplies at
+    # all. They did not SKIP without it: APKeepAdapter raises from __init__, so on
+    # a clean runner this was 39 errors/failures, measured. The per-class
+    # require_or_skip guards in two of them sit below that constructor and never
+    # got the chance to fire.
+    test/test_apkeep_out_stage.py      # the out-stage becomes APKeep elements (P7c); needs JPype + both jars
+    test/test_apkeep_ingress_contract.py  # a table is checked against the ingress ports its rules name; needs JPype + both jars
+    test/test_apkeep_tcp_flags.py      # tcp_flags survives the `+ filter` slot layout in BOTH engines; needs JPype + both jars
     # ad6 tests with a NATIVE dependency -- the ad6 bridge itself is pure Python
     # (a sys.executable subprocess), but these reach past it:
     test/test_ad6_wl_stanford.py # full-model structural translation (48 tables, ~1s, ALWAYS runs) + the 256-query differential vs a libnetplumber worker, which is opt-in (AD6_STANFORD_FULL_DIFFERENTIAL) and normally skips
@@ -145,6 +156,15 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_apkeep_nat_rewrite.py  # a NAT's rewrite outputs stay atomic predicates across rules applied to OTHER elements (TODO item 29); skips if unavailable
     test/test_apkeep_cloud_differential.py # APKeep vs libnetplumber on wl_cloud, one engine per process, anchored to the dataset
     test/test_ad6_port_pair.py   # a rule matching BOTH transport ports means AND, not OR -- and same-direction ports still alternate (CLOUD_BENCH_PLAN.md 1.7.4)
+    # MOVED here from the fast tier 2026-10-01 (TODO item 34). 143 of its tests are
+    # pure Python and would be welcome in `fast`, but ten of them reach
+    # src/solver/pycosat.py, and pycosat ships NO wheel -- it compiles against
+    # Python.h at install time. Tier membership follows the DEPENDENCY FOOTPRINT
+    # (see the header), and this file's footprint includes a C extension built
+    # from source, so the whole file moves. Splitting the ten solver-backed tests
+    # out would return the other 143 to the inner loop and is the better end
+    # state; it is a 1,200-line file and was not attempted here.
+    test/test_ad6_translate.py   # model -> ad6 config/CNF translation; the reachability cases solve with pycosat
     # Integration rather than fast, although its first half is pure Python: the
     # second half asserts that every REGISTERED Delta-net workload carries a
     # SOURCE.json, and the inputs only exist after this tier generates them. In
@@ -162,6 +182,8 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     # this walk (CLOUD_BENCH_PLAN.md 2.15), so it is validated where the answer
     # is known independently: airtel, cell for cell.
     test/test_deltanet_fib_walk.py # the reference FIB walk reproduces airtel's homing-derived matrix, and is LPM-blind there
+    test/test_veriflow_airtel.py # VeriFlow-FR V1 gates: airtel matrices == oracle == NetPlumber, and an LPM guard that can fail (~50s)
+    test/test_veriflow_census.py # VeriFlow-FR V2: EC counts reproduce APKeep's Table 3 (Airtel 2,799; Stanford* 2,283); multi-field products pinned (~45s)
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
 # chain, which TODO.md item 13a refuses by default -- so they run in their own
@@ -189,6 +211,7 @@ FAVE_OUT_IFACE_TESTS=(
     # was invisible. The wl_ifi and wl_airtel1 classes in the same file carry no
     # iptables ruleset, so taking the opt-in wholesale is a no-op for them.
     test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
+    test/test_veriflow_differential.py # VeriFlow-FR V3 vs NetPlumber on the rewriting workloads; wl_tum a measured did-not-finish; wl_i2 opt-in (VERIFLOW_FULL_DIFFERENTIAL=1)
 )
 # Also integration-tier, but these must run in their OWN pytest process. JPype
 # allows exactly one JVM per process and APKeep holds its network in Java static
@@ -206,6 +229,7 @@ FAVE_NDD_TESTS=(
     test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs
+    test/test_revisit_router_on_a_stick.py # Q4 / TODO item 33: a packet passing one table twice -- VeriFlow-FR(state) and ad6 right; NetPlumber and APKeep defects pinned (starts NDD too)
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
@@ -307,6 +331,14 @@ run_integration() {
 
     echo "== integration: NetPlumber C++ unit tests =="
     make -j -C "$ROOT/net_plumber/build" test || rc=1
+
+    # VeriFlow-FR (VERIFLOW_PLAN.md): its own C++ suite -- the literature's
+    # examples L1-L6/L10 and the concrete-packet oracle -- and the in-process
+    # binding test_veriflow_airtel.py drives. Both build in seconds, so they are
+    # built here rather than required up front.
+    echo "== integration: VeriFlow-FR C++ unit tests + libveriflow_fr =="
+    make -j -C "$ROOT/veriflow_fr" test || rc=1
+    PYTHON="$PYTHON" bash "$ROOT/veriflow_fr/python/build_libveriflow_fr.sh" || rc=1
 
     # Build APKeep (+ CLI golden pin) BEFORE the fave pytest step, so the
     # libapkeep test (test_apkeep_lib) finds the jar; it skips otherwise.
@@ -579,11 +611,11 @@ run_doctor() {
     check_import "pytest"      pytest                      "" "-> pip install -r requirements.txt   [every tier]" || rc=1
     check_import "coverage"    coverage                     "" "-> pip install -r requirements.txt   [COVERAGE=1]" || rc=1
     check_import "mypy"        mypy                         "" "-> pip install -r requirements.txt   [typecheck gate]" || rc=1
-    check_import "lxml"        lxml.etree                   "" "-> pip install lxml                  [ad6]" || rc=1
-    check_import "pycosat"     pycosat                      "" "-> pip install pycosat               [ad6]" || rc=1
-    check_import "python-sat"  pysat.solvers                "" "-> pip install python-sat            [ad6 incremental]" || rc=1
+    check_import "lxml"        lxml.etree                   "" "-> pip install -r requirements.txt   [fast: the ad6 translator/bridge tests]" || rc=1
+    check_import "pycosat"     pycosat                      "" "-> pip install pycosat==0.6.6        [integration: test_ad6_translate; SOURCE build, needs python3-dev]" || rc=1
+    check_import "python-sat"  pysat.solvers                "" "-> pip install -r requirements.txt   [fast: ad6/fave_bridge.py imports it at module level]" || rc=1
     check_import "pybison"     bison                        "" "-> see Dockerfile: pip install --no-binary :all: pybison==0.6.4  [integration]" || rc=1
-    check_import "JPype1"      jpype                        "" "-> pip install JPype1                [APKeep backend]" || rc=1
+    check_import "JPype1"      jpype                        "" "-> pip install JPype1==1.7.1         [integration: every APKeep/NDD test; an adapter raises from __init__, it does not skip]" || rc=1
     check_import "libnetplumber" libnetplumber net_plumber/python \
         "-> build_libnetplumber.sh, OR (more often) a missing liblog4cxx -- see below  [integration/e2e]" || rc=1
     check_import_advisory "z3-solver" z3 "z3-solver==5.1.0.0" \
@@ -634,6 +666,12 @@ run_doctor() {
         printf '  [MISSING] %-30s %s\n' "libnetplumber .so built" \
             "-> bash net_plumber/python/build_libnetplumber.sh"
         rc=1
+    fi
+    if compgen -G "$ROOT/veriflow_fr/python/libveriflow_fr*.so" >/dev/null; then
+        printf '  [ok]      %-30s\n' "libveriflow_fr .so built"
+    else
+        printf '  [MISSING] %-30s %s\n' "libveriflow_fr .so built" \
+            "-> bash veriflow_fr/python/build_libveriflow_fr.sh   [integration; the tier builds it]"
     fi
     # The two Java engine jars, checked for FRESHNESS and not merely existence --
     # they are the same class of artifact as the .so above and fail the same way,

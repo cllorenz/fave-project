@@ -48,11 +48,29 @@ runs:
 
     - name: Install Python dependencies
       shell: bash
-      # pybison + JPype1 are native/integration-only (need flex/bison and a JVM
-      # respectively), so they are installed here rather than in requirements.txt
-      # (which stays pure-Python for the fast tier). JPype1 drives the APKeep
-      # backend in-process; see fave/apkeep/lib_apkeep.py.
-      run: pip install -r requirements.txt pybison JPype1
+      # pybison, JPype1 and pycosat are native/integration-only (system flex/bison,
+      # a JVM, and a C compiler respectively), so they are installed here rather
+      # than in requirements.txt, which stays wheel-only so the fast tier needs no
+      # toolchain. JPype1 drives the APKeep/NDD backends in-process (see
+      # fave/apkeep/lib_apkeep.py); pycosat is ad6's in-process SAT solver, which
+      # test_ad6_translate.py needs and which ships no wheel.
+      #
+      # THREE commands, not one, and the split is load-bearing twice over:
+      #   * `--no-binary :all:` applies to EVERY package in its own pip
+      #     invocation, so folding it into the requirements.txt line would force a
+      #     source build of lxml, python-sat and the rest.
+      #   * pybison MUST take it. Dockerfile:96-102: the prebuilt cp312 wheel is
+      #     served by PyPI, pip prefers it, and it SEGFAULTS at runtime inside
+      #     BisonParser.__init__ -- taking the whole pytest process down with no
+      #     traceback. Built from source against this runner's own flex/bison it
+      #     works. Keep the flag on any version bump. (Fixed 2026-10-01, TODO
+      #     item 35: this step used to run a bare `pip install ... pybison`, i.e.
+      #     it installed precisely the artifact the Dockerfile exists to avoid.)
+      # Versions pinned to the Dockerfile's, which is the canonical environment.
+      run: |
+        pip install -r requirements.txt
+        pip install --no-binary :all: pybison==0.6.4
+        pip install JPype1==1.7.1 pycosat==0.6.6
 
     - name: Build and install NetPlumber
       shell: bash

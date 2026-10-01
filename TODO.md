@@ -434,6 +434,11 @@ share. **Decision needed before building anything.**
   - **Also pruned in-repo virtualenvs** (`*/.venv/*`, `*/venv/*`, `*/site-packages/*`): a local `.venv` inside `fave/` was being swept by `find` (804 files, 94 venv-internal "failures"). CI didn't hit this (uses `setup-python`, no in-repo venv), but it's a real robustness gap. Removed the stale `examples/example-traverse.py` ignore (file no longer exists).
 - [x] **Local gate is GREEN:** `skipped 2, ok 16, style-only 111, failed 0` over the 129 real fave files — even without `pybison` locally (CI has it, so will be ≥ as clean). All 14 original CI failures addressed.
 - [x] **CONFIRMED green on real CI** (user-verified). The `lint` job now gates. This was the last "check that doesn't gate" — `fast`, `integration`, and `lint` all gate; `e2e`/`bench` are non-blocking by design.
+- **PARTLY SUPERSEDED 2026-10-01 — see item 38.** The gate still *gates*; it is no longer
+  *green*. `lint_test.sh` exits 1 with 59 error-class findings (56 `E1101` false positives on
+  duck-typed adapter unions, plus one real `NameError` in an eval driver). The sentence above
+  about `fast` and `integration` has stopped holding too: both abort at pytest collection for
+  want of three pip declarations (item 34). A gate that aborts is not a gate that passes.
 - **Finding (original):** `lint_test.sh` recorded counts but always exited 0, so `lint_fave` could never fail.
 
 ### 3. Re-enable coverage reporting — mostly absorbed by item 1b
@@ -474,6 +479,11 @@ share. **Decision needed before building anything.**
   `UNCLASSIFIED` rather than ignored, so the table cannot quietly fall behind.
 - [x] **`.yolobox.toml`** now declares the full package set in `[customize] packages`,
   cross-checked against the Dockerfile, so a fresh sandbox starts complete.
+  - **NOT in effect 2026-10-01:** that block is at present commented out in full in
+    `.yolobox.toml` (an uncommented copy sits untracked at `.yolobox.toml-bak`, alongside an
+    added `env = [...]` proxy block), so this sandbox again started with none of the apt set.
+    The doctor caught it and its repair line was accurate — the box working as intended — but
+    the box above describes a state the file no longer has.
 - [x] **README** — a "Checking the environment first" section with the three
   misleading-symptom cases in a table.
 - [x] **EXTENDED 2026-09-25: the doctor checks the two Java engine jars for FRESHNESS,
@@ -503,10 +513,338 @@ share. **Decision needed before building anything.**
   - All three branches exercised before landing (fresh → `[ok]`/exit 0; backdated jar →
     `[STALE]`/exit 1; moved-aside jar → `[warn]`/exit 0), and the verdict's failure line
     now reads "see the `[MISSING]`/`[STALE]` lines above".
+  - **Applied to the jars only — see item 41 (2026-10-01).** The comment introducing
+    `check_jar` says the jars are "the same class of artifact as the .so above and fail the
+    same way", and the `.so` above is still checked for existence alone. A `libnetplumber.so`
+    one day older than its binding passed this doctor as "environment complete for every tier"
+    while the integration tier died on the method it was missing.
 - **Effect, measured:** the `integration` tier went from *entirely unavailable* (pybison
   segfault killed the process) to **51 passed / 2 skipped + 8 NDD tests**, and
   `test_ad6_wl_up.py` from a core dump to 3 passed — with no code change, only container
   repair. The doctor now reports "environment complete for every tier".
+
+### 34. The `fast` tier is not pure-Python, so the merge gate has been red since 2026-09-12 — FIXED 2026-10-01
+- **Finding:** `requirements.txt`'s header states that installing it into a clean virtualenv
+  "is all that the native `fast` test tier needs", naming `pybison` as the single deliberate
+  exception. That has been false since `5c29fff5` (2026-09-12). Four `fast`-tier modules reach
+  ad6, which is not pure Python:
+  - `test_ad6_translate.py:29` and `test_ad6_translation_flag.py:32` `import lxml.etree` at
+    module level;
+  - `test_ad6_bridge_cond.py:74` imports `ad6/fave_bridge.py`, which pulls `lxml` (`:58`) and
+    then `src/solver/incremental.py:70` -> `pysat.solvers`;
+  - `test_ad6_translate.py` additionally imports `src.solver.pycosat` **inside** six test
+    bodies (`:1097`, `:1131`, `:1190`, ...), so `pycosat` is a fast-tier *runtime* dependency
+    that collection does not reveal.
+
+  `lxml==6.1.2`, `pycosat==0.6.6` and `python-sat==1.9.dev15` are all pinned in the
+  `Dockerfile` (`:115-118`) and **none of the three is in `requirements.txt`**, which has not
+  been touched since `553e005d` (2026-06-24).
+- **Why this is worse than a failing test:** the module-level imports produce a pytest
+  **collection error**, and pytest then aborts the whole session
+  (`Interrupted: 3 errors during collection`) -- so the tier reports nothing at all about the
+  915 tests that would otherwise have run. `fast` is the required merge gate; `lint` and
+  `typecheck` install the same file and break the same way the moment either reaches an ad6
+  module.
+- [x] **BOTH, because the choice this box offered turned out not to exist.** `pycosat` ships
+  **no wheel** -- it compiles against `Python.h` at install time -- so adding it to
+  `requirements.txt` would have dragged a C toolchain into the one tier whose value is that it
+  runs anywhere, trading a declared dependency for an undeclared one. `lxml` and `python-sat`
+  do ship wheels and were added at the Dockerfile's pins; `pycosat` was not, and the file's
+  header now states the WHEEL-ONLY rule and lists all three of its deliberate exceptions
+  (`pybison`, `pycosat`, `JPype1`) with the reason for each, instead of leaving `pybison` as a
+  lone unexplained NOTE.
+- [x] **Four modules moved to `FAVE_INTEGRATION_TESTS`**, by the dependency-footprint rule
+  `test.sh`'s own header already states. `test_ad6_translate.py` goes for `pycosat`; and -- see
+  the correction below -- `test_apkeep_out_stage.py`, `test_apkeep_ingress_contract.py` and
+  `test_apkeep_tcp_flags.py` go for JPype1 and the two engine jars. Nothing is lost from the
+  suite: `integration` gates too. 175 tests moved.
+- [x] **Doctor labels corrected.** `lxml` and `python-sat` now say `[fast: ...]` and point at
+  `requirements.txt`; `pycosat` says `[integration: test_ad6_translate; SOURCE build, needs
+  python3-dev]`; and `JPype1` -- which said `[APKeep backend]`, a component rather than a tier
+  -- now says `[integration: every APKeep/NDD test; an adapter raises from __init__, it does
+  not skip]`, because that last clause is the whole diagnosis.
+- **Diagnosis, measured 2026-10-01 BEFORE the fix**, on a container repaired per item 1v and
+  with the three packages installed by hand:
+  `./test.sh fast` -> **915 passed, 1 skipped**; `integration` -> **PASSED** (176 + 14 + 16
+  passed, 11 skipped; C++ `OK (119)`); `e2e` -> **PASSED** (5 + all three smoke benchmarks);
+  `typecheck` clean (36 + 8 modules). The tier content is sound; only its declared
+  dependencies are wrong.
+- **Noted in passing:** item 1v's `.yolobox.toml` box is ticked, but the `[customize] packages`
+  block in that file is at present commented out in full (an uncommented copy sits untracked at
+  `.yolobox.toml-bak`), so a fresh sandbox starts with none of the apt set again.
+- **CORRECTION to this item's own filing (2026-10-01).** It named only the pip half, and a
+  clean `requirements.txt` runner fails in **two** independent ways. Measured on a venv holding
+  nothing but `requirements.txt` + the two wheel packages: **10** failures from the absent
+  `pycosat`, and **39** from the absent `JPype1` -- `test_apkeep_out_stage.py`,
+  `test_apkeep_ingress_contract.py` and `test_apkeep_tcp_flags.py` build an `APKeepAdapter`,
+  whose `__init__` constructs a `LibNDD`. They do not skip: the adapter RAISES from its
+  constructor, and the `require_or_skip` guards two of those files do carry sit below it and
+  never get the chance to fire. I saw these three while first exploring the tree and filed only
+  the fourth module of the same family (item 37), so the pip half got written up and the JVM
+  half did not. Same tier-membership defect, same family as the `test_apkeep_ndd_{fwd,wlup}`
+  one the CI coverage comment records; it is fixed here with the rest.
+- **ACCEPTANCE, measured 2026-10-01.** The container was reset mid-task and lost every apt
+  package, which made the acceptance test the real one rather than a simulated one: on a box
+  with **no system packages at all**, a venv built from `requirements.txt` alone runs
+  `./test.sh fast` to **741 passed, 0 failed, 0 skipped**. The exact CI command
+  (`COVERAGE=1 COVERAGE_MIN=77 bash test.sh fast`) exits 0, and the `typecheck` gate -- which
+  installs the same file -- stays clean (36 + 8 modules).
+  With the system half restored, `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration` -> **PASSED**:
+  **359 passed / 1 skipped** in the first group (was 176 / 9 -- the 175 moved tests arrived, and
+  the eight wl_cloud differentials ran because their inputs happened to be present from item
+  36's investigation; `test.sh` still does not generate them), then 14 / 2 and 16 / 0. So the
+  four modules are not merely out of `fast`; they are demonstrably running, and under the flag
+  that forbids a backend test from skipping green.
+- [x] **Coverage ratchet: lowered 78 -> 77, then RESTORED to 78 on the rebase, so nothing was
+  lowered in the end.** The rebase onto the VeriFlow work added 48 pure-Python tests to this
+  tier (741 -> 789 passed) and carried it back over the floor: 77.79%, which the gate accepts
+  because `coverage report --fail-under` compares the figure as printed at the configured
+  precision. The margin is therefore 0.21 points and not the 0.79 the printed "78%" suggests --
+  stated in `ci.yml`, because the next red `fast` job here is a regression to fix rather than a
+  floor to lower. What follows is the reasoning for the lowering, kept because it is the
+  measurement of this item's own effect and the rebase did not change it: Stated there in full; in short: the 78 floor was measured 2026-09-09,
+  the tier broke 2026-09-12, and this job has measured NOTHING since -- it aborted at
+  collection -- so 78 was never a number CI had reproduced. Under identical conditions the move
+  is 916 passed / 80.00% -> 741 passed / 77.24%; the denominator falls 19,951 -> 17,589
+  statements, so this is not drift but the four modules' above-average coverage of
+  `fave/apkeep/adapter.py` and `ad6/translate.py` leaving while those modules stay in the graph
+  (other fast tests import them). The 80% was only ever reachable on a workstation carrying
+  JPype1, both jars and a compiler. **Splitting `test_ad6_translate.py`'s ten solver-backed
+  tests from its 143 pure ones is the way back up** -- do that, and the margin above stops
+  depending on a rounding rule.
+
+### 35. Four dependency manifests have drifted — and CI installed the pybison wheel the Dockerfile exists to avoid — FIXED 2026-10-01
+Item 0 already flagged the DRY problem ("the three lists ... are kept in sync by hand").
+There were four, and they disagreed in ways that changed what CI actually ran.
+
+- **Finding 1 — the composite installed the forbidden wheel.**
+  `.github/actions/setup-fave-native/action.yml` ran `pip install -r requirements.txt pybison
+  JPype1` -- a bare `pybison`, no `--no-binary`. `Dockerfile:96-102` calls that flag
+  "load-bearing, not belt-and-braces": PyPI ships a prebuilt `cp312` manylinux wheel, pip
+  prefers it, and it **segfaults at runtime** in `BisonParser.__init__`, taking the whole
+  pytest process down with no traceback. Confirmed still served 2026-10-01 --
+  `pip download --only-binary :all: pybison==0.6.4` returns
+  `pybison-0.6.4-cp312-cp312-manylinux_2_28_x86_64.whl` -- so `integration`, and `lint` via
+  `ci.yml`, installed precisely the artifact the Dockerfile was written to avoid.
+  - [x] **FIXED: three pip commands, and the split is load-bearing.** `--no-binary :all:`
+    applies to EVERY package in its own invocation, so it cannot share a line with
+    `requirements.txt` without forcing source builds of `lxml` and `python-sat` as well. Now
+    `pip install -r requirements.txt`, then `pip install --no-binary :all: pybison==0.6.4`,
+    then `pip install JPype1==1.7.1 pycosat==0.6.6`. The `lint` job gets the same treatment.
+  - **Verified** by running that exact sequence into a fresh venv: the resulting
+    `pybison-0.6.4.dist-info/WHEEL` reads `Tag: cp312-cp312-linux_x86_64`,
+    `Generator: setuptools` -- a locally built wheel, not the `manylinux_2_28` one PyPI
+    serves -- and `test_iptables_parser` + `test_iptables_out_iface` run 17 passed against it
+    with no segfault.
+
+- **Finding 2 — the composite omitted `lxml` / `python-sat` / `pycosat`**, so `integration`
+  broke at collection for the same reason as item 34: `test_ad6_port_pair.py` is in
+  `FAVE_INTEGRATION_TESTS` and imports `lxml`, and `test_ad6_wl_up.py` reaches `pysat` through
+  the bridge.
+  - [x] **FIXED:** `lxml` and `python-sat` now arrive through `requirements.txt` (item 34), and
+    `pycosat` is named explicitly in the third command above.
+
+- **Finding 3 — `fave/setup.sh` could not install into the venv it had just created.**
+  `export PATH="~/.venv/bin:$PATH"`: bash performs no tilde expansion inside double quotes, so
+  the entry was the literal string `~/.venv/bin`, a directory that does not exist, and every
+  following `pip3 install` ran the SYSTEM interpreter's pip. On Ubuntu 24.04 that now fails
+  outright with `error: externally-managed-environment`, so the documented setup path installed
+  none of the seven dependencies it listed.
+  - [x] **FIXED:** the venv's pip is addressed by path (`VENV_PIP="$HOME/.venv/bin/pip"`),
+    which also makes it agree with the `python3 -m venv "$HOME/.venv"` line above it.
+
+- **Finding 4 — `setup.sh` hand-listed its pip set** instead of using `requirements.txt`, and
+  the two had already drifted in both directions: `setup.sh` had no `pytest`, no `coverage` and
+  no `mypy`; `requirements.txt` has no `pybison`.
+  - [x] **FIXED:** `setup.sh` installs `-r requirements.txt` plus the three documented native
+    extras, so there is one list and one list of exceptions, and the exceptions are explained
+    once -- in that file's header -- rather than implied by their absence.
+
+- **Still hand-maintained, deliberately: the `Dockerfile`'s own pip lines.** It `COPY`s the
+  repo only AFTER installing them, so it cannot read `requirements.txt` without reordering the
+  build and losing the layer caching that ordering buys. Its pins and `requirements.txt`'s do
+  agree today, and `./test.sh doctor` cross-checks the apt half; the pip half is still two
+  lists that a reviewer has to compare by eye.
+
+### 36. Eight cross-engine differential tests have never run — the gate pre-empts its own `setUpClass` (found 2026-10-01)
+- **Finding:** `test.sh` invokes six of the seven `gen_wl_*_inputs.sh` generators.
+  `gen_wl_cloud_inputs.sh` is in **no** tier, so `bench/wl_cloud/`'s derived inputs never exist
+  and both wl_cloud differentials skip in every tier and every CI run:
+  - `test_apkeep_cloud_differential.py` (5 tests) -- APKeep-NDD vs libnetplumber, one engine per
+    process;
+  - `test_ad6_cloud_differential.py` (3 tests) -- ad6 vs libnetplumber, anchored to the
+    dataset's own SMT verdicts.
+- **The gate cannot open on its own.** Both classes carry a class-level
+  `@require_or_skip(all(os.path.isfile(f) for f in _INPUTS), ...)` evaluated at **import** time,
+  while the thing that would create `_INPUTS` is each class's `setUpClass`, which runs the
+  generator itself (`test_apkeep_cloud_differential.py:143-149`). On any checkout where the
+  generator has not been run by hand: inputs missing -> class skips -> `setUpClass` never runs
+  -> inputs stay missing.
+- **`FAVE_REQUIRE_BACKENDS=1` does not catch it.** The CI `integration` job sets that flag
+  exactly so a differential cannot skip green, but it converts *backend-unavailable* skips into
+  failures; this skip is on generated inputs, so it stays green. This is the
+  "a skip is NOT a pass" hazard `test/backend_gate.py` was written for, arriving through the one
+  door that gate does not cover.
+- **It is also the workload the ingress work came out of** -- `CLOUD_BENCH_PLAN.md` §2.6 credits
+  wl_cloud with exposing APKeep's ingress gap, and item 29's three upstream defects were all
+  found there.
+- **Measured 2026-10-01:** `bash fave/test/gen_wl_cloud_inputs.sh` succeeds in seconds (6 oracle
+  queries; 86 devices / 2,941 rules; 26 roles / 65 endpoints / 226 authorised pairs). With the
+  inputs present, `test_ad6_cloud_differential` -> **3 passed in 55s** and
+  `test_apkeep_cloud_differential` -> **5 passed in 2.3s**. Nothing is broken; the tests have
+  simply never been reached.
+- [ ] **Add `gen_wl_cloud_inputs.sh` to `run_integration`**, beside the other six.
+- [ ] **Move the gate so it cannot pre-empt the generation it guards** -- condition on the *raw*
+  dataset (`bench/wl_cloud/cloud-tf/`, which is tracked) rather than on the derived files, and
+  let `setUpClass` do the deriving.
+
+### 37. A `fast`-tier test needs an `integration`-tier artifact — and reads a different matrix than the one it builds (found 2026-10-01)
+- **Finding:** `test_wl_up_policy_artifacts.py` appears in no exclusion list in `test.sh`, so it
+  runs in `fast`. Its `setUpClass` builds a policy matrix into a `TemporaryDirectory` and then
+  shells out to `bench/wl_up/inventorygen.py` under the comment *"inventorygen reads the matrix,
+  so it runs against the one just built"*. It does not: `inventorygen.py` takes no arguments and
+  hardcodes `bench/wl_up/roles_and_services.txt` (`:14`), `bench/wl_up/reachability.csv` (`:26`)
+  and `bench/wl_up/inventory.json` (`:33`). Two consequences, and the second is the worse one:
+  - `reachability.csv` is gitignored and produced by `test/gen_wl_up_inputs.sh`, which runs in
+    **integration**. On a clean checkout the subprocess raises `FileNotFoundError`, `check=True`
+    turns that into `CalledProcessError`, and all six tests **error**.
+  - When the file *does* exist, the test validates the tracked/generated matrix rather than the
+    one it just derived -- so the premise is wrong in both states, and the passing state is the
+    quieter failure.
+- **Self-demonstrating, 2026-10-01:** those six errored before `./test.sh integration` ran and
+  passed afterwards, solely because the integration tier had left
+  `fave/bench/wl_up/reachability.csv` behind (timestamped 08:26, test run 08:29). In CI the
+  `fast` job is a separate runner on a fresh checkout, so it only ever sees the first state.
+- **Side effect worth removing either way:** a `fast`-tier unit test writes
+  `bench/wl_up/inventory.json` into the source tree.
+- [ ] **Give `inventorygen.py` its three paths as arguments** (defaulting to today's values) and
+  have the test pass its tmpdir, so the test checks what it built.
+- [ ] **Then re-confirm the module belongs in `fast`** -- with the hardcoded paths gone it needs
+  no generated input, and genuinely does.
+
+### 38. The gating `lint` job currently fails, and one finding is real (found 2026-10-01)
+- **Finding:** `bash fave/test/lint_test.sh` exits **1** with 59 error-class findings, against
+  item 2's recorded "Local gate is GREEN ... failed 0" (2026-06) and its
+  "CONFIRMED green on real CI". The job gates, so this blocks merges.
+- **56 of the 59 are `E1101 no-member` false positives** from duck-typed adapter unions: pylint
+  infers `NetPlumberAdapter | APKeepAdapter | Ad6Adapter` at a single site and then reports every
+  member absent from any one of the three (`test/test_aggregator_backend.py`,
+  `test/test_cloud_readme.py`, `test/test_cloud_policy.py`, `test/test_cloud_encodings_agree.py`,
+  `bench/wl_cloud/cloud_readme.py`). Same character as the `import-error` /
+  `no-name-in-module` findings item 2 already decided not to gate on.
+- **One is a real defect:** `bench/wl_up/eval/wl_up_related_discriminates.py:102` passes
+  `translation=TRANSLATION_LITERAL`, and that name is neither defined nor imported anywhere in
+  the file -- the script raises `NameError` on every run. It is an eval driver, so no tier covers
+  it and nothing else would have caught it.
+- **Two are benign:** `apkeep/adapter.py:352` `E1307` (a `%d` whose argument can be `None` on a
+  diagnostic path) and `test/test_iptables_out_iface.py:107` `E0601` (pylint cannot see that
+  `self.fail()` does not return).
+- [ ] **Fix the `NameError`** -- decide which translation mode that driver meant, and import it.
+- [ ] **Decide the `E1101` policy** the way item 2 decided the import-error one: either disable
+  `no-member` at the gate, or annotate the adapter sites so the union narrows. Leaving it is not
+  an option while the job gates.
+- [ ] **Re-check `apkeep/adapter.py:352`** -- confirm the `None` branch is unreachable, or format
+  it defensively.
+
+### 39. `ad6/`'s own test suite runs in no tier and in no CI job (found 2026-10-01)
+- **Finding:** `make -C ad6 test` runs **143 tests across ten suites** and is referenced in
+  `README.md` only as an aside about activating the venv. `test.sh` names `ad6` eleven times --
+  every one of them about *FaVe's* ad6-bridge tests or about the solver binaries the doctor
+  checks -- and runs `ad6/test/test.py` in no tier. The GitHub workflow does not run it either.
+  Item 1t made that runner propagate failures (2026-09-09), so the mechanism to gate on it
+  exists; nothing calls it.
+- **Measured 2026-10-01:** `PYTHON=.venv/bin/python3 make -C ad6 test` -> **143 passed, exit 0**
+  (~14 s, `minisat`/`clasp` present). An un-wired suite, not a broken one.
+- [ ] **Decide whether ad6 is gated.** It is a vendored 2014 proof-of-concept that this tree now
+  treats as a third backend and has fixed two core encoding bugs in (item 11,
+  `ad6/FAVE_CHANGES.md` §7-8), each with a dedicated regression test -- and those regressions are
+  currently protected by nobody running them. Either add it to `integration` (it needs
+  `minisat`/`clasp`, which the doctor already classifies as `ad6`), or record in `README.md` that
+  it is deliberately outside the gate.
+
+### 40. A cost opt-in wired through the availability gate turns `integration` red (found 2026-10-01)
+- **Finding:** `fave/test/test_veriflow_differential.py:141` gates `TestI2` with
+  `@require_or_skip(os.environ.get("VERIFLOW_FULL_DIFFERENTIAL") == "1", "wl_i2 takes minutes
+  per engine: ...")`. That decorator does not mean "skip unless": `backend_gate.require_or_skip`
+  converts an unmet condition into a hard **failure** whenever `FAVE_REQUIRE_BACKENDS` is set,
+  which is the whole reason it exists -- a CI job that owns the differential gate must not pass
+  it by skipping. The CI `integration` job sets exactly that flag
+  (`ci.yml:148`), so the condition it is handed here is never a skip and always an error.
+- **Two different conditions, one gate.** `require_or_skip` answers *"is the backend there?"* --
+  an unmet condition is an environment fault and skipping it green is the hazard. A cost opt-in
+  answers *"do we want to spend the minutes?"* -- an unmet condition is a deliberate choice and
+  skipping is the correct outcome. Using one for the other makes the expensive case
+  unrunnable rather than optional.
+- **The correct pattern is already in the tree, two files away.**
+  `fave/test/test_ad6_wl_stanford.py:165-172` stacks both decorators and keeps them apart:
+  `@require_or_skip(inputs present, ...)` for availability, then
+  `@unittest.skipUnless(_RUN_FULL_DIFFERENTIAL, "... set AD6_STANFORD_FULL_DIFFERENTIAL=1 to
+  opt in")` for cost. Under the same `FAVE_REQUIRE_BACKENDS=1` run it reports `.s` -- one test
+  passes, the expensive one skips, nothing errors.
+- **Measured 2026-10-01**, `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration`: the
+  `FAVE_ALLOW_OUT_IFACE` group reports **18 passed, 2 skipped, 1 error**, and
+  `RESULT: integration FAILED`. The error is
+  `AssertionError: wl_i2 takes minutes per engine: set VERIFLOW_FULL_DIFFERENTIAL=1
+  [FAVE_REQUIRE_BACKENDS set -> required, must not skip]`, raised from the `setUpClass`
+  `require_or_skip` substitutes. Nothing in the test body runs, so this says nothing about
+  VeriFlow-FR -- the tier is red on the decorator alone.
+- **Only one occurrence:** `grep -rn "require_or_skip(os.environ" fave/test/*.py` returns this
+  line and no other, so every other cost opt-in in the suite already uses `skipUnless`.
+- [ ] **Swap the one decorator** at `test_veriflow_differential.py:141` to
+  `@unittest.skipUnless(...)`, leaving the `@_gate` above it (that one IS an availability
+  check) untouched.
+- [ ] **Consider making the distinction impossible to get wrong**, since the two decorators read
+  almost identically at the call site and differ only in what an unmet condition MEANS: a
+  `backend_gate.skip_for_cost(condition, reason)` -- a thin `unittest.skipUnless` that exists to
+  be named -- would let a reader see which question is being asked, and would let the module
+  say in one place that cost opt-ins are deliberately outside `FAVE_REQUIRE_BACKENDS`.
+- **Not a VeriFlow defect, and not caused by the rebase.** `test_veriflow_differential.py`,
+  `backend_gate.py` and `veriflow_fr/` are byte-identical to `ai` on the branch that found this
+  (`git diff ai..testing` over those paths is empty); the finding is simply that no one had yet
+  run that tier with the flag CI uses.
+
+### 41. The doctor checks the two Java jars for FRESHNESS and the three native artifacts for EXISTENCE (found 2026-10-01)
+Item 1v's 2026-09-25 extension added `check_jar`, because a jar older than its sources still
+**loads**, so every jar-backed test runs against an engine that predates the source change and
+fails as a wrong answer rather than as a missing file. The comment directly above `check_jar`
+says the jars are *"the same class of artifact as the .so above and fail the same way"* -- and
+the `.so` above is still checked with a bare `compgen -G`. The reasoning was written down and
+then applied to one of the two halves.
+- **Measured, the same day this was written.** `net_plumber/python/libnetplumber.so` was built
+  at 08:21; `23265ec2` on `ai` had added `loop_reports` to
+  `net_plumber/python/libnetplumber.cpp` the day before. `./test.sh doctor` reported
+  `[ok] libnetplumber .so built` and the verdict **"environment complete for every tier"**,
+  while `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration` died in
+  `test_revisit_router_on_a_stick.py` with
+  `AttributeError: 'libnetplumber.LibNetPlumber' object has no attribute 'loop_reports'`
+  from `netplumber/lib_adapter.py:90`. Rebuilding the `.so` -> **6 passed**, no code change.
+  That one was loud because the method was simply absent; a stale `.so` whose signatures still
+  matched would have answered, wrongly, and that is exactly the case `check_jar` exists for.
+- **The `.so` is MORE exposed than the jars, not less.** `run_integration` builds the APKeep jar
+  (`apkeep_smoke.sh`), the NDD jar (`ndd_build.sh`) and now `libveriflow_fr`
+  (`test.sh:299`) -- so a stale one of those is repaired by running the tier. **No tier builds
+  `libnetplumber`.** The only thing that does is the CI composite
+  (`setup-fave-native/action.yml:90`), once per job, on a runner with no previous build. So a
+  developer's `.so` is refreshed by nothing they routinely run, which is the condition this
+  item is about.
+- [ ] **Generalise `check_jar` into one artifact-freshness check and use it for all five.**
+  The mechanic is already right -- mtime against the sources, `[STALE]` fatal and naming the
+  file that outran it -- and only the inputs differ:
+  | artifact | sources to compare against | absent means |
+  |---|---|---|
+  | `net_plumber` binary | `net_plumber/src/**` | `[MISSING]`, fatal -- no tier builds it |
+  | `libnetplumber*.so` | `net_plumber/python/libnetplumber.cpp` + `net_plumber/src/**` | `[MISSING]`, fatal -- no tier builds it |
+  | `libveriflow_fr*.so` | `veriflow_fr/src/**` + its binding | `[warn]` -- the tier builds it |
+  | APKeep / NDD jars | `*.java` + `pom.xml` (already done) | `[warn]` -- the tier builds them |
+- [ ] **While there: `libveriflow_fr` absent prints `[MISSING]` but does not set `rc=1`**
+  (`test.sh:623-627`), so it neither fails the doctor nor matches the convention the jars
+  established, where "the tier builds it" is reported as `[warn]`. The three states and their
+  labels should mean the same thing for every artifact; today `[MISSING]` means fatal for two
+  of them and advisory for the third.
+- **Related, already on record:** item 0's follow-up notes that `make all` will not rebuild a
+  stale `net_plumber` binary after a system library moves under it (`undefined symbol:
+  ...log4cxx...`), and that `make clean && make all` is the repair. Same class -- an artifact
+  that is present, out of date, and reported as fine.
 
 ---
 
@@ -2166,6 +2504,128 @@ FaVe emits wl_cloud's 25 `+ nat` rules **before** its ~550 first-match `+ filter
 
   **NOT measured:** whether the full 16-router (9 491-rule) and i2 (154 974-rule) models behave as the subsets do. A patched build of those does not fit any budget here.
 
+### 30. Alternative verification backend: VeriFlow, as an independent implementation — PLAN (see [`VERIFLOW_PLAN.md`](VERIFLOW_PLAN.md))
+**Scope: the suite's representative of on-demand EC slicing** (Khurshid et al., NSDI'13; Khurshid's 2015 PhD thesis), written by us from the literature because the only published implementation is under a research licence we do not hold. **Nothing from any VeriFlow implementation is copied or vendored, and the UIUC release is neither run nor consulted** (plan §1, §5; D4 closed 2026-09-29: unresolved questions go to the authors (D5), then become declared design choices). D1 resolved 2026-09-29: no research question of its own — it serves item 31's unified comparison.
+- [x] **V0 — spec freeze:** ~~survey each workload's features, including its `vf_fields` classification (D6)~~ **survey DONE 2026-09-29** (plan §9; `fave/bench/feature_survey.py`, 25 tests). It found:
+  - no rule in the suite carries a ternary or a negated value; negations live only in check conditions (`wl_cloud`);
+  - `wl_i2` is dst plus VLAN only, not multi-field;
+  - ingress-port disjunctions (1.69× on `wl_stanford`);
+  - a third rewrite kind, clear-to-ANY, which FaVe uses for its `in_port`/`out_port` metadata.
+
+  **Questions resolved 2026-09-29** (plan §7):
+  - Q1: overlapping rules network-wide;
+  - Q15: ECs clipped to the new rule's range;
+  - Q2: no re-slicing without rewrites, re-slicing at every device with them;
+  - Q5: deletion symmetric to insertion;
+  - Q7: IN_PORT a matched scan field;
+  - Q8: consumed at a probe, dropped by rule, no-match or unwired port;
+  - Q9: document order, LPM ties refused by the validator;
+  - Q16: expand multi-port rules;
+  - Q17: expand negated conditions;
+  - Q18: keep FaVe's ICMPv6 layout;
+  - Q19: clear-to-ANY as an extension;
+  - Q20: a node is a FaVe table;
+  - Q21 (new): a check's packet set stands in for the new rule.
+
+  **Consequence:** no multi-field workload is rewrite-free, so the first multi-field differential is V3's exit, not V2's. **V0 is complete** except the questions that do not block V1: Q3/Q4 (V3) and Q10-Q14 (the authors). *(Resolved 2026-09-29: D2, the name VeriFlow-FR; D6, §4.6 in scope as a required staged variant, measured both ways; D3, C++17 with the standard library only, single-threaded, in-process through pybind11, NetPlumber's toolchain and flags as stamps, sanitizers and a concrete-packet oracle from day one.)*
+- [ ] **D5, group 1 — email to the Delta-net authors** (plan §7 Q10-Q14: the snapshot's identity, what one query computes, what is timed, Veriflow-RI's optimisations, whether it can be run). **Claude drafts, the owner sends**; four weeks without an answer and the questions become declared design choices. Gates V1's exit. Group 2 (Khurshid, for V3/V3b) is drafted after V0; group 3 (APKeep) waits for item 31.
+- **Test-first (owner, 2026-09-29; plan §8, *Test-first, from the literature*):** every phase opens with its tests written and failing. These are the literature-derived catalogue L1-L10 plus the unit tests. Expected values are hand-derived, cite their source, and are cross-checked by the brute-force oracle. Highlights: the thesis's 11/8 example with the typo corrected (L1), Fig. 3.2's documented non-minimality (L2), and Delta-net Fig. 1's four-switch example of VeriFlow's forwarding graphs (L4).
+- [x] **V1 — single-field core — DONE 2026-09-29** (plan §10).
+  - Tests first: L1-L6, V1's share of L10 and the concrete-packet oracle, 24 C++ tests.
+  - The `wl_airtel1`/`wl_airtel2` differential: equal to `reachable.json` and to NetPlumber.
+  - An LPM guard that can fail: 13/13 correct, 13/13 wrong when inverted.
+  - **Calibration passed:** 9.4-10.4 ms against Veriflow-RI's 4.5 ms (2.1-2.3×) on the same 158 queries. The model's Delta-net graph has exactly the paper's 68 nodes and 158 edges.
+  - Files: `veriflow_fr/`, `fave/veriflow/`, `fave/bench/veriflow_calibration.py`, `fave/test/test_veriflow_{translate,airtel}.py`, wired into `test.sh`.
+- [x] **V2 — multi-field + ACLs — DONE 2026-09-29** (plan §10).
+  - Tests first: L7, `ec_count`, V2's share of L10; the oracle checks count = built. 28 C++ tests.
+  - **The EC census reproduces APKeep's Table 3 exactly where the data is the same:** Airtel1/2 2,799, Stanford* 2,283.
+  - Whole-space multi-field products explode, from 2.9e6 (`wl_ifi`) to 2.8e17 (`wl_up`).
+  - Expansion factors reported.
+  - **Q22 resolved 2026-09-29 (owner):** bulk checks slice device by device, the thesis's final algorithm (T §3.1.3), stamped `vf_slicing=device`. The network-wide mode is kept for the airtel calibration.
+    - Local slicing cuts the largest product by 2x to 1e6x.
+    - `wl_tum` (2.9e13) and `wl_up` (2.6e11) keep theirs inside one table: an honest did-not-finish finding, reported with the predicted EC counts, never approximated.
+    - The limit is suite-wide (item 31).
+- [ ] **V3 — header rewrites** (thesis §3.1.3) — required, not optional: without them VeriFlow-FR alone has holes in the VLAN and NAT rows.
+  - [~] **Status 2026-09-30: built and gated** (plan §10).
+    - Tests first: L8, VLAN isolation, a rewriting concrete-packet oracle under both revisit rules. 39 C++ tests.
+    - Rewrites, routers and packet filters translate.
+    - **Equal to NetPlumber** on `wl_ifi`, `wl_cloud`, `wl_example`, `wl_airtel1` and `wl_i2`.
+    - **Did not finish** within 5e7 local ECs on `wl_stanford`, `wl_up` and `wl_tum`, each at the firewall or out-stage table Q22 predicted.
+    - **With a 2e9 budget, `wl_stanford` finishes and equals NetPlumber:** 165 pairs, 5.67e8 local ECs, 33 min and 0.9 GB against NetPlumber's 12 s, about 166x. That is the measured price of range ECs there.
+    - **Q4 resolved (owner, 2026-09-30): the thesis's `state` rule by default**, with `path` stamped as an option (plan §7). The router-on-a-stick experiment behind it is item 33.
+    - **Still open, owner:** the suite-wide limit, in item 31.
+- [ ] **V3b — the 4+10 field optimisation** (thesis §3.2.2), generalised to FaVe's fields (a field is a trie dimension if any rule wildcards it arbitrarily, a linear-scan field otherwise), with excluded packet sets under rewrites. **Exit gate:** verdicts identical to plain VeriFlow-FR on every workload. Required, because every published VeriFlow number has it on and none measures it off (plan §9 D6). Fallback: report plain only, labelled as without §4.6.
+- [ ] **V4 — FaVe integration** (`FAVE_BACKEND=veriflow`, doctor, integration-tier gate).
+- [ ] **V5 — measurement** over the whole suite, stamped. Both field variants: §4.6 as the headline where it applies, plain as the ablation.
+
+### 31. The unified comparison: declared accommodations, workload variants, the incremental axis — OPEN (owner framing 2026-09-29)
+**The work's main contribution is the unification of the benchmarks through FaVe and a fair comparison of the verification tools on a broad set of workloads** — FaVe's own and the literature's (owner, 2026-09-29). The owner's thesis compared NetPlumber only, on `wl_tum` only, against firewall tools only (fffuu, an iptables-capable SymNet). Items 10, 11, 30 and `CLOUD_BENCH_PLAN.md` are the backends and workloads closing that gap; this item is what makes the comparison *fair* rather than merely broad.
+
+**The accommodation rule (owner).** Most tools support far fewer header fields than real networks use — the 5-tuple, or IPv4 forwarding only (Delta-net). To measure a tool at all we either **implement a feature**, stating what and how, or **run a preprocessed, limited workload** — e.g. `wl_stanford`/`wl_i2` with VLANs baked into the topology — and preprocessing is declared as **tweaking of the workload, never as a trait of the tool**.
+
+Three refinements, so the two categories stay apart:
+1. **Preprocessing is either equivalence-preserving or reducing.** Baking VLANs into the topology should ask the *same* question; cutting a workload to IPv4 forwarding for Delta-net drops the ACLs and asks a *different* one. An equivalence-preserving variant needs **evidence**: an engine that runs both original and variant (NetPlumber) must give identical verdicts on both — until then it is a claim. A reducing variant is a **new workload** with its own re-derived check set, named as such, not a lesser copy of the original.
+2. **Adapter encodings are preprocessing too.** Anything done before the engine sees the rules — LPM to priority (`_reprioritise_fib_lpm`), ingress demultiplexing (`CLOUD_BENCH_PLAN.md` §2.8), port range to prefix expansion — is declared with its cost. Anything inside the engine is an **extension**, declared with what was implemented and how.
+3. **Whose extension.** When we implement a feature for a tool, prefer the authors' own published extension, then the literature's approach for that tool, then our own design — and say which. A clumsy extension penalises the tool, not us.
+
+- [ ] **Accommodation registry** — one document the write-up can cite, instead of five plan documents. Per entry: tool, kind (extension / adapter encoding / equivalence-preserving variant / reducing variant), what and how, cost, evidence, stamp field. Seed entries already in the tree, each to be classified rather than assumed: APKeep's faithful-VLAN model and its `--no-vlan` switch (`APKEEP_BACKEND.md` — `--no-vlan` is VLAN-blind, so a *reducing* encoding, "not a like-for-like comparand"); APKeep ingress demultiplexing (§2.8); LPM re-prioritisation; ad6's mandatory `--lite-acyclic` on i2 (item 0a); the Delta-net airtel workloads as a *static snapshot of an update trace* with an invented reachability policy (`CLOUD_BENCH_PLAN.md` §2.1, §2.5). **NetPlumber's trait** (item 33): table-granular loop detection, which loses packets that legitimately pass a table twice. It changes no verdict on any of the nine workloads: seven have no loop reports, and on `wl_i2` (491 reports) and `wl_stanford` (83,710 reports) VeriFlow-FR under the thesis's rule computes the same matrix. **VeriFlow-FR's entries**, from `VERIFLOW_PLAN.md` §7:
+  - adapter encodings: ingress-port expansion (Q16, factor stamped), negated-condition expansion (Q17), table as graph node (Q20), LPM to priority (Q9);
+  - extensions: clear-to-ANY rewrites (Q19), a check's packet set as the query's "new rule" (Q21), the 4+10 rule generalised to FaVe's fields (D6).
+- [ ] **Variant naming** — how a preprocessed workload is named and where it lives. `SOURCE.json` (A3) already records what produced a generated workload directory; extend it to record the preprocessing and, for an equivalence-preserving variant, the verdict-identity evidence.
+- [x] **The suite-wide limit for "did not finish" — DECIDED 2026-10-01 (owner).**
+  - **The reportable limit (`limit_class=v5`):** **24 h wall-clock per cell**, one engine on one workload, from zero: model build plus the full check set. That is the limit APKeep and Delta-net both report against ("do not run to completion within 24 hours"; "exceeds the total run-time limit of 24 hours").
+  - **Memory:** **32 GB**, APKeep's, if the measuring machine has at least about 40 GB; otherwise its memory minus headroom. Fixed and stamped with the machine's description before V5 measures anything.
+  - **Machine:** a larger machine is coming. 24 h runs are not feasible in the current container (4 cores, 19 GB), so **every V5 measurement waits for it.** So do the open long cells: BDD-APKeep on `wl_cloud`, ad6 on `wl_stanford`, VeriFlow-FR on `wl_up` and `wl_tum`.
+  - **A development limit for this container (`limit_class=dev`):** e.g. 1 h and 16 GB. Every run still has a declared limit (`CLOUD_BENCH_PLAN.md` §3), but dev results are **never reportable**: a dev did-not-finish says "longer than the dev limit here", nothing more.
+  - **Enforcement is external and identical for every engine:** a harness timeout plus a peak-memory monitor, not `RLIMIT_AS`, which misfires on the JVM. Engine-internal budgets, such as VeriFlow-FR's local-EC budget, are off in V5 and stay as diagnostics and in tests.
+  - **A did-not-finish cell records** which limit tripped, the elapsed time, and the engine's own progress lower bound where it has one: VeriFlow-FR's predicted ECs per table, ad6's queries done, APKeep's profiler trail.
+  - **Stamps on every cell:** `limit_wall`, `limit_rss`, `limit_class`, `machine`, `limit_tripped`.
+  - [ ] Build the harness mechanism and the stamps; testable here under the dev class.
+- [ ] **Result-cell schema** — every cell carries: **provenance** (below), the **accommodations** in force (extensions, from the registry above), workload variant, adapter encodings, and an outcome that distinguishes *correct* from *did not finish within the declared limit* from *wrong verdict*. *(Owner, 2026-09-29: provenance is its own column, for every backend.)* Provenance and accommodations used to be one field ("native / extended / our reimplementation"); they are two axes — *whose code runs* versus *how much of the workload the tool supports as published* — and a cell can be, say, the authors' code with a FaVe extension.
+  - **Provenance column — whose code produced the number.** Values, each naming its source and its change record:
+    - `authors` — the authors' code, unmodified. (No backend today.)
+    - `authors+fave` — the authors' code with FaVe changes, stated in a change record and stamped with the upstream import commit: **BDD-APKeep** (`apkeep/`, upstream `7b71bff4`, `apkeep/FAVE_CHANGES.md`), **NDD-APKeep** (`apkeep/` on `ndd/`, upstream `c8414b43`, `ndd/FAVE_CHANGES.md`), **NetPlumber** (`net_plumber/`, Kazemian's hassel-public, baseline `697b35c9`, `net_plumber/FAVE_CHANGES.md`).
+    - `first-party` — the tool's author is FaVe's author: **ad6** (`ad6/FAVE_CHANGES.md`: the owner's SECRYPT'15 code). Declared because the comparison's author is also this tool's author.
+    - `reimpl-literature` — our implementation from the publications alone, under a clean-room protocol: **VeriFlow-FR** (`VERIFLOW_PLAN.md` §1, §3, §5). A slow VeriFlow-FR number is VeriFlow-FR's, never VeriFlow's; the calibration gate (plan §8) is what licenses reading it as representative at all.
+  - **Stamped, not typed by hand:** the value comes from the backend (as item 0a's other stamps do), with the engine's own commit, so a table cannot mislabel a row.
+  - **Gap closed 2026-09-29:** `net_plumber/` had no `FAVE_CHANGES.md`, unlike `apkeep/`, `ndd/` and `ad6/`. It now has one (`net_plumber/FAVE_CHANGES.md`), recovered from 700 commits. Its baseline is verified: upstream hassel-public `master` `697b35c9`, byte-identical tree. Its **[CHANGE]** section is what a NetPlumber cell's accommodations column draws on: inverted rewrite masks (`STRICT_RW`), ternary negation, index→rule tables that overwrite, and lazy subtraction at probes. **Authorship confirmed (owner, 2026-09-29):** the 2017 drop (`9259da12`) is joint work of Claas Lorenz and Sebastian Kiekheben; Kiekheben implemented the first version of the dynamic header-space expansion. Recorded in §1–§2 of the record.
+- [ ] **The incremental axis** — raised from "deferred" (`CLOUD_BENCH_PLAN.md` §2.1) to a fairness requirement. APKeep and VeriFlow are update-optimised; measuring them only from zero judges them on a regime they never claimed, and FaVe's own TNSM'21 claim is continuous verification. Needs the per-update latency metric, APKeep incremental wiring (`delete_rules` exists only on `NetPlumberAdapter`), and a stated result that ad6 rebuilds per update.
+  - **Reopens D8 in part:** the five non-airtel Delta-net traces that replay to an empty FIB (measured for two, inferred for three — `CLOUD_BENCH_PLAN.md` §2.14) are *update* workloads, and `rf1755` is named for the same Rocketfuel AS 1755 that VeriFlow's own experiment used. D8's blockers still stand (the fourth field's meaning; no ports in the names), so this is a feasibility question, not a promise.
+- [x] **Evidence base for the registry: `fave/bench/feature_survey.py`** (2026-09-29). It records what each engine is handed, per field and kind, plus rewrites, table semantics, ingress-port disjunctions and checks, for every reachability workload (`VERIFLOW_PLAN.md` §9). One finding bears on the Delta-net question below: no rule in the suite carries a ternary value, so every field value is an interval.
+- [ ] **OPEN (owner): Delta-net as a backend?** Atoms are a distinct family (a persistent minimal partition over one field), and its authors' traces are already in the suite. Natively it runs only the IPv4-forwarding workloads; everything else would be declared accommodations or reduced variants — itself an honest data point about the tool. No code is published (`VERIFLOW_PLAN.md` §2), so it would be a second independent implementation.
+
+### 32. Found by the V0 feature survey — OPEN (2026-09-29)
+- [ ] **`wl_generic_fw` converts its checks with a script that does not exist.** `bench/wl_generic_fw/benchmark.py` `_post_preparation` runs `python3 bench/wl_generic_fw/reach_csv_to_checks.py`; the script is `bench/reach_csv_to_checks.py`. `os.system`'s exit status is ignored, so the step fails silently: *"can't open file"* on stderr, and the run carries on with whatever `checks.json` the base class wrote. It also hard-codes `python3` where the base class uses `PYTHON`. Found by running the default instance's preparation for the survey (plan §9).
+- [ ] **`wl_state_snapshots` is not reproducible:** it draws addresses and ports from `random` without a seed. It is the suite's only state-update stream, so before it can serve item 31's incremental axis it needs a seed, stamped.
+
+### 33. A packet that passes one table twice: NetPlumber under-, APKeep over-approximates — OPEN (found 2026-09-30)
+Found while deciding VeriFlow-FR's revisit rule (`VERIFLOW_PLAN.md` Q4). Pinned by `fave/test/test_revisit_router_on_a_stick.py`, whose two small networks are replayed through the real aggregator on every engine.
+- **Router on a stick:** host A (VLAN 10) goes to switch `sw`, then to `rtr`, which rewrites VLAN 10 to 20, then back through `sw`'s **same table** to host B.
+- **Control, a genuine loop:** `rtr` returns VLAN 10 unchanged and `sw` sends it back up.
+
+| | stick | loop |
+|---|:---:|:---:|
+| ground truth | reached | not reached |
+| VeriFlow-FR (`state`), ad6 | reached | not reached |
+| **NetPlumber**, VeriFlow-FR (`path`) | **not reached** | not reached |
+| **APKeep**, bdd and ndd, `faithful_vlan` on and off | reached | **reached** |
+
+- [x] **NetPlumber's table-granular loop rule — DECIDED 2026-09-30 (owner): keep it and DECLARE it (option A).**
+  - **The semantics, stated:** a second pass through a table counts as a loop and stops the flow, whatever its header. The NetPlumber paper says so (§4.2: "determine if the flow has passed through the current table before"). It loosens HSA's port-granular check, which separates finite from infinite loops by header space, and which would not lose the router on a stick, because the packet re-enters on another port.
+  - **Why keep it:** it was the owner's rule throughout, and a finer check costs performance. A rule-granular check, `DENSE_LOOPS`, was tried and dropped for measurable degradation. A check on packet sets risks an oscillating rewrite that is never detected and consumes memory. Declared in `net_plumber/FAVE_CHANGES.md` §6.
+  - **A trait of NetPlumber, not an accommodation.** It is entered in item 31's registry. VeriFlow-FR keeps the thesis's `state` rule (Q4), so the two differ by design wherever a packet passes a table twice, and the differential flags any such workload.
+  - [x] **Does it change any result on the suite? No — MEASURED 2026-09-30** with `fave/bench/netplumber_loop_census.py`. NetPlumber stops a flow exactly where it fires its loop callback, now counted in-process (`libnetplumber.loop_reports()`), so zero reports prove zero truncations.
+    - **Zero on 7 of 9:** `wl_airtel1`, `wl_airtel2`, `wl_cloud`, `wl_ifi`, `wl_up`, `wl_tum`, `wl_example`. The rule changes nothing there, and that includes the two workloads VeriFlow-FR cannot finish.
+    - **`wl_i2`: 491 reports, no verdict changed:** VeriFlow-FR under `state`, which follows re-traversals, computes NetPlumber's 61 pairs.
+    - **`wl_stanford`: 83,710 reports, and no verdict changed.** VeriFlow-FR under `state`, following every re-traversal, computes NetPlumber's 165 pairs: 1.07e8 local ECs, 911 s and 2.0 GB, against `path`'s 5.67e8, 1,973 s and 0.9 GB.
+    - **So on all nine workloads the table rule changes no verdict.**
+- [x] **APKeep over-approximated the loop — FIXED 2026-09-30** (`apkeep/FAVE_CHANGES.md` §10).
+  - **Cause, verified from the adapter's IR:** `_is_dst_lpm_table` counted a VLAN match or rewrite as "fits a dst-prefix trie", and `_translate_fwd_rule` keeps only the destination. So outside the `in.`/`mid.`/`out.` stages, VLANs were dropped silently, and a switch's two VLAN-qualified rules became one default route.
+  - **Fix:** the VLAN is allowed in a FIB only where a mechanism carries it: a match or rewrite in an HSA stage, and a rewrite in a router's routing table (`_capture_vlan_port`). Elsewhere the table is first-match. Both networks are now refused, with their reasons: the VLAN rewrite, and in-port-qualified rules on a first-match table.
+  - **A first cut missed the router case.** The census had counted match fields, not rewrites, and the integration tier caught it on `wl_ifi`.
+  - **Suite unaffected:** VLAN matches sit only in HSA stages, and VLAN rewrites only in HSA stages or router routing tables. Checked by the integration tier's APKeep differentials.
+  - **What remains is a capability gap, not a defect:** APKeep cannot express VLAN rewrites or ingress-qualified rules on first-match tables outside the HSA stages.
+
 ---
 
 ## Python codebase test expansion (fave/ + policy_translator/)
@@ -2224,6 +2684,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); `lint` fails (**38**); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. **40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates. **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.

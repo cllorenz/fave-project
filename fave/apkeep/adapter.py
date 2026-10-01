@@ -173,8 +173,22 @@ _COND_SLOTS = {
 # a destination prefix, plus the fields another mechanism already handles --
 # `vlan` and `in_port` are structural here (the VLAN stage and
 # `_gate_dead_ingress`), and an `out_port` rewrite IS the forward.
-_LPM_MATCH_FIELDS = frozenset({_DST, _DST6, _VLAN, _IN_PORT})
-_LPM_REWRITE_FIELDS = frozenset({_OUT_PORT, _VLAN})
+_LPM_MATCH_FIELDS = frozenset({_DST, _DST6, _IN_PORT})
+_LPM_REWRITE_FIELDS = frozenset({_OUT_PORT})
+#: What a dst-FIB table may ALSO match and rewrite where a mechanism carries it,
+#: since `_translate_fwd_rule` keeps the destination alone:
+#:   * in an HSA in./mid./out. stage, a VLAN match or rewrite -- the stage
+#:     mechanisms carry it (`_build_stanford_faithful`, `_build_i2_faithful`,
+#:     plain mode's `_demux_ingress`);
+#:   * in a ROUTER's routing table, a VLAN rewrite -- `_capture_vlan_port` maps
+#:     it to the egress port that wires the acl_out groups (wl_ifi). That models
+#:     egress selection, not the header change: a later table matching the new
+#:     VLAN would see the old one. Nothing in the suite does.
+#: Anywhere else a VLAN match or rewrite makes a table first-match, whose
+#: FilterElement carries the match and refuses the rewrite (TODO item 33: a
+#: router on a stick reached host B through a genuine loop while the VLAN was
+#: allowed in every FIB).
+_LPM_STAGE_FIELDS = frozenset({_VLAN})
 
 #: Header fields a NATElement can rewrite, and the token each takes in the
 #: `+ nat <dev> <port> match <field> ...` rule string.
@@ -243,8 +257,18 @@ def _shadowed(rows: List[Dict[str, Any]], index: int) -> Optional[Any]:
     return None
 
 
-def _is_dst_lpm_table(rows: List[Dict[str, Any]]) -> bool:
+def _is_staged(device: str) -> bool:
+    """ An HSA in./mid./out. stage (wl_stanford, wl_i2), whose VLAN the stage
+    mechanisms carry -- see `_LPM_STAGE_FIELDS`. """
+    return device.split('.', 1)[0] in ('in', 'mid', 'out')
+
+
+def _is_dst_lpm_table(rows: List[Dict[str, Any]], staged: bool = False,
+                      vlan_rewrite: bool = False) -> bool:
     """ True iff every rule in this forwarding table fits a dst-prefix trie.
+    `staged`: an HSA stage's table, which may also match and rewrite a VLAN;
+    `vlan_rewrite`: a router's routing table, which may also rewrite one
+    (`_LPM_STAGE_FIELDS`).
 
     Deliberately a property of the RULES, not of the device: nothing here reads
     a device name, so a workload that names its switches differently gets the
@@ -253,10 +277,12 @@ def _is_dst_lpm_table(rows: List[Dict[str, Any]]) -> bool:
     took the first-match path would merely be slower -- so anything unrecognised
     counts as needing first-match.
     """
+    match_extra = _LPM_STAGE_FIELDS if staged else frozenset()
+    rw_extra = _LPM_STAGE_FIELDS if (staged or vlan_rewrite) else frozenset()
     for row in rows:
-        if set(row['match']) - _LPM_MATCH_FIELDS:
+        if set(row['match']) - _LPM_MATCH_FIELDS - match_extra:
             return False
-        if set(row['rw']) - _LPM_REWRITE_FIELDS:
+        if set(row['rw']) - _LPM_REWRITE_FIELDS - rw_extra:
             return False
     return True
 
@@ -636,6 +662,10 @@ class APKeepAdapter(AbstractVerificationEngine):
         # buffered FaVe model -> APKeep input
         self._fwd_devices: set = set()       # ForwardElement device names
         self._filter_devices: set = set()    # packet_filter device names (FilterElement)
+        # Routers: their routing table's VLAN rewrite is carried by
+        # `_capture_vlan_port` (VLAN -> egress port for the acl_out groups), so it
+        # keeps that table a FIB -- see `_is_dst_lpm_table` (TODO item 33).
+        self._router_devices: set = set()
         # Forwarding devices `_build` moved OFF the ForwardElement path onto a
         # first-match FilterElement (`_first_match_devices`). Kept because
         # `_build` removes them from `_fwd_devices`, and `_ingress_qualified`
@@ -920,6 +950,8 @@ class APKeepAdapter(AbstractVerificationEngine):
             # out. stage IS one, and in plain wl_stanford those forwards are now
             # kept and split rather than dropped.
             self._capture_out_perm(model)
+        if getattr(model, 'type', None) == 'router':
+            self._router_devices.add(model.node)
         fwd_tables = (model.node + '.routing', model.node + '.1')
         acl_in_t = model.node + '.acl_in'
         acl_out_t = model.node + '.acl_out'
@@ -1919,12 +1951,16 @@ class APKeepAdapter(AbstractVerificationEngine):
         """
         for device in sorted(self._declared_lpm & set(self._fwd_table)):
             rows = self._fwd_table[device]
-            if _is_dst_lpm_table(rows):
+            staged = _is_staged(device)
+            router = device in self._router_devices
+            if _is_dst_lpm_table(rows, staged, router):
                 continue
+            m_extra = _LPM_STAGE_FIELDS if staged else frozenset()
+            r_extra = _LPM_STAGE_FIELDS if (staged or router) else frozenset()
             offending = sorted({
                 f for row in rows
-                for f in (set(row['match']) - _LPM_MATCH_FIELDS)
-                          | (set(row['rw']) - _LPM_REWRITE_FIELDS)
+                for f in (set(row['match']) - _LPM_MATCH_FIELDS - m_extra)
+                          | (set(row['rw']) - _LPM_REWRITE_FIELDS - r_extra)
             })
             raise UntranslatedSemantics(
                 "%s declares its forwarding table longest-prefix-match, but its "
@@ -1976,12 +2012,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         unexpressible match (wl_up's `adm.uni-potsdam.de` rule 65535) and take
         the device away from the mechanism that does model it.
         """
-        staged = {d for d in self._fwd_table
-                  if d.split('.', 1)[0] in ('in', 'mid', 'out')}
+        staged = {d for d in self._fwd_table if _is_staged(d)}
         owned = self._filter_devices | self._ipv6_fib_devices
         return {dev for dev, rows in self._fwd_table.items()
                 if dev not in staged and dev not in owned
-                and not _is_dst_lpm_table(rows)}
+                and not _is_dst_lpm_table(
+                    rows, vlan_rewrite=dev in self._router_devices)}
 
     def _build_first_match_tables(self, devices: set):
         """ Realise each first-match forwarding table as a FilterElement, and

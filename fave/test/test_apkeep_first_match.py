@@ -128,6 +128,48 @@ class TestWhichElementATableBecomes(unittest.TestCase):
         self.assertFalse(_is_dst_lpm_table(adapter._fwd_table['leaf']))
         self.assertEqual(adapter._first_match_devices(), {'leaf'})
 
+    def test_a_table_matching_a_VLAN_is_NOT_a_FIB_outside_the_HSA_stages(self):
+        """ TODO item 33. A dst-FIB ForwardElement carries the destination
+        only (`_translate_fwd_rule`); outside the in./mid./out. stages nothing
+        carries a VLAN for it. Classifying a VLAN-matching table as a FIB
+        dropped its VLAN silently -- a router on a stick then reached host B
+        through a genuine loop. It is a first-match table (FaVe's
+        validate_lpm_rules refuses a declared-LPM table matching anything but
+        the destination), and the FilterElement carries the VLAN. """
+        sw = SimpleNamespace(node='sw', tables={'sw.1': [
+            _rule('sw', 1, [RuleField(_DST, '10.0.2.0/24'), RuleField(_VLAN, 10)],
+                  [Forward(['sw.3'])]),
+            _rule('sw', 2, [RuleField(_VLAN, 20)], [Forward(['sw.2'])]),
+        ]})
+        adapter = _adapter(sw)
+        self.assertFalse(_is_dst_lpm_table(adapter._fwd_table['sw']))
+        self.assertEqual(adapter._first_match_devices(), {'sw'})
+
+    def test_a_table_rewriting_a_VLAN_is_NOT_a_FIB_outside_the_HSA_stages(self):
+        """ Its twin: the rewrite, which `_translate_fwd_rule` never emits,
+        was dropped the same way. """
+        rtr = SimpleNamespace(node='rtr', tables={'rtr.1': [
+            _rule('rtr', 1, [RuleField(_DST, '10.0.2.0/24')],
+                  [Rewrite([RuleField(_VLAN, 20)]), Forward(['rtr.2'])]),
+        ]})
+        adapter = _adapter(rtr)
+        self.assertFalse(_is_dst_lpm_table(adapter._fwd_table['rtr']))
+        self.assertEqual(adapter._first_match_devices(), {'rtr'})
+
+    def test_a_ROUTER_routing_table_rewriting_its_egress_VLAN_stays_a_FIB(self):
+        """ wl_ifi's shape: dst matches, rewrites of out_port and the egress
+        VLAN. On a router `_capture_vlan_port` carries that rewrite (VLAN ->
+        egress port, wiring the acl_out groups), so the table is still a FIB --
+        which the integration tier showed when a first cut of item 33's fix
+        refused wl_ifi's declared-LPM routing table. """
+        ifi = SimpleNamespace(node='ifi', type='router', tables={'ifi.routing': [
+            _rule('ifi', 1, [RuleField(_DST, '10.0.2.0/24')],
+                  [Rewrite([RuleField(_VLAN, 20), RuleField('out_port', 'ifi.2')]),
+                   Forward(['ifi.routing_out'])]),
+        ]})
+        adapter = _adapter(ifi)
+        self.assertEqual(adapter._first_match_devices(), set())
+
     def test_a_table_that_rewrites_an_address_is_NOT_a_FIB(self):
         adapter = _adapter(_gateway())
         self.assertFalse(_is_dst_lpm_table(adapter._fwd_table['gw']))
