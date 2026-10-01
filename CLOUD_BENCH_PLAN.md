@@ -4180,6 +4180,104 @@ reusable by Python, not by the JVM. Not proven: the build also grows the JVM's
 off-heap memory, which can hide a small return. **Releasing memory late
 therefore does not help; not allocating it does.**
 
+### RESUME HERE — state at the end of the 19 GB machine (2026-10-01)
+
+**Owner, 2026-10-01: "We will have a larger machine soon."** Work stops here
+until it arrives. Everything below is committed on `benchmarks` (nothing
+pushed); `bench/deltanet/eval/README.md` indexes the tools and result
+directories.
+
+**Where `wl_berkeley` stands.** Built, gated, measured. Every completed run on
+every engine answers 0 of 520 (the `fib_walk` prediction); every mutated run
+(`s22 ---> s23`) exactly 1. NetPlumber is out (rule load ~size^2.2–2.6,
+deadline at 459k rules); BDD is 1.7–2.1× NDD. **NDD-APKeep is ~linear and
+completed up to k=10 (1,351,800 rules: load 80 s, compliance 123 s at
+`-Xmx8g`). k=3 (4,476,240 rules) has never completed on 19 GB:** four runs, all
+of which loaded every rule and then failed in the compliance check — default
+heap: heap OOM; 8g: memory floor (twice, before and after harness slimming); 5g:
+heap OOM with the live set at the 5.1 GB ceiling. k=1 (13,402,846) was never
+attempted.
+
+**What the harness costs now** (Python, `tracemalloc`, per rule): 1,595 B held
+after loading, 971 B after the build, 2,285 B at the load peak — down from 2,160
+/ 2,160 / 2,811. The benchmark process streams routes (~0.7 GB at k=3, was 3.5).
+But memory Python frees after the build does **not** visibly return to the OS
+(arena fragmentation, hypothesis), so the aggregator's RSS stays near its
+load-time peak.
+
+**Sizing the larger machine — an EXTRAPOLATION, not a measurement:**
+
+| at k=1 (13.4M rules) | estimate | from |
+|---|---:|---|
+| generation (own process, ~7 min) | ~16 GB | measured at k=1, 2026-09-29 (model + walk, 15.9 GB peak) |
+| aggregator, Python side | ~25–31 GB | 1,595–2,285 B/rule, kept at peak (not returned) |
+| JVM heap NDD needs | ≥15 GB, `-Xmx` ~20–24g | live set >5.1 GB at 4.48M, scaled linearly |
+| JVM off-heap | 1–3 GB | rough |
+| benchmark process (streamed) | ~1–2 GB | 658 MB at k=3; largest table ~583k rules |
+| **run total** | **~45–60 GB** | generation runs BEFORE, not beside |
+
+So **≥64 GB is the minimum worth trying; 96–128 GB leaves margin.** Time: NDD
+load ~15 min, compliance ~20–30 min at k=1 (linear from k=10/k=3).
+
+**What to run first on the new machine, in order** (from `fave/`, venv active,
+`PATH="$ROOT/net_plumber/build:$PATH" PYTHONPATH=.`):
+
+1. `./test.sh doctor`; then `FAVE_SKIP_AD6=1 ./test.sh fast` and
+   `... integration` — a new machine is a new environment (JDK 11 for the
+   APKeep jar build, JDK 21 at runtime; see the memory notes).
+2. The derived trace: `(cd bench/deltanet/traces && sha256sum -c
+   DERIVED.SHA256SUMS)`. If it is absent, re-derive it from the kept archive
+   with `bench/deltanet/archive_survey/insert_block.sh` (§2.15, "The
+   extraction"); the archive itself must be copied over, it is not in git.
+3. **The NDD drill again, as a protocol** — write a new
+   `results_berkeley_ndd_<date>/PROTOCOL.txt` with the machine's RAM, cores and
+   the heap chosen, declared before running: `python3
+   bench/deltanet/eval/berkeley_drill.py --out <dir> --budget 50400 --jvm-xmx
+   24g --memory-floor 3000`. It does k=30 (anchor), k=10 mutated + plain, k=3,
+   k=1, generating each size once in its own process and reusing the inputs.
+   Its k=30/k=10 rows re-anchor the timings against this machine's.
+4. Table: `python3 bench/deltanet/eval/berkeley_table.py <dir>`.
+5. If k=1 completes: one BDD run at k=1 as the second engine
+   (`engine_run.py wl_berkeley --engine bdd --keep-every 1 --reuse-inputs
+   --jvm-xmx 24g ...`), and then decide whether `wl_berkeley`'s full-size
+   result is written up as the headline. If it still fails, the levers are
+   below.
+
+**Levers left, if memory still binds** (none started):
+
+* **Translate per table instead of buffering every rule until the build**
+  (the full "one copy" refactor of `apkeep/adapter.py`): the only way to stop
+  the adapter's 623 B/rule ever being allocated at the load peak; ~34 row
+  readers in the build paths, gated by the engine differentials.
+* **A load-once aggregator** (option 5, owner's DESIGN decision): drop FaVe's
+  device models once the engine holds them (~550 B/rule in `rule_model` + ~103 B
+  in the LPM index), giving up incremental updates, dumps and anomaly checks in
+  that mode.
+* `__slots__` on `Rule`/`Match`/`RuleField`/`Forward` (option 3, not done).
+
+**Still open, independent of the machine:** field 4 read as LPM rather than
+as the paper's random priority (owner's call); 22 carries no rule for 23's
+prefixes; the 537 s vs 288–352 s spread in k=3 rule-load time (swap ruled out
+for the runs that recorded it); the ~5 GB MemAvailable drop during the series'
+k=30 NetPlumber run; the cause of the 2026-09-29 sandbox death.
+
+**Gotchas that cost time here:**
+
+* Set `-Xmx` explicitly (`engine_run.py --jvm-xmx`); the default is a quarter
+  of RAM and its OOM reads like an engine limit.
+* RSS minus committed heap is NOT the Python side (peaks do not coincide,
+  off-heap memory is in it); use `tracemalloc` on an in-process replay.
+* `--mutate` cannot be combined with `--reuse-inputs` (refused); a mutated run
+  regenerates its own inputs, which then must be regenerated plain.
+* `bench/wl_berkeley/` holds whatever size was generated last (stamped:
+  `keep_every` in `SOURCE.json`); `--reuse-inputs` refuses a mismatch.
+* NetPlumber's per-rule logging fills a small `/dev/shm`; `bench/wl_berkeley/
+  np.conf` lowers it — keep it if `/dev/shm` is small on the new machine too.
+* Long runs belong under `setsid nohup`, so a dying session does not take
+  them along; a dying sandbox still does.
+* Local branch `berkeley-drill` is a leftover from a worktree; its one commit
+  was cherry-picked into `benchmarks` as `a16ca0b8`. Safe to delete.
+
 ---
 
 ---

@@ -67,3 +67,8 @@ test failure and a change to it is a change in how the traces are read.
 | `preparation.py` | the FaVe device model, longest-prefix-first |
 | `policy.py` | the FPL inventory and the reachability matrix (§2.5) |
 | `census.py` | `TRACES.md` |
+| `routers.py` | the port-free reading (`wl_berkeley`): bare router names, one INVENTED port per neighbour, symmetric adjacency (§2.15) |
+| `fib_walk.py` | a reference walk of a model's rules, per address region; states `wl_berkeley`'s matrix, validated on airtel's |
+| `sample.py` | `keep_every=k`: 1/k of the prefixes plus every LPM witness, for size series |
+| `registry.py` | `WORKLOADS` (vendored traces; `test.sh` loops over it) and `DERIVED` (`wl_berkeley`; built only by name) |
+| `eval/` | engine runs, series and their results; `eval/README.md` |
