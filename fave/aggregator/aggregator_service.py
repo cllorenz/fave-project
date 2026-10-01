@@ -87,7 +87,10 @@ def _has_asyncore_socks(socks: Dict[Any, Any]) -> bool:
 BACKEND_NETPLUMBER = 'netplumber'
 BACKEND_APKEEP = 'apkeep'
 BACKEND_AD6 = 'ad6'
-BACKENDS = (BACKEND_NETPLUMBER, BACKEND_APKEEP, BACKEND_AD6)
+# VeriFlow-FR (VERIFLOW_PLAN.md V4): an independent VeriFlow, in-process through
+# libveriflow_fr -- no net_plumber process, and no anomaly step.
+BACKEND_VERIFLOW = 'veriflow'
+BACKENDS = (BACKEND_NETPLUMBER, BACKEND_APKEEP, BACKEND_AD6, BACKEND_VERIFLOW)
 
 # Which backends need a separate `net_plumber` PROCESS to talk to. Only one
 # does: APKeep runs in-process (JPype) and ad6 as a subprocess per
@@ -109,7 +112,9 @@ def build_engine(
         asyncore_socks: Optional[Dict[Any, Any]] = None,
         mapping: Optional[Any] = None, apkeep_engine: str = 'ndd',
         faithful_vlan: bool = True, grounding: Optional[str] = None,
-        solver: Optional[str] = None, lite_acyclic: bool = False
+        solver: Optional[str] = None, lite_acyclic: bool = False,
+        vf_fields: str = '4+10', vf_revisit: str = 'state',
+        vf_slicing: str = 'device', vf_budget: int = 0
 ) -> Any:
     """ The verification engine named by `backend`.
 
@@ -133,6 +138,14 @@ def build_engine(
         return NetPlumberAdapter(
             list(socks or []), logger,
             asyncore_socks=asyncore_socks or {}, mapping=mapping)
+
+    if backend == BACKEND_VERIFLOW:
+        # The decided defaults (VERIFLOW_PLAN.md D6, Q4, Q22); every one is a
+        # stamp, and each ablation stays reachable by name. No budget by
+        # default: the suite's did-not-finish limit is external (TODO item 31).
+        from veriflow.adapter import VeriFlowAdapter
+        return VeriFlowAdapter(logger, slicing=vf_slicing, budget=vf_budget,
+                               revisit=vf_revisit, fields=vf_fields)
 
     if backend == BACKEND_APKEEP:
         from apkeep.adapter import APKeepAdapter
@@ -941,6 +954,15 @@ def build_parser() -> argparse.ArgumentParser:
         action='store_false',
         default=True
     )
+    # veriflow-only, and measurement-affecting (VERIFLOW_PLAN.md §8): the
+    # decided defaults, with the ablations selectable by name.
+    parser.add_argument('--vf-fields', dest='vf_fields',
+                        choices=('4+10', 'plain'), default='4+10')
+    parser.add_argument('--vf-revisit', dest='vf_revisit',
+                        choices=('state', 'path'), default='state')
+    parser.add_argument('--vf-slicing', dest='vf_slicing',
+                        choices=('device', 'network'), default='device')
+    parser.add_argument('--vf-budget', dest='vf_budget', type=int, default=0)
 
     return parser
 
@@ -999,7 +1021,9 @@ def main(argv: List[str]) -> None:
             backend=args.backend,
             grounding=args.grounding, solver=args.solver,
             lite_acyclic=args.lite_acyclic, apkeep_engine=args.apkeep_engine,
-            faithful_vlan=args.faithful_vlan)
+            faithful_vlan=args.faithful_vlan,
+            vf_fields=args.vf_fields, vf_revisit=args.vf_revisit,
+            vf_slicing=args.vf_slicing, vf_budget=args.vf_budget)
     except ValueError as err:
         # A malformed backend option (an unknown solver, or a solver/grounding
         # combination that would silently answer the wrong question). Reported

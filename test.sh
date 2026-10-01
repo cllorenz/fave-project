@@ -183,6 +183,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     # is known independently: airtel, cell for cell.
     test/test_deltanet_fib_walk.py # the reference FIB walk reproduces airtel's homing-derived matrix, and is LPM-blind there
     test/test_veriflow_airtel.py # VeriFlow-FR V1 gates: airtel matrices == oracle == NetPlumber, and an LPM guard that can fail (~50s)
+    test/test_veriflow_adapter.py # VeriFlow-FR V4: its measurement-affecting choices reach the run's log
     test/test_veriflow_census.py # VeriFlow-FR V2: EC counts reproduce APKeep's Table 3 (Airtel 2,799; Stanford* 2,283); multi-field products pinned (~45s)
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
@@ -322,6 +323,26 @@ run_smoke() {
         "$PYTHON" bench/wl_example/benchmark.py ) || rc=1
     echo "== smoke: wl_ifi =="
     ( cd "$ROOT/fave" && PYTHONPATH=. "$PYTHON" bench/wl_ifi/benchmark.py ) || rc=1
+    # VeriFlow-FR's production path (VERIFLOW_PLAN.md V4): the same benchmark
+    # with only FAVE_BACKEND changed must report the same violations, line for
+    # line. Skipped, loudly, when libveriflow_fr is not built.
+    echo "== smoke: wl_ifi on veriflow, against the netplumber report =="
+    if compgen -G "$ROOT/veriflow_fr/python/libveriflow_fr*.so" >/dev/null; then
+        local np_report vf_report
+        np_report="$(mktemp)"; vf_report="$(mktemp)"
+        grep '^- `' "$ROOT/fave/report.md" | sort > "$np_report" || true
+        ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_BACKEND=veriflow "$PYTHON" bench/wl_ifi/benchmark.py ) || rc=1
+        grep '^- `' "$ROOT/fave/report.md" | sort > "$vf_report" || true
+        if [ -s "$np_report" ] && diff -q "$np_report" "$vf_report" >/dev/null; then
+            echo "  veriflow == netplumber: $(wc -l < "$vf_report") violation line(s)"
+        else
+            echo "  veriflow's report differs from netplumber's:"; diff "$np_report" "$vf_report" | head -20
+            rc=1
+        fi
+        rm -f "$np_report" "$vf_report"
+    else
+        echo "  SKIPPED: libveriflow_fr is not built (veriflow_fr/python/build_libveriflow_fr.sh)"
+    fi
     return $rc
 }
 

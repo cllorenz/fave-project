@@ -125,6 +125,14 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         #: seconds per phase of the last check_compliance: translate, load, query
         self.timings: Dict[str, float] = {}
 
+    def configuration_stamp(self) -> Dict[str, Any]:
+        """ The measurement-affecting choices behind this adapter's answers,
+        logged by the aggregator next to the backend name (as ad6's is). The
+        stamps only a built model can know are logged by `build`. """
+        return {"impl": "reimpl-literature", "vf_fields": self.fields,
+                "vf_revisit": self.revisit, "vf_slicing": self.slicing,
+                "vf_budget": self.budget}
+
     # -- building --------------------------------------------------------------
 
     def build(self, extra_fields: Any = ()) -> None:
@@ -156,6 +164,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         t2 = time.perf_counter()
         self.ir, self.net, self._built_for = ir, net, key
         self.timings = {"translate": t1 - t0, "load": t2 - t1}
+        if self.logger is not None:
+            self.logger.info("veriflow: built %d rules, stamps %s", len(ir.rules), ir.stamps)
 
     # -- checking --------------------------------------------------------------
 

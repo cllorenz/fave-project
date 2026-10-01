@@ -46,7 +46,8 @@ import unittest
 from unittest import mock
 
 from aggregator.aggregator_service import (
-    BACKENDS, BACKEND_AD6, BACKEND_APKEEP, BACKEND_NETPLUMBER, build_engine,
+    BACKENDS, BACKEND_AD6, BACKEND_APKEEP, BACKEND_NETPLUMBER, BACKEND_VERIFLOW,
+    BACKENDS_NEEDING_NETPLUMBER, BACKENDS_WITH_ANOMALIES, build_engine,
 )
 
 
@@ -61,9 +62,17 @@ class TestBackendVocabulary(unittest.TestCase):
         and CI job invokes the aggregator without naming a backend. """
         self.assertEqual(BACKENDS[0], BACKEND_NETPLUMBER)
 
-    def test_all_three_engines_are_reachable(self):
+    def test_all_four_engines_are_reachable(self):
         self.assertEqual(
-            set(BACKENDS), {BACKEND_NETPLUMBER, BACKEND_APKEEP, BACKEND_AD6})
+            set(BACKENDS),
+            {BACKEND_NETPLUMBER, BACKEND_APKEEP, BACKEND_AD6, BACKEND_VERIFLOW})
+
+    def test_veriflow_needs_no_net_plumber_and_checks_no_anomalies(self):
+        """ It runs in-process (libveriflow_fr), and its Ch. 4 anomaly-like
+        queries are not FaVe's anomaly step: a benchmark must skip that step
+        rather than report a clean verdict for it. """
+        self.assertNotIn(BACKEND_VERIFLOW, BACKENDS_NEEDING_NETPLUMBER)
+        self.assertNotIn(BACKEND_VERIFLOW, BACKENDS_WITH_ANOMALIES)
 
     def test_an_unknown_backend_is_refused(self):
         with self.assertRaises(ValueError) as caught:
@@ -201,6 +210,63 @@ class TestAPKeepCommandLine(unittest.TestCase):
     def test_the_bdd_engine_is_reachable_from_the_command_line(self):
         self.assertEqual(
             self._parse(['--apkeep-engine', 'bdd']).apkeep_engine, 'bdd')
+
+
+class _RecordingVeriFlow:
+    """ Stands in for VeriFlowAdapter, which needs the native engine built;
+    what is under test is the OPTIONS build_engine hands it. """
+
+    def __init__(self, logger, slicing=None, budget=None, revisit=None, fields=None):
+        self.logger, self.slicing, self.budget = logger, slicing, budget
+        self.revisit, self.fields = revisit, fields
+
+
+def _build_veriflow(**kwargs):
+    stub = types.ModuleType("veriflow.adapter")
+    stub.VeriFlowAdapter = _RecordingVeriFlow
+    with mock.patch.dict(sys.modules, {"veriflow.adapter": stub}):
+        return build_engine(BACKEND_VERIFLOW, _LOG, **kwargs)
+
+
+class TestVeriFlowDefaults(unittest.TestCase):
+    """ VeriFlow-FR's measurement-affecting choices (VERIFLOW_PLAN.md §8):
+    the defaults are the decided ones -- D6's 4+10 fields, Q4's state revisit,
+    Q22's device-local slicing -- and no budget, since the suite's limit is
+    external (TODO item 31). Each other value stays reachable by name. """
+
+    def test_the_defaults_are_the_decided_ones(self):
+        engine = _build_veriflow()
+        self.assertEqual((engine.fields, engine.revisit, engine.slicing, engine.budget),
+                         ("4+10", "state", "device", 0))
+
+    def test_the_ablations_stay_selectable(self):
+        engine = _build_veriflow(vf_fields="plain", vf_revisit="path",
+                                 vf_slicing="network", vf_budget=1000)
+        self.assertEqual((engine.fields, engine.revisit, engine.slicing, engine.budget),
+                         ("plain", "path", "network", 1000))
+
+    def test_veriflow_options_are_ignored_by_the_other_backends(self):
+        engine = build_engine(BACKEND_NETPLUMBER, _LOG, socks=[], vf_fields="plain")
+        self.assertEqual(type(engine).__name__, 'NetPlumberAdapter')
+
+
+class TestVeriFlowCommandLine(unittest.TestCase):
+
+    def _parse(self, argv):
+        from aggregator.aggregator_service import build_parser
+        return build_parser().parse_args(argv)
+
+    def test_veriflow_is_a_backend_choice(self):
+        self.assertEqual(self._parse(['-b', 'veriflow']).backend, BACKEND_VERIFLOW)
+
+    def test_the_options_and_their_defaults(self):
+        args = self._parse([])
+        self.assertEqual((args.vf_fields, args.vf_revisit, args.vf_slicing, args.vf_budget),
+                         ("4+10", "state", "device", 0))
+        args = self._parse(['--vf-fields', 'plain', '--vf-revisit', 'path',
+                            '--vf-slicing', 'network', '--vf-budget', '7'])
+        self.assertEqual((args.vf_fields, args.vf_revisit, args.vf_slicing, args.vf_budget),
+                         ("plain", "path", "network", 7))
 
 
 class TestServiceWiring(unittest.TestCase):
