@@ -61,6 +61,14 @@ _ROOT = os.path.abspath(os.path.join(_FAVE, '..'))
 #: checkout. Named rather than discovered: a module belongs here because its
 #: `setUpClass` DERIVES what it needs, which is a property of the test, not
 #: something a glob can see.
+#:
+#: SURVEYED 2026-10-01, and these are the only two in `fave/test/`. Plenty of
+#: other classes gate on generated inputs -- wl_ifi, wl_i2, wl_stanford, wl_up,
+#: the Delta-net workloads -- but the generator that satisfies them is a step in
+#: the tier, so the gate waits on something that genuinely runs first. That is
+#: an ordering dependency, and only a cycle when the test is also the generator.
+#: `test_backend_differential.py` is the near miss: it carries a `GENERATOR`
+#: attribute, but uses it only to name the script in the skip message.
 _SELF_DERIVING = (
     'test_apkeep_cloud_differential',
     'test_ad6_cloud_differential',
