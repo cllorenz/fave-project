@@ -518,7 +518,7 @@ share. **Decision needed before building anything.**
   `test_ad6_wl_up.py` from a core dump to 3 passed — with no code change, only container
   repair. The doctor now reports "environment complete for every tier".
 
-### 34. The `fast` tier is not pure-Python, so the merge gate has been red since 2026-09-12 (found 2026-10-01)
+### 34. The `fast` tier is not pure-Python, so the merge gate has been red since 2026-09-12 — FIXED 2026-10-01
 - **Finding:** `requirements.txt`'s header states that installing it into a clean virtualenv
   "is all that the native `fast` test tier needs", naming `pybison` as the single deliberate
   exception. That has been false since `5c29fff5` (2026-09-12). Four `fast`-tier modules reach
@@ -540,14 +540,26 @@ share. **Decision needed before building anything.**
   915 tests that would otherwise have run. `fast` is the required merge gate; `lint` and
   `typecheck` install the same file and break the same way the moment either reaches an ad6
   module.
-- [ ] **Add `lxml`, `pycosat` and `python-sat` to `requirements.txt` at the `Dockerfile`'s
-  pins** -- or move the four modules out of the fast tier. Prefer the former: the tier's whole
-  value is that it runs anywhere, and ad6 is now a first-class backend rather than an optional
-  research track.
-- [ ] **Make the doctor name the tier these actually block.** `test.sh:534-536` labels them
-  `[ad6]` / `[ad6 incremental]`, which reads as "the `ad6/` subtree", not "`./test.sh fast`".
-  Naming the blocked tier is the doctor's entire job here, and it names the wrong one.
-- **Measured 2026-10-01** on a container repaired per item 1v: with the three packages added,
+- [x] **BOTH, because the choice this box offered turned out not to exist.** `pycosat` ships
+  **no wheel** -- it compiles against `Python.h` at install time -- so adding it to
+  `requirements.txt` would have dragged a C toolchain into the one tier whose value is that it
+  runs anywhere, trading a declared dependency for an undeclared one. `lxml` and `python-sat`
+  do ship wheels and were added at the Dockerfile's pins; `pycosat` was not, and the file's
+  header now states the WHEEL-ONLY rule and lists all three of its deliberate exceptions
+  (`pybison`, `pycosat`, `JPype1`) with the reason for each, instead of leaving `pybison` as a
+  lone unexplained NOTE.
+- [x] **Four modules moved to `FAVE_INTEGRATION_TESTS`**, by the dependency-footprint rule
+  `test.sh`'s own header already states. `test_ad6_translate.py` goes for `pycosat`; and -- see
+  the correction below -- `test_apkeep_out_stage.py`, `test_apkeep_ingress_contract.py` and
+  `test_apkeep_tcp_flags.py` go for JPype1 and the two engine jars. Nothing is lost from the
+  suite: `integration` gates too. 175 tests moved.
+- [x] **Doctor labels corrected.** `lxml` and `python-sat` now say `[fast: ...]` and point at
+  `requirements.txt`; `pycosat` says `[integration: test_ad6_translate; SOURCE build, needs
+  python3-dev]`; and `JPype1` -- which said `[APKeep backend]`, a component rather than a tier
+  -- now says `[integration: every APKeep/NDD test; an adapter raises from __init__, it does
+  not skip]`, because that last clause is the whole diagnosis.
+- **Diagnosis, measured 2026-10-01 BEFORE the fix**, on a container repaired per item 1v and
+  with the three packages installed by hand:
   `./test.sh fast` -> **915 passed, 1 skipped**; `integration` -> **PASSED** (176 + 14 + 16
   passed, 11 skipped; C++ `OK (119)`); `e2e` -> **PASSED** (5 + all three smoke benchmarks);
   `typecheck` clean (36 + 8 modules). The tier content is sound; only its declared
@@ -555,32 +567,92 @@ share. **Decision needed before building anything.**
 - **Noted in passing:** item 1v's `.yolobox.toml` box is ticked, but the `[customize] packages`
   block in that file is at present commented out in full (an uncommented copy sits untracked at
   `.yolobox.toml-bak`), so a fresh sandbox starts with none of the apt set again.
+- **CORRECTION to this item's own filing (2026-10-01).** It named only the pip half, and a
+  clean `requirements.txt` runner fails in **two** independent ways. Measured on a venv holding
+  nothing but `requirements.txt` + the two wheel packages: **10** failures from the absent
+  `pycosat`, and **39** from the absent `JPype1` -- `test_apkeep_out_stage.py`,
+  `test_apkeep_ingress_contract.py` and `test_apkeep_tcp_flags.py` build an `APKeepAdapter`,
+  whose `__init__` constructs a `LibNDD`. They do not skip: the adapter RAISES from its
+  constructor, and the `require_or_skip` guards two of those files do carry sit below it and
+  never get the chance to fire. I saw these three while first exploring the tree and filed only
+  the fourth module of the same family (item 37), so the pip half got written up and the JVM
+  half did not. Same tier-membership defect, same family as the `test_apkeep_ndd_{fwd,wlup}`
+  one the CI coverage comment records; it is fixed here with the rest.
+- **ACCEPTANCE, measured 2026-10-01.** The container was reset mid-task and lost every apt
+  package, which made the acceptance test the real one rather than a simulated one: on a box
+  with **no system packages at all**, a venv built from `requirements.txt` alone runs
+  `./test.sh fast` to **741 passed, 0 failed, 0 skipped**. The exact CI command
+  (`COVERAGE=1 COVERAGE_MIN=77 bash test.sh fast`) exits 0, and the `typecheck` gate -- which
+  installs the same file -- stays clean (36 + 8 modules).
+  With the system half restored, `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration` -> **PASSED**:
+  **359 passed / 1 skipped** in the first group (was 176 / 9 -- the 175 moved tests arrived, and
+  the eight wl_cloud differentials ran because their inputs happened to be present from item
+  36's investigation; `test.sh` still does not generate them), then 14 / 2 and 16 / 0. So the
+  four modules are not merely out of `fast`; they are demonstrably running, and under the flag
+  that forbids a backend test from skipping green.
+- [x] **Coverage ratchet re-baselined 78 -> 77 (measured 77.24%), and the comment above it in
+  `ci.yml` said not to.** Stated there in full; in short: the 78 floor was measured 2026-09-09,
+  the tier broke 2026-09-12, and this job has measured NOTHING since -- it aborted at
+  collection -- so 78 was never a number CI had reproduced. Under identical conditions the move
+  is 916 passed / 80.00% -> 741 passed / 77.24%; the denominator falls 19,951 -> 17,589
+  statements, so this is not drift but the four modules' above-average coverage of
+  `fave/apkeep/adapter.py` and `ad6/translate.py` leaving while those modules stay in the graph
+  (other fast tests import them). The 80% was only ever reachable on a workstation carrying
+  JPype1, both jars and a compiler. **Splitting `test_ad6_translate.py`'s ten solver-backed
+  tests from its 143 pure ones is the way back up** -- do that, then raise the floor.
 
-### 35. Four dependency manifests have drifted — and CI installs the pybison wheel the Dockerfile exists to avoid (found 2026-10-01)
+### 35. Four dependency manifests have drifted — and CI installed the pybison wheel the Dockerfile exists to avoid — FIXED 2026-10-01
 Item 0 already flagged the DRY problem ("the three lists ... are kept in sync by hand").
-There are now four, and they disagree in ways that change what CI actually runs.
-- [ ] **`.github/actions/setup-fave-native/action.yml:55` runs `pip install -r requirements.txt
-  pybison JPype1`** -- a bare `pybison`, with no `--no-binary`. `Dockerfile:96-102` calls that
-  flag "load-bearing, not belt-and-braces": PyPI ships a prebuilt `cp312` manylinux wheel which
-  pip prefers by default and which **segfaults at runtime** in `BisonParser.__init__`, taking
-  the whole pytest process down. Confirmed still served, 2026-10-01:
-  `pip download --only-binary :all: pybison==0.6.4` ->
-  `pybison-0.6.4-cp312-cp312-manylinux_2_28_x86_64.whl`. So `integration` (and `lint`, via
-  `ci.yml:69`) installs precisely the artifact the Dockerfile was written to avoid.
-- [ ] **The composite also omits `lxml` / `python-sat` / `pycosat`**, so `integration` breaks at
-  collection for the same reason as item 30: `test_ad6_port_pair.py` is in
+There were four, and they disagreed in ways that changed what CI actually ran.
+
+- **Finding 1 — the composite installed the forbidden wheel.**
+  `.github/actions/setup-fave-native/action.yml` ran `pip install -r requirements.txt pybison
+  JPype1` -- a bare `pybison`, no `--no-binary`. `Dockerfile:96-102` calls that flag
+  "load-bearing, not belt-and-braces": PyPI ships a prebuilt `cp312` manylinux wheel, pip
+  prefers it, and it **segfaults at runtime** in `BisonParser.__init__`, taking the whole
+  pytest process down with no traceback. Confirmed still served 2026-10-01 --
+  `pip download --only-binary :all: pybison==0.6.4` returns
+  `pybison-0.6.4-cp312-cp312-manylinux_2_28_x86_64.whl` -- so `integration`, and `lint` via
+  `ci.yml`, installed precisely the artifact the Dockerfile was written to avoid.
+  - [x] **FIXED: three pip commands, and the split is load-bearing.** `--no-binary :all:`
+    applies to EVERY package in its own invocation, so it cannot share a line with
+    `requirements.txt` without forcing source builds of `lxml` and `python-sat` as well. Now
+    `pip install -r requirements.txt`, then `pip install --no-binary :all: pybison==0.6.4`,
+    then `pip install JPype1==1.7.1 pycosat==0.6.6`. The `lint` job gets the same treatment.
+  - **Verified** by running that exact sequence into a fresh venv: the resulting
+    `pybison-0.6.4.dist-info/WHEEL` reads `Tag: cp312-cp312-linux_x86_64`,
+    `Generator: setuptools` -- a locally built wheel, not the `manylinux_2_28` one PyPI
+    serves -- and `test_iptables_parser` + `test_iptables_out_iface` run 17 passed against it
+    with no segfault.
+
+- **Finding 2 — the composite omitted `lxml` / `python-sat` / `pycosat`**, so `integration`
+  broke at collection for the same reason as item 34: `test_ad6_port_pair.py` is in
   `FAVE_INTEGRATION_TESTS` and imports `lxml`, and `test_ad6_wl_up.py` reaches `pysat` through
   the bridge.
-- [ ] **`fave/setup.sh:80` cannot install into the venv it has just created.**
-  `export PATH="~/.venv/bin:$PATH"` -- bash performs no tilde expansion inside double quotes, so
-  the entry is the literal string `~/.venv/bin` and every following `pip3 install` targets the
-  system interpreter instead. On Ubuntu 24.04 that now fails outright
-  (`error: externally-managed-environment`), so the documented setup path installs none of the
-  seven pip dependencies it lists. Use `$HOME/.venv/bin/pip` explicitly.
-- [ ] **`fave/setup.sh` hand-lists its pip set** instead of using `requirements.txt`, and the two
-  already disagree (`setup.sh` has no `pytest`/`mypy`/`coverage`; `requirements.txt` has no
-  `pybison`). Consider `pip install -r requirements.txt` plus an explicit native-extras line, so
-  there is one list and one list of exceptions.
+  - [x] **FIXED:** `lxml` and `python-sat` now arrive through `requirements.txt` (item 34), and
+    `pycosat` is named explicitly in the third command above.
+
+- **Finding 3 — `fave/setup.sh` could not install into the venv it had just created.**
+  `export PATH="~/.venv/bin:$PATH"`: bash performs no tilde expansion inside double quotes, so
+  the entry was the literal string `~/.venv/bin`, a directory that does not exist, and every
+  following `pip3 install` ran the SYSTEM interpreter's pip. On Ubuntu 24.04 that now fails
+  outright with `error: externally-managed-environment`, so the documented setup path installed
+  none of the seven dependencies it listed.
+  - [x] **FIXED:** the venv's pip is addressed by path (`VENV_PIP="$HOME/.venv/bin/pip"`),
+    which also makes it agree with the `python3 -m venv "$HOME/.venv"` line above it.
+
+- **Finding 4 — `setup.sh` hand-listed its pip set** instead of using `requirements.txt`, and
+  the two had already drifted in both directions: `setup.sh` had no `pytest`, no `coverage` and
+  no `mypy`; `requirements.txt` has no `pybison`.
+  - [x] **FIXED:** `setup.sh` installs `-r requirements.txt` plus the three documented native
+    extras, so there is one list and one list of exceptions, and the exceptions are explained
+    once -- in that file's header -- rather than implied by their absence.
+
+- **Still hand-maintained, deliberately: the `Dockerfile`'s own pip lines.** It `COPY`s the
+  repo only AFTER installing them, so it cannot read `requirements.txt` without reordering the
+  build and losing the layer caching that ordering buys. Its pins and `requirements.txt`'s do
+  agree today, and `./test.sh doctor` cross-checks the apt half; the pip half is still two
+  lists that a reviewer has to compare by eye.
 
 ### 36. Eight cross-engine differential tests have never run — the gate pre-empts its own `setUpClass` (found 2026-10-01)
 - **Finding:** `test.sh` invokes six of the seven `gen_wl_*_inputs.sh` generators.
@@ -2516,7 +2588,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
-   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about is currently vacuous or red. `fast` and `integration` abort at pytest COLLECTION for want of three pip declarations (**34**, **35**); `lint` fails (**38**); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). Items 34 and 35 are a few lines each and are the prerequisite for believing any other result in this step. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); `lint` fails (**38**); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
