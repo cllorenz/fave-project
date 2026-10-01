@@ -76,10 +76,22 @@ jobs:
       # The lost coverage is not lost from the SUITE -- those 175 tests run in
       # `integration`, which also gates and also uploads coverage. The way back up
       # is to split test_ad6_translate's ten solver-backed tests from its 143 pure
-      # ones (see test.sh); that returns most of it to this tier. Raise the floor
-      # then, and do not lower it again.
+      # ones (see test.sh); that returns most of it to this tier.
+      #
+      # RESTORED to 78 on 2026-10-01, before the 77 above ever reached CI. The
+      # paragraph above was measured on a branch cut before the VeriFlow work;
+      # rebasing onto it added 48 pure-Python tests to this tier (741 -> 789
+      # passed) and the floor became affordable again, so the only intentional
+      # lowering in this file's history stays the 79 -> 78 one.
+      #
+      # MARGIN, because it is thinner than it looks: the true figure is 77.79%,
+      # and this gate passes because `coverage report --fail-under` compares the
+      # value AS PRINTED at the configured precision -- 78. So there is no real
+      # slack, and the next regression of any size fails this job. That is what a
+      # ratchet is for, but it means a red `fast` job here is a coverage
+      # regression to fix, never a floor to lower.
       - name: Run fast tier (with coverage ratchet)
-        run: COVERAGE=1 COVERAGE_MIN=77 bash test.sh fast
+        run: COVERAGE=1 COVERAGE_MIN=78 bash test.sh fast
 
   # --- Lint: non-gating until TODO item 2 makes lint_test.sh fail on errors. ---
   lint:

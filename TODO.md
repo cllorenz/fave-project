@@ -590,8 +590,14 @@ share. **Decision needed before building anything.**
   36's investigation; `test.sh` still does not generate them), then 14 / 2 and 16 / 0. So the
   four modules are not merely out of `fast`; they are demonstrably running, and under the flag
   that forbids a backend test from skipping green.
-- [x] **Coverage ratchet re-baselined 78 -> 77 (measured 77.24%), and the comment above it in
-  `ci.yml` said not to.** Stated there in full; in short: the 78 floor was measured 2026-09-09,
+- [x] **Coverage ratchet: lowered 78 -> 77, then RESTORED to 78 on the rebase, so nothing was
+  lowered in the end.** The rebase onto the VeriFlow work added 48 pure-Python tests to this
+  tier (741 -> 789 passed) and carried it back over the floor: 77.79%, which the gate accepts
+  because `coverage report --fail-under` compares the figure as printed at the configured
+  precision. The margin is therefore 0.21 points and not the 0.79 the printed "78%" suggests --
+  stated in `ci.yml`, because the next red `fast` job here is a regression to fix rather than a
+  floor to lower. What follows is the reasoning for the lowering, kept because it is the
+  measurement of this item's own effect and the rebase did not change it: Stated there in full; in short: the 78 floor was measured 2026-09-09,
   the tier broke 2026-09-12, and this job has measured NOTHING since -- it aborted at
   collection -- so 78 was never a number CI had reproduced. Under identical conditions the move
   is 916 passed / 80.00% -> 741 passed / 77.24%; the denominator falls 19,951 -> 17,589
@@ -599,7 +605,8 @@ share. **Decision needed before building anything.**
   `fave/apkeep/adapter.py` and `ad6/translate.py` leaving while those modules stay in the graph
   (other fast tests import them). The 80% was only ever reachable on a workstation carrying
   JPype1, both jars and a compiler. **Splitting `test_ad6_translate.py`'s ten solver-backed
-  tests from its 143 pure ones is the way back up** -- do that, then raise the floor.
+  tests from its 143 pure ones is the way back up** -- do that, and the margin above stops
+  depending on a rounding rule.
 
 ### 35. Four dependency manifests have drifted — and CI installed the pybison wheel the Dockerfile exists to avoid — FIXED 2026-10-01
 Item 0 already flagged the DRY problem ("the three lists ... are kept in sync by hand").
