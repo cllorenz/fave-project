@@ -53,7 +53,7 @@ import os
 import unittest
 
 from netplumber import lib_adapter
-from test.backend_gate import require_or_skip
+from test.backend_gate import require_or_skip, skip_for_cost
 from veriflow.adapter import VeriFlowAdapter, available
 
 _F = {"topology": "device_topology.json", "policies": "probes.json"}
@@ -141,8 +141,8 @@ class TestExample(_Agrees):
 
 
 @_gate
-@require_or_skip(os.environ.get("VERIFLOW_FULL_DIFFERENTIAL") == "1",
-                 "wl_i2 takes minutes per engine: set VERIFLOW_FULL_DIFFERENTIAL=1")
+@skip_for_cost(os.environ.get("VERIFLOW_FULL_DIFFERENTIAL") == "1",
+               "wl_i2 takes minutes per engine: set VERIFLOW_FULL_DIFFERENTIAL=1")
 class TestI2(_Agrees):
     """ VLAN tagging on a 77k-rule mesh: 61 pairs, measured equal to NetPlumber. """
     __test__ = True

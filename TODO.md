@@ -780,7 +780,7 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   `minisat`/`clasp`, which the doctor already classifies as `ad6`), or record in `README.md` that
   it is deliberately outside the gate.
 
-### 40. A cost opt-in wired through the availability gate turns `integration` red (found 2026-10-01)
+### 40. A cost opt-in wired through the availability gate turns `integration` red — FIXED 2026-10-01
 - **Finding:** `fave/test/test_veriflow_differential.py:141` gates `TestI2` with
   `@require_or_skip(os.environ.get("VERIFLOW_FULL_DIFFERENTIAL") == "1", "wl_i2 takes minutes
   per engine: ...")`. That decorator does not mean "skip unless": `backend_gate.require_or_skip`
@@ -808,14 +808,37 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   VeriFlow-FR -- the tier is red on the decorator alone.
 - **Only one occurrence:** `grep -rn "require_or_skip(os.environ" fave/test/*.py` returns this
   line and no other, so every other cost opt-in in the suite already uses `skipUnless`.
-- [ ] **Swap the one decorator** at `test_veriflow_differential.py:141` to
-  `@unittest.skipUnless(...)`, leaving the `@_gate` above it (that one IS an availability
-  check) untouched.
-- [ ] **Consider making the distinction impossible to get wrong**, since the two decorators read
-  almost identically at the call site and differ only in what an unmet condition MEANS: a
-  `backend_gate.skip_for_cost(condition, reason)` -- a thin `unittest.skipUnless` that exists to
-  be named -- would let a reader see which question is being asked, and would let the module
-  say in one place that cost opt-ins are deliberately outside `FAVE_REQUIRE_BACKENDS`.
+- [x] **FIXED 2026-10-01: the decorator at `test_veriflow_differential.py` is now
+  `skip_for_cost`**, with the `@_gate` above it untouched -- that one is two genuine
+  availability checks (`libnetplumber`, `libveriflow_fr`) and stays on `require_or_skip`. Both
+  gates now appear in the same file, each asking its own question.
+- [x] **The second box taken too: `backend_gate.skip_for_cost(condition, reason)`.** It is
+  exactly `unittest.skipUnless` and exists to be NAMED, with the contrast between the two
+  spelled out where they sit side by side. `test_ad6_wl_stanford.py`'s cost opt-in moved onto it
+  as well -- behaviour-identical, it was already correct -- so the suite's two cost opt-ins now
+  read the same and neither can be mistaken for the availability gate.
+- **The rule was already written down, in the file that got it right.**
+  `test_ad6_wl_stanford.py:84-92` says it outright: *"Deliberately a SEPARATE env var from
+  FAVE_REQUIRE_BACKENDS/require_or_skip's 'required' mode ... that flag means 'fail instead of
+  skip if a BACKEND is unavailable', and must never be conflated with 'run a many-hour
+  differential to completion' -- CI setting FAVE_REQUIRE_BACKENDS=1 must not accidentally force
+  this test to run for hours."* The next author wrote the conflation that comment forbids,
+  because the comment lived in the one file that did not need it. **That is the same shape as
+  item 41** (`check_jar`'s comment calls the jars and the `.so` "the same class of artifact",
+  and then only the jars are checked): the knowledge existed, in prose, somewhere a reader of
+  the other file would never pass. Moving it to `backend_gate.py` -- next to the two functions,
+  in the docstring of the one being chosen -- is what the helper is actually for, and the only
+  part of this fix that stops it recurring.
+- **Verified 2026-10-01**, all three states and not just the one that was red:
+  - the condition that failed -- `FAVE_REQUIRE_BACKENDS=1`, opt-in unset -- is now
+    **4 passed, 1 skipped**, where it was 4 passed and 1 error;
+  - the opt-in still opts IN: `VERIFLOW_FULL_DIFFERENTIAL=1` runs `TestI2` for real -- **1 passed in 200.85 s**,
+    VeriFlow-FR equalling NetPlumber on wl_i2's 61 pairs -- so
+    the fix is not a test quietly made unreachable -- which would be this item's own hazard
+    committed a second time;
+  - `test_ad6_wl_stanford.py` still reports `.s` under `FAVE_REQUIRE_BACKENDS=1`, unchanged.
+  - `lint_test.sh` exits 0 (`failed 0`), `typecheck_test.sh` clean (36 + 8), and no import went
+    dead -- `require_or_skip` is still used for availability in both files.
 - **Not a VeriFlow defect, and not caused by the rebase.** `test_veriflow_differential.py`,
   `backend_gate.py` and `veriflow_fr/` are byte-identical to `ai` on the branch that found this
   (`git diff ai..testing` over those paths is empty); the finding is simply that no one had yet
@@ -2711,7 +2734,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
-   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. **40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates. **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
+   **Items 34-39 (found 2026-10-01) sequence FIRST within this step, ahead of 1s:** every gate this step is about was vacuous or red. `fast` and `integration` aborted at pytest COLLECTION for want of three pip declarations (**34**, **35** -- both now FIXED); ~~`lint` fails (**38**)~~ (**38** RESOLVED on `ai`); eight cross-engine differentials have never executed (**36**); and one `fast`-tier module silently depends on an `integration` artifact (**37**). 34 and 35 were a few lines each and were the prerequisite for believing any other result in this step, so they are done; **36** and **37** are next. ~~**40** belongs at the front with them and is the smallest of the set -- one decorator, and until it is swapped the `integration` job is red on the gate rather than on anything it gates.~~ (**40** FIXED 2026-10-01.) **41** (the doctor's freshness blind spot) belongs here too: it is what lets a stale artifact be reported as a complete environment, and every number this step produces is measured on one. Item **39** (ad6's own 143 tests run nowhere) is a decision, not a repair, and can follow.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.

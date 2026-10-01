@@ -74,7 +74,7 @@ import tempfile
 import unittest
 
 from ad6.adapter import Ad6Adapter, available
-from test.backend_gate import require_or_skip
+from test.backend_gate import require_or_skip, skip_for_cost
 
 _PREFIX = "bench/wl_stanford/stanford-json"
 _FILES = {"topology": "device_topology.json", "policies": "probes.json"}
@@ -164,7 +164,7 @@ class TestAd6WlStanfordStructure(unittest.TestCase):
 @require_or_skip(available(), "the ad6 fave_bridge.py script is unavailable")
 @require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
                  "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
-@unittest.skipUnless(
+@skip_for_cost(
     _RUN_FULL_DIFFERENTIAL,
     "the full 256-query differential is a many-hour run that does not "
     "complete within 6 hours (AD6_PLAN.md §5.4 Stage B item 20, a "

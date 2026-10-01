@@ -82,11 +82,36 @@ def _fail(reason: str) -> Callable[[Any], Any]:
 
 
 def require_or_skip(condition: bool, reason: str) -> Callable[[Any], Any]:
-    """ Like `unittest.skipUnless(condition, reason)`, but an unmet condition is
+    """ AVAILABILITY gate: is the backend (or its generated input) there?
+
+    Like `unittest.skipUnless(condition, reason)`, but an unmet condition is
     a hard FAILURE (not a skip) when FAVE_REQUIRE_BACKENDS is set -- so a CI job
-    that owns the differential gate cannot pass it by silently skipping. """
+    that owns the differential gate cannot pass it by silently skipping.
+
+    NOT for an opt-in the caller chooses not to take: see skip_for_cost. """
     if condition:
         return lambda obj: obj
     if backends_required():
         return _fail("%s [%s set -> required, must not skip]" % (reason, _REQUIRE_ENV))
     return unittest.skip(reason)
+
+
+def skip_for_cost(condition: bool, reason: str) -> Callable[[Any], Any]:
+    """ COST gate: do we want to spend the minutes (or hours) this one takes?
+
+    Exactly `unittest.skipUnless`, and it exists to be NAMED. The two gates in
+    this module read almost identically at the call site and differ only in what
+    an unmet condition MEANS, which is the whole of TODO item 40:
+
+      * require_or_skip -- unmet is an ENVIRONMENT FAULT. Skipping it green is
+        the hazard this module was written to prevent, so FAVE_REQUIRE_BACKENDS
+        turns it into a failure.
+      * skip_for_cost   -- unmet is a DELIBERATE CHOICE by whoever started the
+        run. Skipping is the correct outcome, and FAVE_REQUIRE_BACKENDS must NOT
+        promote it: a flag meaning "the backends must really be exercised" has
+        no opinion on whether this run is the one that spends an hour on wl_i2.
+
+    Using the first for the second is what turned `integration` red -- the
+    expensive case became unrunnable rather than optional, and the tier failed on
+    the decorator without executing a line of the test it gated. """
+    return unittest.skipUnless(condition, reason)
