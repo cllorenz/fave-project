@@ -980,7 +980,7 @@ then applied to one of the two halves.
   ...log4cxx...`), and that `make clean && make all` is the repair. Same class -- an artifact
   that is present, out of date, and reported as fine.
 
-### 42. Fifteen `fast`-tier tests run in no CI job: their tier and their inputs disagree (found 2026-10-01, doing item 37)
+### 42. Fifteen `fast`-tier tests run in no CI job: their tier and their inputs disagree — TWELVE FIXED 2026-10-01, three open
 - **Finding:** `test_wl_up_policy_artifacts.py::test_the_artifacts_match_the_generated_tree`
   asserts the one invariant that module exists for — *whatever sits in `bench/wl_up/` is what
   the FPL sources produce* — and it `skipTest`s when `bench/wl_up/checks.json` is absent. That
@@ -1027,16 +1027,26 @@ then applied to one of the two halves.
   be hard failures under `FAVE_REQUIRE_BACKENDS=1` — but that flag is set only by the
   `integration` job, and these modules are not in it. The gate written precisely to stop a
   differential passing by skipping is attached to tests that no job requiring it ever runs.
-- [ ] **Decide and implement.** Two shapes, and the choice is per module:
-  - the three ad6 modules need a generated workload, which is a **dependency footprint** — the
-    same argument item 34 used to move three modules out of `fast`. Adding them to
-    `FAVE_INTEGRATION_TESTS` is the whole change;
-  - the three `*_policy_artifacts` modules are mostly pure and want to stay, so only their one
-    tree-comparison test moves. That needs either a split module or a shared derivation helper,
-    which is the design question worth an owner's view.
-  - Cheaper and weaker for all six: let `run_integration` run them too, which means taking them
-    out of the `FAVE_NATIVE_TESTS` union so membership of one list stops implying exclusion from
-    `fast`.
+- [x] **The three ad6 modules — DONE (`cd7ac053`).** They need a generated workload, which is a
+  **dependency footprint**, so `FAVE_INTEGRATION_TESTS` is where they belong — the same argument
+  item 34 used for the three APKeep modules beside them, and no owner decision is needed to
+  apply a rule the tier design already states. The whole file moves, as it did there: **16
+  tests, not 12**, since four of them never needed the inputs.
+  - `fast`: **823 passed in 30.3 s → 807 in 13.3 s** (those modules were about half the tier's
+    runtime, as item 39 noted).
+  - the three modules under `FAVE_REQUIRE_BACKENDS=1`, inputs present: **16 passed in 17.0 s**.
+- [ ] **The three `*_policy_artifacts` modules — OPEN, and deliberately.** Each has exactly one
+  tree-comparison test wanting the generated tree, and five or more pure ones that belong in the
+  inner loop, so the module cannot simply move. The fix is a split module or a shared derivation
+  helper, and **that shape is the design question worth an owner's view** — not something to
+  settle while passing through.
+  - Cheaper and weaker alternative for all three: let `run_integration` run them too, which
+    means taking them out of the `FAVE_NATIVE_TESTS` union so membership of one list stops
+    implying exclusion from `fast`.
+- **Re-swept after the move**, same pristine `git archive` method: **804 passed, 3 skipped**
+  (was 808 / 15). The three remaining skips are exactly the open half above —
+  `test_wl_example_policy_artifacts.py:356`, `test_wl_ifi_policy_artifacts.py:231`,
+  `test_wl_up_policy_artifacts.py:190`.
 - **The general gap this exposes:** nothing measures what `fast` SKIPS on a clean checkout, so a
   test can drift out of every tier without any gate going red. The sweep above is a one-off; the
   `fast` job could assert a skip budget (`-rs` plus a count), which is the mechanical version of
