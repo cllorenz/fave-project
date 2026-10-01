@@ -736,6 +736,17 @@ There were four, and they disagreed in ways that changed what CI actually ran.
   `FAVE_REQUIRE_BACKENDS=1`: `test_apkeep_cloud_differential` → **5 passed in 2.3 s** and
   `test_ad6_cloud_differential` → **3 passed in 55.2 s**, each having generated its own inputs.
   The eight tests have now run.
+- **And verified in the TIER, which is the claim that matters.**
+  `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration`, started from a tree with every derived
+  `bench/wl_cloud/` file deleted: **RESULT: integration PASSED** (387 passed / 1 skipped,
+  18 passed / 3 skipped, 22 passed across its three pytest groups), with
+  `test_ad6_cloud_differential.py ...` and `test_apkeep_cloud_differential.py .....` both
+  executing, and the new generator step printing the raw-scenario `sha256sum -c` line ahead of
+  them. The one skip in the first group is `test_ad6_wl_stanford`'s cost opt-in (item 40).
+- **What the eight tests say, now that they say anything.** They pass: APKeep-NDD and ad6 each
+  agree with NetPlumber on all 64 of wl_cloud's unconditioned cells, and both match the
+  dataset's own SMT verdicts on the four cells it determines. The repair confirms rather than
+  refutes — but that was not knowable before, which was the whole problem.
 
 ### 37. A `fast`-tier test needs an `integration`-tier artifact — and reads a different matrix than the one it builds — FIXED 2026-10-01
 - **Finding:** `test_wl_up_policy_artifacts.py` appears in no exclusion list in `test.sh`, so it
