@@ -1011,7 +1011,9 @@ unit tests and seeing them fail, and its exit begins with those tests green.
   build, `integration`-tier gate, every accommodation entered in TODO item 31's
   registry.
 - **V5 — Measurement** over the whole suite, both regimes where TODO item 31's
-  incremental axis exists, stamped per §8. Both field variants (D6): §4.6 as the
+  incremental axis exists, stamped per §8. **Under the suite-wide limit** (TODO item
+  31, decided 2026-10-01): 24 h and 32 GB per cell, on the larger machine to come.
+  V5 waits for it; runs in this container are `limit_class=dev` and not reportable. Both field variants (D6): §4.6 as the
   headline where it applies, plain as the ablation.
 
 ## 11. Citation and attribution
