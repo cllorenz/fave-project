@@ -76,14 +76,31 @@ if [ $? -eq 0 ]; then
     # `PYTHON="${PYTHON:-python3}"` rule every other script in this repo follows:
     # this line CREATES the venv, so it must run the system interpreter. Honouring
     # $PYTHON here would let an already-resolved venv build a venv of itself.
-    python3 -m venv ~/.venv
-    export PATH="~/.venv/bin:$PATH"
+    python3 -m venv "$HOME/.venv"
 
-    pip3 install wheel
-    pip3 install graphviz
-    pip3 install filelock
-    pip3 install pyparsing
-    pip3 install cachetools
-    pip3 install dd
-    pip3 install pybison
+    # Address the venv's pip BY PATH rather than by putting it on $PATH.
+    # This used to read `export PATH="~/.venv/bin:$PATH"`, and bash performs no
+    # tilde expansion inside double quotes -- so the entry was the literal string
+    # `~/.venv/bin`, a directory that does not exist, and every `pip3` below ran
+    # the SYSTEM interpreter's pip instead. On Ubuntu 24.04 that now fails outright
+    # with `error: externally-managed-environment`, so the documented setup path
+    # installed none of what it lists. Fixed 2026-10-01 (TODO item 35).
+    VENV_PIP="$HOME/.venv/bin/pip"
+    "$VENV_PIP" install wheel
+
+    # ONE list, not two. These seven used to be spelled out here and had already
+    # drifted from requirements.txt in both directions (this list had no pytest,
+    # no coverage, no mypy; that file has no pybison). requirements.txt is the
+    # wheel-only set every tier needs; the native extras below are its documented
+    # exceptions, and the reasons live in that file's header.
+    "$VENV_PIP" install -r "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/requirements.txt"
+
+    # pybison MUST be built from source: the prebuilt cp312 wheel segfaults at
+    # runtime inside BisonParser.__init__ (see the Dockerfile). `--no-binary :all:`
+    # applies to every package in its own pip command, which is why this is a line
+    # of its own rather than appended above.
+    "$VENV_PIP" install --no-binary :all: pybison==0.6.4
+    # JPype1 drives the APKeep/NDD backends; pycosat is ad6's in-process SAT solver
+    # and ships no wheel (hence python3-dev, installed above).
+    "$VENV_PIP" install JPype1==1.7.1 pycosat==0.6.6
 fi

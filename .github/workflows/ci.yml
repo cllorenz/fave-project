@@ -63,10 +63,15 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
+        # Separate pip invocations, and pybison takes `--no-binary :all:`: the
+        # prebuilt cp312 wheel segfaults at runtime (Dockerfile:96-102), and the
+        # flag applies to every package in its own command, so it cannot share a
+        # line with requirements.txt. Fixed 2026-10-01 (TODO item 35).
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends flex bison
-          pip install -r requirements.txt pybison pylint
+          pip install -r requirements.txt pylint
+          pip install --no-binary :all: pybison==0.6.4
       - name: Lint
         run: cd fave && PYTHONPATH=. bash test/lint_test.sh
 
