@@ -48,7 +48,7 @@ from devices.probe import ProbeModel
 from devices.switch import SwitchModel
 from rule.rule_model import Forward, Match, Rewrite, Rule, RuleField
 from veriflow.translate import (
-    ANY_PORT, Translator, Unsupported, expand_negated, node_edges
+    ANY_PORT, Translator, Unsupported, expand_negated, node_edges, scan_fields
 )
 
 
@@ -329,6 +329,27 @@ class TestPipelines(unittest.TestCase):
         _feed(tr, model)
         ir = tr.translate()
         self.assertEqual(ir.links, [(ir.ports["f1.1"], ir.ports["f1.2"])])
+
+
+class TestScanFields(unittest.TestCase):
+    """ V3b (D6): a field is a SCAN field when every rule matches it exactly or
+    not at all; otherwise a TRIE field -- the V0 survey's `vf_fields`, per
+    workload, over what the engine is actually given. """
+
+    def test_prefix_fields_are_trie_exact_fields_are_scan(self):
+        rules = [
+            Rule("s1", "s1.1", 1, match=Match([
+                RuleField("packet.ipv4.destination", "10.0.0.0/8"),
+                RuleField("packet.upper.dport", "22")]), actions=[Forward(["s1.1"])]),
+            Rule("s1", "s1.1", 2, match=Match([
+                RuleField("packet.ipv4.destination", "10.1.2.3")]), actions=[Forward(["s1.1"])]),
+        ]
+        tr = Translator()
+        _feed(tr, _switch("s1", ["1"], rules))
+        ir = tr.translate()
+        flags = dict(zip([n for n, _w in ir.fields], scan_fields(ir)))
+        self.assertEqual(flags, {"packet.ipv4.destination": False,
+                                 "packet.upper.dport": True})
 
 
 class TestRefusals(unittest.TestCase):

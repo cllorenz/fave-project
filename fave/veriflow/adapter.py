@@ -43,7 +43,7 @@ import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from aggregator.abstract_engine import AbstractVerificationEngine
-from veriflow.translate import Ir, Translator, Unsupported
+from veriflow.translate import Ir, Translator, Unsupported, scan_fields
 
 _LIB_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "veriflow_fr", "python"))
@@ -90,11 +90,13 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
 
     def __init__(self, logger: Any = None, invert_lpm: bool = False,
                  slicing: str = "device", budget: int = 0,
-                 revisit: str = "state") -> None:
+                 revisit: str = "state", fields: str = "plain") -> None:
         if slicing not in ("device", "network"):
             raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
         if revisit not in ("path", "state"):
             raise ValueError("revisit is 'path' or 'state', not %r" % revisit)
+        if fields not in ("plain", "4+10"):
+            raise ValueError("fields is 'plain' or '4+10', not %r" % fields)
         if libveriflow_fr is None:
             raise RuntimeError(
                 "libveriflow_fr is not built; run "
@@ -109,6 +111,10 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         #: header), kept for parity runs; it loses deliveries that legitimately
         #: pass a table twice (test/test_revisit_router_on_a_stick.py).
         self.revisit = revisit
+        #: D6 / V3b: "plain" (every field a trie dimension) or "4+10" (T §3.2.2
+        #: generalised: exact-or-ANY fields scanned, finer rules excluded)
+        self.fields = fields
+        self._scan: List[bool] = []
         #: per check set answered: (source, local ECs sliced, states expanded)
         self.work: List[Tuple[str, int, int]] = []
         self._results: List[Tuple[str, str, bool, Any]] = []
@@ -131,6 +137,10 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         ir.stamps["vf_slicing"] = self.slicing
         ir.stamps["vf_budget"] = self.budget
         ir.stamps["vf_revisit"] = self.revisit
+        self._scan = scan_fields(ir) if self.fields == "4+10" else []
+        ir.stamps["vf_fields"] = "plain" if not self._scan else "4+10:trie=%s,scan=%s" % (
+            [n for (n, _w), sc in zip(ir.fields, self._scan) if not sc],
+            [n for (n, _w), sc in zip(ir.fields, self._scan) if sc])
         t1 = time.perf_counter()
         net = libveriflow_fr.Network(ir.fields)
         for tid in sorted(set(ir.tables.values())):
@@ -194,7 +204,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             else:
                 (answers, finished, stopped_at, predicted, single, local_ecs, hops,
                  per_table) = self.net.local_deliveries(
-                     qs, starts, self.budget, self.revisit == "state")
+                     qs, starts, self.budget, self.revisit == "state", self._scan)
                 self.work.append((owners[0][0], local_ecs, hops))
                 if not finished:
                     names = {v: k for k, v in ir.tables.items()}

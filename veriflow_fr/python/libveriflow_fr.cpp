@@ -92,14 +92,16 @@ class PyNetwork {
   // single_table, local ECs sliced, states expanded, local ECs per table).
   // `state`: Q4's revisit rule -- the thesis's visited states, or NetPlumber's
   // path rule.
+  // `scan`: V3b's per-field scan flags (empty: plain slicing).
   py::tuple local_deliveries(const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
-                             uint64_t budget, bool state) const {
+                             uint64_t budget, bool state,
+                             const std::vector<bool> &scan) const {
     LocalResult r;
     {
       py::gil_scoped_release release;
       r = vf::local_deliveries(net_, range, starts, budget,
-                               state ? Revisit::STATE : Revisit::PATH);
+                               state ? Revisit::STATE : Revisit::PATH, scan);
     }
     return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
                           r.single_table, r.local_ecs, r.hops, r.per_table);
@@ -174,7 +176,9 @@ PYBIND11_MODULE(libveriflow_fr, m) {
       .def("load_rule", &PyNetwork::load_rule, py::arg("id"), py::arg("table"),
            py::arg("priority"), py::arg("in_port"), py::arg("match"), py::arg("out"),
            py::arg("consume"), py::arg("rewrites") = std::vector<std::pair<size_t, std::string>>())
-      .def("local_deliveries", &PyNetwork::local_deliveries)
+      .def("local_deliveries", &PyNetwork::local_deliveries, py::arg("range"),
+           py::arg("starts"), py::arg("budget"), py::arg("state"),
+           py::arg("scan") = std::vector<bool>())
       .def("remove_rule", &PyNetwork::remove_rule)
       .def("affected_ecs", &PyNetwork::affected_ecs)
       .def("decide_point", &PyNetwork::decide_point)

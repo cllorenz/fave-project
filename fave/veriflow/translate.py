@@ -504,3 +504,21 @@ def _census_layout(models: List[Any], fields: Optional[Sequence[str]]) -> List[T
     if unknown:
         raise Unsupported("fields without a known width: %s" % sorted(unknown))
     return [(name, FIELD_SIZES[name]) for name in FIELD_SIZES if name in wanted]
+
+
+def scan_fields(ir: Ir) -> List[bool]:
+    """ Per layout field, whether it is a SCAN field (V3b, D6): every rule the
+    engine is given matches it exactly or not at all. Otherwise it is a TRIE
+    field, cut into local ECs. A query set or a rewrite may still give a scan
+    field any interval; only rule matches decide. """
+    flags = []
+    for name, width in ir.fields:
+        off = ir.offset(name)
+        scan = True
+        for rule in ir.rules:
+            bits = rule.match[off:off + width]
+            if 'x' in bits and set(bits) != {'x'}:
+                scan = False
+                break
+        flags.append(scan)
+    return flags
