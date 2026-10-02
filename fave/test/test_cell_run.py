@@ -298,6 +298,62 @@ class TestTheCommandEachBackendGets(unittest.TestCase):
                            '--limit-class', 'dev', '--limit-wall', '1',
                            '--out', '/tmp/never-written.json'])
 
+    def test_a_reportable_ad6_cell_must_declare_its_encoding(self):
+        # TODO item 0a. Rank and flow are not interchangeable -- on
+        # wl_stanford (240 queries) flow is 3.65x faster, on wl_up (11,902) it
+        # is >31.4x slower and did not finish -- so the SIGN of the effect
+        # depends on the workload, and a table that mixes them mixes
+        # encodings. Taking the adapter's default is an undocumented habit:
+        # stamped afterwards, never decided.
+        for options in ('', '--solver cadical195', '--grounding rank'):
+            with self.subTest(engine_options=options):
+                with self.assertRaises(SystemExit):
+                    cell_run.main(['wl_ifi', '--backend', 'ad6',
+                                   '--engine-options', options,
+                                   '--limit-class', 'v5', '--limit-wall', '60',
+                                   '--out', '/tmp/never-written.json'])
+
+    def test_a_dev_ad6_cell_need_not_declare_it(self):
+        # A dev number is not reportable, so the gate would only be friction.
+        # The parser must get past the check; the run itself is not started
+        # here, which is what the 0-second wall limit arranges.
+        args = _args(backend='ad6', engine_options='')
+        _, env, _ = cell_run.build_command(args)
+        self.assertEqual(env['FAVE_BACKEND'], 'ad6')
+
+    def test_the_other_backends_are_not_gated(self):
+        # Their measurement-affecting choices have explicit flags with
+        # declared defaults that are stamped either way: --apkeep-engine,
+        # --vf-fields. ad6 is the one whose silent defaults change the
+        # encoding.
+        for backend, extra in (('apkeep', ['--apkeep-engine', 'ndd']),
+                               ('veriflow', ['--vf-fields', '4+10'])):
+            with self.subTest(backend=backend):
+                parser_ok = True
+                try:
+                    cell_run.main(['wl_ifi', '--backend', backend] + extra
+                                  + ['--limit-class', 'v5',
+                                     '--limit-wall', '0.01',
+                                     '--out', '/tmp/claude-1000/gated.json'])
+                except SystemExit as exit_:
+                    parser_ok = exit_.code != 2        # 2 is argparse's refusal
+                except Exception:                      # pylint: disable=broad-except
+                    pass                               # a run failure is fine
+                self.assertTrue(parser_ok,
+                                "%s was gated; only ad6 should be" % backend)
+
+    def test_a_cell_without_a_declared_deadline_is_refused(self):
+        # Zero would read as "no deadline" to the sampling loop, and the result
+        # would look like a cell that completed. Item 31: every run carries a
+        # declared limit, because a run that was merely killed has not been
+        # shown not to finish.
+        for wall in ('0', '-1'):
+            with self.subTest(limit_wall=wall):
+                with self.assertRaises(SystemExit):
+                    cell_run.main(['wl_ifi', '--backend', 'veriflow',
+                                   '--limit-class', 'dev', '--limit-wall', wall,
+                                   '--out', '/tmp/never-written.json'])
+
     def test_every_backend_has_a_source_tree_to_stamp(self):
         # The provenance column names WHICH build produced a number, and a jar
         # hash cannot answer it: it changes on every rebuild.

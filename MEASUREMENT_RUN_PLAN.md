@@ -232,11 +232,86 @@ is the right first command after any restart.
 
 ## 4. P2 — repairs that gate specific cells
 
-| # | what | gates |
-|---|---|---|
-| P2a | **`wl_generic_fw` converts its checks with a script that does not exist.** `_post_preparation` runs `bench/wl_generic_fw/reach_csv_to_checks.py`; the script is `bench/reach_csv_to_checks.py`. `os.system`'s status is ignored, so the step fails silently and the run continues with whatever `checks.json` the base class wrote. Also hard-codes `python3` where the base class uses `PYTHON`. (TODO 32) | every `wl_generic_fw` cell |
-| P2b | **`wl_state_snapshots` is not reproducible** — addresses and ports from `random`, unseeded. (TODO 32) | the incremental axis only — **out of scope**, §10 |
-| P2c | **ad6's `wl_stanford` driver hardcodes `Minisat22`**, with no acyclic option, and stamps none of it. Discharging item 0a's uniformity items there is **code work**. (TODO 0a) | every reportable ad6 `wl_stanford` cell |
+**Both are done — 2026-10-02, before the move. Neither is left for the new
+machine.** What each turned out to be is worth reading, because in both cases
+the defect as filed was not the defect as found.
+
+### P2a — `wl_generic_fw` (TODO item 32): three defects, not one
+
+Filed as *"converts its checks with a script that does not exist"*. True, and
+the least of it.
+
+1. **The missing converter.** `_post_preparation` ran
+   `bench/wl_generic_fw/reach_csv_to_checks.py`; the script is
+   `bench/reach_csv_to_checks.py`. **It is now deleted, not repaired** — it was
+   a lossy duplicate of `GenericBenchmark._convert_policy_to_checks`, which has
+   already run by that point, and correcting the path would have made the
+   workload worse: the call omits `--roles` (a subnet-standing role loses its
+   self-check), `--strict` (which decides whether a filled diagonal means
+   anything), `-m` (so `--inventory-mapping` falls back to a `fave/inventory.
+   json` that does not exist, where the base passes this workload's own
+   `bench/empty.json`) and `--cchecks` (so conditional checks land in
+   `fave/cchecks.json`, **inside the source tree** — the defect item 37 fixed
+   in `inventorygen.py`).
+2. **A four-year-old flag regression, found while fixing the first.**
+   `6408fcb1` (2021-12-10) converted this benchmark to argparse and inverted
+   `-n/--no-internet`'s default on the way: before it, `use_state_snapshots`
+   started `False` and `-n` set it `True`; after it the default was `True`, so
+   **every default run behaved as though `-n` had been passed.** With
+   `use_internet` false the policy translator rejects the default policy's
+   `Internet` role (*"Error: Role Internet is unknown"*), so no reachability
+   matrix and no `roles.json` were produced, and `topogen.py` and `policygen.py`
+   then failed too. The workload has not been generatable since 2021.
+3. **Every one of those failures was silent.** `os.system`'s status is a value
+   and every caller discarded it. `generic_benchmark.run_step` now raises, and
+   `wl_generic_fw` uses it; it is deliberately not retrofitted onto every
+   `os.system` in that file, because several steps fail harmlessly by design
+   (the base calls `topogen.py`/`routegen.py` for workloads that have none).
+
+**Measured after the fix:** `checks.json` comes out **7 must-reach and 3
+must-NOT-reach**, exactly the V0 feature survey's recorded figures, with no
+source-tree pollution. The workload now runs: NetPlumber and VeriFlow-FR both
+answer **1 violation of 10**, agreeing line for line.
+
+> **One finding handed back, not chased.** That violation is
+> `! source.WebServer -> probe.Internet, related:0` — a must-NOT-reach that is
+> reached. Both engines agree, so it is the workload's content, not an engine
+> artifact, and `wl_generic_fw` has no oracle. Filed under item 32; it wants
+> the owner's reading of the ruleset, not a harness change.
+
+### P2c — ad6's encoding choices (TODO item 0a): already discharged, and the item was stale
+
+Filed as *"ad6's `wl_stanford` driver hardcodes `Minisat22`, with no acyclic
+option, and stamps none of it ... CODE work"*. **That driver does not exist.**
+`a51b8124` (Phase 5b) deleted `bench/ad6_faithful_measure.py` along with the
+semantic translation, and Phase 6 gave the production path what the driver had
+had privately: `--solver`, `--grounding` and `--lite-acyclic` are aggregator
+arguments, and `Ad6Adapter.configuration_stamp()` reports all three — with
+`lite_acyclic_applies` stating what was **used**, not what was asked for.
+Verified live through `cell_run.py`: `--engine-options "--solver cadical195
+--grounding rank"` reaches the adapter and the run's own log carries it.
+
+**What remained was not code but a decision that nothing forced.** Taking
+whatever the adapter defaults to (`minisat22`, rank) is precisely item 0a's
+*"undocumented habit"* — stamped afterwards, never decided. So **`cell_run.py`
+now refuses a reportable (`--limit-class v5`) ad6 cell that does not declare
+both.** A `dev` cell is not gated, because a dev number is not reportable
+anyway; and the gate is ad6-only, because the other three backends' choices
+have explicit flags with declared defaults that are stamped either way.
+
+**The campaign's declared ad6 configuration**, in force for every ad6 cell:
+`--grounding rank --solver cadical195`, with `--lite-acyclic` added on `wl_i2`
+where it is mandatory. Rank because it is the only property-agnostic option and
+the only one that scales in query count; flow appears, if at all, as a declared
+small-n ablation on `wl_stanford` alone.
+
+### One more the building turned up
+
+`--limit-wall 0` used to read as *"no deadline"* to the sampling loop, so a cell
+given one would run unbounded and its result would look like a cell that simply
+completed. Item 31 requires every run to carry a declared limit — a run that was
+merely killed has not been shown not to finish — so a non-positive wall limit is
+now refused.
 
 **Item 0a is a declared GATE before any headline number.** Its live question for
 this campaign is **which grounding constraint** ad6 uses: rank and flow are *not

@@ -562,6 +562,46 @@ def main(argv=None):
     if args.mutate and args.reuse_inputs:
         parser.error('--mutate regenerates the policy; it cannot --reuse-inputs')
 
+    # `0` would read as "no deadline" to the sampling loop, which is the one
+    # thing a cell may not have: item 31 requires that EVERY run carry a
+    # declared limit, and "a long-running build that is killed by the operator
+    # has not been shown not to finish -- it has been shown to have been
+    # killed". A limit of zero is not a declaration, it is the absence of one,
+    # and it would read in the result as a cell that simply completed.
+    if args.limit_wall <= 0:
+        parser.error('--limit-wall must be positive: a cell without a declared '
+                     'stopping rule produces no reportable did-not-finish')
+
+    # TODO item 0a, the generality-debt gate, for the one backend whose silent
+    # defaults change what is being measured. ad6's grounding and solver are
+    # NOT interchangeable settings of one encoding:
+    #
+    #   * rank is property-agnostic and lives in the shared base encoding, so
+    #     one persistent session amortises it across every query; flow names
+    #     THIS query's endpoints and so forces a fresh solver per query. On
+    #     wl_stanford (240 queries) flow is 3.65x FASTER; on wl_up (11,902) it
+    #     is >31.4x slower and did not finish at all. The SIGN of the effect
+    #     depends on the query count, so "flow is Nx faster" is not a sentence
+    #     that can be completed without naming the workload.
+    #   * the solver likewise: §7.5 records a 21.7x that turned out to be flow
+    #     at its best solver against rank at its worst.
+    #
+    # A table that mixes them mixes encodings. Taking whatever the adapter
+    # happens to default to (minisat22, rank) is exactly the "undocumented
+    # habit" item 0a is about -- it is stamped afterwards, but it was never
+    # DECIDED. So a reportable ad6 cell must say both; a dev cell need not,
+    # because a dev number is not reportable anyway.
+    if args.limit_class == 'v5' and args.backend == 'ad6':
+        missing = [flag for flag in ('--solver', '--grounding')
+                   if flag not in args.engine_options]
+        if missing:
+            parser.error(
+                "a reportable ad6 cell must declare %s in --engine-options: "
+                "the grounding and the solver are not interchangeable, and a "
+                "table that mixes them mixes encodings (TODO item 0a). Use "
+                "--limit-class dev for an exploratory run."
+                % ' and '.join(missing))
+
     out_dir = os.path.dirname(os.path.abspath(args.out)) or '.'
     os.makedirs(out_dir, exist_ok=True)
     stem = os.path.splitext(os.path.basename(args.out))[0]

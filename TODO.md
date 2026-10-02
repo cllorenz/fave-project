@@ -35,7 +35,21 @@ solver against rank at its worst, and the gate caught it),
 so a table mixing them mixes encodings. **Two further findings from the same pass:** the
 wl_stanford driver `bench/ad6_faithful_measure.py` hardcodes `Minisat22` with no acyclic
 option and stamps none of it, so discharging items 1/2/8 there is CODE work rather than
-documentation; and the gate needs a second clause — *state the denominator, never compare
+documentation -- ~~CODE WORK~~ **DISCHARGED 2026-10-02, and this sentence was stale:
+that driver no longer exists.** `a51b8124` (Phase 5b) deleted
+`bench/ad6_faithful_measure.py` with the semantic translation, and Phase 6 gave the
+PRODUCTION path what the driver had had privately: `--solver`, `--grounding` and
+`--lite-acyclic` are aggregator arguments, and `Ad6Adapter.configuration_stamp()`
+reports all three plus `impl`, with `lite_acyclic_applies` stating what was USED rather
+than what was asked for. Verified live 2026-10-02 through `bench/cell_run.py`:
+`--engine-options "--solver cadical195 --grounding rank"` reaches the adapter and the
+run's own log carries it. What remained was not code but a DECISION not being forced,
+so `cell_run.py` now refuses a REPORTABLE (`--limit-class v5`) ad6 cell that does not
+declare both -- taking the adapter's defaults is exactly the "undocumented habit" this
+item is about: stamped afterwards, never decided. A `dev` cell is not gated, because a
+dev number is not reportable anyway; and the gate is ad6-only, because the other three
+backends' measurement-affecting choices have explicit flags with declared defaults;
+and the gate needs a second clause — *state the denominator, never compare
 totals across different query counts* — since §5.5's "~13x slower per query" is actually
 total-wall/total-wall over 72 queries vs 256 (per query: ~62x, or ~22x against the
 post-admission-fix Stanford baseline). **A third instance, 2026-09-21:** wl_up's
@@ -2894,8 +2908,14 @@ Three refinements, so the two categories stay apart:
 - [x] **Evidence base for the registry: `fave/bench/feature_survey.py`** (2026-09-29). It records what each engine is handed, per field and kind, plus rewrites, table semantics, ingress-port disjunctions and checks, for every reachability workload (`VERIFLOW_PLAN.md` §9). One finding bears on the Delta-net question below: no rule in the suite carries a ternary value, so every field value is an interval.
 - [ ] **OPEN (owner): Delta-net as a backend?** Atoms are a distinct family (a persistent minimal partition over one field), and its authors' traces are already in the suite. Natively it runs only the IPv4-forwarding workloads; everything else would be declared accommodations or reduced variants — itself an honest data point about the tool. No code is published (`VERIFLOW_PLAN.md` §2), so it would be a second independent implementation.
 
-### 32. Found by the V0 feature survey — OPEN (2026-09-29)
-- [ ] **`wl_generic_fw` converts its checks with a script that does not exist.** `bench/wl_generic_fw/benchmark.py` `_post_preparation` runs `python3 bench/wl_generic_fw/reach_csv_to_checks.py`; the script is `bench/reach_csv_to_checks.py`. `os.system`'s exit status is ignored, so the step fails silently: *"can't open file"* on stderr, and the run carries on with whatever `checks.json` the base class wrote. It also hard-codes `python3` where the base class uses `PYTHON`. Found by running the default instance's preparation for the survey (plan §9).
+### 32. Found by the V0 feature survey — ONE OF TWO FIXED 2026-10-02
+- [x] **`wl_generic_fw` converts its checks with a script that does not exist — FIXED 2026-10-02, and it was three defects.** `bench/wl_generic_fw/benchmark.py` `_post_preparation` ran `python3 bench/wl_generic_fw/reach_csv_to_checks.py`; the script is `bench/reach_csv_to_checks.py`. `os.system`'s exit status is ignored, so the step failed silently and the run carried on with whatever `checks.json` the base class wrote. It also hard-coded `python3` where the base class uses `PYTHON`.
+  - **The converter call is DELETED, not repaired.** Correcting the path would have made the workload worse: the call is a lossy duplicate of `GenericBenchmark._convert_policy_to_checks`, which has already run by that point, and it omits `--roles` (a role whose single node stands for a subnet loses its self-check), `--strict` (which decides whether a filled diagonal means anything), `-m` (so `--inventory-mapping` falls back to a `fave/inventory.json` that does not exist, where the base passes this workload's own `bench/empty.json`) and `--cchecks` (so conditional checks would be written to `fave/cchecks.json`, **into the source tree** — the defect item 37 fixed in `inventorygen.py`). The base class's conversion is simply the right one here; there was never a second question to ask.
+  - **A four-year-old flag regression, found while fixing the first, and the reason this workload could not be generated AT ALL.** `6408fcb1` (2021-12-10) converted the benchmark to argparse and inverted `-n/--no-internet`'s default: before it `use_state_snapshots` started `False` and `-n` set it `True`; after it the default was `True`, so **every default run behaved as though `-n` had been passed**. With `use_internet` false the policy translator rejects the default policy's `Internet` role (*"Error: Role Internet is unknown"*), so no `reachability.csv` and no `roles.json` were produced, and `topogen.py` and `policygen.py` failed after it. Restored to the pre-refactor semantics.
+  - **Every one of those failures was silent.** `generic_benchmark.run_step` now raises on a non-zero sub-step and `wl_generic_fw` uses it. Deliberately NOT retrofitted onto every `os.system` in that file: several steps fail harmlessly by design (the base calls `topogen.py`/`routegen.py` for workloads that have no such script), and making those fatal is a separate change with its own blast radius.
+  - **Measured after the fix:** `checks.json` is **7 must-reach and 3 must-NOT-reach**, exactly the V0 survey's figures, with no source-tree pollution. The workload runs on both engines tried, agreeing line for line at **1 violation of 10**.
+  - **Side effect, handled rather than suppressed:** `test_wl_example_policy_artifacts.py` asserted wl_example is the sole source of the `|` alternative-cell shape. `wl_generic_fw`'s policy IS wl_example's, so once it became generatable its matrix appeared on disk — **byte-identical**. The guard now compares CELLS instead of exempting a directory name, so a copy passes and a genuine divergence still fires.
+- [ ] **NEW, handed to the owner (2026-10-02): `wl_generic_fw`'s default instance reports one violation, and it is not obviously wrong.** `! s=source.WebServer && EF p=probe.Internet && f=related:0` — a must-NOT-reach that IS reached. **NetPlumber and VeriFlow-FR agree line for line**, so it is the workload's content and not an engine artifact, and `wl_generic_fw` has no oracle (its `reachable.json` is generated from the same policy, so it cannot adjudicate — item 1s). Either the `default/ruleset` permits something `default/policy.txt` does not, or the model reads the conntrack rule more broadly than intended. Needs the owner's reading of the ruleset, not a harness change. It has never been visible before because the workload has not run since 2021.
 - [ ] **`wl_state_snapshots` is not reproducible:** it draws addresses and ports from `random` without a seed. It is the suite's only state-update stream, so before it can serve item 31's incremental axis it needs a seed, stamped.
 
 ### 33. A packet that passes one table twice: NetPlumber under-, APKeep over-approximates — OPEN (found 2026-09-30)
