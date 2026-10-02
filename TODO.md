@@ -2825,6 +2825,20 @@ Three refinements, so the two categories stay apart:
   - **A did-not-finish cell records** which limit tripped, the elapsed time, and the engine's own progress lower bound where it has one: VeriFlow-FR's predicted ECs per table, ad6's queries done, APKeep's profiler trail.
   - **Stamps on every cell:** `limit_wall`, `limit_rss`, `limit_class`, `machine`, `limit_tripped`.
   - [ ] Build the harness mechanism and the stamps; testable here under the dev class.
+    **Verified absent 2026-10-02:** no `limit_class`, `limit_wall`, `limit_rss` or
+    `limit_tripped` occurs anywhere in the tree, so this is the one piece of code the
+    campaign cannot start without. `bench/deltanet/eval/engine_run.py` is ~90% of it
+    already and is bound to the Delta-net family in three places;
+    [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) §3 says which.
+  - [ ] **The run book for the campaign itself: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)**
+    (2026-10-02). Every open cell across all five engine configurations and the whole
+    reachability suite, ordered cheapest-first so a harness defect costs minutes rather
+    than a day, with the predictions declared in advance (§7) and ~4-5 days of
+    wall-clock, three quarters of it the long BDD cells. Written to be executed by a
+    session with no prior context. **Its §0 is the owner's half and is blocking:** the
+    9.6 GB Delta-net archive and the 386 MB derived `berkeley-inserts.csv` are
+    gitignored, so they must be copied to the new machine or `wl_berkeley` cannot run
+    at any size.
 - [ ] **Result-cell schema** — every cell carries: **provenance** (below), the **accommodations** in force (extensions, from the registry above), workload variant, adapter encodings, and an outcome that distinguishes *correct* from *did not finish within the declared limit* from *wrong verdict*. *(Owner, 2026-09-29: provenance is its own column, for every backend.)* Provenance and accommodations used to be one field ("native / extended / our reimplementation"); they are two axes — *whose code runs* versus *how much of the workload the tool supports as published* — and a cell can be, say, the authors' code with a FaVe extension.
   - **Provenance column — whose code produced the number.** Values, each naming its source and its change record:
     - `authors` — the authors' code, unmodified. (No backend today.)
