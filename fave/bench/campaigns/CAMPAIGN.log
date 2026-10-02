@@ -1,30 +1,21 @@
-[2026-10-02T14:55:21Z] === campaign driver up, 63 h of budget left ===
-[2026-10-02T14:55:21Z]     net_plumber: /home/ubuntu/fave-project/net_plumber/build/net_plumber
-[2026-10-02T14:55:21Z] --- phase A: the cheap matrix, 51 cells ---
+[2026-10-02T15:03:58Z] === campaign driver up, 63 h of budget left ===
+[2026-10-02T15:03:58Z]     net_plumber: /home/ubuntu/fave-project/net_plumber/build/net_plumber
+[2026-10-02T15:03:58Z] --- phase A: the cheap matrix, 51 cells ---
 [run ] wl_example_np                wl_example --backend netplumber --expect-violations 0 --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_example_np.json
-{"workload": "wl_example", "engine": "netplumber", "status": "completed", "outcome": "correct", "limit_class": "v5", "limit_tripped": "none", "wall_s": 2.17, "peak_rss_mb": 218, "violations": 0, "checks": 10, "verdict_valid": true}
+{"workload": "wl_example", "engine": "netplumber", "status": "completed", "outcome": "correct", "limit_class": "v5", "limit_tripped": "none", "wall_s": 2.125, "peak_rss_mb": 84, "violations": 0, "checks": 10, "verdict_valid": true}
 [run ] wl_ifi_np                    wl_ifi --backend netplumber --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_ifi_np.json
-{"workload": "wl_ifi", "engine": "netplumber", "status": "completed", "outcome": "measured", "limit_class": "v5", "limit_tripped": "none", "wall_s": 2.07, "peak_rss_mb": 67, "violations": 27, "checks": 299, "verdict_valid": true}
+{"workload": "wl_ifi", "engine": "netplumber", "status": "completed", "outcome": "measured", "limit_class": "v5", "limit_tripped": "none", "wall_s": 2.075, "peak_rss_mb": 67, "violations": 27, "checks": 299, "verdict_valid": true}
 [run ] wl_cloud_np                  wl_cloud --backend netplumber --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_cloud_np.json
-{"workload": "wl_cloud", "engine": "netplumber", "status": "completed", "outcome": "measured", "limit_class": "v5", "limit_tripped": "none", "wall_s": 2.221, "peak_rss_mb": 229, "violations": 58, "checks": 71, "verdict_valid": true}
+{"workload": "wl_cloud", "engine": "netplumber", "status": "completed", "outcome": "measured", "limit_class": "v5", "limit_tripped": "none", "wall_s": 2.226, "peak_rss_mb": 229, "violations": 58, "checks": 71, "verdict_valid": true}
 [run ] wl_tum_np                    wl_tum --backend netplumber --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_tum_np.json
-Traceback (most recent call last):
-  File "/home/ubuntu/fave-project/fave/bench/cell_run.py", line 681, in <module>
-    sys.exit(main())
-             ^^^^^^
-  File "/home/ubuntu/fave-project/fave/bench/cell_run.py", line 669, in main
-    print(json.dumps({k: result[k] for k in (
-                         ~~~~~~^^^
-KeyError: 'checks'
+{"workload": "wl_tum", "engine": "netplumber", "status": "completed", "outcome": "error", "limit_class": "v5", "limit_tripped": "none", "wall_s": 5.84, "peak_rss_mb": 442, "violations": 0, "checks": null, "verdict_valid": false}
 [warn] wl_tum_np exited 1; recorded and continuing
 [run ] wl_up_np                     wl_up --backend netplumber --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_up_np.json
-{"workload": "wl_up", "engine": "netplumber", "status": "completed", "outcome": "measured", "limit_class": "v5", "limit_tripped": "none", "wall_s": 21.97, "peak_rss_mb": 3759, "violations": 0, "checks": 18811, "verdict_valid": true}
+{"workload": "wl_up", "engine": "netplumber", "status": "completed", "outcome": "measured", "limit_class": "v5", "limit_tripped": "none", "wall_s": 21.966, "peak_rss_mb": 3759, "violations": 0, "checks": 18811, "verdict_valid": true}
 [run ] wl_stanford_np               wl_stanford --backend netplumber --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_stanford_np.json
-{"workload": "wl_stanford", "engine": "netplumber", "status": "error", "outcome": "error", "limit_class": "v5", "limit_tripped": "none", "wall_s": 91.23, "peak_rss_mb": 586, "violations": null, "checks": 240, "verdict_valid": false}
-[warn] wl_stanford_np exited 1; recorded and continuing
+{"workload": "wl_stanford", "engine": "netplumber", "status": "completed", "outcome": "measured", "limit_class": "v5", "limit_tripped": "none", "wall_s": 6.496, "peak_rss_mb": 992, "violations": 75, "checks": 240, "verdict_valid": true}
 [run ] wl_airtel1_np                wl_airtel1 --backend netplumber --expect-violations 0 --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_airtel1_np.json
-{"workload": "wl_airtel1", "engine": "netplumber", "status": "completed", "outcome": "correct", "limit_class": "v5", "limit_tripped": "none", "wall_s": 5.181, "peak_rss_mb": 368, "violations": 0, "checks": 256, "verdict_valid": true}
+{"workload": "wl_airtel1", "engine": "netplumber", "status": "completed", "outcome": "correct", "limit_class": "v5", "limit_tripped": "none", "wall_s": 5.241, "peak_rss_mb": 366, "violations": 0, "checks": 256, "verdict_valid": true}
 [run ] wl_airtel2_np                wl_airtel2 --backend netplumber --expect-violations 0 --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_airtel2_np.json
-{"workload": "wl_airtel2", "engine": "netplumber", "status": "completed", "outcome": "correct", "limit_class": "v5", "limit_tripped": "none", "wall_s": 5.181, "peak_rss_mb": 372, "violations": 0, "checks": 256, "verdict_valid": true}
+{"workload": "wl_airtel2", "engine": "netplumber", "status": "completed", "outcome": "correct", "limit_class": "v5", "limit_tripped": "none", "wall_s": 5.241, "peak_rss_mb": 368, "violations": 0, "checks": 256, "verdict_valid": true}
 [run ] wl_i2_np                     wl_i2 --backend netplumber --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_i2_np.json
-{"workload": "wl_i2", "engine": "netplumber", "status": "interrupted", "outcome": "interrupted", "limit_class": "v5", "limit_tripped": "none", "wall_s": 172.547, "peak_rss_mb": 1366, "violations": null, "checks": 72, "verdict_valid": false}
