@@ -1,0 +1,83 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)', 'engine': 'ndd', 'faithful_vlan': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00011372566223144531 seconds.
+worker: completed task switch in 3.743171691894531e-05 seconds.
+worker: completed task switch in 3.0994415283203125e-05 seconds.
+worker: completed task switch in 1.8358230590820312e-05 seconds.
+worker: completed task switch in 1.8596649169921875e-05 seconds.
+worker: completed task switch in 1.33514404296875e-05 seconds.
+worker: completed task switch in 1.239776611328125e-05 seconds.
+worker: completed task switch in 1.33514404296875e-05 seconds.
+worker: completed task switch in 1.7404556274414062e-05 seconds.
+worker: completed task switch in 1.5974044799804688e-05 seconds.
+worker: completed task switch in 2.5510787963867188e-05 seconds.
+worker: completed task switch in 1.621246337890625e-05 seconds.
+worker: completed task switch in 1.3828277587890625e-05 seconds.
+worker: completed task switch in 1.4066696166992188e-05 seconds.
+worker: completed task switch in 1.5735626220703125e-05 seconds.
+worker: completed task switch in 1.3828277587890625e-05 seconds.
+worker: completed task links in 0.0001690387725830078 seconds.
+worker: completed task switch_command in 0.04116940498352051 seconds.
+worker: completed task switch_command in 0.06479263305664062 seconds.
+worker: completed task switch_command in 0.027576684951782227 seconds.
+worker: completed task switch_command in 0.0166318416595459 seconds.
+worker: completed task switch_command in 0.016846418380737305 seconds.
+worker: completed task switch_command in 0.01721930503845215 seconds.
+worker: completed task switch_command in 0.01699233055114746 seconds.
+worker: completed task switch_command in 0.08465957641601562 seconds.
+worker: completed task switch_command in 0.04307889938354492 seconds.
+worker: completed task switch_command in 0.03561663627624512 seconds.
+worker: completed task switch_command in 0.06256771087646484 seconds.
+worker: completed task switch_command in 0.017516374588012695 seconds.
+worker: completed task switch_command in 0.01725935935974121 seconds.
+worker: completed task switch_command in 0.036475419998168945 seconds.
+worker: completed task switch_command in 0.13937830924987793 seconds.
+worker: completed task switch_command in 0.0195467472076416 seconds.
+worker: completed task probe in 0.00021648406982421875 seconds.
+worker: completed task probe in 1.8596649169921875e-05 seconds.
+worker: completed task probe in 1.1444091796875e-05 seconds.
+worker: completed task probe in 8.821487426757812e-06 seconds.
+worker: completed task probe in 1.1920928955078125e-05 seconds.
+worker: completed task probe in 1.1444091796875e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.1444091796875e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task probe in 1.1682510375976562e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task probe in 1.239776611328125e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.1682510375976562e-05 seconds.
+worker: completed task probe in 1.0251998901367188e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task links in 7.200241088867188e-05 seconds.
+worker: completed task generators in 0.00018286705017089844 seconds.
+worker: completed task links in 5.793571472167969e-05 seconds.
+apkeep: sw.s1 discriminates among its ingress ports; demultiplexed into 5 element(s): sw.s1@101, sw.s1@102, sw.s1@103, sw.s1@105, sw.s1@106
+apkeep: sw.s10 discriminates among its ingress ports; demultiplexed into 3 element(s): sw.s10@1001, sw.s10@1002, sw.s10@1004
+apkeep: sw.s11 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s11@1101, sw.s11@1102
+apkeep: sw.s12 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s12@1201, sw.s12@1202
+apkeep: sw.s13 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s13@1301, sw.s13@1302
+apkeep: sw.s14 discriminates among its ingress ports; demultiplexed into 3 element(s): sw.s14@1401, sw.s14@1402, sw.s14@1403
+apkeep: sw.s15 discriminates among its ingress ports; demultiplexed into 5 element(s): sw.s15@1501, sw.s15@1502, sw.s15@1503, sw.s15@1504, sw.s15@1505
+apkeep: sw.s16 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s16@1601, sw.s16@1602
+apkeep: sw.s2 discriminates among its ingress ports; demultiplexed into 9 element(s): sw.s2@201, sw.s2@202, sw.s2@203, sw.s2@204, sw.s2@205, sw.s2@206, sw.s2@207, sw.s2@208, sw.s2@209
+apkeep: sw.s3 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s3@301, sw.s3@302
+apkeep: sw.s4 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s4@401, sw.s4@402
+apkeep: sw.s5 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s5@501, sw.s5@502
+apkeep: sw.s6 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s6@601, sw.s6@602
+apkeep: sw.s7 discriminates among its ingress ports; demultiplexed into 2 element(s): sw.s7@701, sw.s7@702
+apkeep: sw.s8 discriminates among its ingress ports; demultiplexed into 8 element(s): sw.s8@801, sw.s8@802, sw.s8@803, sw.s8@804, sw.s8@805, sw.s8@806, sw.s8@807, sw.s8@808
+apkeep: sw.s9 discriminates among its ingress ports; demultiplexed into 5 element(s): sw.s9@901, sw.s9@902, sw.s9@903, sw.s9@904, sw.s9@905
+apkeep: ingress demultiplexing split 16 device(s) into 56 element(s) -- a representational cost of the AP model, not a change to the FaVe model
+worker: completed task check_compliance in 0.49197816848754883 seconds.
+worker: completed task report in 0.0007660388946533203 seconds.
+worker: initiate stopping
+worker: completed task stop in 6.747245788574219e-05 seconds.
+worker: stop handler after 2.0698020458221436 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

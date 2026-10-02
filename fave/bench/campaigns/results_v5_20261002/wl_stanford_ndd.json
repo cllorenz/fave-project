@@ -1,0 +1,101 @@
+{
+  "workload": "wl_stanford",
+  "backend": "apkeep",
+  "engine": "ndd",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-02T15:06:52.188346+00:00",
+  "git_head": "b1a05c8c35afb69af7a482ad67882ee5bd25fc51",
+  "engine_commit": "a7eb8ad29a565d476067d88a62ea89e8421f8105 2026-10-01",
+  "apkeep_engine": "ndd",
+  "engine_options": "--apkeep-engine ndd",
+  "allow_out_iface": false,
+  "driver": "bench/wl_stanford/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 3.183,
+  "memory_stop": null,
+  "peak_rss_mb": 2152,
+  "peak_rss_by_process_mb": {
+    "python3": 59,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 1959,
+    "sleep": 2,
+    "pandoc": 110,
+    "pdflatex": 37
+  },
+  "least_available_mb": 60486,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0,
+    "pandoc": 0,
+    "pdflatex": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_stanford_ndd.status.jsonl",
+  "check_compliance_s": [
+    0.8161427974700928
+  ],
+  "switch_command_s": 0.15135812759399414,
+  "switch_commands": 48,
+  "gc": {
+    "pauses": 12,
+    "full_pauses": 7,
+    "pause_s": 0.053,
+    "max_heap_after_gc_mb": 1737,
+    "max_heap_committed_mb": 2960
+  },
+  "report": true,
+  "violations": 75,
+  "violation_lines": [
+    "- `source.boza_rtr` does not reach `probe.bbrb_rtr`",
+    "- `source.goza_rtr` does not reach `probe.bbrb_rtr`",
+    "- `source.roza_rtr` does not reach `probe.bbrb_rtr`",
+    "- `source.yozb_rtr` does not reach `probe.bbrb_rtr`",
+    "- `source.bbrb_rtr` does not reach `probe.boza_rtr`",
+    "- `source.goza_rtr` does not reach `probe.boza_rtr`",
+    "- `source.roza_rtr` does not reach `probe.boza_rtr`",
+    "- `source.yozb_rtr` does not reach `probe.boza_rtr`",
+    "- `source.bbrb_rtr` does not reach `probe.bozb_rtr`",
+    "- `source.boza_rtr` does not reach `probe.bozb_rtr`"
+  ],
+  "checks": 240,
+  "verdict_valid": true,
+  "apkeep_jar": "e3785fb1b2aacb87eeea72f8ba7ab2ff482c585b686547435c25c2e58a29afa7",
+  "ndd_jar": "8b26514c80df95aece619086b84c9618fa3f79bf83d0acab94f1a53a28cbbe75",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+    "engine": "ndd",
+    "faithful_vlan": true
+  },
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+  "expected_violations": null,
+  "outcome": "measured"
+}

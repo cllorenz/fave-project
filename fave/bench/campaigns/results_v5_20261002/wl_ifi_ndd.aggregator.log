@@ -1,0 +1,81 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)', 'engine': 'ndd', 'faithful_vlan': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task router in 0.00189208984375 seconds.
+worker: completed task switch in 6.842613220214844e-05 seconds.
+worker: completed task switch in 1.9311904907226562e-05 seconds.
+worker: completed task switch in 1.3828277587890625e-05 seconds.
+worker: completed task switch in 1.4543533325195312e-05 seconds.
+worker: completed task switch in 1.1920928955078125e-05 seconds.
+worker: completed task switch in 1.1682510375976562e-05 seconds.
+worker: completed task switch in 1.1444091796875e-05 seconds.
+worker: completed task switch in 1.0967254638671875e-05 seconds.
+worker: completed task switch in 1.1444091796875e-05 seconds.
+worker: completed task switch in 1.049041748046875e-05 seconds.
+worker: completed task switch in 1.1682510375976562e-05 seconds.
+worker: completed task switch in 1.0967254638671875e-05 seconds.
+worker: completed task switch in 1.0967254638671875e-05 seconds.
+worker: completed task switch in 2.0503997802734375e-05 seconds.
+worker: completed task switch in 1.0013580322265625e-05 seconds.
+worker: completed task switch in 1.0251998901367188e-05 seconds.
+worker: completed task links in 9.250640869140625e-05 seconds.
+worker: completed task switch_command in 0.0012927055358886719 seconds.
+worker: completed task switch_command in 7.271766662597656e-05 seconds.
+worker: completed task switch_command in 4.887580871582031e-05 seconds.
+worker: completed task switch_command in 4.124641418457031e-05 seconds.
+worker: completed task switch_command in 4.458427429199219e-05 seconds.
+worker: completed task switch_command in 4.124641418457031e-05 seconds.
+worker: completed task switch_command in 4.076957702636719e-05 seconds.
+worker: completed task switch_command in 4.076957702636719e-05 seconds.
+worker: completed task switch_command in 4.2438507080078125e-05 seconds.
+worker: completed task switch_command in 4.291534423828125e-05 seconds.
+worker: completed task switch_command in 4.267692565917969e-05 seconds.
+worker: completed task switch_command in 4.0531158447265625e-05 seconds.
+worker: completed task switch_command in 4.124641418457031e-05 seconds.
+worker: completed task switch_command in 3.838539123535156e-05 seconds.
+worker: completed task switch_command in 3.8623809814453125e-05 seconds.
+worker: completed task switch_command in 3.838539123535156e-05 seconds.
+worker: completed task switch_command in 3.814697265625e-05 seconds.
+worker: completed task probe in 8.940696716308594e-05 seconds.
+worker: completed task probe in 4.792213439941406e-05 seconds.
+worker: completed task probe in 4.00543212890625e-05 seconds.
+worker: completed task probe in 3.886222839355469e-05 seconds.
+worker: completed task probe in 3.600120544433594e-05 seconds.
+worker: completed task probe in 3.647804260253906e-05 seconds.
+worker: completed task probe in 3.528594970703125e-05 seconds.
+worker: completed task probe in 3.790855407714844e-05 seconds.
+worker: completed task probe in 3.4332275390625e-05 seconds.
+worker: completed task probe in 3.337860107421875e-05 seconds.
+worker: completed task probe in 1.1444091796875e-05 seconds.
+worker: completed task probe in 1.4781951904296875e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task links in 5.3882598876953125e-05 seconds.
+worker: completed task generators in 0.0002052783966064453 seconds.
+worker: completed task links in 4.887580871582031e-05 seconds.
+worker: completed task check_compliance in 0.023574352264404297 seconds.
+worker: completed task report in 0.0008533000946044922 seconds.
+worker: task failed:
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 415, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 322, in _dispatch
+    self._dump_aggregator(odir)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 818, in _dump_aggregator
+    j["mapping"] = self.verification_engine.mapping.to_json()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'APKeepAdapter' object has no attribute 'mapping'
+worker: completed task unknown in 0.004171133041381836 seconds.
+worker: initiate stopping
+worker: completed task stop in 4.029273986816406e-05 seconds.
+worker: stop handler after 0.7929279804229736 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter
