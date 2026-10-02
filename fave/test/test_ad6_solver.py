@@ -157,10 +157,18 @@ class TestConfigurationStamp(unittest.TestCase):
     """ The generality-debt gate: every measurement-affecting choice is a
     stamped field. Phase 6 adds two, so the stamp has to carry them. """
 
-    def test_the_stamp_carries_all_four_fields(self):
+    def test_the_stamp_carries_every_field(self):
+        # `impl` joined the four on 2026-10-02: TODO item 31 makes provenance
+        # its own axis, and every backend now declares one through its `IMPL`
+        # attribute rather than ad6 being the only engine whose configuration
+        # the aggregator logged at all. `first-party` is its own value and not
+        # a flattering spelling of `authors`: ad6's author is the comparison's
+        # author, and a reader is entitled to know this row is not independent
+        # of the person reporting it.
         self.assertEqual(
             _adapter(solver='cadical195', lite_acyclic=True).configuration_stamp(),
-            {"translation": "literal", "grounding": "rank",
+            {"impl": "first-party",
+             "translation": "literal", "grounding": "rank",
              "solver": "cadical195", "lite_acyclic": True})
 
     def test_the_stamp_reports_what_was_USED_not_what_was_asked_for(self):

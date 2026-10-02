@@ -1032,12 +1032,15 @@ def main(argv: List[str]) -> None:
         sys.exit(1)
 
     # The configuration is measurement-affecting, so the run's own log records
-    # it (the generality-debt gate). `configuration_stamp` is ad6's; the other
-    # adapters do not carry one, and the backend name is the whole story there.
+    # it (the generality-debt gate). EVERY backend carries a stamp since
+    # 2026-10-02 -- the base class gives one, so at minimum a backend reports
+    # WHOSE code it is (TODO item 31's provenance). It used to be ad6's alone,
+    # and the backend name was said to be "the whole story" for the rest; it
+    # was not, which is why `bench/cell_run.py` had to record `impl: null`.
+    # `cell_run.py` parses this line back out of the log, so its shape is a
+    # contract, not a convenience: `backend: <name> {<stamp dict>}`.
     engine = AGGREGATOR.verification_engine
-    detail = ""
-    if hasattr(engine, 'configuration_stamp'):
-        detail = " %s" % (engine.configuration_stamp(),)
+    detail = " %s" % (engine.configuration_stamp(),)
     AggregatorService.LOGGER.info("backend: %s%s", args.backend, detail)
 
     register_signals()

@@ -106,7 +106,8 @@ class TestBackendConstruction(unittest.TestCase):
                               solver='cadical195', lite_acyclic=True)
         self.assertEqual(
             engine.configuration_stamp(),
-            {"translation": "literal", "grounding": "rank",
+            {"impl": "first-party",          # item 31, added 2026-10-02
+             "translation": "literal", "grounding": "rank",
              "solver": "cadical195", "lite_acyclic": True})
 
     def test_a_bad_ad6_option_is_refused_at_construction(self):

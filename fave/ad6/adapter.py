@@ -155,6 +155,12 @@ def available() -> bool:
 class Ad6Adapter(AbstractVerificationEngine):
     """ Drive ad6 as a FaVe verification backend. """
 
+    #: TODO item 31. ad6 is the owner's own SECRYPT'15 code (`ad6/FAVE_CHANGES.
+    #: md`), so the tool's author is also the comparison's author. Declared for
+    #: exactly that reason: it is a fork of no one, and a reader is entitled to
+    #: know that this row is not independent of the person reporting it.
+    IMPL = 'first-party'
+
     def __init__(self, logger: TraceLogger,
                  grounding: str = GROUNDING_RANK,
                  solver: str = SOLVER_MINISAT22,
@@ -297,12 +303,14 @@ class Ad6Adapter(AbstractVerificationEngine):
         whatever a flag says), and the path they configured no longer exists.
         An archived stamp carrying them came from a run this tree cannot
         reproduce -- see this module's docstring. """
-        return {
+        stamp = self.provenance()
+        stamp.update({
             "translation": self.translation,
             "grounding": self.grounding,
             "solver": self.solver,
             "lite_acyclic": self.lite_acyclic_applies,
-        }
+        })
+        return stamp
 
     @property
     def lite_acyclic_applies(self) -> bool:

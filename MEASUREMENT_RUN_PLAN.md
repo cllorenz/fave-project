@@ -183,13 +183,31 @@ building it before the move:
    "something outlived the run" is not a finding, "the aggregator outlived the
    run" is.
 
-**One gap left open deliberately.** `impl` — item 31's provenance column — is
-read from the aggregator's own configuration stamp and is **`null` for three of
-the four backends**, with `impl_source` saying why. Only VeriFlow-FR emits one
-today. Item 31 requires provenance *"stamped, not typed by hand: the value comes
-from the backend ... so a table cannot mislabel a row"*, so filling it in from a
-table here would be exactly the hand-typing it rules out. Making the backends
-stamp it is small and belongs with them, not with the harness.
+**Provenance — CLOSED 2026-10-02.** `impl` was `null` for three of the four
+backends when the harness was first built, because only VeriFlow-FR stamped
+one. All four now declare it through an `IMPL` attribute the base class reads,
+and a fork also names the upstream it forked:
+
+| backend | `impl` | `upstream` |
+|---|---|---|
+| NetPlumber | `authors+fave` | hassel-public master `697b35c9` |
+| APKeep, `--apkeep-engine bdd` | `authors+fave` | XJTU-NetVerify/apkeep `7b71bff4` |
+| APKeep, `--apkeep-engine ndd` | `authors+fave` | XJTU-NetVerify/NDD `c8414b43` |
+| ad6 | `first-party` | — (a fork of nothing) |
+| VeriFlow-FR | `reimpl-literature` | — |
+
+The aggregator logs `engine.configuration_stamp()` next to the backend name and
+`cell_run.py` parses it back, so a cell records **the engine's whole stamp
+verbatim** under `backend_stamp` — a backend that starts declaring something new
+needs no change in the harness to have it recorded. Verified live on all five
+engine configurations.
+
+`test/test_backend_provenance.py` keeps it closed: a new backend that declares
+no provenance fails, an `authors+fave` backend that names no upstream fails, and
+— the one that would otherwise rot — **a backend that types a provenance literal
+into its own `configuration_stamp` fails**, which is how VeriFlow-FR used to do
+it and why the other three could go on declaring nothing without anything
+noticing.
 
 **Verified end to end on this machine**, not only in unit tests: a real
 `wl_airtel1` NDD cell runs to `outcome: correct`, 0 violations of 256,

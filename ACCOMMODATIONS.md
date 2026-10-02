@@ -26,6 +26,13 @@ workload**. Preprocessing is a tweak of the workload, never a trait of the tool.
 repository. *Seed* means carried over from a plan document and still to be classified;
 it must not be cited as verified.
 
+**`impl` is stamped by the engine, not by this document** (2026-10-02). Each
+adapter declares `IMPL`, and a fork also declares the `UPSTREAM` it forked;
+the aggregator logs it and `bench/cell_run.py` records it in every cell. The
+headings below are therefore a reader's index to the values, not their source
+-- if the two ever disagree, the engine's stamp is right and this file is
+stale. `test/test_backend_provenance.py` fails a backend that declares none.
+
 ---
 
 ## VeriFlow-FR — `impl` = `reimpl-literature`

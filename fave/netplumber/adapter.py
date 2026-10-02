@@ -152,6 +152,12 @@ class NetPlumberAdapter(AbstractVerificationEngine):
     """ Class that maps and translates a FaVe model to a NetPlumber model.
     """
 
+    #: TODO item 31. Kazemian's hassel-public with FaVe changes, every one of
+    #: them recorded in `net_plumber/FAVE_CHANGES.md`; its [CHANGE] section is
+    #: what a NetPlumber cell's accommodations column draws on.
+    IMPL = 'authors+fave'
+    UPSTREAM = 'hassel-public master 697b35c9'
+
     def __init__(
         self,
         socks: List[Any],

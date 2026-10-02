@@ -605,6 +605,18 @@ def _dedup(items: List[str]) -> List[str]:
 class APKeepAdapter(AbstractVerificationEngine):
     """ Drive APKeep as a FaVe verification backend (forwarding-only, P4). """
 
+    #: TODO item 31. The authors' code with FaVe changes in both cases, but
+    #: they are two DIFFERENT upstreams -- `bdd` is XJTU-NetVerify/apkeep and
+    #: `ndd` is XJTU-NetVerify/NDD -- so the baseline is resolved per engine in
+    #: `provenance` rather than fixed here. A single UPSTREAM would name the
+    #: wrong repository for one of the two columns.
+    IMPL = 'authors+fave'
+
+    UPSTREAMS = {
+        'bdd': 'XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)',
+        'ndd': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)',
+    }
+
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
                  faithful_vlan: bool = True, engine: str = 'ndd') -> None:
         self.logger = logger
@@ -782,6 +794,25 @@ class APKeepAdapter(AbstractVerificationEngine):
         # so global_port is identity.
         self.links: Dict[Any, List[Any]] = {}
         self.asyncore_socks: Dict[Any, Any] = {}
+
+
+    def provenance(self):
+        """ Whose code, and WHICH upstream -- the two engines are two forks. """
+        return {'impl': self.IMPL, 'upstream': self.UPSTREAMS.get(self._engine)}
+
+    def configuration_stamp(self):
+        """ The measurement-affecting choices behind this adapter's answers,
+        logged by the aggregator next to the backend name.
+
+        `engine` is in here because BDD and NDD are not two settings of one
+        engine: they are different data structures with different costs (NDD is
+        ~linear on `wl_berkeley` where BDD is 1.7-2.1x it), and a table that
+        lost the distinction would be comparing two tools under one name.
+        """
+        stamp = self.provenance()
+        stamp['engine'] = self._engine
+        stamp['faithful_vlan'] = self._faithful_vlan
+        return stamp
 
     def global_port(self, port: Any) -> Any:
         return port

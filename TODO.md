@@ -2840,10 +2840,24 @@ Three refinements, so the two categories stay apart:
     rather than the venv (`start_aggr.sh` defaults to a bare `python3` and only
     `test.sh` exported `PYTHON`); item 13a's `-o` opt-in list was `run_bench`'s two
     where the data says five; and a clean benchmark reliably leaves a zombie, which
-    the orphan sweep counted as a leak. **Left open deliberately:** `impl` is read
-    from the backend's own stamp and is null for three of four backends, because
-    item 31 requires it stamped rather than typed by hand.
+    the orphan sweep counted as a leak.
     [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) §3.
+  - [x] **Provenance is stamped by every backend — DONE 2026-10-02.** The column
+    above says the value must be "stamped, not typed by hand: the value comes from
+    the backend ... so a table cannot mislabel a row". Only VeriFlow-FR did, with a
+    literal inside its own `configuration_stamp`, so a cell on any other engine
+    recorded `impl: null`. `AbstractVerificationEngine` now carries `IMPL` and
+    `UPSTREAM`, every adapter declares them, and a fork names the import it forked:
+    NetPlumber `authors+fave`/hassel-public `697b35c9`; APKeep `authors+fave` with
+    the upstream resolved PER ENGINE, since `bdd` and `ndd` are forks of two
+    different repositories (`7b71bff4` and `c8414b43`) and one baseline would
+    mislabel a column; ad6 `first-party`; VeriFlow-FR `reimpl-literature`. The
+    aggregator logs the whole `configuration_stamp` and `cell_run.py` parses it back
+    verbatim, so a backend that declares something new is recorded without a harness
+    change. Verified live on all five engine configurations.
+    `test/test_backend_provenance.py` fails a backend that declares nothing, an
+    `authors+fave` backend that names no upstream, and a backend that types a
+    provenance literal into its stamp.
   - [ ] **The run book for the campaign itself: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)**
     (2026-10-02). Every open cell across all five engine configurations and the whole
     reachability suite, ordered cheapest-first so a harness defect costs minutes rather

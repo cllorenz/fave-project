@@ -88,6 +88,12 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
     set may slice (0: none); past it, check_compliance raises DidNotFinish.
     `revisit` is Q4's: "state" (default) or "path". """
 
+    #: TODO item 31. Ours, from the NSDI'13 paper and the 2015 thesis alone,
+    #: under the clean-room protocol of `VERIFLOW_PLAN.md` §5. A slow number
+    #: from this engine is VeriFlow-FR's and never VeriFlow's -- which is the
+    #: whole reason this value is not `authors`.
+    IMPL = 'reimpl-literature'
+
     def __init__(self, logger: Any = None, invert_lpm: bool = False,
                  slicing: str = "device", budget: int = 0,
                  revisit: str = "state", fields: str = "4+10") -> None:
@@ -128,10 +134,16 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
     def configuration_stamp(self) -> Dict[str, Any]:
         """ The measurement-affecting choices behind this adapter's answers,
         logged by the aggregator next to the backend name (as ad6's is). The
-        stamps only a built model can know are logged by `build`. """
-        return {"impl": "reimpl-literature", "vf_fields": self.fields,
-                "vf_revisit": self.revisit, "vf_slicing": self.slicing,
-                "vf_budget": self.budget}
+        stamps only a built model can know are logged by `build`.
+
+        `impl` used to be the literal here; it now comes from `IMPL`, which the
+        base class reads, so that the four backends declare provenance ONE way
+        instead of this one doing it by hand and the others not at all. """
+        stamp = self.provenance()
+        stamp.update({"vf_fields": self.fields,
+                      "vf_revisit": self.revisit, "vf_slicing": self.slicing,
+                      "vf_budget": self.budget})
+        return stamp
 
     # -- building --------------------------------------------------------------
 

@@ -64,6 +64,7 @@ Usage (from fave/, venv active, PYTHONPATH=.):
 """
 
 import argparse
+import ast
 import datetime
 import json
 import os
@@ -481,32 +482,37 @@ def read_verdict(workload, out_dir, stem, gc_log):
     return found
 
 
-_IMPL = re.compile(r"'impl':\s*'([a-z+-]+)'")
+_BACKEND_LINE = re.compile(r'^backend: (\S+)(?: (\{.*\}))?\s*$', re.MULTILINE)
 
 
-def provenance(out_dir, stem):
-    """ WHOSE CODE produced the number, read from what the backend logged.
+def backend_stamp(out_dir, stem):
+    """ The engine's OWN configuration stamp, read back out of the run's log.
 
-    Item 31 is explicit that this is "stamped, not typed by hand: the value
-    comes from the backend ... so a table cannot mislabel a row". So this does
-    not carry a table of its own: it reads the aggregator's configuration
-    stamp, and where a backend does not emit one it reports that, rather than
-    supplying a value the backend never claimed.
+    Item 31 is explicit that provenance is "stamped, not typed by hand: the
+    value comes from the backend ... so a table cannot mislabel a row". So this
+    carries no table of its own -- it parses `backend: <name> {<stamp>}`, which
+    `aggregator_service` logs from `engine.configuration_stamp()`, and reports
+    what is missing rather than supplying a value the backend never claimed.
 
-    Today only VeriFlow-FR stamps it (`VeriFlowAdapter.configuration_stamp`,
-    `impl=reimpl-literature`). NetPlumber, APKeep and ad6 do not, so their
-    cells come back `impl: null` with `impl_source` saying why -- a visible
-    gap, which is the point. Filling it in here would be exactly the hand
-    typing item 31 rules out.
+    Every backend has declared one since 2026-10-02. Before that only
+    VeriFlow-FR did, and a cell on any other engine came back `impl: null`.
     """
     log = os.path.join(out_dir, stem + '.aggregator.log')
     if not os.path.exists(log):
-        return None, 'no aggregator log to read a stamp from'
+        return {}, 'no aggregator log to read a stamp from'
     with open(log) as handle:
-        found = _IMPL.search(handle.read())
-    if found:
-        return found.group(1), 'backend configuration stamp'
-    return None, 'the backend emits no provenance stamp (item 31)'
+        found = _BACKEND_LINE.search(handle.read())
+    if found is None:
+        return {}, 'the log carries no `backend:` line'
+    if not found.group(2):
+        return {}, 'the backend logged no configuration stamp (item 31)'
+    try:
+        # A Python dict repr, logged by the aggregator. `literal_eval` and not
+        # `eval`: this file is written by the run, but a measurement harness
+        # that can be made to execute what it reads is not one.
+        return ast.literal_eval(found.group(2)), 'backend configuration stamp'
+    except (ValueError, SyntaxError):
+        return {}, 'the backend stamp did not parse'
 
 
 def main(argv=None):
@@ -606,7 +612,12 @@ def main(argv=None):
     for name, path in JARS.items():
         result[name] = cell_metrics.sha256(path)
 
-    result['impl'], result['impl_source'] = provenance(out_dir, stem)
+    stamp, result['impl_source'] = backend_stamp(out_dir, stem)
+    # The engine's own stamp, verbatim, under one key -- so a backend that
+    # starts declaring something new needs no change here to have it recorded.
+    result['backend_stamp'] = stamp
+    result['impl'] = stamp.get('impl')
+    result['upstream'] = stamp.get('upstream')
     result['expected_violations'] = args.expect_violations
     result['outcome'] = cell_metrics.outcome(
         result['status'], result['verdict_valid'], args.expect_violations,

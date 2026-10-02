@@ -1,8 +1,63 @@
 #!/usr/bin/env python3
 
-from typing import Any
+from typing import Any, Dict, Optional
+
+#: TODO item 31's provenance vocabulary -- WHOSE CODE produced a number. It is
+#: a separate axis from the accommodations: one says whose code runs, the other
+#: how much of the workload the tool supports as published, and a cell can be
+#: the authors' code with a FaVe extension.
+#:
+#:   `authors`            the authors' code, unmodified. No backend today.
+#:   `authors+fave`       the authors' code with FaVe changes, stated in a
+#:                        change record and stamped with the upstream import.
+#:   `first-party`        the tool's author is FaVe's author. Declared BECAUSE
+#:                        the comparison's author is also the tool's.
+#:   `reimpl-literature`  our implementation from the publications alone, under
+#:                        a clean-room protocol. A slow number from one of these
+#:                        is ours, never the original tool's.
+IMPLS = ('authors', 'authors+fave', 'first-party', 'reimpl-literature')
+
 
 class AbstractVerificationEngine(object):
+    """ What every verification backend must answer, including WHOSE it is.
+
+    **Provenance is declared here, by the engine, and never typed by hand into
+    a table** (TODO item 31: *"the value comes from the backend ... so a table
+    cannot mislabel a row"*). Until 2026-10-02 only VeriFlow-FR stamped one, so
+    `bench/cell_run.py` recorded `impl: null` for three of the four backends
+    and said so; that is what these two attributes close.
+
+    A subclass sets `IMPL` to one of `IMPLS` and, where it is a fork, `UPSTREAM`
+    to the import it is a fork OF -- which is the other half of what makes an
+    `authors+fave` cell checkable, since without it the claim names no baseline.
+    `test/test_backend_provenance.py` fails if a concrete engine declares
+    neither.
+    """
+
+    #: One of `IMPLS`; None only on this abstract base.
+    IMPL: Optional[str] = None
+
+    #: The upstream commit this is a fork of, for `authors+fave`. None for a
+    #: first-party or clean-room engine, which are forks of nothing.
+    UPSTREAM: Optional[str] = None
+
+    def provenance(self) -> Dict[str, Any]:
+        """ Whose code this is. Merged into every `configuration_stamp`. """
+        stamp: Dict[str, Any] = {'impl': self.IMPL}
+        if self.UPSTREAM:
+            stamp['upstream'] = self.UPSTREAM
+        return stamp
+
+    def configuration_stamp(self) -> Dict[str, Any]:
+        """ The measurement-affecting choices behind this engine's answers.
+
+        The aggregator logs it next to the backend name, and `cell_run.py`
+        reads it back out of that log into the result cell. An engine with no
+        configuration to declare still reports its provenance, which is why
+        this has a default rather than being abstract.
+        """
+        return self.provenance()
+
     def add_generator(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError()
 
