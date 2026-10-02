@@ -1,0 +1,67 @@
+k=2 COMPLETED -- and it both CONFIRMS the live-set exponent and REFUTES the
+memory extrapolation K3_RESULT.txt drew from it. 2026-10-02.
+Scored against K2_PREDICTION.txt, declared before the run. k2_ndd_xmx16g.json.
+
+  6,707,829 rules (predicted 6,701,423; the difference is LPM witnesses).
+  status completed, exit 0, verdict_valid, 0 violations of 520.
+
+                       predicted      measured     verdict
+  LIVE HEAP AFTER GC   8,460 MB       8,582 MB     RIGHT, +1.4%  <- the claim
+  compliance             181 s          192.5 s    RIGHT, +6%
+  wall               600-650 s          653.8 s    RIGHT
+  rule load              382 s          336.5 s    -12%
+  committed heap      11-13 GB       14,280 MB     a little over
+  aggregator peak       ~20 GB       25,969 MB     WRONG, +30%
+  least available      ~9-10 GB        3,561 MB    WRONG -- 561 MB above floor
+  verdict             0 of 520        0 of 520     RIGHT
+
+THE CLAIM UNDER TEST SURVIVED. NDD's live set is sublinear in rules across
+three sizes, and the exponent is stable:
+
+    1,351,800 -> 3,519 MB |
+    4,476,240 -> 6,782 MB |  interval exponents 0.548 and 0.582
+    6,707,829 -> 8,582 MB |  three-point fit 0.555
+
+Predicting 8,460 MB and measuring 8,582 MB is not a line drawn through two
+points that happened to agree. Linear scaling from k=3 would have said
+10,152 MB; it is 8,582 MB.
+
+BUT THE MEMORY CONCLUSION DRAWN FROM IT WAS WRONG, AND K3_RESULT.txt IS
+CORRECTED HERE RATHER THAN EDITED.
+  K3_RESULT.txt reasoned: live set ~12.1 GB at k=1, plus a Python side of
+  1,271 B/rule (measured as aggregator RSS minus committed heap at k=3),
+  giving ~34 GB aggregator, ~36 GB run total, and "the machine floor is ~40 GB
+  rather than 2.15's >=64 GB; 48 GB would carry k=1 with real margin."
+  That decomposition is exactly what 2.15's own gotcha warns against: "RSS
+  minus committed heap is NOT the Python side (peaks do not coincide, off-heap
+  memory is in it)." The same subtraction at k=2 gives 1,827 B/rule, not
+  1,271 -- a 44% move between two adjacent sizes, which is a property of the
+  method, not of FaVe.
+  Measure the aggregator's PEAK RSS directly and it scales cleanly:
+
+    1,351,800 ->  8,096 MB |
+    4,476,240 -> 19,283 MB |  interval exponents 0.725 and 0.736
+    6,707,829 -> 25,969 MB |  three-point fit 0.727
+
+REVISED k=1 SIZING, from three points rather than one interval:
+    live heap          ~12.6 GB   (exponent 0.555) -> -Xmx 20g at ~63% occupancy
+    aggregator RSS       ~43 GB   (exponent 0.727)
+    + benchmark, streamed ~1-2 GB
+    run total            ~44 GB
+    generation, separate and before  ~16 GB (measured at k=1, 2026-09-29)
+    rule load             ~669 s  (exponent 0.993)
+    compliance            ~380 s  (exponent 0.984)
+    so ~18 min of engine work, plus generation.
+
+  2.15's "~45-60 GB" and ">=64 GB is the minimum worth trying" THEREFORE STAND.
+  The k=3-only revision downward was premature and is withdrawn. What is new is
+  that the estimate now rests on three measured sizes and two independent,
+  mutually consistent exponents -- and on the live-set side 2.15's ">=15 GB,
+  -Xmx 20-24g" can be tightened to ~12.6 GB and -Xmx 20g.
+
+k=2 IS THE LARGEST SIZE THIS 32 GB BOX CARRIES. It finished with 3,561 MB
+available against a 3,000 MB floor -- 561 MB of margin, on a machine with no
+swap. k=1 needs ~43 GB of aggregator against a ~29 GB ceiling here and is not
+attemptable; nothing short of the larger machine will close it.
+
+LIMIT CLASS: dev. Not reportable (PROTOCOL.txt).

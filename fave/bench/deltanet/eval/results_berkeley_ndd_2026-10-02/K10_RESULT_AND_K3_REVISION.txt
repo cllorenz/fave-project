@@ -1,0 +1,61 @@
+k=10 RE-ANCHOR -- RESULT, and the k=3 heap revised because of it
+2026-10-02. Declared before the k=3 run. PROTOCOL.txt's predictions stand as
+written; nothing there is edited.
+
+k=10 COMPLETED (k10_ndd.json), exit 0, verdict_valid, 0 violations of 520,
+1,351,800 rules -- the figure 2.15 records, so the workload rebuilt identically.
+
+                        19 GB / 4 cores      32 GB / 8 cores     change
+  rule load                   80 s                70.6 s         -12%
+  compliance                 123 s                39.2 s         -68%  (3.1x)
+  wall                         --                159.1 s
+  heap                        8g                   8g
+  committed heap               --              6,384 MB
+  live heap after GC           --              3,519 MB
+  GC pauses                    --        75 / 1.25 s total
+  aggregator peak RSS          --              8,096 MB
+  benchmark peak RSS           --              3,573 MB
+  least MemAvailable           --             22,428 MB (floor 3,000)
+  swap                     zero pages          none on this box
+
+AGAINST THE PREDICTION: completion, load (~80 s predicted, 70.6 s) and the
+verdict were right. COMPLIANCE WAS NOT -- predicted ~123 s "possibly faster on
+8 cores", measured 39.2 s, a 3.1x speed-up I understated. Cores alone are 2x;
+the rest is not established by one run and is not claimed here. GC pauses
+totalling 1.25 s suggest this machine never approached the pressure the 19 GB
+one ran under, but that is a hypothesis.
+
+/dev/shm: HIGH-WATER 1 MB OF 64 across the whole run, sampled every 20 s.
+So the log that engine_run.py parses for its timings is not a risk at this
+scale; at k=3's 3.3x it projects to ~3-4 MB. The concern raised before the run
+is resolved by measurement, not by argument.
+
+THE REVISION: -Xmx12g -> -Xmx16g for k=3.
+  PROTOCOL.txt chose 12g from the only bound that existed -- the 19 GB machine's
+  5g run, which OOMed with the live set at the 5,119 MB ceiling, bounding NDD's
+  live set at 4.48M rules BELOW 5.1 GB with no upper bound.
+  This run gives a far better estimate: live heap after GC 3,519 MB at
+  1,351,800 rules. Scaling linearly to 4,476,240 (x3.31) predicts a live set
+  near 11.6 GB at k=3 -- which is essentially 12g. A heap that equals its live
+  set does not work: G1 needs headroom, and the 19 GB 5g run showed exactly
+  what the approach to the ceiling costs (56.6 s of GC pauses against 5.5 s at
+  8g, then OutOfMemoryError).
+  16g puts the projected live set near 72% of heap. Projected peak: 16 (heap)
+  + ~5.6 (Python side, 1,712 MB non-heap at k=10 scaled 3.31x) + ~0.7
+  (streamed benchmark process) = ~22.3 GB, leaving ~9.7 GB -- still far above
+  the 3,000 MB floor on a box with no swap.
+  Not 20g: that projects ~26 GB and ~5.7 GB of headroom, which is too little
+  margin here when an overshoot is the OOM killer rather than a slowdown.
+
+REVISED k=3 PREDICTIONS (declared now, before the run)
+  completes -- the first time it has.
+  live heap after GC   10-13 GB   (3,519 MB x 3.31, linear)
+  committed heap       up to 16 GB
+  rule load            ~230 s     (70.6 s x 3.31; the 19 GB spread was
+                                   288/352/537 s and is unexplained, so this
+                                   is the figure most likely to be wrong)
+  compliance           ~130 s     (39.2 s x 3.31), NOT the ~400 s PROTOCOL.txt
+                                   predicted from the 19 GB machine's 123 s
+  aggregator peak RSS  ~22 GB
+  least MemAvailable   ~9-10 GB
+  verdict              0 of 520, verdict_valid true

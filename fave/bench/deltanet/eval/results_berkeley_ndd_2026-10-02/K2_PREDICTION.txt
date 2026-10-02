@@ -1,0 +1,29 @@
+k=2 -- PREDICTIONS, declared 2026-10-02 BEFORE the run.
+The point of this run is to TEST the exponents fitted to two points in
+K3_RESULT.txt. They are therefore stated as numbers that can be wrong.
+
+  rules                6,701,423  (13,402,846 / 2, plus every LPM witness)
+  heap                 -Xmx16g, the SAME as k=3 deliberately -- holding the
+                       ceiling constant between the two runs keeps -Xmx out of
+                       the comparison. G1 committed only 13,856 MB of the 16g
+                       at k=3, so the ceiling is not expected to bind.
+  deadline             3600 s      memory floor 3000 MB
+
+  Fitted from k=10 and k=3 (live ~ rules^a):
+
+    live heap after GC   8,460 MB   exponent 0.548   <- THE CLAIM UNDER TEST
+    rule load              382 s    exponent 1.054
+    compliance             181 s    exponent 0.954
+    aggregator non-heap  8,123 MB   1,271 B/rule, linear in rules
+    committed heap       11-13 GB   (below k=3's 13,856 MB: smaller live set)
+    aggregator peak RSS    ~20 GB
+    least available       ~9-10 GB
+    wall                 ~600-650 s
+    verdict              0 of 520, verdict_valid true
+
+  WHAT A MISS WOULD MEAN. If the live set comes in near 8.5 GB the sublinear
+  exponent survives a third point and the revised k=1 sizing (~36 GB run total,
+  ~40 GB machine floor) rests on three measurements rather than two. If it comes
+  in near the linear prediction instead -- 6,782 x 1.497 = 10,152 MB -- then
+  k=10 and k=3 happened to line up and the k=1 extrapolation is not supported;
+  2.15's larger estimate would stand and should not be revised down.

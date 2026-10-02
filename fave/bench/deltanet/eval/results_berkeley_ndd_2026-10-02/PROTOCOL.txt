@@ -1,0 +1,55 @@
+wl_berkeley on APKeep-NDD -- k=10 re-anchor, then k=3
+Declared 2026-10-02, BEFORE any run. CLOUD_BENCH_PLAN.md 2.15 "RESUME HERE".
+
+MACHINE
+  RAM          32,089 MB total, 30,874 MB available at declaration
+  cores        8
+  swap         NONE -- the memory floor is the only guard; an overshoot is the
+               OOM killer, not a slowdown. The 19 GB machine had swap (recorded
+               at zero pages used).
+  /dev/shm     64 MB, NOT enlargeable here (remount denied). The aggregator
+               writes aggregator.log there and engine_run.py PARSES it for the
+               timings, so an overflow loses the measurement. Watched during
+               the k=10 run and extrapolated before k=3 is attempted.
+  interpreter  ./.venv/bin/python3 (3.12.3); JDK 11 build, JDK 21 runtime
+  environment  ./test.sh doctor PASSED 2026-10-01; fast and integration green
+               the same day (step 1 of the resume checklist, discharged).
+
+INPUT
+  traces/berkeley-inserts.csv, 12,817,902 rows, sha256 OK against
+  traces/DERIVED.SHA256SUMS -- byte-identical to the file the 19 GB runs used,
+  so the comparison below is valid.
+
+LIMIT CLASS: dev -- NOT REPORTABLE.
+  TODO item 31 fixes the reportable memory limit at 32 GB only when the machine
+  has about 40 GB or more; a 32 GB box cannot host a 32 GB limit with headroom.
+  Whatever these runs show is engineering information about feasibility and
+  cost, never a result cell.
+
+LIMITS (the declared stopping rules)
+  k=10   deadline 1800 s, memory floor 3000 MB, -Xmx8g
+  k=3    deadline 3600 s, memory floor 3000 MB, -Xmx12g
+
+WHY -Xmx12g AT k=3
+  Three of the four 19 GB failures were killed by the MACHINE, not the heap:
+  at 8g the live heap was 4.0-4.5 GB when the external floor tripped, and the
+  aggregator peaked at 14.3 GB against an effective ceiling of ~16 GB (19 GB
+  minus the floor). Only the 5g run hit a real wall -- OutOfMemoryError with
+  the live set at the 5,119 MB ceiling -- which bounds NDD's live set at
+  4.48M rules BELOW 5.1 GB and gives no upper bound.
+  Here the same floor leaves ~29 GB, so ~14.7 GB of headroom instead of ~1.7.
+  12g is ~2.3x the known live-set floor and projects a peak near 18 GB, about
+  11 GB clear of the ceiling -- margin chosen deliberately over a tighter heap
+  because this box has no swap.
+
+PREDICTIONS (declared before the runs; wrong predictions are kept, not edited)
+  k=10  completes. Load ~80 s, compliance ~123 s (the 19 GB figures at -Xmx8g);
+        possibly faster on 8 cores rather than 4. Verdict 0 of 520.
+  k=3   completes -- the first time it has. Live heap peak above 5.1 GB and
+        below 12 GB. Aggregator peak RSS ~18 GB. Load 300-550 s (the 19 GB
+        spread was 288/352/537 s, unexplained). Compliance ~400 s, scaling
+        linearly from k=10's 123 s by 4,476,240/1,351,800 = 3.3x.
+        Verdict 0 of 520.
+  If k=3 fails on HEAP rather than the floor, that bounds the live set above
+  12 GB -- itself the measurement we lack -- and the retry is cheap, since
+  --reuse-inputs skips regeneration.

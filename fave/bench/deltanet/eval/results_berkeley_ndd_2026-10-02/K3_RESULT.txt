@@ -1,0 +1,66 @@
+k=3 COMPLETED -- the first time, on any machine. 2026-10-02.
+Scored against the predictions in K10_RESULT_AND_K3_REVISION.txt, declared
+before the run. k3_ndd_xmx16g.json.
+
+  4,476,240 rules (2.15's figure), 23 devices, 504 links, 520 checks.
+  status completed, exit 0, verdict_valid, 0 violations of 520 -- the fib_walk
+  prediction, and the same answer every completed run on every engine gives.
+
+  wall                 468.9 s  (7.8 min)
+  rule load            249.5 s   predicted ~230 s          RIGHT (+8%)
+  compliance           122.9 s   predicted ~130 s          RIGHT (-5%)
+  committed heap    13,856 MB    predicted up to 16 GB     RIGHT
+  LIVE HEAP AFTER GC 6,782 MB    predicted 10-13 GB        WRONG -- see below
+  aggregator peak   19,283 MB    predicted ~22 GB          RIGHT
+  total peak RSS    20,232 MB
+  least available   10,662 MB    predicted ~9-10 GB        RIGHT
+  GC            82 pauses / 2.895 s total; 32 full
+  swap               0 pages     (no swap device on this box)
+  /dev/shm        high-water 1 MB of 64; aggregator.log 7.5 KB
+
+THE ONE WRONG PREDICTION IS THE INTERESTING RESULT.
+NDD's live set does NOT scale linearly with rules. Two points, same topology
+and same 520 checks, this machine:
+
+    1,351,800 rules -> 3,519 MB      (k=10)
+    4,476,240 rules -> 6,782 MB      (k=3)
+    rules x3.31, live set x1.93  =>  live ~ rules^0.548
+
+Linear scaling predicted 11,653 MB and the measurement is 6,782 MB -- a 72%
+overestimate. That is plausible for a decision-diagram engine: more rules over
+the same 23-device, same-prefix-space topology share more structure. It is a
+fit through TWO points, so it is an anchor, not an established law.
+
+CONSEQUENCE 1 -- the heap I chose was unnecessary, and for a reason that was
+wrong. K10_RESULT_AND_K3_REVISION.txt raised 12g to 16g because linear scaling
+put the live set at ~11.6 GB, "essentially 12g". The live set is 6,782 MB, so
+12g (56% occupancy) would have worked. The revision was defensible on the
+information then available and cost nothing here, but its stated reason did not
+hold. 8g is a different matter: 6,782 MB live in an 8g heap is 85% occupancy,
+and the 19 GB machine's 8g runs were killed by the external floor at 4.0-4.5 GB
+live, i.e. before reaching this peak -- so they never tested it.
+
+CONSEQUENCE 2 -- the k=1 sizing in 2.15 can be revised DOWN, and it is an
+extrapolation from two points, not a measurement.
+  live set at 13,402,846 rules   ~12.1 GB   (was: ">=15 GB", linear from a
+                                             lower bound of 5.1 GB)
+  heap at ~65% occupancy          ~19 GB    -> -Xmx 20g (was 20-24g)
+  aggregator non-heap    5,427 MB at k=3 = 1,271 B/rule (2.15 measured
+                                 1,595 B/rule held after load; this is lower)
+                                 -> ~15.9 GB at k=1
+  aggregator RSS at k=1           ~34 GB
+  + benchmark process             ~1-2 GB   (streamed; 934 MB observed during
+                                             this run's load phase)
+  run total                       ~36 GB    (2.15 estimated 45-60 GB)
+  generation, SEPARATE and BEFORE ~16 GB    (measured at k=1, 2026-09-29)
+
+So the machine floor is ~40 GB rather than 2.15's ">=64 GB is the minimum worth
+trying"; 48 GB would carry k=1 with real margin. NOT a claim that 2.15 was
+wrong -- it extrapolated linearly from the only datum it had, a lower bound.
+
+WHAT WOULD TEST IT: k=2 (6,701,423 rules) fits this 32 GB box -- predicted live
+set ~8.4 GB, non-heap ~8.1 GB, aggregator ~20 GB. A third point would show
+whether the 0.548 exponent holds or whether two points happened to line up.
+k=1 does NOT fit here: ~34 GB aggregator against a 29 GB ceiling.
+
+LIMIT CLASS: dev. Not reportable (PROTOCOL.txt).
