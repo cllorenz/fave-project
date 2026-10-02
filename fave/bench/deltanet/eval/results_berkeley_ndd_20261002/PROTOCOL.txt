@@ -1,0 +1,76 @@
+PROTOCOL -- V5 campaign, phase B: wl_berkeley, the size series' last size
+Declared 2026-10-02, BEFORE the drill ran. Not edited afterwards.
+MEASUREMENT_RUN_PLAN.md §5.2, §7; CLOUD_BENCH_PLAN.md §2.15's protocol.
+
+MACHINE
+  64 GB total (64294 MB), 16 cores, NO SWAP, 96 GB disk, /dev/shm 64 MB.
+  Full record in ../../../campaigns/MACHINE.txt.
+  NO SWAP MATTERS: an overshoot is the OOM killer, not a slowdown, which is why
+  --memory-floor is set LOW (2000 MB) -- to RECORD the peak, not to protect the
+  run (§8.2). The harness kills at the floor and writes the peak RSS it
+  measured; the OOM killer writes a dmesg line and may take something else.
+
+HEAP CHOSEN
+  -Xmx20g. The live set is SUBLINEAR: one-heap exponents 0.573 / 0.582, fit
+  0.575 -> ~12.5 GB at k=1, so 20g is ~63% occupancy. The older 20-24g sizing
+  came from scaling LINEARLY and is superseded.
+
+WHAT IS RUN
+  bench/deltanet/eval/berkeley_drill.py --out <this dir> --budget 50400
+      --jvm-xmx 20g --memory-floor 2000
+  k=30 (anchor), k=10 mutated + plain, k=3, k=1 -- generating each size once in
+  its own process and reusing the inputs.
+  Then berkeley_table.py <this dir> -> TABLE.txt.
+
+  THE RE-ANCHORING IS NOT A RE-RUN OF A GOOD RESULT. k=10 and k=3 completed on
+  the 32 GB box and are NOT stale. They are re-measured here because the k=1
+  growth exponent is only meaningful against sizes measured on the SAME
+  machine -- mixing two machines is the same confound that cost a k=10 rerun
+  when the series mixed two heaps. ~10 minutes of run time.
+
+INPUTS
+  fave/bench/deltanet/traces/berkeley-inserts.csv, 386 MB, verified against
+  DERIVED.SHA256SUMS on arrival (96d57987...bb21, OK). routes.json is GENERATED
+  per size and must not be copied.
+
+STOPPING RULES
+  --budget 50400 s (14 h) across the drill; --memory-floor 2000 MB.
+  An OOM IS THE RESULT (§8.2) and is NOT retried smaller or with a smaller
+  heap. "NDD-APKeep does not fit 64 GB at 13.4M rules" is a publishable bound.
+
+PREDICTIONS (§7, declared before the run, scored afterwards, never edited)
+  P1 wl_berkeley k=1 (13,402,846 rules) COMPLETES on NDD at -Xmx20g on 64 GB,
+     verdict 0 of 520, verdict_valid.
+     Falsified by: any other verdict, or a limit trip.
+     Confidence MODERATE -- ~45 GB of ~64 GB is a 30% margin, and the 0.727
+     exponent is fitted to three points, not four.
+  P2 Aggregator peak RSS 41-46 GB. Falsified by: outside that band.
+  P3 Live heap after GC 11.5-13.5 GB (exponent 0.575 -> 12.5 GB).
+  P4 The live-set exponent across k=2 -> k=1 is 0.50-0.65, i.e. the sublinear
+     result holds past 6.7M rules. Falsified by: outside that band -- which
+     would matter MORE than the run itself, since the k=1 extrapolation rests
+     on the exponent being flat across the top of the series.
+  P5 Rule load ~11 min, compliance ~6 min at k=1. LOW confidence: the k=3->k=2
+     load exponent (0.74) against k=10->k=3's (1.05) is the one ragged figure
+     in the series and nothing explains it yet.
+  P6 The re-anchored k=10 and k=3 rows land within 15% of the 32 GB box's,
+     since neither was memory-bound there. Falsified by: a larger move, which
+     would invalidate reading the two machines' series together.
+
+GOTCHAS, each of which has cost a run before
+  - Set -Xmx explicitly; the JVM default is a quarter of RAM and its OOM reads
+    like an engine limit.
+  - --mutate cannot be combined with --reuse-inputs (refused).
+  - bench/wl_berkeley/ holds whatever size was generated last (stamped
+    keep_every in SOURCE.json); --reuse-inputs refuses a mismatch.
+  - np.conf lowers NetPlumber's per-rule logging, which is what keeps this
+    machine's 64 MB /dev/shm a non-issue (1 MB high-water measured). KEPT.
+  - "RSS minus committed heap" is NOT the Python side and is not a quantity at
+    all: committed heap is reserved address space, not touched pages.
+
+IF k=1 COMPLETES
+  One BDD run at k=1 as the second engine, then the question of whether
+  wl_berkeley's full-size result is the headline. That second run is NOT
+  started automatically by the driver: it is a new measurement whose budget
+  the owner has not seen, and phase C's wl_cloud run outranks it (§5.3).
+  Recorded as an open follow-up instead.

@@ -1,0 +1,78 @@
+PROTOCOL -- V5 campaign, phase C: the long BDD cells
+Declared 2026-10-02, BEFORE either probe or the long run. Not edited afterwards.
+MEASUREMENT_RUN_PLAN.md §5.3, §7, §9.
+
+(Phase C's results go to their existing homes -- bench/wl_cloud/eval/ and
+bench/wl_{stanford,i2}/eval/ -- beside the 2026-09 runs they are compared
+against. This protocol sits with the campaign because it governs all three.)
+
+WHAT IS RUN, AND THE ORDER, WHICH IS LOAD-BEARING
+  The two 1 h probes run FIRST and the 24 h run second, so that if either probe
+  says "re-run after all" that is known BEFORE a day is committed (§5.3).
+
+  1. bench/faithful_bdd_measure.py --bench stanford --deadline-s 3600
+         --status-every-s 60 --out bench/wl_stanford/eval/probe_stanford_1h_v5.json
+  2. the same with --bench i2 -> bench/wl_i2/eval/probe_i2_1h_v5.json
+  3. bench/cloud_bdd_measure.py --engine bdd --deadline-s 86400
+         --status-every-s 60 --out bench/wl_cloud/eval/bdd_v5_20261002.json
+
+WHY TWO OF THE THREE CELLS ARE PROBES AND NOT 24 h RUNS
+  This is the triage's single biggest saving and its most reversible decision.
+  Both faithful cells take nearly half the model in the first hour and then
+  crawl, because the build is MERGE-DOMINATED (merge_ms/ppm_ms = 7.3x on
+  stanford, 31.4x on i2) and the merge work that keeps the partition small is
+  itself the dominant cost:
+
+                    1 h probe            the long run           gained between
+    f-stanford      4,245/9,491 (44.7%)  5,035 (53.1%) at 8 h   +790 in 7 h
+    f-i2            86,709/154,974 (56%) 97,553 (62.9%) at 24 h +10,844 in 23 h
+
+  faithful-i2's fixed-binary projection is 234-270 h. A 24 h re-run would
+  re-confirm "does not finish" against a ~10x margin, and the only change since
+  is a cost multiplier measured at 1.28x on a 3-router subset, where it changed
+  no answer and no partition size. 1.28x CANNOT MOVE A 10x MARGIN.
+
+  A 1 h window is also far likelier than a 24 h one to survive §6.1's unstable
+  machine, and these two cells' whole information content is in the first hour.
+
+THE DECISION RULE, DECLARED BEFORE THE PROBES RUN
+  Each probe is compared at MATCHED RULE COUNT against its counterpart already
+  in the tree (probe_stanford_1h.json / probe_i2_1h.json).
+    - Within ~1.5x on rules AND ap_num -> THE RECORDED RESULT STANDS, cited
+      with its date, its jar and the 1.28x caveat. No full run.
+    - Outside that -> the cell IS meaningfully outdated and earns a 24 h run.
+
+  WHAT THIS SESSION WILL DO IF A PROBE IS FALSIFIED, declared now so that the
+  budget does not decide it after the fact: the owner is out of office with a
+  64 h budget, and wl_cloud's 24 h run outranks either faithful re-run (it is
+  the only one of the three that is both stale and reachable, and the only
+  workload in the suite with an EXTERNAL oracle). So a falsified probe is
+  RECORDED AS SUCH and its 24 h run is left for the owner, NOT run in place of
+  wl_cloud. A falsified probe is a finding either way; running it would cost
+  the one cell that cannot be reconstructed from arithmetic.
+
+WHY wl_cloud KEEPS ITS FULL 24 h
+  It is the only one of the three that is both STALE (S1: jar 92923bef of
+  2026-09-27 against apkeep's a7eb8ad2 of 2026-10-01) and REACHABLE (79.2% of
+  rules at 5 h, tail-rate bound >= 14.6 h). It has NEVER COMPLETED ON A CORRECT
+  BINARY (S4), and it is the workload with the suite's only external oracle.
+
+STOPPING RULES
+  Probes: --deadline-s 3600, declared in advance, status trail every 60 s.
+  wl_cloud: --deadline-s 86400 (v5's 24 h), status trail every 60 s, with
+  bound_h computed off the tail rate -- so a crash at hour 20 still yields a
+  usable LOWER BOUND instead of nothing (§6.1).
+  A crash is NOT a did-not-finish. Killed by the declared deadline -> status
+  deadline, reportable. Killed by the environment -> status interrupted, not
+  reportable, re-run.
+
+  The driver does NOT START the 24 h run unless 26 h of budget remain. A run
+  begun with 6 h left and cut off would be a manufactured did-not-finish, which
+  is the exact error AD6_PLAN.md §9.34.3 records.
+
+PREDICTIONS (§7, declared in advance, scored afterwards, never edited)
+  P7 bdd x wl_cloud COMPLETES within 24 h, between 15 and 22 h.
+  P8 Both faithful probes land within 1.5x of their 2026-09-26 counterparts,
+     so neither faithful cell is re-run.
+     Falsified by: either probe outside 1.5x, which triggers its 24 h run --
+     left for the owner, per the rule above.
