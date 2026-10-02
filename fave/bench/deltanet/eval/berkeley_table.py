@@ -60,6 +60,14 @@ import sys
 def _exponent(small, large, key):
     if not (small.get(key) and large.get(key)):
         return ''
+    # Two runs of the SAME size have no growth exponent between them, and the
+    # ratio of 1 would be a division by log(1). A directory holds same-size runs
+    # whenever a size is repeated to vary one setting -- `results_berkeley_slim_
+    # 2026-09-30` has three k=3 runs, and 2026-10-02 has k=10 at two heaps.
+    # That never crashed before only because none of the slim runs completed, so
+    # `previous` was never set; the first completed repeat would have raised.
+    if small['rules'] == large['rules']:
+        return ''
     return '%.2f' % (math.log(large[key] / small[key]) /
                      math.log(large['rules'] / small['rules']))
 
