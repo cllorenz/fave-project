@@ -2834,11 +2834,25 @@ Three refinements, so the two categories stay apart:
     (2026-10-02). Every open cell across all five engine configurations and the whole
     reachability suite, ordered cheapest-first so a harness defect costs minutes rather
     than a day, with the predictions declared in advance (§7) and ~4-5 days of
-    wall-clock, three quarters of it the long BDD cells. Written to be executed by a
-    session with no prior context. **Its §0 is the owner's half and is blocking:** the
-    9.6 GB Delta-net archive and the 386 MB derived `berkeley-inserts.csv` are
-    gitignored, so they must be copied to the new machine or `wl_berkeley` cannot run
-    at any size.
+    wall-clock. Written to be executed by a session with no prior context. The owner
+    is providing the two gitignored inputs (the 9.6 GB Delta-net archive and the
+    386 MB derived `berkeley-inserts.csv`), and the machine is **64 GB**.
+    **Revised 2026-10-02 on three owner constraints**, each of which changed it:
+    *only re-run what is outdated in a meaningful way* (§5.0 is the triage that
+    replaces re-measuring the whole matrix; being `limit_class=dev` is NOT by itself
+    a reason to re-run); *the runtime environment is not stable* (§6.1: a resumable
+    queue, a progress trail on every long cell, and **a crash is not a
+    did-not-finish**); and *running out of memory is a faithful result* (§8.2: an OOM
+    is the cell's outcome, recorded with its peak RSS, not retried smaller).
+    **The triage's biggest finding, from the 1 h probes and status trails already in
+    the tree:** BDD-APKeep takes 44.7% of faithful-stanford and 56.0% of faithful-i2
+    in the FIRST hour, then gains +790 rules in the next 7 h and +10,844 in the next
+    23 h respectively. A 24 h re-run would re-confirm "does not finish" against a
+    ~10x margin, and the only change since is a 1.28x cost multiplier. Both are cut
+    to a 1 h probe against their recorded counterpart; only `wl_cloud` -- stale,
+    never completed on a correct binary, and within reach at a >= 14.6 h bound --
+    keeps a full 24 h run. Long-cell budget: ~72 h -> ~26 h; campaign ~4-5 days ->
+    ~2 days.
 - [ ] **Result-cell schema** — every cell carries: **provenance** (below), the **accommodations** in force (extensions, from the registry above), workload variant, adapter encodings, and an outcome that distinguishes *correct* from *did not finish within the declared limit* from *wrong verdict*. *(Owner, 2026-09-29: provenance is its own column, for every backend.)* Provenance and accommodations used to be one field ("native / extended / our reimplementation"); they are two axes — *whose code runs* versus *how much of the workload the tool supports as published* — and a cell can be, say, the authors' code with a FaVe extension.
   - **Provenance column — whose code produced the number.** Values, each naming its source and its change record:
     - `authors` — the authors' code, unmodified. (No backend today.)
