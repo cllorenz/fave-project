@@ -66,7 +66,6 @@ Usage (from fave/, venv active):
 
 import argparse
 import datetime
-import hashlib
 import json
 import os
 import re
@@ -75,6 +74,27 @@ import signal
 import subprocess
 import sys
 import time
+
+# `fave/` on the path whatever the caller's PYTHONPATH, so that the measurement
+# primitives below come from ONE place. They used to be defined here; they moved
+# to bench/cell_metrics.py on 2026-10-02 so that bench/cell_run.py -- the
+# suite-wide runner (TODO item 31) -- samples RSS, reads GC logs and counts
+# violations with the same code rather than a second copy. Two runners that
+# measure slightly differently produce two columns a table cannot put side by
+# side, and the difference would not be visible in the results.
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..')))
+
+from bench import cell_metrics                           # noqa: E402
+
+_sha256 = cell_metrics.sha256
+_available_mb = cell_metrics.available_mb
+_swap_used_mb = cell_metrics.swap_used_mb
+_swap_traffic = cell_metrics.swap_traffic
+_label = cell_metrics.label
+_session_rss_mb = cell_metrics.session_rss_mb
+_gc_summary = cell_metrics.gc_summary
+_violations = cell_metrics.violations
 
 AGGREGATOR_LOG = '/dev/shm/np/aggregator.log'
 REPORT = 'report.md'
@@ -104,114 +124,6 @@ JARS = {
     'apkeep_jar': '../apkeep/target/apkeep-1.0.0.jar',
     'ndd_jar': '../ndd/target/ndd-1.0.1-jar-with-dependencies.jar',
 }
-
-
-def _sha256(path):
-    with open(path, 'rb') as handle:
-        return hashlib.sha256(handle.read()).hexdigest()
-
-
-def _available_mb():
-    with open('/proc/meminfo') as handle:
-        for line in handle:
-            if line.startswith('MemAvailable:'):
-                return int(line.split()[1]) // 1024
-    raise RuntimeError('no MemAvailable in /proc/meminfo')
-
-
-def _swap_used_mb():
-    """ System-wide swap in use -- SwapTotal minus SwapFree. """
-    fields = {}
-    with open('/proc/meminfo') as handle:
-        for line in handle:
-            name, _, rest = line.partition(':')
-            fields[name] = int(rest.split()[0])
-    return (fields['SwapTotal'] - fields['SwapFree']) // 1024
-
-
-def _swap_traffic():
-    """ Pages swapped in and out since boot (`/proc/vmstat`); a run's
-    difference says whether it actually swapped, which occupancy alone
-    cannot -- pages can sit in swap from before the run. """
-    counts = {}
-    with open('/proc/vmstat') as handle:
-        for line in handle:
-            name, value = line.split()
-            if name in ('pswpin', 'pswpout'):
-                counts[name] = int(value)
-    return counts
-
-
-def _label(pid):
-    """ Which part of the run a process is: the `-c` bootstrap is the
-    benchmark, the aggregator carries APKeep in-process (JPype), and
-    `net_plumber` is NetPlumber's C++ server. """
-    with open('/proc/%s/cmdline' % pid, 'rb') as handle:
-        argv = handle.read().split(b'\0')
-    text = b' '.join(argv).decode(errors='replace')
-    for label in ('aggregator', 'net_plumber'):
-        if label in text:
-            return label
-    if b'-c' in argv[1:2]:
-        return 'benchmark'
-    return os.path.basename(argv[0].decode(errors='replace')) or 'other'
-
-
-def _session_rss_mb(session, field='VmRSS:'):
-    """ `{label: summed RSS}` over every process in `session` -- the
-    benchmark, the aggregator and whatever engine it started
-    (`start_new_session`). `field='VmSwap:'` sums swapped-out memory
-    instead. """
-    totals = {}
-    for pid in os.listdir('/proc'):
-        if not pid.isdigit():
-            continue
-        try:
-            with open('/proc/%s/stat' % pid) as handle:
-                fields = handle.read().rsplit(')', 1)[1].split()
-            if int(fields[3]) != session:       # field 6: session id
-                continue
-            label = _label(pid)
-            with open('/proc/%s/status' % pid) as handle:
-                for line in handle:
-                    if line.startswith(field):
-                        totals[label] = (totals.get(label, 0)
-                                         + int(line.split()[1]) // 1024)
-        except (OSError, IndexError, ValueError):
-            continue                            # exited while sampled
-    return totals
-
-
-_GC_PAUSE = re.compile(r'GC\(\d+\) (Pause [A-Za-z ]+?) (?:\(.*\) )*'
-                       r'.*?(\d+)M->(\d+)M\((\d+)M\) ([0-9.]+)ms')
-
-
-def _gc_summary(path):
-    """ Collections, total pause and the largest heap after a collection,
-    from a JDK `-Xlog:gc` file. Pauses only: concurrent phases do not stop
-    the engine. """
-    pauses, total_ms, full, heap_after, heap_committed = 0, 0.0, 0, 0, 0
-    with open(path) as handle:
-        for line in handle:
-            match = _GC_PAUSE.search(line)
-            if match is None:
-                continue
-            pauses += 1
-            total_ms += float(match.group(5))
-            full += match.group(1).startswith('Pause Full')
-            heap_after = max(heap_after, int(match.group(3)))
-            heap_committed = max(heap_committed, int(match.group(4)))
-    return {'pauses': pauses, 'full_pauses': full,
-            'pause_s': round(total_ms / 1000, 3),
-            'max_heap_after_gc_mb': heap_after,
-            'max_heap_committed_mb': heap_committed}
-
-
-def _violations(report_text):
-    """ The violation lines of the Compliance Check section, counted. """
-    section = report_text.split('## Compliance Check', 1)[-1]
-    section = section.split('\n## ', 1)[0]
-    return [line for line in section.splitlines() if line.startswith('- `')]
 
 
 def main(argv=None):
