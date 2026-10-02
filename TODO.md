@@ -2824,12 +2824,26 @@ Three refinements, so the two categories stay apart:
   - **Enforcement is external and identical for every engine:** a harness timeout plus a peak-memory monitor, not `RLIMIT_AS`, which misfires on the JVM. Engine-internal budgets, such as VeriFlow-FR's local-EC budget, are off in V5 and stay as diagnostics and in tests.
   - **A did-not-finish cell records** which limit tripped, the elapsed time, and the engine's own progress lower bound where it has one: VeriFlow-FR's predicted ECs per table, ad6's queries done, APKeep's profiler trail.
   - **Stamps on every cell:** `limit_wall`, `limit_rss`, `limit_class`, `machine`, `limit_tripped`.
-  - [ ] Build the harness mechanism and the stamps; testable here under the dev class.
-    **Verified absent 2026-10-02:** no `limit_class`, `limit_wall`, `limit_rss` or
-    `limit_tripped` occurs anywhere in the tree, so this is the one piece of code the
-    campaign cannot start without. `bench/deltanet/eval/engine_run.py` is ~90% of it
-    already and is bound to the Delta-net family in three places;
-    [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) §3 says which.
+  - [x] **Build the harness mechanism and the stamps — DONE 2026-10-02**, before the
+    move, under the dev class as this item asked. `bench/cell_metrics.py` (the
+    primitives, EXTRACTED from `engine_run.py` so both runners measure with one
+    implementation), `bench/cell_run.py` (one cell: any workload, any of the four
+    backends, both declared stopping rules, all five stamps), `bench/cell_queue.py`
+    (consecutive and resumable), and 40 fast-tier tests. The extraction is verified
+    behaviour-preserving by re-deriving all 34 GC and violation figures stored in the
+    committed result directories. **Every stopping rule has been made to fire**,
+    including the one that matters on an unstable machine: an outside SIGTERM gives
+    `outcome: interrupted`, never a did-not-finish. Verified end to end against a real
+    `wl_airtel1` NDD cell, whose input hashes match the stored 2026-09-29
+    `engine_run.py` result. Three defects found in the building, each of which would
+    have cost hours mid-campaign: the aggregator started on the system interpreter
+    rather than the venv (`start_aggr.sh` defaults to a bare `python3` and only
+    `test.sh` exported `PYTHON`); item 13a's `-o` opt-in list was `run_bench`'s two
+    where the data says five; and a clean benchmark reliably leaves a zombie, which
+    the orphan sweep counted as a leak. **Left open deliberately:** `impl` is read
+    from the backend's own stamp and is null for three of four backends, because
+    item 31 requires it stamped rather than typed by hand.
+    [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) §3.
   - [ ] **The run book for the campaign itself: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)**
     (2026-10-02). Every open cell across all five engine configurations and the whole
     reachability suite, ordered cheapest-first so a harness defect costs minutes rather

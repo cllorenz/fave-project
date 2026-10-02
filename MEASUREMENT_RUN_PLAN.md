@@ -121,66 +121,94 @@ reportable run.
 
 ---
 
-## 3. P1 — the harness, which does not exist yet
+## 3. P1 — the harness — **BUILT 2026-10-02, before the move**
 
-**The one piece of code the campaign cannot start without**, and item 31's one
-unchecked box: *"Build the harness mechanism and the stamps; testable here under
-the dev class."* Verified 2026-10-02: **no `limit_class`, `limit_wall`,
-`limit_rss` or `limit_tripped` occurs anywhere in the tree.**
+Item 31's one unchecked box, *"Build the harness mechanism and the stamps;
+testable here under the dev class"*, is discharged. **Nothing in this section is
+left to do on the new machine**; it is here so the next session knows what it
+has.
 
-**Do not write it from scratch.** Two drivers already carry most of it:
+| file | what |
+|---|---|
+| `bench/cell_metrics.py` | the measurement primitives, **extracted** from `engine_run.py` so both runners measure with one implementation, plus `machine()`, `limit_stamps()` and `outcome()` |
+| `bench/cell_run.py` | ONE CELL: any workload, any of the four backends, under the two declared stopping rules, with every stamp |
+| `bench/cell_queue.py` | a campaign of cells, consecutive and **resumable** |
+| `test/test_cell_metrics.py`, `test/test_cell_run.py` | 40 tests, fast tier, no backend, ~4 s |
 
-* `bench/deltanet/eval/engine_run.py` — declared `--deadline` and
-  `--memory-floor`, per-process peak RSS and swap, JVM GC summary, input hashes
-  with drift, violations **counted** from `report.md`, `verdict_valid`
-  requiring both the report and exactly one `completed task check_compliance`.
-  Bound to the Delta-net family in three places: its bootstrap calls
-  `bench.deltanet.workload.build(name)`; it reads `reach.txt` and `SOURCE.json`
-  unconditionally; `--backend` only shapes `FAVE_ENGINE_OPTIONS` for `apkeep`.
-* `bench/cloud_bdd_measure.py` and `bench/faithful_bdd_measure.py` — the BDD
-  build drivers, with `--deadline-s`, a per-minute `.status.jsonl` trail and a
-  `.profile.jsonl`. **Their status trail already computes `bound_h`, a
-  completion lower bound off the tail rate** — exactly what §8 requires of a
-  did-not-finish cell, and what makes §6.1's crash tolerance possible.
+**The extraction is verified behaviour-preserving, not asserted.**
+`test_stored_gc_and_violations_re_derive` re-derives **every GC summary and
+violation count stored in the five committed result directories** — 34 figures,
+including the ones `CLOUD_BENCH_PLAN.md` §2.15 quotes — and requires them to
+come out identical. It also fails if the glob finds fewer than 20, so it cannot
+pass by matching nothing.
 
-**The work: generalise `engine_run.py` into `bench/cell_run.py`,** keeping its
-behaviour for the Delta-net workloads (its results are quoted in
-`CLOUD_BENCH_PLAN.md` §2.13 and §2.15 and must stay re-derivable).
+**Every stopping rule has been made to fire**, which is what §3 asked for:
+wall-clock, the RSS cap, the memory floor, a clean exit, a non-zero exit, and an
+outside signal. The last is the one that matters on an unstable machine, and it
+has its own test: **an outside SIGTERM produces `status: interrupted`,
+`limit_tripped: none`, `outcome: interrupted`** — not a deadline, so the queue
+re-runs it instead of the campaign recording a did-not-finish that never
+happened.
 
-* **Workload dispatch**: Delta-net family via `workload.build`, everything else
-  via the workload's `benchmark.py`. Delta-net-only stamps become optional.
-* **Backends**: `net_plumber`, `apkeep` (`--apkeep-engine bdd|ndd`), `veriflow`
-  (`--vf-fields 4+10|plain`), `ad6`. One flag per engine config.
-* **Item 31's five stamps**: `limit_wall`, `limit_rss`, `limit_class`,
-  `machine`, `limit_tripped`.
-* **The result-cell schema**: `impl` (provenance — **stamped by the backend,
-  never typed by hand**), the engine's own commit, the accommodations in force,
-  the workload variant, and an outcome distinguishing *correct* from *did not
-  finish within the declared limit* from *wrong verdict* from *interrupted*
-  (§6.1).
-* **A progress lower bound on every long cell** — port `cloud_bdd_measure.py`'s
-  status trail, or reuse it. Per engine: ad6 needs
-  **`AD6_BRIDGE_PROGRESS_FILE`** set for anything over an hour (without it a
-  6-hour run yielded a bound and nothing else, not even which query it reached);
-  APKeep has the profiler trail; VeriFlow-FR has predicted ECs per table.
-* **`faithful_bdd_measure.py` does not stamp the jar hash** (`cloud_bdd_measure.py`
-  does). Fix that — it is why §5.0's triage for the two faithful cells has to
-  fall back on dates.
-* **A resumable queue** (§6.1) and `setsid nohup`.
-* **Clean up after a killed cell**: an external SIGTERM bypasses `run()`'s
-  `finally`, so `_teardown` never runs and the aggregator is orphaned; the
-  pidfile fallback does not cover a backend that starts no net_plumber. An
-  orphan means the next cell measures a polluted machine.
+**What a cell records:** the five item 31 stamps (`limit_class`, `limit_wall_s`,
+`limit_rss_mb`, `limit_tripped`, `machine`), the engine's own last source commit
+(which is what §5.0's staleness test S1 keys on — a jar hash changes on every
+rebuild), `outcome`, a 60-second progress trail, peak RSS per process, swap,
+the GC summary, the counted verdict, and the input hashes.
 
-**Test it under `limit_class=dev` before trusting it.** Every stopping rule has
-a cheap way to be made to fire: a 5-second deadline on `wl_ifi`, a memory floor
-just under current free memory, a deliberately absent `report.md`. **A limit
-that has never fired is not a limit.**
+**Three things the build found that the plan had not predicted.** Each would
+have cost hours at hour 0 of the campaign, which is the whole argument for
+building it before the move:
 
-> **Build P1 on the current machine, before the move.** It is dev-class testable
-> here in full, it carries over in git, and it is the largest single risk to an
-> unattended run — a harness debugged at hour 0 of a two-day campaign costs the
-> campaign. With an unstable environment that argument is stronger, not weaker.
+1. **The aggregator was starting on the wrong interpreter.**
+   `scripts/start_aggr.sh` defaults to a bare `python3`
+   (`PYTHON="${PYTHON:-python3}"`), so without `PYTHON` exported it ran outside
+   the venv and died with `No module named 'filelock'` — which surfaces four
+   frames later as `could not connect to fave`, naming nothing. `test.sh`
+   exports it; nothing else did. `cell_run` now pins it to its own
+   `sys.executable`, so a cell uses one interpreter throughout.
+2. **The `-o` opt-in list was incomplete.** TODO item 13a's
+   `FAVE_ALLOW_OUT_IFACE` was copied from `test.sh`'s `run_bench`, which opts in
+   `wl_up` and `wl_tum` — correct for the five workloads it runs, wrong as a
+   suite-wide default. A first smoke run died on `wl_example`. Measured across
+   `bench/`: **five** workloads carry such a rule (`wl_example`,
+   `wl_generic_fw`, `wl_shadow`, `wl_tum`, `wl_up`). It is now a measured
+   default, overridable per cell with `--allow-out-iface`, and stamped either
+   way.
+3. **A clean benchmark reliably leaves a zombie behind.** The orphan sweep
+   counted it, so every clean cell reported a leak — and the one time a real
+   orphan appeared, nobody would have looked twice. The sweep now skips
+   zombies (dead already, holding nothing), waits a grace period so a tidy
+   `_teardown` is not mistaken for a leak, and **labels** what it kills:
+   "something outlived the run" is not a finding, "the aggregator outlived the
+   run" is.
+
+**One gap left open deliberately.** `impl` — item 31's provenance column — is
+read from the aggregator's own configuration stamp and is **`null` for three of
+the four backends**, with `impl_source` saying why. Only VeriFlow-FR emits one
+today. Item 31 requires provenance *"stamped, not typed by hand: the value comes
+from the backend ... so a table cannot mislabel a row"*, so filling it in from a
+table here would be exactly the hand-typing it rules out. Making the backends
+stamp it is small and belongs with them, not with the harness.
+
+**Verified end to end on this machine**, not only in unit tests: a real
+`wl_airtel1` NDD cell runs to `outcome: correct`, 0 violations of 256,
+`verdict_valid`, with input hashes **identical** to the stored 2026-09-29
+`engine_run.py` result — so the two runners agree on the same workload. A
+two-cell queue was then run, interrupted, and restarted: done cells skipped, a
+cell with a trail and no result re-run, a cell a declared limit stopped left
+alone.
+
+**What to run it as:**
+
+    python3 bench/cell_run.py wl_stanford --backend apkeep --apkeep-engine ndd \
+        --limit-class v5 --limit-wall 86400 --limit-rss 32768 \
+        --memory-floor 2000 --out results/v5/stanford_ndd.json
+
+    python3 bench/cell_queue.py --queue campaign.json --out-dir results/v5
+
+`--dry-run` on the queue prints what it would run and what it would skip, which
+is the right first command after any restart.
 
 ---
 
@@ -409,14 +437,14 @@ itself the result.
 | phase | what | wall-clock |
 |---|---|---|
 | **0** | §1 bring-up + green gate; record the machine and the jars | 1–2 h |
-| **P1** | §3 the harness, if not already built before the move | 3–5 h |
+| ~~P1~~ | ~~§3 the harness~~ — **BUILT 2026-10-02, before the move** | **0** |
 | **P2** | §4 P2a + P2c | 1–2 h |
 | **A** | §5.1 cheap matrix + faithful variants + §5.4 LPM guardrail | 6–10 h |
 | **B** | §5.2 `wl_berkeley` drill through k=1 | 2–4 h |
 | **C** | §5.3: two 1-hour probes, then the one 24 h `wl_cloud` run | ~26 h |
 | **D** | tables, `PROTOCOL.txt` results, plan/registry/TODO updates, commits | 2–4 h |
 
-**Total ≈ 2 days**, against ≈ 4–5 before the triage. Phases A and B produce
+**Total ≈ 2 days**, against ≈ 4–5 before the triage, and now without P1. Phases A and B produce
 reportable results on day 1.
 
 **Order rationale.** Cheapest-first: phase A drives every engine path through
