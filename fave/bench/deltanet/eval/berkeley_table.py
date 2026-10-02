@@ -28,6 +28,25 @@ did not all see the same inputs: a cost compared across runs that answered
 different questions is not a comparison. The growth exponent between
 consecutive sizes is log(cost ratio) / log(rule ratio) -- 1 is linear.
 
+An exponent follows every cost that has one, the JVM's live heap included.
+That column was added 2026-10-02: the live heap had been printed without it,
+so the one measurement that sizes the engine's memory was the one a reader had
+to do arithmetic on. It is worth having in the table because it is NOT 1 --
+NDD's live set came out sublinear in rules on `wl_berkeley` (0.548 and 0.582
+between three sizes), and an extrapolation that assumed linear overestimated
+the next size by 72%.
+
+TWO CAVEATS ON THAT COLUMN, because it invites an inference the number cannot
+quite carry. `max_heap_after_gc_mb` is an UPPER ESTIMATE of the live set, not
+the live set: it is the smallest heap occupancy a GC happened to leave behind,
+so it depends on when G1 chose to collect and on how roomy `-Xmx` was. Rows at
+different `--jvm-xmx` are therefore not strictly comparable, and an exponent
+spanning two such rows carries that confound -- the 2026-10-02 series pairs a
+k=10 run at 8g with k=3 and k=2 at 16g. Second, the exponent is not constant:
+the 2026-09-29 drill, at a constant 8g throughout, gives 0.33 between 459k and
+1.35M rules against 0.55-0.58 higher up, so it RISES with size and an
+extrapolation from the top of a series is, if anything, an underestimate.
+
 Usage:  python3 berkeley_table.py bench/deltanet/eval/results_berkeley_2026-09-29
 """
 
@@ -74,19 +93,22 @@ def main(argv):
             raise SystemExit('k=%d: runs saw %d input sets' % (k, len(seen)))
 
     print('| engine | k | rules | status | rule load s | x | compliance s | x '
-          '| aggregator MB | net_plumber MB | JVM heap after GC MB |')
-    print('|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|')
+          '| aggregator MB | net_plumber MB | JVM heap after GC MB | x |')
+    print('|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|')
     for engine in ('netplumber', 'ndd', 'bdd'):
         series = sorted((r for r in plain if r['engine'] == engine),
                         key=lambda r: -r['keep_every'])
         previous = None
         for row in series:
-            cell = {'rules': row.get('census', {}).get('rules'),
-                    'load': row.get('switch_command_s'),
-                    'check': (row.get('check_compliance_s') or [None])[0]}
             peak = row.get('peak_rss_by_process_mb', {})
             gc = row.get('gc') or {}
-            print('| %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+            cell = {'rules': row.get('census', {}).get('rules'),
+                    'load': row.get('switch_command_s'),
+                    'check': (row.get('check_compliance_s') or [None])[0],
+                    # Absent for NetPlumber, which has no JVM; `_exponent`
+                    # returns '' rather than dividing by it.
+                    'heap': gc.get('max_heap_after_gc_mb')}
+            print('| %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
                 engine, row['keep_every'],
                 '{:,}'.format(cell['rules']) if cell['rules'] else '?',
                 row['status'],
@@ -95,7 +117,17 @@ def main(argv):
                 '%.2f' % cell['check'] if cell['check'] else '--',
                 _exponent(previous, cell, 'check') if previous else '',
                 peak.get('aggregator', '--'), peak.get('net_plumber', '--'),
-                gc.get('max_heap_after_gc_mb', '--')))
+                cell['heap'] if cell['heap'] else '--',
+                # ONLY between two completed runs. A run the floor or the
+                # deadline killed reports the heap it had reached when it died,
+                # not a peak -- §2.15's 8g k=3 run showed 4.0 GB that way and
+                # the live set was above 5.1. An exponent off a truncated
+                # figure reads as slow growth and means nothing; the load and
+                # compliance columns above print one regardless, which is
+                # defensible for them (a run killed in the compliance check did
+                # finish loading) and is not for this one.
+                _exponent(previous, cell, 'heap')
+                if previous and row['status'] == 'completed' else ''))
             if row['status'] == 'completed':
                 previous = cell
     for row in rows:

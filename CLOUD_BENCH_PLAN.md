@@ -4316,11 +4316,14 @@ all**, unlike the 19 GB machine — so the memory floor is the only guard and an
 overshoot is the OOM killer, not a slowdown. The input is the same file:
 `berkeley-inserts.csv`, 12,817,902 rows, sha256 OK against `DERIVED.SHA256SUMS`.
 
-| engine | k | rules | status | rule load s | x | compliance s | x | aggregator MB | JVM heap after GC MB |
-|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
-| ndd | 10 | 1,351,800 | completed | 70.6 | | 39.23 | | 8,096 | 3,519 |
-| ndd | 3 | 4,476,240 | **completed** | 249.5 | 1.05 | 122.94 | 0.95 | 19,283 | 6,782 |
-| ndd | 2 | 6,707,829 | **completed** | 336.5 | 0.74 | 192.48 | 1.11 | 25,969 | 8,582 |
+| engine | k | rules | status | rule load s | x | compliance s | x | aggregator MB | JVM heap after GC MB | x |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| ndd | 10 | 1,351,800 | completed | 70.6 | | 39.23 | | 8,096 | 3,519 | |
+| ndd | 3 | 4,476,240 | **completed** | 249.5 | 1.05 | 122.94 | 0.95 | 19,283 | 6,782 | **0.55** |
+| ndd | 2 | 6,707,829 | **completed** | 336.5 | 0.74 | 192.48 | 1.11 | 25,969 | 8,582 | **0.58** |
+
+(`net_plumber MB`, all `--` here, is dropped from this copy; `berkeley_table.py`
+prints it.)
 
 All three answer **0 of 520** with `verdict_valid`, the `fib_walk` prediction,
 as every completed run on every engine has.
@@ -4344,6 +4347,18 @@ agree. Linear scaling from k=3 would have said 10,152 MB. Plausible for a
 decision-diagram engine: more rules over the same 23-device, same-prefix-space
 topology share more structure. Three sizes, one workload, one engine — not a
 claim about NDD in general.
+
+**Two caveats on that exponent**, added when `berkeley_table.py` grew the column
+(2026-10-02). `max_heap_after_gc_mb` is an *upper estimate* of the live set —
+the smallest occupancy a GC happened to leave — so it depends on when G1 chose
+to collect and on how roomy `-Xmx` was, and this series pairs a k=10 run at
+**8g** with k=3 and k=2 at **16g**. And the exponent is not constant: the
+2026-09-29 drill, at a constant 8g throughout, gives **0.33** between 459k and
+1.35M rules against 0.55–0.58 higher up, so it *rises* with size. The two pull
+in opposite directions on the k=1 figure and neither is large enough to move the
+decision — at an exponent of 0.60 the live set at k=1 is 12.7 GB against 12.6 —
+but the ~12.6 GB should be read as an estimate from the top of a series, not as
+a measurement.
 
 **Two predictions were wrong, and the second corrects this plan's own method.**
 
