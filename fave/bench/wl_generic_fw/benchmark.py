@@ -28,7 +28,7 @@ import sys
 import logging
 import argparse
 
-from bench.generic_benchmark import GenericBenchmark
+from bench.generic_benchmark import GenericBenchmark, PYTHON, run_step
 
 
 class GenericFirewallBenchmark(GenericBenchmark):
@@ -37,31 +37,51 @@ class GenericFirewallBenchmark(GenericBenchmark):
     """
 
     def _pre_preparation(self):
-        os.system(
-            'cp %s bench/wl_generic_fw/interfaces.json' % self.files['genfw_interfaces']
-        )
+        run_step(
+            'cp %s bench/wl_generic_fw/interfaces.json' % self.files['genfw_interfaces'],
+            self.logger, "copying the interface mapping")
 
 
     def _post_preparation(self):
-        os.system(
-            "python3 bench/wl_generic_fw/topogen.py %s %s" % (
-                self.ip, self.files['genfw_ruleset']
-            )
-        )
+        # The ONLY workload-specific step. `topogen.py` defaults to ipv6 and the
+        # default ruleset, which is what the base class's zero-argument call
+        # gets; this is how `-4` and `-r` reach the model, so it runs second and
+        # wins.
+        #
+        # `PYTHON`, not a bare `python3`: the latter is whatever PATH resolves,
+        # which in a container whose venv is not activated is the system
+        # interpreter with none of FaVe's dependencies.
+        run_step(
+            "%s bench/wl_generic_fw/topogen.py %s %s" % (
+                PYTHON, self.ip, self.files['genfw_ruleset']),
+            self.logger, "generating the wl_generic_fw topology")
 
-        os.system(
-            "python3 bench/wl_generic_fw/reach_csv_to_checks.py " + ' '.join([
-                '-p', self.files['reach_csv'],
-                '-c', self.files['checks'],
-                '-j', self.files['reach_json']
-            ])
-        )
+        # A SECOND CONVERSION USED TO FOLLOW, and it is gone rather than fixed
+        # (TODO item 32). It ran `bench/wl_generic_fw/reach_csv_to_checks.py`,
+        # which has never existed -- the script is `bench/reach_csv_to_checks.py`
+        # -- so `os.system` printed "can't open file" to a stderr nobody read
+        # and the run carried on with the base class's `checks.json`.
+        #
+        # Correcting the path would have made it WORSE, not better, because the
+        # call is a lossy duplicate of `GenericBenchmark._convert_policy_to_
+        # checks`, which has already run by this point:
+        #   * it omits `--roles`, so a role whose single node stands for a whole
+        #     subnet loses its self-check;
+        #   * it omits `--strict`, which decides whether a filled diagonal means
+        #     anything at all;
+        #   * it omits `-m`, so `--inventory-mapping` falls back to
+        #     `inventory.json` RELATIVE TO THE CWD -- `fave/inventory.json`,
+        #     which does not exist -- where the base class passes this
+        #     workload's own `bench/empty.json`;
+        #   * it omits `--cchecks`, so the conditional checks would be written
+        #     to `fave/cchecks.json`, INTO THE SOURCE TREE. That is the same
+        #     defect TODO item 37 fixed in `inventorygen.py`.
+        # The base class's conversion is simply the right one for this
+        # workload, and there was never a second question to ask.
 
 
 if __name__ == '__main__':
     np_config = "bench/wl_generic_fw/default/np.conf"
-
-    use_internet = True
 
     parser = argparse.ArgumentParser()
 
@@ -79,12 +99,20 @@ if __name__ == '__main__':
         const=True,
         default=False
     )
+    # RESTORED 2026-10-02 (TODO item 32). `6408fcb1` (2021) converted this
+    # benchmark to argparse and inverted this flag's default on the way: before
+    # it, `use_state_snapshots` started False and `-n` set it True; after it,
+    # the default was True, so EVERY default run behaved as though `-n` had been
+    # passed. With `use_internet` then False, the policy translator rejects the
+    # default policy's `Internet` role ("Error: Role Internet is unknown"), and
+    # with no reachability matrix and no `roles.json` the topology, policy and
+    # check generation all fail after it -- every one of them silently, which is
+    # why a four-year-old regression left no trace.
     parser.add_argument(
         '-n', '--no-internet',
         dest='use_state_snapshots',
-        action='store_const',
-        const=False,
-        default=True
+        action='store_true',
+        default=False
     )
     parser.add_argument(
         '-s', '--strict',
@@ -130,8 +158,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args(sys.argv[1:])
 
-    if args.use_state_snapshots:
-        use_internet = False
+    use_internet = not args.use_state_snapshots
 
     files = {
         'roles_json' : 'bench/wl_generic_fw/roles.json',

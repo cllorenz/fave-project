@@ -119,6 +119,26 @@ def _exit_code(status):
     return status
 
 
+def run_step(command, logger, what):
+    """ Spawn a sub-step and RAISE if it fails, instead of carrying on.
+
+    `os.system`'s status is a value, and every caller in this file discards it,
+    so a sub-step that dies leaves the run to continue with whatever artifact
+    the previous step happened to leave behind. TODO item 32 is one instance:
+    `wl_generic_fw` ran a converter that does not exist, printed "can't open
+    file" to stderr, and benchmarked the stale `checks.json` -- for four years.
+
+    Used where a step's failure makes the rest of the run meaningless. It is
+    deliberately NOT retrofitted onto every `os.system` here: several steps
+    fail harmlessly by design (the base class calls `topogen.py`/`routegen.py`
+    for workloads that have no such script), and making those fatal is a
+    separate change with its own blast radius.
+    """
+    code = _exit_code(os.system(command))
+    if code != 0:
+        raise RuntimeError("%s failed (exit %d): %s" % (what, code, command))
+
+
 class GenericBenchmark(object):
     """ This class provides a canonical benchmark and can be customized by sub classes.
     """

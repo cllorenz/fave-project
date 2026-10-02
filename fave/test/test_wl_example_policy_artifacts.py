@@ -206,14 +206,25 @@ class TestWlExamplePolicyArtifacts(unittest.TestCase):
             [c for c in _cells(self.csv_path).values() if '|' in c], [cell],
             "wl_example must have exactly one alternative cell")
 
+        # A COPY of this matrix is not a second source of the shape. The
+        # `wl_generic_fw` default instance's policy IS wl_example's (the V0
+        # feature survey says so), so once TODO item 32 made that workload
+        # generatable again -- it had not been since 2021 -- its matrix appeared
+        # on disk, byte-identical to this one. Comparing CELLS rather than
+        # exempting a directory name keeps the guard sharp: a copy passes, and
+        # the moment one diverges while still carrying an alternative, this
+        # fires again.
+        mine = _cells(self.csv_path)
         others = [p for p in sorted(glob.glob("%s/bench/*/reachability*.csv" % _FAVE))
                   if os.path.basename(os.path.dirname(p)) != 'wl_example'
-                  and any('|' in c for c in _cells(p).values())]
+                  and any('|' in c for c in _cells(p).values())
+                  and _cells(p) != mine]
         self.assertEqual(
             others, [],
-            "another workload grew an alternative -- wl_example is no longer "
-            "the sole source of the two-negations-on-one-field shape, and "
-            "test_adapter_negation_intersection.py's premise needs rewording")
+            "another workload grew an alternative of its own -- wl_example is "
+            "no longer the sole source of the two-negations-on-one-field "
+            "shape, and test_adapter_negation_intersection.py's premise needs "
+            "rewording")
 
     def test_an_alternative_cell_becomes_two_separate_positive_checks(self):
         """ Two permitted services are a DISJUNCTION, so they cannot share a
