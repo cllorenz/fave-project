@@ -4180,10 +4180,17 @@ reusable by Python, not by the JVM. Not proven: the build also grows the JVM's
 off-heap memory, which can hide a small return. **Releasing memory late
 therefore does not help; not allocating it does.**
 
-### RESUME HERE — state at the end of the 19 GB machine (2026-10-01)
+### State at the end of the 19 GB machine (2026-10-01)
 
-**Owner, 2026-10-01: "We will have a larger machine soon."** Work stops here
-until it arrives. Everything below is committed on `benchmarks` (nothing
+> **Partly superseded 2026-10-02 by the next subsection, "The 32 GB machine".**
+> k=3 completes there, and k=2 with it; the live-set figure in the sizing table
+> below is tightened and the rest of that table is confirmed. This subsection is
+> kept as the 19 GB record and is not edited — the four k=3 failures it describes
+> were real, and reading them against the 32 GB runs is what identified what had
+> actually been binding.
+
+**Owner, 2026-10-01: "We will have a larger machine soon."** Work stopped here
+until one arrived. Everything below is committed on `benchmarks` (nothing
 pushed); `bench/deltanet/eval/README.md` indexes the tools and result
 directories.
 
@@ -4219,8 +4226,23 @@ load-time peak.
 So **≥64 GB is the minimum worth trying; 96–128 GB leaves margin.** Time: NDD
 load ~15 min, compliance ~20–30 min at k=1 (linear from k=10/k=3).
 
+> **Checked against three measured sizes, 2026-10-02 (next subsection).** The
+> total stands: an aggregator of ~43 GB at k=1, so ~44 GB for the run, inside
+> this table's 45–60 GB and well inside "≥64 GB is the minimum worth trying".
+> Two rows move. The **JVM heap** row is too high — the live set is *sublinear*
+> in rules, ~12.6 GB at k=1, so `-Xmx 20g` rather than 20–24g. The **Python
+> side** row is not measurable the way it was derived: RSS minus committed heap
+> gives 1,271 B/rule at k=3 and 1,827 B/rule at k=2, a 44% move between adjacent
+> sizes, which is the method and not FaVe (this section's own gotcha says so).
+> The aggregator's peak RSS, taken whole, scales at a stable exponent of 0.727.
+> Times are also lower than this table's: ~11 min load and ~6 min compliance.
+
 **What to run first on the new machine, in order** (from `fave/`, venv active,
-`PATH="$ROOT/net_plumber/build:$PATH" PYTHONPATH=.`):
+`PATH="$ROOT/net_plumber/build:$PATH" PYTHONPATH=.`). *Steps 1-2 were discharged
+on the 32 GB box on 2026-10-01/02 and step 3 was run as two single
+`engine_run.py` invocations rather than the drill, because only k=10, k=3 and
+k=2 fit; steps 4-5 are untouched. The list stands as written for the machine
+that can take k=1.*
 
 1. `./test.sh doctor`; then `FAVE_SKIP_AD6=1 ./test.sh fast` and
    `... integration` — a new machine is a new environment (JDK 11 for the
@@ -4277,6 +4299,88 @@ k=30 NetPlumber run; the cause of the 2026-09-29 sandbox death.
   them along; a dying sandbox still does.
 * Local branch `berkeley-drill` is a leftover from a worktree; its one commit
   was cherry-picked into `benchmarks` as `a16ca0b8`. Safe to delete.
+
+---
+
+### The 32 GB machine (2026-10-02): k=3 completes, and the live set is sublinear
+
+`bench/deltanet/eval/results_berkeley_ndd_2026-10-02/` — `PROTOCOL.txt` first,
+then `K10_RESULT_AND_K3_REVISION.txt`, `K3_RESULT.txt`, `K2_PREDICTION.txt`,
+`K2_RESULT.txt`. Every prediction was declared before its run and none was
+edited afterwards; the two that were wrong are scored as wrong.
+
+**`limit_class=dev`. Nothing here is reportable.** 32,089 MB and 8 cores; item
+31 fixes the reportable memory limit at 32 GB only on a machine of about 40 GB
+or more, and a 32 GB box cannot host a 32 GB limit with headroom. **No swap at
+all**, unlike the 19 GB machine — so the memory floor is the only guard and an
+overshoot is the OOM killer, not a slowdown. The input is the same file:
+`berkeley-inserts.csv`, 12,817,902 rows, sha256 OK against `DERIVED.SHA256SUMS`.
+
+| engine | k | rules | status | rule load s | x | compliance s | x | aggregator MB | JVM heap after GC MB |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
+| ndd | 10 | 1,351,800 | completed | 70.6 | | 39.23 | | 8,096 | 3,519 |
+| ndd | 3 | 4,476,240 | **completed** | 249.5 | 1.05 | 122.94 | 0.95 | 19,283 | 6,782 |
+| ndd | 2 | 6,707,829 | **completed** | 336.5 | 0.74 | 192.48 | 1.11 | 25,969 | 8,582 |
+
+All three answer **0 of 520** with `verdict_valid`, the `fib_walk` prediction,
+as every completed run on every engine has.
+
+**k=3 completes, after four failures on 19 GB.** 468.9 s wall at `-Xmx16g`.
+Reading the two machines together says what had been binding: three of the four
+19 GB failures were killed by the **external memory floor**, not by the heap,
+with the live heap at 4.0–4.5 GB — i.e. *before* reaching its true peak of
+6,782 MB. Only the `-Xmx5g` run hit a real wall, and all it established
+was that the live set EXCEEDS 5.1 GB — a lower bound, with nothing above it. The machine was the constraint.
+
+**The k=10 re-anchor was worth running first.** Compliance fell 123 s → 39.2 s
+(3.1×) and load 80 s → 70.6 s against the 19 GB figures. More to the point, it
+measured the live set at 1.35M rules (3,519 MB) — and that number changed the
+k=3 heap, from 12g to 16g, *before* the run.
+
+**NDD's live set is sublinear in rules.** Interval exponents 0.548 and 0.582;
+three-point fit **0.555**. This was predicted at 8,460 MB for k=2 and measured
+at 8,582 MB — 1.4% — so it is not a line through two points that happened to
+agree. Linear scaling from k=3 would have said 10,152 MB. Plausible for a
+decision-diagram engine: more rules over the same 23-device, same-prefix-space
+topology share more structure. Three sizes, one workload, one engine — not a
+claim about NDD in general.
+
+**Two predictions were wrong, and the second corrects this plan's own method.**
+
+1. *k=3's live set*, predicted 10–13 GB from linear scaling, measured 6,782 MB.
+   So the 12g → 16g revision was unnecessary — 12g would have been 56%
+   occupancy. Defensible on what was known (the only prior datum was a *lower*
+   bound of 5.1 GB), but its stated reason did not hold.
+2. *k=2's footprint*, predicted ~20 GB aggregator and ~9–10 GB free, measured
+   **25,969 MB and 3,561 MB** — 561 MB above the floor. That came from
+   `K3_RESULT.txt` decomposing RSS minus committed heap into a "Python side" of
+   1,271 B/rule and scaling it linearly. The same subtraction at k=2 gives
+   1,827 B/rule. **`K3_RESULT.txt`'s downward revision of the machine floor to
+   ~40 GB is therefore withdrawn**; the aggregator's peak RSS taken whole scales
+   at 0.725 and 0.736 across the two intervals (fit **0.727**) and gives ~43 GB
+   at k=1. The gotcha further up this section already said not to do that
+   subtraction, and it was done anyway.
+
+**k=2 is the largest size this box carries**, at 561 MB of margin. k=1 needs
+~43 GB of aggregator against a ~29 GB ceiling here: not attemptable, and no
+harness lever closes a 14 GB gap. **The levers listed above — per-table
+translation, the load-once aggregator, `__slots__` — are therefore still
+unstarted and still the right list, but k=3 and k=2 completing means none of
+them is a prerequisite for progress; they buy headroom at k=1, not feasibility
+at k=3.**
+
+**`/dev/shm` was a non-issue and is now measured:** high-water **1 MB of 64**
+across every run, `aggregator.log` 7.5 KB. It could not be enlarged here
+(remount denied), and `engine_run.py` *parses* that log for its timings, so it
+was worth checking rather than assuming — `bench/wl_berkeley/np.conf`, which
+lowers NetPlumber's per-rule logging, is what makes it a non-issue, and the
+gotcha below to keep it stands.
+
+**Still open after these runs:** the k=1 run itself; whether the 0.555 and 0.727
+exponents hold past 6.7M rules; the 19 GB machine's unexplained 288/352/537 s
+k=3 load spread (this machine's loads were orderly, and its own k=3→k=2 load
+exponent of 0.74 against k=10→k=3's 1.05 is the one ragged figure here);
+and everything in "Still open, independent of the machine" above.
 
 ---
 

@@ -25,5 +25,8 @@ was run, the stopping rules, and the predictions. Read it first.
 | `results_berkeley_2026-09-29/` | `wl_berkeley` size series, NetPlumber / NDD / BDD (§2.15) |
 | `results_berkeley_ndd_2026-09-29/` | the NDD drill, k=30..3 (§2.15) |
 | `results_berkeley_slim_2026-09-30/` | k=3 after each harness-slimming step: runs 1–3 (§2.15) |
+| `results_berkeley_ndd_2026-10-02/` | the 32 GB machine: k=10 re-anchor, then k=3 and k=2, all completed (§2.15). `limit_class=dev`, not reportable |
 
-**Resuming on a larger machine:** `CLOUD_BENCH_PLAN.md` §2.15, "RESUME HERE".
+**Sizing a larger machine:** `CLOUD_BENCH_PLAN.md` §2.15, "The 32 GB machine
+(2026-10-02)" — three measured sizes and the exponents fitted to them. k=1 needs
+~43 GB of aggregator; the 19 GB record is the subsection above it.
