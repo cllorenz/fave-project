@@ -1,0 +1,23 @@
+# Machine record - V5 campaign, recorded before anything ran
+# MEASUREMENT_RUN_PLAN.md S0 / S1. Date: 2026-10-02T14:36:55Z
+
+git_head          e371a0adb6bb65a2797dc0685bb66fa9a92fa3ca
+git_branch        benchmarks
+git_describe      e371a0ad Make the plan executable: ship the queue, state the contract
+kernel            7.0.0-31-generic
+os                Ubuntu 24.04.4 LTS
+container         4db81ef34047  (yolobox, docker, amd64)
+nproc             16
+cpu_model         AMD EPYC-Genoa Processor
+
+## memory
+                 total        used        free      shared  buff/cache   available
+  Mem:           64294        1838       38730           5       24428       62456
+  Swap:              0           0           0
+  swap: 0 device(s)  <-- ZERO SWAP: an overshoot is the OOM killer, not a slowdown
+
+## disk
+  Filesystem      Size  Used Avail Use% Mounted on
+  shm              64M     0   64M   0% /dev/shm
+  /dev/sda1        96G   25G   72G  26% /home/ubuntu/fave-project
+  NOTE /dev/shm is 64M: FaVe writes aggregator.log/rpc.log there.

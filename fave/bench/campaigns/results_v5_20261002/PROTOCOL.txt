@@ -1,0 +1,85 @@
+PROTOCOL -- V5 reportable campaign, phase A (the cheap matrix)
+Declared 2026-10-02, BEFORE any cell of this phase ran. Not edited afterwards.
+MEASUREMENT_RUN_PLAN.md §5.1, §7, §9.
+
+WHO AND UNDER WHAT MANDATE
+  Executed unattended by a Claude session. The owner is out of office and
+  cannot intervene, and granted a total budget of 64 HOURS of experiments
+  (2026-10-02 ~14:30Z -> 2026-10-05 ~06:30Z). Every decision this session took
+  that the plan did not already fix is recorded here and in CAMPAIGN_LOG.md,
+  so that none of them has to be inferred from a result later.
+
+WHAT IS BEING RUN
+  bench/campaigns/v5_phase_a_main.json -- 51 cells. Six engine configurations
+  (netplumber; apkeep bdd and ndd; veriflow 4+10 and plain; ad6 rank) across
+  the nine workloads of §5.1, cheapest workload first. bdd x wl_cloud is
+  excluded (phase C's one long run). wl_generic_fw is excluded (POSTPONED by
+  the owner, 2026-10-02 -- its one violation is unadjudicated).
+
+  The 51 cells are the shipped 53-cell queue minus two, PARTITIONED
+  PROGRAMMATICALLY so no cell could be altered in the process (the split
+  asserts union, disjointness and dict-identity against the shipped file).
+
+STOPPING RULES -- declared, identical for every cell, unchanged from the ship
+  limit_class  v5 (REPORTABLE)
+  limit_wall   86400 s (24 h)
+  limit_rss    32768 MB (32 GB)
+  memory_floor 2000 MB -- set LOW on purpose: the floor is there to RECORD the
+               peak, not to protect the run (§8.2). This machine has NO SWAP,
+               so an overshoot is the OOM killer rather than a slowdown.
+  status_every 60 s progress trail on every cell.
+  Enforcement is external and identical for every engine (harness wall-clock +
+  peak-RSS monitor), never RLIMIT_AS, which misfires on the JVM.
+  VeriFlow-FR's engine-internal --vf-budget is 0 (off) in every cell.
+
+  A cell killed by a DECLARED limit is a result (status deadline|memory,
+  limit_tripped wall|rss). A cell killed by the ENVIRONMENT is status
+  interrupted, limit_tripped none -- NOT reportable, and re-run by the queue.
+
+THE ONE ORDERING DECISION THIS SESSION TOOK, AND WHY
+  wl_up_vfplain and wl_tum_vfplain are DEFERRED to the end of the whole
+  campaign (bench/campaigns/v5_phase_a_dnf.json). Their declared limits are
+  UNCHANGED -- v5, 24 h, 32 GB. Only their position in the order moved.
+
+  Why: §5.1 declares both to be did-not-finishes ("2.6e11 ECs predicted at
+  pgf.forward_filter"; "1.74e10"), so each is expected to run to its 24 h wall.
+  That is 48 h for two cells, inside a phase §6 budgets at 6-10 h -- the
+  shipped queue, §5.1's prose and §6's table disagree, and taken literally the
+  queue would have spent 48 of the 64 budgeted hours before phase B began.
+
+  Why this is faithful rather than a cut: §6 already says "order long cells
+  last and singly, so a crash costs one cell", and VERIFLOW_PLAN.md §4.6 says
+  the EC count is stamped at each table BEFORE enumerating. So the scientific
+  content of these two cells -- the predicted EC bound that says WHY it does
+  not finish -- lands in the first minutes; the remaining 24 h buys only the
+  right to write "within 24 h" rather than "within N h". Everything else in
+  the campaign is worth more per hour, so it runs first and these run last
+  with whatever budget remains.
+
+  If the budget does not reach them, they are recorded as NOT RUN with this
+  reason, and no did-not-finish is claimed for them from this campaign. A cell
+  that was merely never started has not been shown not to finish.
+
+PREDICTIONS FOR THIS PHASE (§7; scored afterwards, never edited)
+  P9  vf (4+10) completes every one of the nine workloads; vf-plain does not
+      finish on wl_up or wl_tum.
+  P10 ad6 REFUSES wl_cloud for the structural reason in CLOUD_BENCH_PLAN.md
+      §1.7.2 -- rather than failing, or answering.
+  Added by this session, declared before the run, same discipline:
+  P12 All 51 cells reach a terminal state with no cell recording
+      status=interrupted more than twice. Falsified by: repeated interruption,
+      which would mean the container is less stable than §6.1 assumed.
+  P13 Every workload on which two or more engines complete yields the SAME
+      violation count across those engines. Falsified by: any cross-engine
+      disagreement -- which would be the campaign's most important finding and
+      would stop the write-up until adjudicated.
+
+WHERE THE RESULTS GO
+  This directory. One JSON per cell, plus stdout, aggregator log, GC log,
+  status trail and report.
+
+MACHINE AND ARTIFACTS
+  ../MACHINE.txt and ../ARTIFACTS.txt, both recorded before any cell ran.
+  Note: the apkeep jar hash in ARTIFACTS.txt was re-recorded after the gate,
+  because ./test.sh integration rebuilds both jars -- which is exactly why
+  §5.0's staleness test S1 keys on the engine SOURCE COMMIT and not the hash.

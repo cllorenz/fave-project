@@ -1,0 +1,42 @@
+# Build artifacts - V5 campaign
+# MEASUREMENT_RUN_PLAN.md S1.7. Recorded AFTER the green gate, because
+# ./test.sh integration rebuilds both jars -- the apkeep hash moved from
+# 5dd5ce3e to e3785fb1 to the value below during phase 0 alone, which is
+# precisely why S5.0's staleness test S1 keys on the ENGINE SOURCE COMMIT.
+# Date: 2026-10-02T14:52:47Z
+
+## jar hashes (this machine, this build -- identity within this campaign only)
+  e3785fb1b2aacb87eeea72f8ba7ab2ff482c585b686547435c25c2e58a29afa7  apkeep/target/apkeep-1.0.0.jar
+  8b26514c80df95aece619086b84c9618fa3f79bf83d0acab94f1a53a28cbbe75  ndd/target/ndd-1.0.1-jar-with-dependencies.jar
+
+## native artifacts
+  f09dc34b0f3021fe11000998d956b765230ba69fd1af1e594c0e7b9cda651f66  /usr/bin/net_plumber
+  f09dc34b0f3021fe11000998d956b765230ba69fd1af1e594c0e7b9cda651f66  net_plumber/build/net_plumber
+  d05d6111f62ceb45cb4f58f4e162d0623f75405efabda8a5bba49dd0eb0a86cd  net_plumber/python/libnetplumber.cpython-312-x86_64-linux-gnu.so
+  d1ba68f236d8c6c619a8141151abb9058a029dad837be627516d5e26a180ff90  veriflow_fr/python/libveriflow_fr.cpython-312-x86_64-linux-gnu.so
+  NOTE build/net_plumber and /usr/bin/net_plumber are byte-identical by
+  construction: build_libnetplumber.sh rebuilds the core with -fPIC, which
+  was undone afterwards so PATH order cannot decide what gets measured.
+
+## engine source commits (what S1 compares)
+  apkeep                           a7eb8ad2  2026-10-01
+  net_plumber                      23265ec2  2026-09-30
+  ndd                              d902e0ac  2026-09-25
+  ad6                              f038b62c  2026-09-22
+  fave/veriflow fave/aggregator    d834ec4d  2026-10-02
+  NOTE fave/veriflow+fave/aggregator is d834ec4d (2026-10-02), not the
+  cdd5a996 (2026-10-01) in the plan's S5.0 table: the provenance commit
+  touched the aggregator. No verification semantics changed.
+
+## toolchain
+  build JDK   openjdk version "11.0.32.1" 2026-08-18
+  default JVM openjdk version "21.0.12.1" 2026-08-18
+  maven       Apache Maven 3.8.7
+  gcc         gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  python      Python 3.12.3 (.venv)
+
+## phase 0 gate (S1.6), all green before any number was recorded
+  ./test.sh doctor                           PASSED
+  ./test.sh fast                             PASSED  859 passed, 3 skipped
+  FAVE_REQUIRE_BACKENDS=1 ./test.sh integration  PASSED
+  ./test.sh e2e                              PASSED  veriflow == netplumber, 27 violation lines

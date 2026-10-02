@@ -1,0 +1,24 @@
+[
+ {
+  "name": "wl_tum_vfplain",
+  "workload": "wl_tum",
+  "backend": "veriflow",
+  "vf-fields": "plain",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_up_vfplain",
+  "workload": "wl_up",
+  "backend": "veriflow",
+  "vf-fields": "plain",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ }
+]
