@@ -69,7 +69,7 @@ import time
 # deadline, a per-minute durable status dump and a preserved trace. That
 # machinery is already written and proven in cloud_bdd_measure; reuse it rather
 # than grow a second copy that drifts (TODO item 28's whole lesson).
-from bench.cloud_bdd_measure import _dump, _read_samples, _trend
+from bench.cloud_bdd_measure import _dump, _read_samples, _sha256, _trend
 
 
 _STANFORD_PREFIX = "bench/wl_stanford/stanford-json"
@@ -149,7 +149,19 @@ def measure(bench, routers, out_path, deadline_s=0, status_every_s=60):
         "deadline_s": deadline_s or None,
         "status": "starting",
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "jar_sha256": None,
+        "ndd_jar_sha256": None,
     }
+    # Pin the engine binary the same way `cloud_bdd_measure.py` does. It did
+    # not, and `MEASUREMENT_RUN_PLAN.md` §5.0 is why that mattered: the staleness
+    # triage for the two faithful cells -- the ones this driver produced -- had
+    # to fall back on the file's date, because the result did not say which jar
+    # had built it.
+    from apkeep import lib_apkeep as _lib_apkeep
+    for _key, _jar in (("jar_sha256", getattr(_lib_apkeep, "_APKEEP_JAR", None)),
+                       ("ndd_jar_sha256", getattr(_lib_apkeep, "_NDD_JAR", None))):
+        if _jar and os.path.isfile(_jar):
+            result[_key] = _sha256(_jar)
 
     stop_threads = threading.Event()
 
