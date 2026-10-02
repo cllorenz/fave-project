@@ -1,0 +1,36 @@
+generate policy matrix...
+generated policy matrix.
+cloud model: 86 devices, 2941 rules, 8 roles -> 8 endpoints
+deleting old logs and measurements...
+deleted old logs and measurements.
+convert policy matrix to checks...
+converted policy matrix.
+backend veriflow needs no netplumber process; not starting one
+starting aggregator (backend: veriflow --vf-fields plain --vf-budget 0)...
+started aggregator.
+wait for fave
+initialize topology...
+topology sent to fave
+initialize routes...
+routes sent to fave
+initialize probes...
+probes sent to fave
+initialize sources...
+sources sent to fave
+checking flow trees...
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/compliance_checker.py", line 119, in <module>
+    barrier.wait(guard)
+  File "/home/ubuntu/fave-project/fave/util/barrier.py", line 296, in wait
+    raise BarrierError("FaVe failed to handle the request: %s" % error)
+util.barrier.BarrierError: FaVe failed to handle the request: ValueError: not a prefix: x1xxxxxxxxxxxxxx
+stopping fave and netplumber...
+fave ordered to stop
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/wl_cloud/benchmark.py", line 600, in <module>
+    _run.run()
+  File "/home/ubuntu/fave-project/fave/bench/generic_benchmark.py", line 604, in run
+    self._compliance()
+  File "/home/ubuntu/fave-project/fave/bench/generic_benchmark.py", line 508, in _compliance
+    raise RuntimeError(
+RuntimeError: compliance check FAILED (exit 1): /home/ubuntu/fave-project/.venv/bin/python3 bench/compliance_checker.py -u bench/wl_cloud/checks.json -- the run has no verdict, and reporting one anyway is how a benchmark comes to publish a number nobody computed (TODO.md items 1i/1n/1p).

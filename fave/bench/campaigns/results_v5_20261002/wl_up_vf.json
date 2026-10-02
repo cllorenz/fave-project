@@ -1,0 +1,93 @@
+{
+  "workload": "wl_up",
+  "backend": "veriflow",
+  "engine": "veriflow",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-02T15:18:38.844442+00:00",
+  "git_head": "b1d69c067f223843aa967f0a8e53b9693472929f",
+  "engine_commit": "d834ec4d703421013f6b8e183c000a6af96014aa 2026-10-02",
+  "vf_fields": "4+10",
+  "vf_budget": 0,
+  "engine_options": "--vf-fields 4+10 --vf-budget 0",
+  "allow_out_iface": true,
+  "driver": "bench/wl_up/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 639.292,
+  "memory_stop": null,
+  "peak_rss_mb": 745,
+  "peak_rss_by_process_mb": {
+    "python3": 104,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 640,
+    "sleep": 2
+  },
+  "least_available_mb": 61903,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_up_vf.status.jsonl",
+  "check_compliance_s": [
+    630.5446119308472
+  ],
+  "switch_command_s": 0.010642766952514648,
+  "switch_commands": 159,
+  "gc": null,
+  "report": true,
+  "violations": 28,
+  "violation_lines": [
+    "- `source.clients.api.uni-potsdam.de` reaches `probe.clients.api.uni-potsdam.de`",
+    "- `source.clients.asta.uni-potsdam.de` reaches `probe.clients.asta.uni-potsdam.de`",
+    "- `source.clients.botanischer-garten-potsdam.de` reaches `probe.clients.botanischer-garten-potsdam.de`",
+    "- `source.clients.chem.uni-potsdam.de` reaches `probe.clients.chem.uni-potsdam.de`",
+    "- `source.clients.cs.uni-potsdam.de` reaches `probe.clients.cs.uni-potsdam.de`",
+    "- `source.adm.uni-potsdam.de` reaches `probe.adm.uni-potsdam.de`",
+    "- `source.dns.uni-potsdam.de` reaches `probe.dns.uni-potsdam.de`",
+    "- `source.data.uni-potsdam.de` reaches `probe.data.uni-potsdam.de`",
+    "- `source.file.uni-potsdam.de` reaches `probe.file.uni-potsdam.de`",
+    "- `source.ldap.uni-potsdam.de` reaches `probe.ldap.uni-potsdam.de`"
+  ],
+  "checks": 18811,
+  "verdict_valid": true,
+  "apkeep_jar": "e3785fb1b2aacb87eeea72f8ba7ab2ff482c585b686547435c25c2e58a29afa7",
+  "ndd_jar": "8b26514c80df95aece619086b84c9618fa3f79bf83d0acab94f1a53a28cbbe75",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "reimpl-literature",
+    "vf_fields": "4+10",
+    "vf_revisit": "state",
+    "vf_slicing": "device",
+    "vf_budget": 0
+  },
+  "impl": "reimpl-literature",
+  "upstream": null,
+  "expected_violations": null,
+  "outcome": "measured"
+}

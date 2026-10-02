@@ -133,3 +133,49 @@ was widened to catch in 2026-09 (APKeep *over*-approximating `wl_up`).
 which makes it the right place to adjudicate — and phase C runs BDD-APKeep over
 it for 24 h, so a third engine's verdict on this exact workload is already in
 the campaign.
+
+## F5 — the §5.1 table cannot be read against these cells, for two different reasons
+
+Not a defect; a calibration note, and the evidence that §5.0's S6 ("re-run the
+cheap cells") was the right call rather than a precaution.
+
+**Reason 1 — `wl_up`'s row states a denominator that no longer exists.**
+
+| | §5.1 | measured here |
+|---|---:|---:|
+| `wl_up` checks | 11,902 | **18,811** |
+
+TODO item 0a already records the move (11,911 → 18,811, when
+`reach_csv_to_checks.py`'s denied-cell branch was fixed to cover every endpoint
+of a multi-device role) and annotates the documents that quote the old figure.
+§5.1's own table was not among them. So **every `wl_up` wall-clock in that row
+is a different question from the one measured here**, and item 0a's second
+clause — *state the denominator, never compare totals across different query
+counts* — forbids reading one against the other. The plan's `wl_up` row needs
+the same annotation its siblings got.
+
+**Reason 2 — at an identical denominator, this machine is simply faster, and
+very unevenly so.**
+
+| cell | §5.1 | here | checks | ratio |
+|---|---:|---:|---:|---:|
+| `wl_stanford` np | 6.4 s | 6.50 s | 240 both | **1.0×** |
+| `wl_i2` np | 788 s | 65.1 s | 72 both | **12.1×** |
+| `wl_stanford` vf | 303 s | 149 s | 240 both | 2.0× |
+| `wl_i2` vf | 254 s | 129 s | 72 both | 2.0× |
+
+VeriFlow-FR is a flat ~2× on both workloads, which is what a faster box looks
+like. NetPlumber is 1.0× on `wl_stanford` and **12×** on `wl_i2`, which is not.
+
+The hypothesis that fits: `wl_stanford` np at 6.4 s is dominated by fixed
+start-up and has little to speed up, while `wl_i2` is 78,047 rules and the
+reference figures were taken in the dev container — **4 cores, 19 GB** (item
+31). NetPlumber's rule load scales at size^2.2–2.6 (§5.2), so `wl_i2` is the
+one cheap-matrix cell plausibly memory-bound there and not here, on a box with
+64 GB and no swap. That is checkable and is not checked here.
+
+**What follows either way:** the two machines' numbers must not be mixed in one
+table, and a 12× that lands on exactly one engine-workload pair is not a
+uniform machine speed-up that can be divided out. This is the same confound
+§5.2 flags for `wl_berkeley` — which is why phase B re-anchors k=30/10/3 on
+this box rather than reusing good results from the old one.
