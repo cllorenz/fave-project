@@ -417,6 +417,45 @@ class TestTheQueueResumes(unittest.TestCase):
         self.assertNotIn('--jvm-xmx', argv)            # dropped, for None
         self.assertEqual(argv[-1], os.path.join(self.dir, 'c1.json'))
 
+    def test_an_option_like_value_is_passed_unambiguously(self):
+        # The queue spawns without a shell, so a VALUE that looks like an
+        # option is ambiguous to argparse. It survives today only by a
+        # heuristic -- a token containing a space is treated as a value -- so
+        # `--engine-options "--solver cadical195"` happens to work while a
+        # single-token `--engine-options "--lite-acyclic"` would be read as a
+        # flag and refused. The `=` form has no such edge.
+        argv = cell_queue.cell_argv(
+            {'name': 'c', 'workload': 'wl_i2', 'backend': 'ad6',
+             'engine-options': '--lite-acyclic'}, self.dir)
+        self.assertIn('--engine-options=--lite-acyclic', argv)
+        self.assertNotIn('--lite-acyclic', argv)
+
+    def test_the_campaign_queue_in_the_tree_is_runnable(self):
+        """ The phase A queue is shipped, so it is checked like code. """
+        import json as _json
+        path = os.path.join(os.path.dirname(cell_queue.__file__),
+                            'campaigns', 'v5_phase_a.json')
+        self.assertTrue(os.path.exists(path), "the shipped campaign is missing")
+        with open(path) as handle:
+            cells = _json.load(handle)
+        names = [c['name'] for c in cells]
+        self.assertEqual(len(set(names)), len(names), "duplicate cell names")
+        for cell in cells:
+            with self.subTest(cell=cell['name']):
+                # Every cell declares the reportable limits, so none of them
+                # can silently produce a dev number inside a v5 campaign.
+                self.assertEqual(cell['limit-class'], 'v5')
+                self.assertEqual(cell['limit-wall'], 86400)
+                self.assertEqual(cell['limit-rss'], 32768)
+                # And every ad6 cell declares its encoding, which cell_run
+                # would otherwise refuse at v5 (TODO item 0a).
+                if cell['backend'] == 'ad6':
+                    self.assertIn('--grounding', cell['engine-options'])
+                    self.assertIn('--solver', cell['engine-options'])
+                # The command it becomes must name a workload that exists.
+                self.assertTrue(os.path.isdir(os.path.join(
+                    os.path.dirname(cell_queue.__file__), cell['workload'])))
+
     def test_two_cells_sharing_a_name_are_refused(self):
         # One would overwrite the other's result, and the campaign would be
         # one cell short with nothing saying so.

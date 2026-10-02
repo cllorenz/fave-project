@@ -56,6 +56,7 @@ Usage (from fave/, venv active):
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 
@@ -104,6 +105,15 @@ def cell_argv(cell, out_dir):
             argv.append('--%s' % key)
         elif value is False or value is None:
             continue
+        elif str(value).startswith('-'):
+            # `--key=value`, because the queue spawns without a shell and a
+            # VALUE that looks like an option is ambiguous to argparse. It
+            # survives today only by a heuristic -- argparse treats a token
+            # containing a space as a value -- so `--engine-options "--solver
+            # cadical195"` happens to work and a single-token
+            # `--engine-options "--lite-acyclic"` would be read as a flag and
+            # refused. The `=` form has no such edge.
+            argv.append('--%s=%s' % (key, value))
         else:
             argv += ['--%s' % key, str(value)]
     argv += ['--out', os.path.join(out_dir, name + '.json')]
@@ -139,7 +149,8 @@ def main(argv=None):
             print('[redo] %-28s %s' % (cell['name'], detail))
         command = cell_argv(cell, args.out_dir)
         if args.dry_run:
-            print('[would run] %s' % ' '.join(command))
+            print('[would run] %s'
+                  % ' '.join(shlex.quote(c) for c in command))
             continue
         print('[run ] %-28s %s' % (cell['name'], ' '.join(command[2:])))
         sys.stdout.flush()

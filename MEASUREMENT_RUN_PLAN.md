@@ -95,6 +95,23 @@ will too.
    ndd/target/ndd-1.0.1-jar-with-dependencies.jar`). §5.0's triage is keyed to
    them; a rebuild on the new machine will change them, so the comparison is
    against the **source commit**, not the hash (§5.0).
+8. **The invocation contract — every command in this plan assumes it:**
+
+       cd fave
+       export PATH="$(cd .. && pwd)/net_plumber/build:$PATH"
+       which net_plumber          # must print a path before anything is run
+
+   **`net_plumber` must be on `PATH`,** and `make install` does not reliably put
+   it somewhere `PATH` reaches. When it is missing the failure names something
+   else entirely: the aggregator cannot start its engine, the benchmark then
+   cannot reach FaVe, and the cell dies with `could not connect to fave`. **This
+   cost time in this session**, and it would cost 9 of phase A's 53 cells.
+
+   The venv needs no activation — `resolve_python.sh` and the runners probe
+   `./.venv` themselves, and `cell_run.py` pins every child it spawns to its own
+   interpreter. `PYTHONPATH` is **not** required for `cell_run.py`,
+   `cell_queue.py` or the `berkeley_*` drivers (each puts `fave/` on its own
+   path); setting it does no harm.
 
 **Do not proceed past a red gate.** Items 34–36 were each a gate that had been
 green while running nothing.
@@ -217,16 +234,37 @@ two-cell queue was then run, interrupted, and restarted: done cells skipped, a
 cell with a trail and no result re-run, a cell a declared limit stopped left
 alone.
 
-**What to run it as:**
+**What to run it as. Phase A's queue is SHIPPED, not to be written:**
+`bench/campaigns/v5_phase_a.json`, 53 cells, every one of them declaring
+`limit_class=v5`, 24 h and 32 GB, and every ad6 cell declaring its encoding.
+
+    python3 bench/cell_queue.py --queue bench/campaigns/v5_phase_a.json \
+        --out-dir bench/campaigns/results_v5_<date> --dry-run    # always first
+    python3 bench/cell_queue.py --queue bench/campaigns/v5_phase_a.json \
+        --out-dir bench/campaigns/results_v5_<date>
+
+`--dry-run` prints what it would run and what it would skip; it is the right
+first command on a fresh start and the right first command after any restart.
+A single cell, for a re-run or a one-off:
 
     python3 bench/cell_run.py wl_stanford --backend apkeep --apkeep-engine ndd \
         --limit-class v5 --limit-wall 86400 --limit-rss 32768 \
         --memory-floor 2000 --out results/v5/stanford_ndd.json
 
-    python3 bench/cell_queue.py --queue campaign.json --out-dir results/v5
+**What the queue contains, and the one thing it leaves out.** Six engine
+configurations (`netplumber`, `apkeep` bdd and ndd, `veriflow` 4+10 and plain,
+`ad6`) across the nine workloads of §5.1, cheapest workload first so the fast
+cells bank early — the queue is resumable, so an interrupted run keeps
+everything already recorded. **`bdd` × `wl_cloud` is excluded**: it is phase C's
+one full 24 h run (§5.3). `test_cell_run.py` checks the shipped queue like code
+— unique names, reportable limits on every cell, an encoding on every ad6 cell,
+and a workload directory that exists.
 
-`--dry-run` on the queue prints what it would run and what it would skip, which
-is the right first command after any restart.
+`expect-violations` is set only where an expectation is actually declared: the
+two airtel workloads, whose own docstring states 0 of 256. Everywhere else the
+outcome is `measured`, because this suite has no oracle and `reachable.json` is
+not one (TODO item 1s). That is deliberate — a cell is not marked `correct`
+against an expectation nobody wrote down.
 
 ---
 
@@ -450,7 +488,7 @@ Three sizes are measured on 32 GB, all answering **0 of 520** with
 **k=1 (13,402,846 rules) has never been attempted** — it needs ~43 GB against a
 ~29 GB ceiling on the 32 GB box. On 64 GB it fits with ~19 GB spare.
 
-**Run it as the §2.15 protocol:**
+**Run it as `CLOUD_BENCH_PLAN.md` §2.15's protocol:**
 
 1. Write `bench/deltanet/eval/results_berkeley_ndd_<date>/PROTOCOL.txt`
    **before running**: machine RAM, cores, swap, heap chosen, and §7's
@@ -622,7 +660,8 @@ Scored after the runs; **not edited**. Each names what would falsify it.
    1.5×, which triggers its 24-hour run.
 9. **`vf` (4+10) completes every one of the nine; `vf-plain` does not finish on
    `wl_up` or `wl_tum`.**
-10. **`ad6` refuses `wl_cloud`** for the structural reason in §1.7.2, rather than
+10. **`ad6` refuses `wl_cloud`** for the structural reason in
+    `CLOUD_BENCH_PLAN.md` §1.7.2, rather than
     failing or answering.
 11. **At least one of the three LPM inversions (§5.4) does not change the
     verdict**, as `wl_deltanet`'s did not. *Falsified by:* all three flipping.
@@ -672,14 +711,21 @@ with a number attached.
 
 ## 9. Where the results go
 
-* **Per campaign**: `bench/deltanet/eval/results_<campaign>_<date>/` with
-  `PROTOCOL.txt` **first** (declared before the runs), then one JSON per cell,
-  its stdout, its aggregator log, its GC log, its status trail, and the report.
-  The BDD build cells keep their existing homes (`bench/wl_*/eval/`).
+* **Phase A, the suite matrix**: `bench/campaigns/results_v5_<date>/`, the
+  `--out-dir` the queue is given. One JSON per cell, plus its stdout, its
+  aggregator log, its GC log, its status trail and its report.
+* **Phase B, `wl_berkeley`**: `bench/deltanet/eval/results_berkeley_ndd_<date>/`
+  — `berkeley_table.py` reads that directory, so the size series stays where
+  its tool looks for it.
+* **Phase C, the BDD cells**: their existing homes, `bench/wl_cloud/eval/` and
+  `bench/wl_{stanford,i2}/eval/`, beside the 2026-09 runs they are compared
+  against.
+* **`PROTOCOL.txt` FIRST in each**, declared before the runs: what is being run,
+  the stopping rules, and the predictions.
 * **Tables**: `berkeley_table.py` for the size series; `summarize_runs.py` for
   the airtel table; a new one for the suite matrix.
-* **Prose**: `CLOUD_BENCH_PLAN.md` §2.15 (`wl_berkeley`), `APKEEP_NDD_EVAL.md`
-  §2.6 (BDD cells), `VERIFLOW_PLAN.md` §10 (V5), `AD6_PLAN.md` (ad6).
+* **Prose**: `CLOUD_BENCH_PLAN.md` §2.15 (`wl_berkeley`), `APKEEP_NDD_EVAL.md` §2.6 (BDD cells), `VERIFLOW_PLAN.md` §10 (V5),
+  `AD6_PLAN.md` (ad6).
 * **`ACCOMMODATIONS.md`**: every *seed* entry this campaign touches gets
   classified and moved to *verified*, or stays a seed and is **not cited**.
 * **`TODO.md`**: item 31's boxes, and item 0a's eight if discharged.
@@ -711,8 +757,8 @@ Stated so that nobody reads its absence as an oversight.
   it reports is unadjudicated and the workload has no oracle, so a cell from it
   would carry a number with no expectation to read it against. The repair is
   kept because the alternative is a workload that silently generates nothing;
-  the measurement waits on the owner's reading of `default/ruleset` against
-  `default/policy.txt`. **The findings are not postponed with it** — they are in
+  the measurement waits on the owner's reading of
+  `bench/wl_generic_fw/default/ruleset` against its `default/policy.txt`. **The findings are not postponed with it** — they are in
   TODO item 32 and in §4 above, including the four-year flag regression, which
   is the kind of thing that is only ever found once.
 * **Variant naming** (item 31) — extending `SOURCE.json` to record preprocessing
