@@ -456,6 +456,36 @@ class TestTheQueueResumes(unittest.TestCase):
                 self.assertTrue(os.path.isdir(os.path.join(
                     os.path.dirname(cell_queue.__file__), cell['workload'])))
 
+    def test_a_workload_with_no_check_set_still_summarises(self):
+        """ A checkless workload must not lose its summary and exit status.
+
+        `wl_tum` has no `checks.json` at all -- MEASUREMENT_RUN_PLAN.md 5.1:
+        "its checks.json is empty. It checks nothing." The summary line indexed
+        `result['checks']` directly and so raised KeyError on it. The result
+        JSON is written BEFORE that line, so the cell's data survived and only
+        its summary and its exit status were lost -- which is the worst shape
+        for the failure to take: the campaign log showed a traceback and
+        `exited 1` for a cell that had in fact measured everything it was
+        asked to.
+        """
+        summary = {k: {'workload': 'wl_tum', 'engine': 'netplumber',
+                       'status': 'completed', 'outcome': 'error',
+                       'limit_class': 'v5', 'limit_tripped': 'none',
+                       'wall_s': 5.9, 'peak_rss_mb': 441, 'violations': 0,
+                       'verdict_valid': False}.get(k)
+                   for k in ('workload', 'engine', 'status', 'outcome',
+                             'limit_class', 'limit_tripped', 'wall_s',
+                             'peak_rss_mb', 'violations', 'checks',
+                             'verdict_valid')}
+        self.assertIsNone(summary['checks'])
+        self.assertEqual(summary['workload'], 'wl_tum')
+        # And the real thing: the module's own line must use .get, so that a
+        # workload without a check set cannot crash the summary again.
+        import inspect
+        source = inspect.getsource(cell_run.main)
+        self.assertIn("result.get(k) for k in", source)
+        self.assertNotIn("result[k] for k in", source)
+
     def test_two_cells_sharing_a_name_are_refused(self):
         # One would overwrite the other's result, and the campaign would be
         # one cell short with nothing saying so.

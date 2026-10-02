@@ -666,7 +666,12 @@ def main(argv=None):
     with open(args.out, 'w') as handle:
         json.dump(result, handle, indent=2)
         handle.write('\n')
-    print(json.dumps({k: result[k] for k in (
+    # `.get`, not `[...]`: a workload need not HAVE a check set. `wl_tum`'s
+    # checks.json does not exist at all (MEASUREMENT_RUN_PLAN.md 5.1: "it
+    # checks nothing"), and this line used to raise KeyError on it -- AFTER the
+    # result had been written, so the cell's data was complete and only its
+    # summary and its exit status were lost. A null here is the honest value.
+    print(json.dumps({k: result.get(k) for k in (
         'workload', 'engine', 'status', 'outcome', 'limit_class',
         'limit_tripped', 'wall_s', 'peak_rss_mb', 'violations', 'checks',
         'verdict_valid')}))
