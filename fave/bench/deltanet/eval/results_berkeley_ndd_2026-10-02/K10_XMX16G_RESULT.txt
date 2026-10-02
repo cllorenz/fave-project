@@ -1,0 +1,56 @@
+k=10 AT -Xmx16g -- RESULT. The prediction was WRONG, and the caveat it was
+testing is REFUTED. 2026-10-02. k10_ndd_xmx16g.json.
+
+                          k=10 @ 8g      k=10 @ 16g     predicted for 16g
+  live heap after GC        3,519 MB       3,414 MB     4,000-4,500 MB  WRONG
+  committed heap            6,384 MB      10,816 MB
+  GC pauses / full             75 / 38        69 / 39
+  GC pause total              1.252 s        1.184 s
+  rule load                    70.6 s         76.3 s     ~70 s           +8%
+  compliance                   39.2 s         28.2 s     ~39 s           -28%
+  aggregator peak RSS       8,096 MB       7,949 MB     HIGHER          WRONG
+  total peak RSS            8,436 MB       7,949 MB
+  rules                    1,351,800      1,351,800     same            RIGHT
+  input_files hashes        IDENTICAL -- all twelve                      RIGHT
+  verdict                   0 of 520       0 of 520     0 of 520        RIGHT
+
+WHY THE PREDICTION FAILED. It assumed a roomier heap would leave G1 under less
+pressure, run fewer FULL collections, and so sample `max_heap_after_gc_mb`
+only after young collections, which leave floating garbage behind. The full-GC
+count barely moved: 38 at 8g, 39 at 16g. Whatever drives full collections in
+this workload, it is not heap pressure at this size -- so full collections
+compact to near the live set in both runs, and the figure is heap-insensitive
+here. The live set came out 3% LOWER at the bigger heap, which is within the
+noise of one sample each.
+
+CONSEQUENCE: THE FIRST CAVEAT IS WITHDRAWN AND THE EXPONENT GETS STRONGER.
+Recomputing the series on one heap throughout (16g):
+
+                          mixed 8g/16g/16g    ONE HEAP 16g
+    k=10 -> k=3                 0.548             0.573
+    k=3  -> k=2                 0.582             0.582
+    three-point fit             0.555             0.575
+    k=1 live set               12.3 GB           12.5 GB
+
+The two intervals were 0.034 apart and are now 0.009 apart. Removing the
+confound did not weaken the sublinear result; it made the two measurements of
+it agree almost exactly. `-Xmx 20g` at k=1 is unchanged.
+
+THE SECOND CAVEAT STILL STANDS, and is now better supported. The exponent does
+rise with size, and since 8g and 16g are now known to agree at k=10, the
+2026-09-29 drill's 8g runs are comparable with these: 459,202 -> 2,317 MB
+against this run's 1,351,800 -> 3,414 MB is an exponent of 0.36, below the
+0.573 and 0.582 above it. Rising, then flat across the top two intervals --
+which is the part an extrapolation to k=1 rests on, so it rests better than it
+did.
+
+AN UNRELATED FINDING, and it reinforces a correction already made. Committed
+heap grew 6,384 -> 10,816 MB (+69%) while peak RSS FELL 8,436 -> 7,949 MB.
+Committed heap is address space the JVM has reserved, not pages it has touched,
+so it is not a component of RSS and "RSS minus committed heap" is not a
+quantity at all -- it can be driven negative by raising -Xmx alone, without one
+byte of real memory changing. K2_RESULT.txt withdrew the Python-side figure
+derived that way on the evidence that it moved 44% between adjacent sizes;
+this is the mechanism behind that.
+
+LIMIT CLASS: dev. Not reportable (PROTOCOL.txt).

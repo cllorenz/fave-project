@@ -36,16 +36,20 @@ NDD's live set came out sublinear in rules on `wl_berkeley` (0.548 and 0.582
 between three sizes), and an extrapolation that assumed linear overestimated
 the next size by 72%.
 
-TWO CAVEATS ON THAT COLUMN, because it invites an inference the number cannot
-quite carry. `max_heap_after_gc_mb` is an UPPER ESTIMATE of the live set, not
-the live set: it is the smallest heap occupancy a GC happened to leave behind,
-so it depends on when G1 chose to collect and on how roomy `-Xmx` was. Rows at
-different `--jvm-xmx` are therefore not strictly comparable, and an exponent
-spanning two such rows carries that confound -- the 2026-10-02 series pairs a
-k=10 run at 8g with k=3 and k=2 at 16g. Second, the exponent is not constant:
-the 2026-09-29 drill, at a constant 8g throughout, gives 0.33 between 459k and
-1.35M rules against 0.55-0.58 higher up, so it RISES with size and an
+ONE CAVEAT ON THAT COLUMN, and one that was tested and dropped.
+
+Still standing: the exponent is NOT CONSTANT. It rises with size -- 0.36
+between 459k and 1.35M rules against 0.573 and 0.582 above that -- so an
 extrapolation from the top of a series is, if anything, an underestimate.
+
+Dropped: `max_heap_after_gc_mb` is in principle an UPPER ESTIMATE of the live
+set, the smallest occupancy a GC happened to leave, so it could in principle
+move with how roomy `-Xmx` is, making rows at different `--jvm-xmx`
+incomparable. Measured 2026-10-02: k=10 run at both 8g and 16g gives 3,519 and
+3,414 MB, 3% apart, because the FULL-collection count barely moves (38 against
+39) and a full collection compacts to near the live set either way. The column
+is heap-insensitive at this size. Prefer one heap across a series anyway -- it
+costs one rerun and removes the question.
 
 Usage:  python3 berkeley_table.py bench/deltanet/eval/results_berkeley_2026-09-29
 """

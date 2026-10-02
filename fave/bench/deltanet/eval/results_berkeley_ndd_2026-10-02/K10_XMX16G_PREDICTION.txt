@@ -1,0 +1,40 @@
+k=10 AT -Xmx16g -- PREDICTION, declared 2026-10-02 BEFORE the run.
+
+WHY. The 2026-10-02 series measured k=10 at 8g and k=3 and k=2 at 16g, so the
+live-set exponent (0.555) spans a heap change. `max_heap_after_gc_mb` is the
+smallest occupancy a GC happened to leave behind, not the live set itself, and
+G1 collects less eagerly when it has room -- so the 16g points may be inflated
+relative to the 8g one, and the exponent with them. Rerunning k=10 at 16g puts
+the whole series on one heap and removes the confound either way.
+
+THE PREDICTION, and it is a real one -- I expect the number to MOVE.
+  live heap after GC   HIGHER than 8g's 3,519 MB; most likely 4,000-4,500 MB,
+                       plausibly anywhere in 3,500-5,000.
+  Reason: at 8g, a ~3.5 GB live set leaves G1 under enough pressure to run full
+  collections (38 of them in that run), and a full collection compacts down to
+  something near the live set. At 16g that pressure is largely gone, so the
+  maximum post-GC occupancy may be sampled only after young collections, which
+  leave more floating garbage behind.
+  If it comes back at ~3,519 MB instead, `max_heap_after_gc_mb` is insensitive
+  to -Xmx at this size, the caveat is wrong, and the 0.555 exponent stands as
+  measured.
+
+  CONSEQUENCE IF IT IS HIGHER. The k=10 -> k=3 exponent falls, and with it the
+  three-point fit and the k=1 live-set estimate. At 4,200 MB the first interval
+  exponent would be 0.40 (from 0.548) and k=1 would land near 11.6 GB rather
+  than 12.6 GB. -Xmx 20g at k=1 survives either way; this is about the honesty
+  of the exponent, not about the machine.
+
+  Everything else should be UNCHANGED, and that is also a prediction:
+  rules            1,351,800
+  input hashes     IDENTICAL to k10_ndd.json's `input_files` -- the workload is
+                   regenerated (bench/wl_berkeley/ now holds k=2, so
+                   --reuse-inputs would refuse), and if generation is
+                   deterministic the twelve hashes must match. If they do not,
+                   the whole series is comparing different workloads.
+  rule load        ~70 s     (GC pauses were only 1.25 s at 8g, so load should
+                             be near heap-independent)
+  compliance       ~39 s
+  verdict          0 of 520, verdict_valid true
+  aggregator peak  HIGHER than 8,096 MB, since committed heap may grow past
+                   the 6,384 MB it reached at 8g

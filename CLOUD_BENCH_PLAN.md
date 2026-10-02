@@ -4316,11 +4316,17 @@ all**, unlike the 19 GB machine — so the memory floor is the only guard and an
 overshoot is the OOM killer, not a slowdown. The input is the same file:
 `berkeley-inserts.csv`, 12,817,902 rows, sha256 OK against `DERIVED.SHA256SUMS`.
 
-| engine | k | rules | status | rule load s | x | compliance s | x | aggregator MB | JVM heap after GC MB | x |
-|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|
-| ndd | 10 | 1,351,800 | completed | 70.6 | | 39.23 | | 8,096 | 3,519 | |
-| ndd | 3 | 4,476,240 | **completed** | 249.5 | 1.05 | 122.94 | 0.95 | 19,283 | 6,782 | **0.55** |
-| ndd | 2 | 6,707,829 | **completed** | 336.5 | 0.74 | 192.48 | 1.11 | 25,969 | 8,582 | **0.58** |
+| engine | k | `-Xmx` | rules | status | rule load s | x | compliance s | x | aggregator MB | JVM heap after GC MB | x |
+|---|---:|---|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| ndd | 10 | 8g | 1,351,800 | completed | 70.6 | | 39.23 | | 8,096 | 3,519 | |
+| ndd | 10 | **16g** | 1,351,800 | completed | 76.3 | | 28.23 | | 7,949 | 3,414 | |
+| ndd | 3 | 16g | 4,476,240 | **completed** | 249.5 | 0.99 | 122.94 | 1.23 | 19,283 | 6,782 | **0.57** |
+| ndd | 2 | 16g | 6,707,829 | **completed** | 336.5 | 0.74 | 192.48 | 1.11 | 25,969 | 8,582 | **0.58** |
+
+The exponents are taken against the **16g** k=10 row, so the whole series sits
+on one heap. (`net_plumber MB`, all `--` here, is dropped from this copy;
+`berkeley_table.py` prints it, and prints no exponent between two runs of the
+same size.)
 
 (`net_plumber MB`, all `--` here, is dropped from this copy; `berkeley_table.py`
 prints it.)
@@ -4348,17 +4354,36 @@ decision-diagram engine: more rules over the same 23-device, same-prefix-space
 topology share more structure. Three sizes, one workload, one engine — not a
 claim about NDD in general.
 
-**Two caveats on that exponent**, added when `berkeley_table.py` grew the column
-(2026-10-02). `max_heap_after_gc_mb` is an *upper estimate* of the live set —
-the smallest occupancy a GC happened to leave — so it depends on when G1 chose
-to collect and on how roomy `-Xmx` was, and this series pairs a k=10 run at
-**8g** with k=3 and k=2 at **16g**. And the exponent is not constant: the
-2026-09-29 drill, at a constant 8g throughout, gives **0.33** between 459k and
-1.35M rules against 0.55–0.58 higher up, so it *rises* with size. The two pull
-in opposite directions on the k=1 figure and neither is large enough to move the
-decision — at an exponent of 0.60 the live set at k=1 is 12.7 GB against 12.6 —
-but the ~12.6 GB should be read as an estimate from the top of a series, not as
-a measurement.
+**The heap confound was tested and is gone.** `max_heap_after_gc_mb` is in
+principle an *upper estimate* of the live set — the smallest occupancy a GC
+happened to leave — so it can move with how roomy `-Xmx` is, and the series as
+first run paired a k=10 at **8g** with k=3 and k=2 at **16g**. **k=10 was
+therefore rerun at 16g** (`K10_XMX16G_RESULT.txt`), predicting the live set
+would come out *higher*, at 4,000–4,500 MB. It did not: **3,414 MB against
+8g's 3,519**, 3% lower and within one sample's noise. The reasoning behind the
+prediction was wrong — a roomier heap was supposed to mean fewer FULL
+collections, and the count barely moved (38 at 8g, 39 at 16g), so full
+collections compact to near the live set either way and the figure is
+heap-insensitive at this size.
+On one heap throughout the two intervals become **0.573 and 0.582** — 0.009
+apart, where the mixed-heap series had them 0.034 apart — for a fit of
+**0.575** and ~12.5 GB at k=1. Removing the confound made the two measurements
+of the sublinear result agree almost exactly.
+
+**What does still stand is that the exponent is not constant.** It rises with
+size: now that 8g and 16g are known to agree at k=10, the 2026-09-29 drill's 8g
+runs are comparable, and 459,202 → 2,317 MB against 1,351,800 → 3,414 MB is
+**0.36**, below the 0.573 and 0.582 above it. Rising, then flat across the top
+two intervals — which is what the k=1 extrapolation rests on, so it rests
+better than it did. ~12.5 GB remains an estimate from the top of a series
+rather than a measurement.
+
+**And a mechanism worth recording,** from the same rerun: committed heap grew
+6,384 → 10,816 MB (+69%) while peak RSS *fell* 8,436 → 7,949 MB. Committed heap
+is address space the JVM reserved, not pages it touched, so it is not a
+component of RSS — "RSS minus committed heap" is not a quantity, and raising
+`-Xmx` alone can drive it negative. That is the mechanism behind the Python-side
+figure withdrawn above, which had moved 44% between adjacent sizes.
 
 **Two predictions were wrong, and the second corrects this plan's own method.**
 
