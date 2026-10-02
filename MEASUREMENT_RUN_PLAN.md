@@ -236,7 +236,13 @@ is the right first command after any restart.
 machine.** What each turned out to be is worth reading, because in both cases
 the defect as filed was not the defect as found.
 
-### P2a — `wl_generic_fw` (TODO item 32): three defects, not one
+**P2a's workload is nevertheless POSTPONED** (owner, 2026-10-02): the repair
+stands, `wl_generic_fw` is measured in no cell. The repair and the measurement
+are separate decisions, and only the second is deferred — a workload that
+silently generates nothing is a trap whoever next touches it falls into, so
+fixing it was worth doing even though no number comes from it now.
+
+### P2a — `wl_generic_fw` (TODO item 32): three defects, not one — FIXED, workload POSTPONED
 
 Filed as *"converts its checks with a script that does not exist"*. True, and
 the least of it.
@@ -278,6 +284,16 @@ answer **1 violation of 10**, agreeing line for line.
 > reached. Both engines agree, so it is the workload's content, not an engine
 > artifact, and `wl_generic_fw` has no oracle. Filed under item 32; it wants
 > the owner's reading of the ruleset, not a harness change.
+
+> **DECISION (owner, 2026-10-02): the workload is POSTPONED.** The repair
+> stands and is not reverted — `wl_generic_fw` is generatable again, and the
+> regression that hid it for four years is gone — but **it is measured in no
+> cell of this campaign**, and it is out of §5.1's matrix. The reason is the
+> finding above: its expected verdict is unknown, so a number from it is a
+> column a reader cannot interpret, and publishing one would be the
+> "state the denominator" failure in another form. It returns to the matrix
+> when the violation has been adjudicated, which is a question about the
+> workload's own ruleset and not about any engine.
 
 ### P2c — ad6's encoding choices (TODO item 0a): already discharged, and the item was stale
 
@@ -392,7 +408,6 @@ Engine configurations: `np` NetPlumber · `bdd` BDD-APKeep · `ndd` NDD-APKeep �
 | workload | rules | checks | np | bdd | ndd | vf | ad6 |
 |---|---:|---:|---|---|---|---|---|
 | `wl_example` | 37 | 7/3 | ✓ | ✓ | ✓ | ✓ 218 ECs | ✓ |
-| `wl_generic_fw` | 22 | 7/3 | **P2a** | P2a | P2a | P2a | P2a |
 | `wl_ifi` | 223 | 54/245 | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `wl_airtel1` | ~42,000 | 210/46 | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `wl_airtel2` | ~42,000 | 210/46 | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -401,6 +416,10 @@ Engine configurations: `np` NetPlumber · `bdd` BDD-APKeep · `ndd` NDD-APKeep �
 | `wl_up` | 7,836 | 11,902 | 33 s | ✓ | 0.5 s | 788 s | 688 s rank |
 | `wl_tum` | 5,116 | **0** | 10 s | ✓ | ✓ | 612 s | ✓ |
 | `wl_cloud` | 1,741 | 5/66 | ✓ | **§5.3** | ✓ | ✓ 14,684 ECs | **refuses** (structural) |
+
+**`wl_generic_fw` is NOT in this matrix — POSTPONED (owner, 2026-10-02).** It
+is repaired and generatable again (§4, P2a), but its one violation is
+unadjudicated, so a cell from it would be a column nobody can read. See §10.
 
 Two notes that change how cells are read:
 
@@ -531,14 +550,15 @@ itself the result.
 |---|---|---|
 | **0** | §1 bring-up + green gate; record the machine and the jars | 1–2 h |
 | ~~P1~~ | ~~§3 the harness~~ — **BUILT 2026-10-02, before the move** | **0** |
-| **P2** | §4 P2a + P2c | 1–2 h |
+| ~~P2~~ | ~~§4 P2a + P2c~~ — **DONE 2026-10-02, before the move** | **0** |
 | **A** | §5.1 cheap matrix + faithful variants + §5.4 LPM guardrail | 6–10 h |
 | **B** | §5.2 `wl_berkeley` drill through k=1 | 2–4 h |
 | **C** | §5.3: two 1-hour probes, then the one 24 h `wl_cloud` run | ~26 h |
 | **D** | tables, `PROTOCOL.txt` results, plan/registry/TODO updates, commits | 2–4 h |
 
-**Total ≈ 2 days**, against ≈ 4–5 before the triage, and now without P1. Phases A and B produce
-reportable results on day 1.
+**Total ≈ 2 days**, against ≈ 4–5 before the triage, and now without P1 or P2:
+**the new machine starts at phase 0 and goes straight to A.** Phases A and B
+produce reportable results on day 1.
 
 **Order rationale.** Cheapest-first: phase A drives every engine path through
 the new harness on cells that finish in minutes, so a harness defect costs
@@ -686,5 +706,14 @@ Stated so that nobody reads its absence as an oversight.
 * **A 24 h re-run of either faithful BDD cell**, unless §5.3's probe says
   otherwise. That is the triage's single biggest saving and its most reversible
   decision.
+* **`wl_generic_fw`** — postponed by the owner, 2026-10-02. It is repaired and
+  runs (§4, P2a), and it is deliberately measured in no cell: the one violation
+  it reports is unadjudicated and the workload has no oracle, so a cell from it
+  would carry a number with no expectation to read it against. The repair is
+  kept because the alternative is a workload that silently generates nothing;
+  the measurement waits on the owner's reading of `default/ruleset` against
+  `default/policy.txt`. **The findings are not postponed with it** — they are in
+  TODO item 32 and in §4 above, including the four-year flag regression, which
+  is the kind of thing that is only ever found once.
 * **Variant naming** (item 31) — extending `SOURCE.json` to record preprocessing
   and verdict-identity evidence. Needed before the write-up, not before the runs.
