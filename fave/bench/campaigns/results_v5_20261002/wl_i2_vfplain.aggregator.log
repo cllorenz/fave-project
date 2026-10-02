@@ -1,0 +1,64 @@
+backend: veriflow {'impl': 'reimpl-literature', 'vf_fields': 'plain', 'vf_revisit': 'state', 'vf_slicing': 'device', 'vf_budget': 0}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00010204315185546875 seconds.
+worker: completed task switch in 3.528594970703125e-05 seconds.
+worker: completed task switch in 2.7179718017578125e-05 seconds.
+worker: completed task switch in 2.5272369384765625e-05 seconds.
+worker: completed task switch in 2.0265579223632812e-05 seconds.
+worker: completed task switch in 1.9550323486328125e-05 seconds.
+worker: completed task switch in 2.0503997802734375e-05 seconds.
+worker: completed task switch in 1.621246337890625e-05 seconds.
+worker: completed task switch in 1.6689300537109375e-05 seconds.
+worker: completed task switch in 1.6689300537109375e-05 seconds.
+worker: completed task switch in 1.9311904907226562e-05 seconds.
+worker: completed task switch in 1.811981201171875e-05 seconds.
+worker: completed task switch in 1.6689300537109375e-05 seconds.
+worker: completed task switch in 2.7179718017578125e-05 seconds.
+worker: completed task switch in 1.7642974853515625e-05 seconds.
+worker: completed task switch in 1.6689300537109375e-05 seconds.
+worker: completed task switch in 1.8358230590820312e-05 seconds.
+worker: completed task switch in 1.9550323486328125e-05 seconds.
+worker: completed task links in 0.0001957416534423828 seconds.
+worker: completed task switch_command in 0.0002384185791015625 seconds.
+worker: completed task switch_command in 0.10715031623840332 seconds.
+worker: completed task switch_command in 0.005063056945800781 seconds.
+worker: completed task switch_command in 0.12047696113586426 seconds.
+worker: completed task switch_command in 0.00483393669128418 seconds.
+worker: completed task switch_command in 0.0896294116973877 seconds.
+worker: completed task switch_command in 0.004796743392944336 seconds.
+worker: completed task switch_command in 0.1482853889465332 seconds.
+worker: completed task switch_command in 0.00761103630065918 seconds.
+worker: completed task switch_command in 0.16846895217895508 seconds.
+worker: completed task switch_command in 0.007941961288452148 seconds.
+worker: completed task switch_command in 0.21387314796447754 seconds.
+worker: completed task switch_command in 0.008962869644165039 seconds.
+worker: completed task switch_command in 0.220289945602417 seconds.
+worker: completed task switch_command in 0.008644580841064453 seconds.
+worker: completed task switch_command in 0.09281110763549805 seconds.
+worker: completed task switch_command in 0.006661653518676758 seconds.
+worker: completed task switch_command in 0.26871824264526367 seconds.
+worker: completed task probe in 0.008779048919677734 seconds.
+worker: completed task probe in 2.6226043701171875e-05 seconds.
+worker: completed task probe in 1.3828277587890625e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task probe in 1.33514404296875e-05 seconds.
+worker: completed task probe in 1.430511474609375e-05 seconds.
+worker: completed task probe in 1.3589859008789062e-05 seconds.
+worker: completed task probe in 1.3589859008789062e-05 seconds.
+worker: completed task links in 0.00047850608825683594 seconds.
+worker: completed task generators in 0.0001404285430908203 seconds.
+worker: completed task links in 3.695487976074219e-05 seconds.
+veriflow: built 78056 rules, stamps {'impl': 'reimpl-literature', 'vf_mode': 'bulk', 'vf_node': 'table', 'vf_ports': 'field', 'vf_fields': 'plain', 'vf_slicing': 'device', 'vf_invert_lpm': False, 'vf_field_order': ['packet.ether.vlan', 'packet.ipv4.destination'], 'vf_inport_expansion': 1.003, 'vf_budget': 0, 'vf_revisit': 'state'}
+worker: completed task check_compliance in 114.628488779068 seconds.
+worker: completed task report in 0.0007960796356201172 seconds.
+worker: initiate stopping
+worker: completed task stop in 7.128715515136719e-05 seconds.
+worker: stop handler after 118.57219815254211 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

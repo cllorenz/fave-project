@@ -1,0 +1,2 @@
+{"elapsed_s": 1.0, "peak_rss_mb": 33, "rss_by_process_mb": {"python3": 29, "benchmark": 1, "bash": 3}, "available_mb": 62423, "status": "running"}
+{"elapsed_s": 61.4, "peak_rss_mb": 5154, "rss_by_process_mb": {"python3": 5057, "aggregator": 96, "benchmark": 1}, "available_mb": 57548, "status": "running", "aggregator_log_bytes": 31680, "tasks_completed": {"packet_filter": 136, "switch": 23, "links": 3, "switch_command": 159, "probe": 137, "generators": 1}}

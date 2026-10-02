@@ -1,0 +1,18 @@
+backend: ad6 {'impl': 'first-party', 'translation': 'literal', 'grounding': 'rank', 'solver': 'cadical195', 'lite_acyclic': False}
+master: open and bind tcp/ip socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.07318401336669922 seconds.
+worker: completed task probe in 0.0013594627380371094 seconds.
+worker: completed task links in 2.4318695068359375e-05 seconds.
+worker: completed task generators in 0.000102996826171875 seconds.
+worker: completed task links in 3.314018249511719e-05 seconds.
+worker: completed task report in 0.0009014606475830078 seconds.
+worker: initiate stopping
+worker: completed task stop in 9.989738464355469e-05 seconds.
+worker: stop handler after 3.589590549468994 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

@@ -100,6 +100,11 @@ cells beside the queue.
 
 ## F4 — NDD-APKeep and NetPlumber disagree on `wl_cloud` too, by one violation
 
+> **CORRECTED by F4-R below, 2026-10-02.** The closing claim of this section —
+> that F1 and F4 are one discrepancy with NDD under-approximating — is **wrong**,
+> and ad6's cell refuted it two hours later. The section is left as written,
+> because the reasoning that was wrong is the point of recording it.
+
 **Status: open. Same direction as F1.**
 
 | engine | violations of 71 |
@@ -179,3 +184,102 @@ table, and a 12× that lands on exactly one engine-workload pair is not a
 uniform machine speed-up that can be divided out. This is the same confound
 §5.2 flags for `wl_berkeley` — which is why phase B re-anchors k=30/10/3 on
 this box rather than reusing good results from the old one.
+
+## F4-R — the correction: on `wl_cloud` it is NetPlumber that is the outlier
+
+**This refutes F4's conclusion, not its data.**
+
+F4 argued that F1 and F4 were one discrepancy, NDD-APKeep computing less
+reachability than NetPlumber. Two engines agreed with NDD, so that is not what
+is happening.
+
+| `wl_cloud` | violations of 71 |
+|---|---|
+| NetPlumber | **58** |
+| NDD-APKeep | 57 |
+| ad6 | 57 |
+
+**ad6's report is line-for-line identical to NDD's.** ad6 is first-party and
+SAT-based; NDD is APKeep-derived. They share no verification code, so their
+agreeing exactly is independent confirmation rather than a common-mode result.
+The disputed line is NetPlumber's alone:
+
+    - `source.dc1_leaf6_host0` reaches `probe.dc0_leaf1_host1` with …
+
+So on `wl_cloud` **NetPlumber reports a reachability two independent engines do
+not find**, which points at NetPlumber over-approximating — the *opposite*
+engine and the *opposite* direction from F4's conclusion.
+
+The two findings are therefore separate, and each has its own lone outlier:
+
+| workload | np | ndd | vf | ad6 | outlier |
+|---|---|---|---|---|---|
+| `wl_example` | 0 | **1** | 0 | 0 | **NDD** — fails a must-reach the others pass |
+| `wl_cloud` | **58** | 57 | — | 57 | **NetPlumber** — finds a reach the others do not |
+
+What was wrong with F4's reasoning is worth naming, because it is cheap to
+repeat: with only two engines, "they disagree" and "one of them is wrong in a
+particular direction" look the same, and reading a direction out of two points
+invites exactly this. Three engines made the question decidable. Neither row is
+adjudicated — a majority is not an oracle — but each now has a *named suspect*
+rather than a shared one.
+
+`wl_cloud` is the one workload with an external oracle, and phase C runs
+BDD-APKeep over it for 24 h, so a fourth engine's verdict is already scheduled.
+
+## F6 — VeriFlow-FR reports 28 self-reachability violations on `wl_up`
+
+**Status: open.**
+
+| `wl_up` (18,811 checks) | violations |
+|---|---|
+| NetPlumber | 0 |
+| NDD-APKeep | 0 |
+| VeriFlow-FR 4+10 | **28** |
+
+**All 28 are on the diagonal** — every one is `source.X reaches probe.X` for
+the same role X, verified mechanically (28 diagonal, 0 off-diagonal):
+
+    - `source.clients.api.uni-potsdam.de` reaches `probe.clients.api.uni-potsdam.de`
+    - `source.clients.asta.uni-potsdam.de` reaches `probe.clients.asta.uni-potsdam.de`
+    …
+
+That they are *exactly* the diagonal and nothing else makes this a semantic
+disagreement about **whether a role reaches itself**, not a forwarding defect:
+a wrong forwarding answer would not land only on the diagonal, 28 times, and
+nowhere else.
+
+This is live ground, not new ground. The `wl_generic_fw` repair (commit
+`381caf5e`) records that `_convert_policy_to_checks` takes `--roles` (*"a role
+whose single node stands for a subnet loses its self-check"*) and `--strict`
+(*"which decides whether a filled diagonal means anything"*). So whether a
+filled diagonal is a violation at all is a **declared option of the check
+generator**, and VeriFlow-FR is answering the diagonal differently from the
+other two engines.
+
+Which makes it an accommodation question rather than a bug report until
+someone decides it: either VeriFlow-FR's self-reachability semantics differ and
+belong in `ACCOMMODATIONS.md`, or the diagonal should not be in `wl_up`'s check
+set and the other two engines are passing it by accident. **Note it also moves
+`wl_up` from "all three agree" to "two agree", which is a headline cell.**
+
+## F7 — ad6 did **not** refuse `wl_cloud`. P10 is falsified.
+
+Prediction P10: *"ad6 **refuses** `wl_cloud` for the structural reason in
+`CLOUD_BENCH_PLAN.md` §1.7.2 — rather than failing, or answering."*
+
+ad6 **answered**: 57 violations of 71, `outcome: measured`, 57.5 s, with no
+refusal anywhere in its output. §5.1's matrix likewise carries "**refuses**
+(structural)" in the ad6 × `wl_cloud` cell.
+
+Scored false and not edited (§7). Two things follow, and the second is the one
+that matters:
+
+1. §5.1's matrix cell is wrong and the plan needs correcting.
+2. **The structural reason in §1.7.2 either no longer holds or never blocked
+   this workload** — and since ad6's answer agrees line-for-line with NDD's, it
+   is not obviously a wrong answer that a refusal was protecting anyone from.
+   Whatever §1.7.2 describes has either been fixed since it was written or was
+   mis-scoped. That is worth knowing independently of this campaign, because a
+   documented refusal that does not happen is the kind of claim a reviewer
+   checks.
