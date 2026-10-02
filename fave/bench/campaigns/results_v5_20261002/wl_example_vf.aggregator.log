@@ -1,0 +1,28 @@
+backend: veriflow {'impl': 'reimpl-literature', 'vf_fields': '4+10', 'vf_revisit': 'state', 'vf_slicing': 'device', 'vf_budget': 0}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.0005652904510498047 seconds.
+worker: completed task switch in 4.410743713378906e-05 seconds.
+worker: completed task switch in 1.71661376953125e-05 seconds.
+worker: completed task links in 3.3855438232421875e-05 seconds.
+worker: completed task switch_command in 0.0002696514129638672 seconds.
+worker: completed task switch_command in 5.817413330078125e-05 seconds.
+worker: completed task switch_command in 4.5299530029296875e-05 seconds.
+worker: completed task probe in 8.082389831542969e-05 seconds.
+worker: completed task probe in 5.650520324707031e-05 seconds.
+worker: completed task probe in 3.886222839355469e-05 seconds.
+worker: completed task links in 1.8835067749023438e-05 seconds.
+worker: completed task generators in 0.00020003318786621094 seconds.
+worker: completed task links in 1.9073486328125e-05 seconds.
+veriflow: built 40 rules, stamps {'impl': 'reimpl-literature', 'vf_mode': 'bulk', 'vf_node': 'table', 'vf_ports': 'field', 'vf_fields': "4+10:trie=['packet.ipv6.source', 'packet.ipv6.destination'],scan=['related', 'packet.ipv6.proto', 'packet.upper.dport', 'packet.upper.sport', 'in_port', 'out_port']", 'vf_slicing': 'device', 'vf_invert_lpm': False, 'vf_field_order': ['related', 'packet.ipv6.source', 'packet.ipv6.destination', 'packet.ipv6.proto', 'packet.upper.dport', 'packet.upper.sport', 'in_port', 'out_port'], 'vf_inport_expansion': 1.0, 'vf_budget': 0, 'vf_revisit': 'state'}
+worker: completed task check_compliance in 0.004275321960449219 seconds.
+worker: completed task report in 0.0007197856903076172 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.00011777877807617188 seconds.
+worker: stop handler after 1.7174510955810547 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

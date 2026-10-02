@@ -1,0 +1,82 @@
+backend: veriflow {'impl': 'reimpl-literature', 'vf_fields': '4+10', 'vf_revisit': 'state', 'vf_slicing': 'device', 'vf_budget': 0}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task router in 0.001772165298461914 seconds.
+worker: completed task switch in 7.2479248046875e-05 seconds.
+worker: completed task switch in 1.8596649169921875e-05 seconds.
+worker: completed task switch in 1.239776611328125e-05 seconds.
+worker: completed task switch in 1.5497207641601562e-05 seconds.
+worker: completed task switch in 1.1205673217773438e-05 seconds.
+worker: completed task switch in 1.049041748046875e-05 seconds.
+worker: completed task switch in 1.049041748046875e-05 seconds.
+worker: completed task switch in 1.0967254638671875e-05 seconds.
+worker: completed task switch in 1.1205673217773438e-05 seconds.
+worker: completed task switch in 1.0013580322265625e-05 seconds.
+worker: completed task switch in 1.049041748046875e-05 seconds.
+worker: completed task switch in 1.049041748046875e-05 seconds.
+worker: completed task switch in 1.0013580322265625e-05 seconds.
+worker: completed task switch in 1.0013580322265625e-05 seconds.
+worker: completed task switch in 9.5367431640625e-06 seconds.
+worker: completed task switch in 1.0251998901367188e-05 seconds.
+worker: completed task links in 6.699562072753906e-05 seconds.
+worker: completed task switch_command in 0.001888275146484375 seconds.
+worker: completed task switch_command in 5.340576171875e-05 seconds.
+worker: completed task switch_command in 3.266334533691406e-05 seconds.
+worker: completed task switch_command in 3.266334533691406e-05 seconds.
+worker: completed task switch_command in 2.5510787963867188e-05 seconds.
+worker: completed task switch_command in 2.5033950805664062e-05 seconds.
+worker: completed task switch_command in 2.6941299438476562e-05 seconds.
+worker: completed task switch_command in 2.5272369384765625e-05 seconds.
+worker: completed task switch_command in 2.7418136596679688e-05 seconds.
+worker: completed task switch_command in 2.86102294921875e-05 seconds.
+worker: completed task switch_command in 2.6941299438476562e-05 seconds.
+worker: completed task switch_command in 2.5272369384765625e-05 seconds.
+worker: completed task switch_command in 2.4318695068359375e-05 seconds.
+worker: completed task switch_command in 2.47955322265625e-05 seconds.
+worker: completed task switch_command in 2.86102294921875e-05 seconds.
+worker: completed task switch_command in 2.4557113647460938e-05 seconds.
+worker: completed task switch_command in 2.3603439331054688e-05 seconds.
+worker: completed task probe in 8.130073547363281e-05 seconds.
+worker: completed task probe in 4.7206878662109375e-05 seconds.
+worker: completed task probe in 3.910064697265625e-05 seconds.
+worker: completed task probe in 3.695487976074219e-05 seconds.
+worker: completed task probe in 3.4809112548828125e-05 seconds.
+worker: completed task probe in 3.409385681152344e-05 seconds.
+worker: completed task probe in 3.457069396972656e-05 seconds.
+worker: completed task probe in 3.266334533691406e-05 seconds.
+worker: completed task probe in 3.361701965332031e-05 seconds.
+worker: completed task probe in 3.337860107421875e-05 seconds.
+worker: completed task probe in 1.1920928955078125e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task probe in 1.0251998901367188e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task links in 3.790855407714844e-05 seconds.
+worker: completed task generators in 0.00016546249389648438 seconds.
+worker: completed task links in 3.838539123535156e-05 seconds.
+veriflow: built 240 rules, stamps {'impl': 'reimpl-literature', 'vf_mode': 'bulk', 'vf_node': 'table', 'vf_ports': 'field', 'vf_fields': "4+10:trie=['packet.ipv4.source', 'packet.ipv4.destination'],scan=['related', 'packet.ether.vlan', 'in_port', 'out_port']", 'vf_slicing': 'device', 'vf_invert_lpm': False, 'vf_field_order': ['related', 'packet.ether.vlan', 'packet.ipv4.source', 'packet.ipv4.destination', 'in_port', 'out_port'], 'vf_inport_expansion': 1.168, 'vf_budget': 0, 'vf_revisit': 'state'}
+worker: completed task check_compliance in 0.02174997329711914 seconds.
+worker: completed task report in 0.0006442070007324219 seconds.
+worker: task failed:
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 415, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 322, in _dispatch
+    self._dump_aggregator(odir)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 818, in _dump_aggregator
+    j["mapping"] = self.verification_engine.mapping.to_json()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'VeriFlowAdapter' object has no attribute 'mapping'
+worker: completed task unknown in 0.004433155059814453 seconds.
+worker: initiate stopping
+worker: completed task stop in 3.528594970703125e-05 seconds.
+worker: stop handler after 1.6624979972839355 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

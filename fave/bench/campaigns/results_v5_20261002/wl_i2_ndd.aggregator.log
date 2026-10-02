@@ -1,0 +1,71 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)', 'engine': 'ndd', 'faithful_vlan': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 8.726119995117188e-05 seconds.
+worker: completed task switch in 3.695487976074219e-05 seconds.
+worker: completed task switch in 2.6702880859375e-05 seconds.
+worker: completed task switch in 2.574920654296875e-05 seconds.
+worker: completed task switch in 1.9550323486328125e-05 seconds.
+worker: completed task switch in 1.9073486328125e-05 seconds.
+worker: completed task switch in 1.9073486328125e-05 seconds.
+worker: completed task switch in 1.7642974853515625e-05 seconds.
+worker: completed task switch in 2.3603439331054688e-05 seconds.
+worker: completed task switch in 1.621246337890625e-05 seconds.
+worker: completed task switch in 1.6927719116210938e-05 seconds.
+worker: completed task switch in 2.3603439331054688e-05 seconds.
+worker: completed task switch in 1.5735626220703125e-05 seconds.
+worker: completed task switch in 1.8358230590820312e-05 seconds.
+worker: completed task switch in 1.5020370483398438e-05 seconds.
+worker: completed task switch in 1.6927719116210938e-05 seconds.
+worker: completed task switch in 1.6450881958007812e-05 seconds.
+worker: completed task switch in 1.7642974853515625e-05 seconds.
+worker: completed task links in 0.00026607513427734375 seconds.
+worker: completed task switch_command in 0.00044536590576171875 seconds.
+worker: completed task switch_command in 0.1699512004852295 seconds.
+worker: completed task switch_command in 0.008706092834472656 seconds.
+worker: completed task switch_command in 0.18055248260498047 seconds.
+worker: completed task switch_command in 0.007162570953369141 seconds.
+worker: completed task switch_command in 0.28814268112182617 seconds.
+worker: completed task switch_command in 0.007388591766357422 seconds.
+worker: completed task switch_command in 0.2536587715148926 seconds.
+worker: completed task switch_command in 0.008539676666259766 seconds.
+worker: completed task switch_command in 0.28124070167541504 seconds.
+worker: completed task switch_command in 0.009871721267700195 seconds.
+worker: completed task switch_command in 0.3208744525909424 seconds.
+worker: completed task switch_command in 0.010074853897094727 seconds.
+worker: completed task switch_command in 0.5191025733947754 seconds.
+worker: completed task switch_command in 0.009177923202514648 seconds.
+worker: completed task switch_command in 0.6142303943634033 seconds.
+worker: completed task switch_command in 0.008991241455078125 seconds.
+worker: completed task switch_command in 0.1896524429321289 seconds.
+worker: completed task probe in 0.011238336563110352 seconds.
+worker: completed task probe in 2.9087066650390625e-05 seconds.
+worker: completed task probe in 1.4781951904296875e-05 seconds.
+worker: completed task probe in 1.1920928955078125e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task probe in 1.7881393432617188e-05 seconds.
+worker: completed task probe in 1.0251998901367188e-05 seconds.
+worker: completed task probe in 1.0013580322265625e-05 seconds.
+worker: completed task links in 0.0006442070007324219 seconds.
+worker: completed task generators in 0.0001671314239501953 seconds.
+worker: completed task links in 4.4345855712890625e-05 seconds.
+apkeep: in.atla has 4 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.chic has 4 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.kans has 12 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.losa has 4 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.newy32aoa has 10 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.salt has 1 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.seat has 4 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.wash has 17 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+worker: completed task check_compliance in 25.829521656036377 seconds.
+worker: completed task report in 0.0007226467132568359 seconds.
+worker: initiate stopping
+worker: completed task stop in 8.463859558105469e-05 seconds.
+worker: stop handler after 29.917030811309814 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

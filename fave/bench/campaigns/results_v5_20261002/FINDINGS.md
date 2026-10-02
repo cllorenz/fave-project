@@ -60,3 +60,76 @@ the evidence needed, and is the campaign doing its job.
 already says not to report `wl_tum` as a verdict cell. Recorded so that a
 reader does not mistake six `error` cells for six failures. Its measurement
 numbers (wall-clock, peak RSS) are valid and are what the cell is for.
+
+## F3 — VeriFlow-FR cannot run `wl_cloud`: a ternary value it has no model for
+
+**Status: open. Falsifies P9.**
+
+`wl_cloud_vf` ends `status: error` at 1.6 s, in the compliance check:
+
+    ValueError: not a prefix: x1xxxxxxxxxxxxxx
+
+VeriFlow-FR's model is range/prefix-based, and this is a **ternary** value — a
+16-bit field with one bit set and the rest wildcard. The engine has no
+representation for it and refuses, which is the honest failure: it did not
+answer and it did not approximate.
+
+Prediction **P9** said "`vf` (4+10) completes every one of the nine workloads".
+That is now false. The falsification is recorded; the prediction is not edited
+(§7).
+
+**Why this is more than one cell failing.** `fave/bench/feature_survey.py`'s V0
+survey concluded that **no rule in the suite carries a ternary value, so every
+field value is an interval** — a finding item 31 records and leans on, because
+it is what makes range-based engines comparable on this suite at all. A ternary
+value reaching VeriFlow-FR on `wl_cloud` contradicts that in one of two ways,
+and they have different consequences:
+
+* the survey missed a ternary value that is in the workload, so its conclusion
+  is wrong and anything resting on it needs re-checking; or
+* the value is **manufactured by an adapter encoding** rather than present in
+  the workload — `CLOUD_BENCH_PLAN.md` §2.8's ingress demultiplexing is the
+  candidate, and a 16-bit one-hot-looking mask is the shape a VLAN or port
+  demultiplexer would produce. Then the survey stands, and what needs declaring
+  is an adapter encoding that changes the *kind* of value an engine is handed.
+
+Either way it belongs in `ACCOMMODATIONS.md`, and which one it is decides
+whether `wl_cloud × vf` is a tool limitation or a FaVe encoding artefact. Not
+resolved here: it needs the owner's reading, and resolving it means running
+cells beside the queue.
+
+## F4 — NDD-APKeep and NetPlumber disagree on `wl_cloud` too, by one violation
+
+**Status: open. Same direction as F1.**
+
+| engine | violations of 71 |
+|---|---|
+| NetPlumber | **58** |
+| NDD-APKeep | **57** |
+
+The single line NetPlumber reports and NDD does not:
+
+    - `source.dc1_leaf6_host0` reaches `probe.dc0_leaf1_host1` with …
+
+a **must-NOT-reach that NetPlumber finds reached** and NDD does not.
+
+**F1 and F4 are the same discrepancy, not two.** Read as reachability rather
+than as violation counts, both say NDD-APKeep computes **less** reachability
+than NetPlumber:
+
+* `wl_example` — a *must-reach* (`office → internet`) that NDD reports as
+  **not reached**, so NDD sees less;
+* `wl_cloud` — a *must-NOT-reach* (`dc1_leaf6_host0 → dc0_leaf1_host1`) that
+  NetPlumber reports as reached and NDD does not, so again NDD sees less.
+
+The violation counts move in opposite directions (NDD finds one more on
+`wl_example`, one fewer on `wl_cloud`) purely because the two checks have
+opposite polarity. One coherent hypothesis covers both: **NDD-APKeep
+under-approximates reachability relative to NetPlumber.** That is the shape to
+test, and it is the opposite of the failure mode `test_backend_differential.py`
+was widened to catch in 2026-09 (APKeep *over*-approximating `wl_up`).
+
+`wl_cloud` is also **the one workload in the suite with an external oracle**,
+which makes it the right place to adjudicate — and phase C runs BDD-APKeep over
+it for 24 h, so a third engine's verdict on this exact workload is already in
+the campaign.
