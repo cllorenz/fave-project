@@ -1,0 +1,67 @@
+backend: netplumber {'impl': 'authors+fave', 'upstream': 'hassel-public master 697b35c9'}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00039649009704589844 seconds.
+worker: completed task switch in 9.942054748535156e-05 seconds.
+worker: completed task switch in 0.00010442733764648438 seconds.
+worker: completed task switch in 5.8650970458984375e-05 seconds.
+worker: completed task switch in 5.1021575927734375e-05 seconds.
+worker: completed task switch in 4.887580871582031e-05 seconds.
+worker: completed task switch in 6.413459777832031e-05 seconds.
+worker: completed task switch in 5.6743621826171875e-05 seconds.
+worker: completed task switch in 5.53131103515625e-05 seconds.
+worker: completed task switch in 5.507469177246094e-05 seconds.
+worker: completed task switch in 8.249282836914062e-05 seconds.
+worker: completed task switch in 5.7220458984375e-05 seconds.
+worker: completed task switch in 4.57763671875e-05 seconds.
+worker: completed task switch in 4.9591064453125e-05 seconds.
+worker: completed task switch in 5.984306335449219e-05 seconds.
+worker: completed task switch in 4.696846008300781e-05 seconds.
+worker: completed task links in 0.001617431640625 seconds.
+worker: completed task switch_command in 0.155076265335083 seconds.
+worker: completed task switch_command in 0.44261765480041504 seconds.
+worker: completed task switch_command in 0.047553300857543945 seconds.
+worker: completed task switch_command in 0.05515408515930176 seconds.
+worker: completed task switch_command in 0.04838085174560547 seconds.
+worker: completed task switch_command in 0.045479774475097656 seconds.
+worker: completed task switch_command in 0.05855059623718262 seconds.
+worker: completed task switch_command in 0.30683350563049316 seconds.
+worker: completed task switch_command in 0.2484753131866455 seconds.
+worker: completed task switch_command in 0.1681809425354004 seconds.
+worker: completed task switch_command in 0.05740475654602051 seconds.
+worker: completed task switch_command in 0.055830955505371094 seconds.
+worker: completed task switch_command in 0.047408342361450195 seconds.
+worker: completed task switch_command in 0.2106177806854248 seconds.
+worker: completed task switch_command in 0.5608606338500977 seconds.
+worker: completed task switch_command in 0.06120133399963379 seconds.
+worker: completed task probe in 0.0004031658172607422 seconds.
+worker: completed task probe in 0.00045752525329589844 seconds.
+worker: completed task probe in 0.00018405914306640625 seconds.
+worker: completed task probe in 5.936622619628906e-05 seconds.
+worker: completed task probe in 5.412101745605469e-05 seconds.
+worker: completed task probe in 5.125999450683594e-05 seconds.
+worker: completed task probe in 5.555152893066406e-05 seconds.
+worker: completed task probe in 8.606910705566406e-05 seconds.
+worker: completed task probe in 7.557868957519531e-05 seconds.
+worker: completed task probe in 6.866455078125e-05 seconds.
+worker: completed task probe in 5.2928924560546875e-05 seconds.
+worker: completed task probe in 5.7697296142578125e-05 seconds.
+worker: completed task probe in 5.14984130859375e-05 seconds.
+worker: completed task probe in 5.030632019042969e-05 seconds.
+worker: completed task probe in 4.9591064453125e-05 seconds.
+worker: completed task probe in 4.9591064453125e-05 seconds.
+worker: completed task links in 0.000988006591796875 seconds.
+worker: completed task generators in 0.0006117820739746094 seconds.
+worker: completed task links in 0.12895774841308594 seconds.
+worker: completed task check_compliance in 0.05012011528015137 seconds.
+worker: completed task check_anomalies in 0.00016427040100097656 seconds.
+worker: completed task report in 0.0006101131439208984 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.1901254653930664 seconds.
+worker: stop handler after 4.665647506713867 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

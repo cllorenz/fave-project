@@ -1,0 +1,164 @@
+deleting old logs and measurements...
+deleted old logs and measurements.
+generate policy matrix...
+generated policy matrix.
+generate inventory...
+generated inventory.
+convert policy matrix to checks...
+converted policy matrix.
+generate topology, routes, and probes...
+generated topology, routes, and probes.
+starting netplumber...
+started netplumber.
+starting aggregator (backend: netplumber)...
+started aggregator.
+wait for fave
+initialize topology...
+topology sent to fave
+initialize routes...
+routes sent to fave
+initialize probes...
+probes sent to fave
+initialize sources...
+sources sent to fave
+checking flow trees...
+--- Logging error ---
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 415, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 351, in _dispatch
+    self._sync_diff(model)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 647, in _sync_diff
+    self.verification_engine.add_links_bulk(
+  File "/home/ubuntu/fave-project/fave/netplumber/adapter.py", line 311, in add_links_bulk
+    self._rpc.add_links_bulk(
+  File "/home/ubuntu/fave-project/fave/netplumber/jsonrpc.py", line 386, in add_links_bulk
+    _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
+  File "/home/ubuntu/fave-project/fave/netplumber/jsonrpc.py", line 78, in _sync_recv
+    chunk = sock.recv(4096, socket.MSG_PEEK).decode('utf8')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1164, in emit
+    self.flush()
+  File "/usr/lib/python3.12/logging/__init__.py", line 1144, in flush
+    self.stream.flush()
+OSError: [Errno 28] No space left on device
+Call stack:
+  File "/usr/lib/python3.12/threading.py", line 1030, in _bootstrap
+    self._bootstrap_inner()
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 421, in _handler
+    AggregatorService.LOGGER.exception("worker: task failed:")
+Message: 'worker: task failed:'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1164, in emit
+    self.flush()
+  File "/usr/lib/python3.12/logging/__init__.py", line 1144, in flush
+    self.stream.flush()
+OSError: [Errno 28] No space left on device
+Call stack:
+  File "/usr/lib/python3.12/threading.py", line 1030, in _bootstrap
+    self._bootstrap_inner()
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 431, in _handler
+    AggregatorService.LOGGER.info(emsg)
+Message: 'worker: completed task unknown in 2.5592987537384033 seconds.'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 415, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 313, in _dispatch
+    self.verification_engine.check_compliance(rules)
+  File "/home/ubuntu/fave-project/fave/netplumber/adapter.py", line 287, in check_compliance
+    self._rpc.check_compliance(
+  File "/home/ubuntu/fave-project/fave/netplumber/jsonrpc.py", line 824, in check_compliance
+    _asend_recv(socks, json.dumps(data))
+  File "/home/ubuntu/fave-project/fave/netplumber/jsonrpc.py", line 117, in _asend_recv
+    _async_send(socks, msg)
+  File "/home/ubuntu/fave-project/fave/netplumber/jsonrpc.py", line 62, in _async_send
+    sock.sendall((msg+'\n').encode('utf8'))
+BrokenPipeError: [Errno 32] Broken pipe
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1164, in emit
+    self.flush()
+  File "/usr/lib/python3.12/logging/__init__.py", line 1144, in flush
+    self.stream.flush()
+OSError: [Errno 28] No space left on device
+Call stack:
+  File "/usr/lib/python3.12/threading.py", line 1030, in _bootstrap
+    self._bootstrap_inner()
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 421, in _handler
+    AggregatorService.LOGGER.exception("worker: task failed:")
+Message: 'worker: task failed:'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1164, in emit
+    self.flush()
+  File "/usr/lib/python3.12/logging/__init__.py", line 1144, in flush
+    self.stream.flush()
+OSError: [Errno 28] No space left on device
+Call stack:
+  File "/usr/lib/python3.12/threading.py", line 1030, in _bootstrap
+    self._bootstrap_inner()
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 431, in _handler
+    AggregatorService.LOGGER.info(emsg)
+Message: 'worker: completed task unknown in 0.0009839534759521484 seconds.'
+Arguments: ()
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/compliance_checker.py", line 119, in <module>
+    barrier.wait(guard)
+  File "/home/ubuntu/fave-project/fave/util/barrier.py", line 302, in wait
+    raise BarrierError(
+util.barrier.BarrierError: FaVe will never finish the request: no aggregator is registered (/dev/shm/np/aggregator.owner is absent)
+stopping fave and netplumber...
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/util/aggregator_utils.py", line 60, in connect_to_fave
+    sock.getpeername()
+OSError: [Errno 107] Transport endpoint is not connected
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/stop.py", line 54, in <module>
+    _AGGR = connect_to_fave(
+            ^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/util/aggregator_utils.py", line 63, in connect_to_fave
+    raise Exception("could not connect to fave: %s" % server_str)
+Exception: could not connect to fave: /dev/shm/np_aggregator.socket
+teardown FAILED (exit 1): bash scripts/stop_fave.sh -u -- no net_plumber is running, so nothing is orphaned and the next run is safe. `ps -C net_plumber` nevertheless lists 14 ZOMBIE entries: an exit status nobody collected, holding no socket and contending for nothing -- harmless, and not what to kill.
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/wl_stanford/benchmark.py", line 95, in <module>
+    ).run()
+      ^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/generic_benchmark.py", line 604, in run
+    self._compliance()
+  File "/home/ubuntu/fave-project/fave/bench/generic_benchmark.py", line 508, in _compliance
+    raise RuntimeError(
+RuntimeError: compliance check FAILED (exit 1): /home/ubuntu/fave-project/.venv/bin/python3 bench/compliance_checker.py -u bench/wl_stanford/checks.json -- the run has no verdict, and reporting one anyway is how a benchmark comes to publish a number nobody computed (TODO.md items 1i/1n/1p).

@@ -456,6 +456,36 @@ class TestTheQueueResumes(unittest.TestCase):
                 self.assertTrue(os.path.isdir(os.path.join(
                     os.path.dirname(cell_queue.__file__), cell['workload'])))
 
+    def test_a_stale_aggregator_log_yields_no_provenance(self):
+        """ A cell must never inherit another engine's provenance.
+
+        wl_stanford_np -- backend netplumber -- recorded
+        impl=reimpl-literature, which is VeriFlow-FR's value. Its aggregator
+        died before writing a stamp, so the harness read the `backend:
+        veriflow` line an EARLIER e2e run had left in /dev/shm/np and recorded
+        it verbatim, with impl_source saying "backend configuration stamp".
+
+        Item 31 requires provenance stamped rather than typed by hand so that
+        "a table cannot mislabel a row". A stale log defeats that exactly as
+        well as a hand-typed literal, and it is harder to notice, because the
+        value is real -- it just belongs to a different engine.
+        """
+        log = os.path.join(self.dir, 'c.aggregator.log')
+        with open(log, 'w') as handle:
+            handle.write("backend: veriflow {'impl': 'reimpl-literature'}\n")
+
+        # Read as the cell that actually wrote it: the stamp comes back.
+        stamp, source = cell_run.backend_stamp(self.dir, 'c', 'veriflow')
+        self.assertEqual(stamp['impl'], 'reimpl-literature')
+        self.assertEqual(source, 'backend configuration stamp')
+
+        # Read as a netplumber cell: nothing, and a reason that names both.
+        stamp, source = cell_run.backend_stamp(self.dir, 'c', 'netplumber')
+        self.assertEqual(stamp, {})
+        self.assertIn('stale log', source)
+        self.assertIn('veriflow', source)
+        self.assertIn('netplumber', source)
+
     def test_a_workload_with_no_check_set_still_summarises(self):
         """ A checkless workload must not lose its summary and exit status.
 

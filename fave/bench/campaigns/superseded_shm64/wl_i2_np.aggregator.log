@@ -1,0 +1,65 @@
+backend: netplumber {'impl': 'authors+fave', 'upstream': 'hassel-public master 697b35c9'}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00041794776916503906 seconds.
+worker: completed task switch in 0.00010609626770019531 seconds.
+worker: completed task switch in 9.226799011230469e-05 seconds.
+worker: completed task switch in 9.72747802734375e-05 seconds.
+worker: completed task switch in 0.00011897087097167969 seconds.
+worker: completed task switch in 7.176399230957031e-05 seconds.
+worker: completed task switch in 7.557868957519531e-05 seconds.
+worker: completed task switch in 6.4849853515625e-05 seconds.
+worker: completed task switch in 6.079673767089844e-05 seconds.
+worker: completed task switch in 6.318092346191406e-05 seconds.
+worker: completed task switch in 6.437301635742188e-05 seconds.
+worker: completed task switch in 6.628036499023438e-05 seconds.
+worker: completed task switch in 7.462501525878906e-05 seconds.
+worker: completed task switch in 7.2479248046875e-05 seconds.
+worker: completed task switch in 5.698204040527344e-05 seconds.
+worker: completed task switch in 5.626678466796875e-05 seconds.
+worker: completed task switch in 9.655952453613281e-05 seconds.
+worker: completed task switch in 7.510185241699219e-05 seconds.
+worker: completed task links in 0.001966238021850586 seconds.
+worker: completed task switch_command in 0.0007088184356689453 seconds.
+worker: completed task switch_command in 1.196340799331665 seconds.
+worker: completed task switch_command in 0.010853290557861328 seconds.
+worker: completed task switch_command in 1.2953402996063232 seconds.
+worker: completed task switch_command in 0.00960397720336914 seconds.
+worker: completed task switch_command in 1.407421588897705 seconds.
+worker: completed task switch_command in 0.012462377548217773 seconds.
+worker: completed task switch_command in 1.6080045700073242 seconds.
+worker: completed task switch_command in 0.01246953010559082 seconds.
+worker: completed task switch_command in 1.487752914428711 seconds.
+worker: completed task switch_command in 0.013579130172729492 seconds.
+worker: completed task switch_command in 1.5147838592529297 seconds.
+worker: completed task switch_command in 0.014503002166748047 seconds.
+worker: completed task switch_command in 1.603442907333374 seconds.
+worker: completed task switch_command in 0.015445470809936523 seconds.
+worker: completed task switch_command in 1.6185860633850098 seconds.
+worker: completed task switch_command in 0.022310256958007812 seconds.
+worker: completed task switch_command in 1.8154385089874268 seconds.
+worker: completed task probe in 0.013658285140991211 seconds.
+worker: completed task probe in 0.0003871917724609375 seconds.
+worker: completed task probe in 8.273124694824219e-05 seconds.
+worker: completed task probe in 7.987022399902344e-05 seconds.
+worker: completed task probe in 6.198883056640625e-05 seconds.
+worker: completed task probe in 5.5789947509765625e-05 seconds.
+worker: completed task probe in 5.245208740234375e-05 seconds.
+worker: completed task probe in 5.054473876953125e-05 seconds.
+worker: completed task probe in 6.270408630371094e-05 seconds.
+worker: completed task links in 0.03139805793762207 seconds.
+worker: completed task generators in 0.0006098747253417969 seconds.
+worker: task failed:
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 415, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 351, in _dispatch
+    self._sync_diff(model)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 647, in _sync_diff
+    self.verification_engine.add_links_bulk(
+  File "/home/ubuntu/fave-project/fave/netplumber/adapter.py", line 311, in add_links_bulk
+    self._rpc.add_links_bulk(
+  File "/home/ubuntu/fave-project/fave/netplumber/jsonrpc.py", line 386, in add_links_bulk
+    _sync_recv(socks[idx % len(socks):idx % len(socks)+1

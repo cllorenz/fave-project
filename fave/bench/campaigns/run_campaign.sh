@@ -35,6 +35,36 @@ DEADLINE=$(date -u -d '2026-10-05T06:45:00Z' +%s)
 
 cd "$FAVE" || exit 1
 
+# /dev/shm IS 64 MB ON THIS BOX AND THAT IS NOT ENOUGH.
+#
+# FaVe writes every runtime log under /dev/shm/np: NetPlumber's log4j appenders
+# (np.log, inv.log, rpc.log) plus the captured console (stdout.log). On wl_i2
+# that is a 33 MB stdout.log and an inv.log rotating through three 10 MB
+# backups -- ~73 MB against a 64 MB tmpfs. When it fills, log4cxx's write
+# fails, net_plumber dies, and the aggregator reports "Connection reset by
+# peer"; the cell then looks like an ENGINE failure. wl_stanford_np failed
+# exactly that way and recorded status=error.
+#
+# The container cannot remount /dev/shm (mount needs privileges it lacks), so
+# the directory is a SYMLINK to disk. This is deliberately the fix that changes
+# WHERE the bytes land and nothing about WHAT IS LOGGED: lowering the log
+# levels (as bench/wl_berkeley/np.conf does) would change the instrumentation
+# cost and therefore the wall-clock, which is a reported number here.
+#
+# Re-established on every start, because /dev/shm is recreated empty by a
+# container restart and §6.1 requires the campaign to survive one.
+if [ ! -L /dev/shm/np ]; then
+    mkdir -p /var/tmp/np-logs
+    rm -rf /dev/shm/np
+    ln -s /var/tmp/np-logs /dev/shm/np
+fi
+SHM_AVAIL=$(df -Pm /dev/shm/np | awk 'NR==2 {print $4}')
+if [ "${SHM_AVAIL:-0}" -lt 10240 ]; then
+    echo "FATAL: only ${SHM_AVAIL} MB behind /dev/shm/np; a bench cell needs" \
+         "far more and would fail as a fake engine error. Refusing to start." >&2
+    exit 1
+fi
+
 say() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG"; }
 left_h() { echo $(( (DEADLINE - $(date -u +%s)) / 3600 )); }
 

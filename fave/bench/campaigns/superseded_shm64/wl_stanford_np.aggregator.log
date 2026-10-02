@@ -1,0 +1,4 @@
+backend: veriflow {'impl': 'reimpl-literature', 'vf_fields': '4+10', 'vf_revisit': 'state', 'vf_slicing': 'device', 'vf_budget': 0}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket

@@ -485,7 +485,7 @@ def read_verdict(workload, out_dir, stem, gc_log):
 _BACKEND_LINE = re.compile(r'^backend: (\S+)(?: (\{.*\}))?\s*$', re.MULTILINE)
 
 
-def backend_stamp(out_dir, stem):
+def backend_stamp(out_dir, stem, expected_backend=None):
     """ The engine's OWN configuration stamp, read back out of the run's log.
 
     Item 31 is explicit that provenance is "stamped, not typed by hand: the
@@ -504,6 +504,17 @@ def backend_stamp(out_dir, stem):
         found = _BACKEND_LINE.search(handle.read())
     if found is None:
         return {}, 'the log carries no `backend:` line'
+    # The log must be THIS cell's. A cell whose aggregator died before writing
+    # its own stamp used to inherit whatever was left in /dev/shm/np by the
+    # previous run: wl_stanford_np, a netplumber cell, recorded
+    # impl=reimpl-literature from an earlier e2e run's veriflow line, with
+    # impl_source claiming "backend configuration stamp". Item 31 wants
+    # provenance stamped rather than hand-typed so that "a table cannot
+    # mislabel a row", and a stale log defeats that just as thoroughly as a
+    # literal would. Report nothing rather than another engine's value.
+    if expected_backend is not None and found.group(1) != expected_backend:
+        return {}, ('the log is %s\'s, not %s\'s -- stale log, no stamp read'
+                    % (found.group(1), expected_backend))
     if not found.group(2):
         return {}, 'the backend logged no configuration stamp (item 31)'
     try:
@@ -652,7 +663,8 @@ def main(argv=None):
     for name, path in JARS.items():
         result[name] = cell_metrics.sha256(path)
 
-    stamp, result['impl_source'] = backend_stamp(out_dir, stem)
+    stamp, result['impl_source'] = backend_stamp(out_dir, stem,
+                                                 args.backend)
     # The engine's own stamp, verbatim, under one key -- so a backend that
     # starts declaring something new needs no change here to have it recorded.
     result['backend_stamp'] = stamp
