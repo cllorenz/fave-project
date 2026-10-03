@@ -171,3 +171,108 @@ ternary value, then VeriFlow-FR's refusal is a **tool limitation honestly
 reported** and belongs in `ACCOMMODATIONS.md` as such — `wl_cloud × vf` is a
 cell no range-based engine can have, which is a finding about the workload and
 the tool family, not a defect in either.
+
+---
+
+# F1 — SOLVED. Root cause, and a fix that is straightforward
+
+## The decisive cell
+
+`wl_example × BDD` landed and settles it:
+
+| engine | violations of 10 | family |
+|---|---|---|
+| NetPlumber | 0 | — |
+| VeriFlow-FR 4+10 | 0 | — |
+| `vf-plain` | 0 | — |
+| ad6 | 0 | — |
+| **NDD-APKeep** | **1** | APKeep |
+| **BDD-APKeep** | **1** | APKeep |
+
+BDD and NDD report the *same* line. They are forks of **different upstream
+repositories** (`XJTU-NetVerify/apkeep 7b71bff4` and `XJTU-NetVerify/NDD
+c8414b43`), so what they share is not engine code — it is **FaVe's own APKeep
+adapter**, `fave/apkeep/adapter.py`. That moves the fault to first-party code.
+
+## The root cause
+
+Two layers of FaVe implement **opposite** accommodations for the same declared
+infidelity.
+
+**Layer 1 — `iptables/generator.py`.** `-o` maps to an `out_port` *match* field
+(line 69, `"o": "out_port"`). The `-o` match is refused outright unless
+`FAVE_ALLOW_OUT_IFACE` is set, and the refusal message states the semantics
+precisely:
+
+> FaVe's packet filter runs its filter chains BEFORE routing
+> (`forward_filter → routing → post_routing`), so `out_port` is still unset
+> when the rule is evaluated and is then overwritten by the routing table —
+> **the match would constrain nothing**, silently, and the resulting error
+> would **over-PERMIT for `-j ACCEPT`** and over-RESTRICT for `-j DROP`.
+
+So the declared behaviour under the accommodation is: **the `-o` match is
+inert; the rule applies to everything; an ACCEPT over-permits.** NetPlumber,
+VeriFlow-FR and ad6 all consume the model that way, which is why all three
+answer "reaches".
+
+**Layer 2 — `apkeep/adapter.py`, in `emit()` (line ~2195).**
+
+    if handle_quals and t[8] is not None:   # out_port-qualified -> skip
+        continue
+
+`t[8]` is `out_qual`, set from that same `out_port` match (built at line 1089).
+The adapter **drops the rule entirely**, reasoning that it is "redundant with
+routing: their dst never egresses the qualified port".
+
+That reasoning would hold if `out_port` were a constraint routing enforces. In
+FaVe's filter-before-routing pipeline it is not — layer 1 says so explicitly.
+**Dropping an `-o`-qualified ACCEPT is over-RESTRICTIVE, which is the error the
+generator attributes to DROP, not ACCEPT.** The two layers are not merely
+different; they are opposite in both directions.
+
+## Why it produces exactly this violation
+
+`wl_example`'s `pgf` ruleset:
+
+    ip6tables -P FORWARD DROP
+    …
+    ip6tables -A FORWARD -o 1 -s 2001:db8::200/120 -j ACCEPT   ← dropped by the adapter
+
+That is the **only** rule permitting the office subnet to reach anything beyond
+the two internal /120s. With it skipped, the `-P FORWARD DROP` policy stands and
+`source.office` cannot reach `probe.internet` — the exact line both APKeep
+engines report. Every other check in the workload is carried by a rule that
+never had an `-o` (the `ESTABLISHED` accept, the `--dport 80` accept, the
+`--dport 22` accept), which is why only one check of ten moves.
+
+## The fix
+
+Under the accommodation an `-o`-qualified filter rule must be emitted
+**port-agnostically** — the qualifier treated as inert — rather than skipped.
+That is what makes APKeep agree with the other three engines and with FaVe's
+own stated semantics. The generator already refuses `-o` unless the
+accommodation is active, so every such rule reaching the adapter is by
+construction under it.
+
+**NOT APPLIED YET, deliberately.** The BDD block of phase A is still running,
+and changing the adapter now would leave the campaign's APKeep cells measured
+half on one semantics and half on the other. The patch is applied in the
+investigation slot, after phase A closes.
+
+## What must be re-run, and the risk to watch
+
+The affected cells are APKeep × the workloads carrying `-o` — `wl_example`,
+`wl_up`, `wl_tum` (the generator's own comment names exactly these three):
+
+    wl_example_ndd  wl_example_bdd  wl_up_ndd  wl_up_bdd  wl_tum_ndd  wl_tum_bdd
+
+All are cheap (seconds to ~11 min). **The risk worth stating in advance:**
+`wl_up` currently has NetPlumber and NDD *agreeing* at 0 violations while the
+adapter skips its `-o` rules. Emitting those rules port-agnostically changes
+what APKeep sees on `wl_up`, and it is not obvious a priori that agreement
+survives — if `wl_up`'s `-o` rules are DROPs, applying them to everything is
+the over-restriction the generator warns of, and NDD could move away from
+NetPlumber. **Declared before the re-run:** the fix is judged by whether APKeep
+matches the other engines across all three workloads, not by `wl_example`
+alone. If `wl_up` breaks, the right conclusion is that item 13a's accommodation
+is wrong for DROP rules too — not that this patch should be reverted to hide it.

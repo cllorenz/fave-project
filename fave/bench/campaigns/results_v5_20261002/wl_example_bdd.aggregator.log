@@ -1,0 +1,30 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)', 'engine': 'bdd', 'faithful_vlan': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.0007300376892089844 seconds.
+worker: completed task switch in 4.1484832763671875e-05 seconds.
+worker: completed task switch in 1.6689300537109375e-05 seconds.
+worker: completed task links in 3.790855407714844e-05 seconds.
+worker: completed task switch_command in 0.0003349781036376953 seconds.
+worker: completed task switch_command in 7.367134094238281e-05 seconds.
+worker: completed task switch_command in 5.555152893066406e-05 seconds.
+worker: completed task probe in 7.82012939453125e-05 seconds.
+worker: completed task probe in 4.696846008300781e-05 seconds.
+worker: completed task probe in 4.3392181396484375e-05 seconds.
+worker: completed task links in 2.384185791015625e-05 seconds.
+worker: completed task generators in 0.00010156631469726562 seconds.
+worker: completed task links in 2.3603439331054688e-05 seconds.
+apkeep: dmz discriminates among its ingress ports; demultiplexed into 2 element(s): dmz@1, dmz@2
+apkeep: office discriminates among its ingress ports; demultiplexed into 2 element(s): office@1, office@2
+apkeep: ingress demultiplexing split 2 device(s) into 4 element(s) -- a representational cost of the AP model, not a change to the FaVe model
+worker: completed task check_compliance in 0.10025358200073242 seconds.
+worker: completed task report in 0.0007789134979248047 seconds.
+worker: initiate stopping
+worker: completed task stop in 9.369850158691406e-05 seconds.
+worker: stop handler after 1.671945571899414 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter
