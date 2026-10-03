@@ -1,0 +1,66 @@
+backend: ad6 {'impl': 'first-party', 'translation': 'literal', 'grounding': 'rank', 'solver': 'cadical195', 'lite_acyclic': False}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00010514259338378906 seconds.
+worker: completed task switch in 3.123283386230469e-05 seconds.
+worker: completed task switch in 2.0265579223632812e-05 seconds.
+worker: completed task switch in 1.5020370483398438e-05 seconds.
+worker: completed task switch in 1.6450881958007812e-05 seconds.
+worker: completed task switch in 1.2636184692382812e-05 seconds.
+worker: completed task switch in 1.3113021850585938e-05 seconds.
+worker: completed task switch in 1.7642974853515625e-05 seconds.
+worker: completed task switch in 1.3828277587890625e-05 seconds.
+worker: completed task switch in 1.7881393432617188e-05 seconds.
+worker: completed task switch in 1.4543533325195312e-05 seconds.
+worker: completed task switch in 1.2636184692382812e-05 seconds.
+worker: completed task switch in 1.2159347534179688e-05 seconds.
+worker: completed task switch in 1.239776611328125e-05 seconds.
+worker: completed task switch in 1.5735626220703125e-05 seconds.
+worker: completed task switch in 1.1444091796875e-05 seconds.
+worker: completed task links in 9.679794311523438e-05 seconds.
+worker: completed task switch_command in 0.025506973266601562 seconds.
+worker: completed task switch_command in 0.04254603385925293 seconds.
+worker: completed task switch_command in 0.011677980422973633 seconds.
+worker: completed task switch_command in 0.010636329650878906 seconds.
+worker: completed task switch_command in 0.01760721206665039 seconds.
+worker: completed task switch_command in 0.010573387145996094 seconds.
+worker: completed task switch_command in 0.010475873947143555 seconds.
+worker: completed task switch_command in 0.032834529876708984 seconds.
+worker: completed task switch_command in 0.029407978057861328 seconds.
+worker: completed task switch_command in 0.022107601165771484 seconds.
+worker: completed task switch_command in 0.010952949523925781 seconds.
+worker: completed task switch_command in 0.030931472778320312 seconds.
+worker: completed task switch_command in 0.011562108993530273 seconds.
+worker: completed task switch_command in 0.02374434471130371 seconds.
+worker: completed task switch_command in 0.04528474807739258 seconds.
+worker: completed task switch_command in 0.011880159378051758 seconds.
+worker: completed task probe in 0.00023865699768066406 seconds.
+worker: completed task probe in 1.9550323486328125e-05 seconds.
+worker: completed task probe in 1.430511474609375e-05 seconds.
+worker: completed task probe in 1.33514404296875e-05 seconds.
+worker: completed task probe in 1.2159347534179688e-05 seconds.
+worker: completed task probe in 1.2159347534179688e-05 seconds.
+worker: completed task probe in 1.2874603271484375e-05 seconds.
+worker: completed task probe in 1.2159347534179688e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task probe in 1.1682510375976562e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task probe in 1.049041748046875e-05 seconds.
+worker: completed task probe in 1.0013580322265625e-05 seconds.
+worker: completed task links in 3.4809112548828125e-05 seconds.
+worker: completed task generators in 0.0001723766326904297 seconds.
+worker: completed task links in 3.3855438232421875e-05 seconds.
+worker: completed task check_compliance in 30.691770553588867 seconds.
+worker: completed task report in 0.0007336139678955078 seconds.
+worker: initiate stopping
+worker: completed task stop in 9.965896606445312e-05 seconds.
+worker: stop handler after 32.94356894493103 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

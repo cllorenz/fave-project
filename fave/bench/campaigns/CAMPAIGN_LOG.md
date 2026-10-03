@@ -99,3 +99,41 @@ for the full reasoning. In short: §5.1 declares both to be did-not-finishes, so
 the two of them are 48 h inside a phase §6 budgets at 6–10 h, and
 `VERIFLOW_PLAN.md` §4.6 stamps the EC bound *before* enumerating, so their
 content lands in the first minutes. Only their position in the order moved.
+
+## Budget reckoning, 2026-10-03 05:10Z — and what gets dropped
+
+49 h of the 64 h budget remain. Phase A is at 42/51 after 14 h, and **one cell
+is responsible for almost all of it**: `wl_i2_ad6` has run 13.2 h and is at
+query **16 of 72**, projecting ~59 h. The other 42 cells total **0.8 h**
+between them.
+
+**Decision: `wl_i2_ad6` runs to its declared 24 h wall** (~15:55Z today) and is
+recorded as a did-not-finish. Killing it now would save ~11 h and produce
+nothing reportable: §8.1 is explicit that a run is a did-not-finish only
+against a limit declared before it started, and the v5 limit class is 24 h
+precisely because that is what APKeep and Delta-net report against. "Did not
+finish in 13.2 h" is not comparable with the literature; "did not finish in
+24 h" is. The progress trail carries the lower bound either way.
+
+Note this is itself a result against the plan: §5.1's matrix marks ad6 × `wl_i2`
+as **✓ (`--lite-acyclic` mandatory)**, i.e. expected to complete.
+
+**What this costs, and the order things get dropped in.** Remaining after
+`wl_i2_ad6`: 8 BDD cells, then phase B (~5 h), then phase C (~29 h). That is
+close to the whole remaining budget.
+
+1. **Phase E — the two deferred `vf-plain` cells — is dropped.** It was already
+   the lowest-value item (24 h apiece to upgrade "did not finish in N h" to
+   "within 24 h", with the EC bound already stamped in the first minutes). The
+   driver's own guard will skip it for want of 25 h, and that is the right
+   outcome. They are recorded as NOT RUN, claiming no did-not-finish.
+2. **Phase C's `wl_cloud` 24 h run is KEPT**, and its value has gone up since
+   it was scheduled: F4-R makes `wl_cloud` the workload where NetPlumber is the
+   lone outlier against NDD and ad6, so BDD-APKeep is a **fourth independent
+   engine on exactly the disputed cell**. It now serves the investigation the
+   owner has asked for, not only the triage.
+3. **The owner's investigation of the findings is started NOW**, in the
+   wall-clock `wl_i2_ad6` is burning, limited to work that does not contend:
+   reading code and the artifacts already on disk. §6's serialisation rule
+   forbids running cells beside a measured one, and nothing here does. Anything
+   needing a run is queued for after the campaign.
