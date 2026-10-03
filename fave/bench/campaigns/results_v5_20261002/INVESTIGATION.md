@@ -117,4 +117,57 @@ which reading is cheap to defend.
 
 ## F3 — `wl_cloud` × VeriFlow-FR: `not a prefix: x1xxxxxxxxxxxxxx`
 
-Needs no run to progress and is taken up next.
+### The refusal is correct and should not be "fixed"
+
+`veriflow_fr/src/veriflow.cc:54`, in `prefix_to_interval`: a ternary string
+with a concrete bit *after* a wildcard run is not a prefix, therefore not an
+interval, and is refused. `literature_unit.cc` pins it deliberately — *"A
+ternary value that is not a prefix is no interval, and is refused."*
+
+That is right, and it is the behaviour a faithful reimplementation should have.
+VeriFlow-FR is interval-based by construction; making it accept this value
+would mean approximating, and an approximation here would be **APKeep's idea,
+not VeriFlow's** — which `VERIFLOW_PLAN.md` §4.6 already refuses to do for
+exactly this reason. **So there is no fix to apply on the engine side.** The
+open question is where the value comes from.
+
+### What the value is
+
+16 bits wide, and `packet.ether.vlan` is the one 16-bit field at offset 0 of
+`wl_cloud`'s mapping (`cloud_tf.py` `CLOUD_MAPPING` / `_FIELD_SIZES`,
+`netplumber/mapping.py`). The shape — one concrete bit at position 1, every
+other bit wildcard — is a **single-bit test inside the VLAN field**, not a VLAN
+id, which would be a concrete value in the low 12 bits.
+
+`wl_cloud`'s source is SMT-LIB bitvector relations (`cloud-tf/*.smt2`,
+`(_ BitVec 16)` for the VLAN slot), where a single-bit test is the natural
+thing to write and converts straight to this mask.
+
+### Narrowing, from disk
+
+The two candidate origins in F3 are distinguishable, and one side is already
+cleared. Scanning `wl_cloud`'s generated `routes.json`, `topology.json` and
+`sources.json` with the survey's own `classify_vector` finds **no ternary value
+at all**. Ingress demultiplexing (`CLOUD_BENCH_PLAN.md` §2.8) is a
+topology/source-side encoding, so had it manufactured this value it would be
+visible there. It is not.
+
+That leaves the rules derived from the transfer functions at run time, which
+are not on disk — so **the evidence so far favours "the value is in the
+workload", and therefore that `feature_survey`'s "no rule in the suite carries
+a ternary value" is over-generalised** rather than that an adapter invented it.
+
+Not yet conclusive: confirming it means generating `wl_cloud`'s rules, which is
+a run. **Queued:** `python3 bench/feature_survey.py --bench bench/wl_cloud`
+after the campaign, which answers it directly — the survey's classifier already
+labels this exact string `ternary`, so if the rules carry it the survey will
+say so.
+
+### Why this matters beyond one cell
+
+The survey's conclusion is load-bearing: item 31 cites it as what makes
+range-based engines comparable on this suite at all. If `wl_cloud` carries a
+ternary value, then VeriFlow-FR's refusal is a **tool limitation honestly
+reported** and belongs in `ACCOMMODATIONS.md` as such — `wl_cloud × vf` is a
+cell no range-based engine can have, which is a finding about the workload and
+the tool family, not a defect in either.

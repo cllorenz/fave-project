@@ -124,6 +124,25 @@ if fits 3 "phase C probes"; then
     done
 fi
 
+# ---------------------------------------------------- the investigation ----
+# The owner asked (2026-10-03) for the campaign's disagreements to be drilled
+# into, fixed where the fix is straightforward, and the affected cells re-run.
+# Those verification runs are CHEAP -- a wl_example cell is ~2 s -- but they
+# must not run beside a measured cell (§6), and the only gap long enough and
+# late enough to be useful is here: after the probes, before the 24 h run that
+# would otherwise occupy the rest of the budget.
+#
+# Authored during phases A/B, once the BDD cells have said which engine is the
+# outlier. Absent, this is a no-op, so the campaign is unaffected if it is
+# never written.
+if [ -x "$CAMP/investigate.sh" ]; then
+    say "--- investigation: verification runs for the campaign's findings ---"
+    bash "$CAMP/investigate.sh" >>"$LOG" 2>&1
+    say "investigation exit=$?"
+else
+    say "no investigate.sh; skipping the investigation slot"
+fi
+
 # The one full 24 h run. Needs its whole limit plus margin, or it is not begun.
 OUTC=$FAVE/bench/wl_cloud/eval/bdd_v5_$DATE.json
 if [ -f "$OUTC" ]; then
