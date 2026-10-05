@@ -1,0 +1,139 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)', 'engine': 'bdd', 'faithful_vlan': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00011897087097167969 seconds.
+worker: completed task switch in 4.696846008300781e-05 seconds.
+worker: completed task switch in 4.696846008300781e-05 seconds.
+worker: completed task switch in 2.0503997802734375e-05 seconds.
+worker: completed task switch in 2.1219253540039062e-05 seconds.
+worker: completed task switch in 2.9325485229492188e-05 seconds.
+worker: completed task switch in 0.00014972686767578125 seconds.
+worker: completed task switch in 2.7418136596679688e-05 seconds.
+worker: completed task switch in 3.790855407714844e-05 seconds.
+worker: completed task switch in 3.361701965332031e-05 seconds.
+worker: completed task switch in 2.4557113647460938e-05 seconds.
+worker: completed task switch in 4.9591064453125e-05 seconds.
+worker: completed task switch in 1.4543533325195312e-05 seconds.
+worker: completed task switch in 2.2172927856445312e-05 seconds.
+worker: completed task switch in 1.811981201171875e-05 seconds.
+worker: completed task switch in 1.4543533325195312e-05 seconds.
+worker: completed task switch in 1.239776611328125e-05 seconds.
+worker: completed task switch in 1.621246337890625e-05 seconds.
+worker: completed task switch in 2.4080276489257812e-05 seconds.
+worker: completed task switch in 2.2649765014648438e-05 seconds.
+worker: completed task switch in 3.9577484130859375e-05 seconds.
+worker: completed task switch in 2.3365020751953125e-05 seconds.
+worker: completed task switch in 2.5510787963867188e-05 seconds.
+worker: completed task switch in 6.580352783203125e-05 seconds.
+worker: completed task switch in 2.47955322265625e-05 seconds.
+worker: completed task switch in 2.2649765014648438e-05 seconds.
+worker: completed task switch in 3.4332275390625e-05 seconds.
+worker: completed task switch in 2.384185791015625e-05 seconds.
+worker: completed task switch in 2.384185791015625e-05 seconds.
+worker: completed task switch in 3.361701965332031e-05 seconds.
+worker: completed task switch in 2.193450927734375e-05 seconds.
+worker: completed task switch in 2.7179718017578125e-05 seconds.
+worker: completed task switch in 3.361701965332031e-05 seconds.
+worker: completed task switch in 2.6464462280273438e-05 seconds.
+worker: completed task switch in 2.5272369384765625e-05 seconds.
+worker: completed task switch in 3.504753112792969e-05 seconds.
+worker: completed task switch in 1.2636184692382812e-05 seconds.
+worker: completed task switch in 1.4781951904296875e-05 seconds.
+worker: completed task switch in 1.5735626220703125e-05 seconds.
+worker: completed task switch in 1.239776611328125e-05 seconds.
+worker: completed task switch in 1.4781951904296875e-05 seconds.
+worker: completed task switch in 1.5974044799804688e-05 seconds.
+worker: completed task switch in 2.47955322265625e-05 seconds.
+worker: completed task switch in 3.0517578125e-05 seconds.
+worker: completed task switch in 4.2438507080078125e-05 seconds.
+worker: completed task switch in 1.239776611328125e-05 seconds.
+worker: completed task switch in 7.152557373046875e-05 seconds.
+worker: completed task switch in 1.6689300537109375e-05 seconds.
+worker: completed task links in 0.002109527587890625 seconds.
+worker: completed task switch_command in 0.0008337497711181641 seconds.
+worker: completed task switch_command in 0.015068531036376953 seconds.
+worker: completed task switch_command in 0.0008261203765869141 seconds.
+worker: completed task switch_command in 0.00030350685119628906 seconds.
+worker: completed task switch_command in 0.013805389404296875 seconds.
+worker: completed task switch_command in 0.0004863739013671875 seconds.
+worker: completed task switch_command in 0.0014834403991699219 seconds.
+worker: completed task switch_command in 0.0029954910278320312 seconds.
+worker: completed task switch_command in 0.0005979537963867188 seconds.
+worker: completed task switch_command in 0.0013663768768310547 seconds.
+worker: completed task switch_command in 0.003232717514038086 seconds.
+worker: completed task switch_command in 0.0006487369537353516 seconds.
+worker: completed task switch_command in 0.00425410270690918 seconds.
+worker: completed task switch_command in 0.0029306411743164062 seconds.
+worker: completed task switch_command in 0.00021123886108398438 seconds.
+worker: completed task switch_command in 0.0044918060302734375 seconds.
+worker: completed task switch_command in 0.0022847652435302734 seconds.
+worker: completed task switch_command in 0.00017642974853515625 seconds.
+worker: completed task switch_command in 0.0022029876708984375 seconds.
+worker: completed task switch_command in 0.0030951499938964844 seconds.
+worker: completed task switch_command in 0.0008928775787353516 seconds.
+worker: completed task switch_command in 0.0022580623626708984 seconds.
+worker: completed task switch_command in 0.002451181411743164 seconds.
+worker: completed task switch_command in 0.0008985996246337891 seconds.
+worker: completed task switch_command in 0.002032041549682617 seconds.
+worker: completed task switch_command in 0.0020203590393066406 seconds.
+worker: completed task switch_command in 0.0005936622619628906 seconds.
+worker: completed task switch_command in 0.001581430435180664 seconds.
+worker: completed task switch_command in 0.0018351078033447266 seconds.
+worker: completed task switch_command in 0.0006115436553955078 seconds.
+worker: completed task switch_command in 0.0010733604431152344 seconds.
+worker: completed task switch_command in 0.0020613670349121094 seconds.
+worker: completed task switch_command in 0.000637054443359375 seconds.
+worker: completed task switch_command in 0.0010082721710205078 seconds.
+worker: completed task switch_command in 0.0015180110931396484 seconds.
+worker: completed task switch_command in 0.0006566047668457031 seconds.
+worker: completed task switch_command in 0.0073549747467041016 seconds.
+worker: completed task switch_command in 0.0033409595489501953 seconds.
+worker: completed task switch_command in 0.0002200603485107422 seconds.
+worker: completed task switch_command in 0.004203319549560547 seconds.
+worker: completed task switch_command in 0.0172727108001709 seconds.
+worker: completed task switch_command in 0.00022482872009277344 seconds.
+worker: completed task switch_command in 0.0025482177734375 seconds.
+worker: completed task switch_command in 0.004668712615966797 seconds.
+worker: completed task switch_command in 0.02802562713623047 seconds.
+worker: completed task switch_command in 0.0011801719665527344 seconds.
+worker: completed task switch_command in 0.001821756362915039 seconds.
+worker: completed task switch_command in 0.00580286979675293 seconds.
+worker: completed task probe in 0.00011968612670898438 seconds.
+worker: completed task probe in 2.5033950805664062e-05 seconds.
+worker: completed task probe in 1.5735626220703125e-05 seconds.
+worker: completed task probe in 1.430511474609375e-05 seconds.
+worker: completed task probe in 2.2172927856445312e-05 seconds.
+worker: completed task probe in 1.33514404296875e-05 seconds.
+worker: completed task probe in 1.52587890625e-05 seconds.
+worker: completed task probe in 1.3828277587890625e-05 seconds.
+worker: completed task probe in 1.9073486328125e-05 seconds.
+worker: completed task probe in 1.4066696166992188e-05 seconds.
+worker: completed task probe in 1.3828277587890625e-05 seconds.
+worker: completed task probe in 1.4066696166992188e-05 seconds.
+worker: completed task probe in 1.33514404296875e-05 seconds.
+worker: completed task probe in 1.9073486328125e-05 seconds.
+worker: completed task probe in 1.3113021850585938e-05 seconds.
+worker: completed task probe in 1.2636184692382812e-05 seconds.
+worker: completed task links in 0.0015294551849365234 seconds.
+worker: completed task generators in 0.00020837783813476562 seconds.
+worker: completed task links in 7.939338684082031e-05 seconds.
+apkeep: 2050 out-stage rule(s) can never fire -- shadowed by a higher-priority rule on the same arrival port
+apkeep: out stage emitted as 681 element(s) carrying 2731 rule(s) -- the cost the P7a collapse used to avoid
+apkeep: in.coza_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.coza_rtr@500001, in.coza_rtr@500012
+apkeep: in.cozb_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.cozb_rtr@600001, in.cozb_rtr@600010
+apkeep: in.goza_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.goza_rtr@700001, in.goza_rtr@700007
+apkeep: in.gozb_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.gozb_rtr@800001, in.gozb_rtr@800007
+apkeep: in.soza_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.soza_rtr@1300001, in.soza_rtr@1300010
+apkeep: in.sozb_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.sozb_rtr@1400001, in.sozb_rtr@1400010
+apkeep: ingress demultiplexing split 6 device(s) into 12 element(s) -- a representational cost of the AP model, not a change to the FaVe model
+apkeep: in.bbra_rtr has 8 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.bbrb_rtr has 7 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.boza_rtr has 76 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.bozb_rtr has 75 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.poza_rtr has 68 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.pozb_rtr has 119 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.roza_rtr has 38 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.rozb_rtr has 38 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.yoza_rtr has 94 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)
+apkeep: in.yozb_rtr has 65 ingress-restricted forwarding rule(s), accounted for by faithful VLAN admission (per-port ACLElement)

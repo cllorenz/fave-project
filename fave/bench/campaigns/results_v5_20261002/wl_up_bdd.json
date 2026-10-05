@@ -1,0 +1,90 @@
+{
+  "workload": "wl_up",
+  "backend": "apkeep",
+  "engine": "bdd",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-03T16:02:46.516407+00:00",
+  "git_head": "1076563cdcaac05cf9038ddfe50ae448282c76b9",
+  "engine_commit": "a7eb8ad29a565d476067d88a62ea89e8421f8105 2026-10-01",
+  "apkeep_engine": "bdd",
+  "engine_options": "--apkeep-engine bdd",
+  "allow_out_iface": true,
+  "driver": "bench/wl_up/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 362.663,
+  "memory_stop": null,
+  "peak_rss_mb": 1900,
+  "peak_rss_by_process_mb": {
+    "python3": 104,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 1678,
+    "sleep": 2,
+    "pandoc": 109,
+    "pdflatex": 35
+  },
+  "least_available_mb": 60863,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0,
+    "pandoc": 0,
+    "pdflatex": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_up_bdd.status.jsonl",
+  "check_compliance_s": [
+    353.72069215774536
+  ],
+  "switch_command_s": 0.015064716339111328,
+  "switch_commands": 159,
+  "gc": {
+    "pauses": 280,
+    "full_pauses": 8,
+    "pause_s": 0.769,
+    "max_heap_after_gc_mb": 1027,
+    "max_heap_committed_mb": 1512
+  },
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "checks": 18811,
+  "verdict_valid": true,
+  "apkeep_jar": "e3785fb1b2aacb87eeea72f8ba7ab2ff482c585b686547435c25c2e58a29afa7",
+  "ndd_jar": "8b26514c80df95aece619086b84c9618fa3f79bf83d0acab94f1a53a28cbbe75",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)",
+    "engine": "bdd",
+    "faithful_vlan": true
+  },
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)",
+  "expected_violations": null,
+  "outcome": "measured"
+}

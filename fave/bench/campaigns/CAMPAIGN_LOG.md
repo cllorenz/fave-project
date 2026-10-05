@@ -137,3 +137,43 @@ close to the whole remaining budget.
    reading code and the artifacts already on disk. §6's serialisation rule
    forbids running cells beside a measured one, and nothing here does. Anything
    needing a run is queued for after the campaign.
+
+## Status 2026-10-05 05:00Z — phase A at 50/51, and what the budget bought
+
+**Still running, nothing stopped.** `wl_i2_bdd` is the last cell of phase A,
+12.85 h into its declared 24 h limit.
+
+**Three cells consumed the campaign.** Of 49.0 h of measured wall over 50
+cells, **48 h is three cells** and the other 47 total about one hour:
+
+| cell | | §5.1 said |
+|---|---|---|
+| `wl_i2_ad6` | **24.00 h, `did_not_finish`, wall** | ✓ (`--lite-acyclic` mandatory) |
+| `wl_stanford_bdd` | **24.00 h, `did_not_finish`, wall** | ✓ |
+| `wl_i2_bdd` | 12.85 h so far, still running | ✓ |
+
+**That is the campaign's largest single result.** §5.1 is "the cheap matrix —
+**minutes per cell**", and §6 budgets phase A at 6–10 h. Three of its cells are
+24-hour did-not-finishes, every one of them marked ✓ (expected to complete) in
+the matrix. The triage in §5.0 was built on that matrix being right about which
+cells are cheap; on this machine it is wrong about three of them, and the error
+is not small — it is the difference between 10 h and 72 h.
+
+**Consequences for the rest of the plan, stated plainly.**
+
+* **Phases B and C did not run and will not.** 110 minutes of the 64 h budget
+  remain and the driver's guards need 5 h for B and 26 h for C. Those guards
+  are doing the right thing: starting `wl_cloud`'s 24 h run with two hours left
+  would produce a cut-off run, and §8.1 is explicit that such a run has not been
+  shown not to finish. **No `wl_berkeley` k=1, no `wl_cloud` BDD, no faithful
+  probes.** None of them is recorded as anything; they were never started.
+* **The F1 fix is written and NOT applied.** Applying it now means running
+  APKeep cells beside `wl_i2_bdd`, which §6 forbids for a measured cell.
+* The investigation slot is in the driver on disk but not in the *running*
+  driver (atomic rename), so it will not fire by itself.
+
+**What happens next without intervention:** `wl_i2_bdd` runs to completion or
+to its 24 h wall (~16:00Z today), the driver skips B, C and phase E on its
+guards, and stops. That is ~9 h past the 64 h budget, and it is the correct
+behaviour under the owner's "do not stop anything prematurely" — the cell was
+started inside the budget and its limit was declared before it began.
