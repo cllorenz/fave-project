@@ -276,3 +276,187 @@ NetPlumber. **Declared before the re-run:** the fix is judged by whether APKeep
 matches the other engines across all three workloads, not by `wl_example`
 alone. If `wl_up` breaks, the right conclusion is that item 13a's accommodation
 is wrong for DROP rules too — not that this patch should be reverted to hide it.
+
+---
+
+# F1 — the "solution" above is WRONG. Corrected by experiment, 2026-10-05
+
+**The section headed "F1 — SOLVED" is refuted.** The fix it proposed was
+applied, tested and reverted. It did not work, and it did damage:
+
+| cell | before | after the patch | other engines |
+|---|---:|---:|---|
+| `wl_example_ndd` | 1/10 | **1/10 — unchanged** | np/vf/ad6: 0/10 |
+| `wl_example_bdd` | 1/10 | **1/10 — unchanged** | np/vf/ad6: 0/10 |
+| `wl_up_ndd` | 0/18811 | **3025/18811** | np: 0/18811 |
+| `wl_up_bdd` | 0/18811 | **3025/18811** | np: 0/18811 |
+| `wl_tum_ndd` | 0/— | 0/— unchanged | — |
+| `wl_tum_bdd` | 0/— | 0/— unchanged | — |
+
+So the `out_port`-qualified skip at `apkeep/adapter.py:2195` is **not the cause
+of F1**, and the patch is reverted.
+
+### What the failed experiment nevertheless established
+
+It was not wasted; it bought three facts that narrow the problem.
+
+1. **The missing ACCEPT is not why `office` cannot reach `internet`.** Emitting
+   that rule port-agnostically put it back into APKeep's model and the verdict
+   did **not** move. Whatever blocks the path in the APKeep model is downstream
+   of the filter rule — the routing or the probe attachment, not the permit.
+   This refutes a hypothesis that looked airtight on a reading of the code.
+2. **The skip is load-bearing, and for a reason nobody had written down.**
+   `wl_up`'s two `-o` rules are `-o 1 -d 2001:db8:abc::0/48 -j DROP`, and that
+   /48 is `wl_up`'s **entire address space** (136 of its 137 sources). They are
+   anti-spoofing: *do not emit traffic claiming our own prefix out of the
+   uplink.* Strip the qualifier and they read "drop everything addressed to
+   us", which is the 3025 violations. Any future change here must keep that
+   case working; the skip's comment ("redundant with routing") does not say so.
+3. **ACCEPT and DROP need opposite treatments.** Skipping is wrong for an
+   `-o` ACCEPT (it removes a permit) and right-by-accident for an `-o` DROP
+   (it drops a restriction that would otherwise over-apply). No single rule —
+   neither "skip" nor "ignore the qualifier" — is correct for both, which is
+   why there is no one-line fix here.
+
+### A separate finding this turned up: item 13a's premise looks wrong
+
+`iptables/generator.py`'s `OutInterfaceUnsupported` message justifies the whole
+accommodation by asserting that FaVe evaluates filter chains before routing, so
+`out_port` "is still unset when the rule is evaluated and is then overwritten by
+the routing table — the match would constrain nothing".
+
+If that were true of NetPlumber, NetPlumber would over-restrict on `wl_up`
+exactly as the patch did. **It does not.** NetPlumber answers 0 violations on
+`wl_up` (anti-spoofing does not touch internal traffic) *and* reports
+`office → internet` as reachable on `wl_example` (the ACCEPT applies). It gets
+both the DROP and the ACCEPT case right, which is not the behaviour of an
+engine for which the match "constrains nothing".
+
+So item 13a's stated justification does not describe FaVe's own primary engine.
+That matters beyond this bug: the accommodation is declared in
+`ACCOMMODATIONS.md` terms as a known infidelity affecting **all** backends, and
+on this evidence it is a limitation of the **APKeep adapter alone**. The three
+workloads it is invoked for (`wl_example`, `wl_up`, `wl_tum`) may not need it at
+all on NetPlumber, VeriFlow-FR or ad6.
+
+### Status
+
+**F1 is OPEN. Root cause unknown.** What is known: it is in the shared APKeep
+adapter (BDD and NDD, forks of different upstreams, agree exactly); it is not
+the unconstrained check, not the universal probe, not a differing
+accommodation flag, and not the `out_port` skip. The next candidate — supported
+by fact 1 above but **not tested** — is the FIB side: `wl_example`'s default
+route (`pgf`, priority 65535, empty match, `fd=pgf.1`) is what carries
+`office → internet`, and `office → dmz`, which APKeep gets right, uses a
+specific route instead.
+
+---
+
+# Options, per finding
+
+Nothing below is applied. Each option is stated with what it costs and what it
+gives up, and every one of them is the owner's call because each trades
+fidelity against comparability in a different place.
+
+## F1 — APKeep disagrees with four engines on `wl_example` (root cause OPEN)
+
+**O1a — Finish the diagnosis before deciding anything.** Test the FIB
+hypothesis: dump what the adapter emits for `wl_example` (`+ fib` / `+ filter`
+rule strings) and check whether the default route — `pgf` priority 65535, empty
+match, `fd=pgf.1` — reaches APKeep at all. Cost: hours, no runs of consequence.
+*For:* every other option is a guess until this is known, and this session has
+already spent one wrong guess. *Against:* nothing, except that it defers the
+decision.
+**Recommended. It is cheap and it is the only option that cannot be wrong.**
+
+**O1b — Exclude `wl_example` from the APKeep columns of the comparison.** Cite
+it as a known open disagreement. *For:* honest, costs nothing, and the workload
+is a toy whose purpose is illustration. *Against:* the disagreement is almost
+certainly not confined to `wl_example` — it is the *smallest* workload, which is
+why it is visible there; the same defect on `wl_up` or `wl_cloud` would be one
+line among thousands. Suppressing the one place it is tractable is the opposite
+of what the suite is for.
+
+**O1c — Treat the majority (4 engines) as the verdict and mark APKeep wrong.**
+*For:* it is what the evidence says, and it keeps the table complete.
+*Against:* **a majority is not an oracle** — F4-R is this campaign's own lesson
+about reading a direction from too few engines, and `wl_example` has no oracle
+at all. It would also publish "APKeep is wrong" without knowing why, which is
+exactly the claim a reviewer will ask about.
+
+## F1-adjacent — item 13a's premise appears false for NetPlumber
+
+**O13a-1 — Re-derive the accommodation per backend.** Test whether `-o` is
+actually inexpressible on NetPlumber, VeriFlow-FR and ad6, rather than assuming
+it from the generator's comment. If it is expressible, `FAVE_ALLOW_OUT_IFACE`
+should not be required for them, and `ACCOMMODATIONS.md` should record a
+**per-backend** limitation instead of a suite-wide one. Cost: small — three
+workloads, cheap cells. *For:* the current declaration over-states the
+infidelity, and item 31's whole point is that an accommodation is declared
+accurately or not at all. *Against:* it reopens a decision that was closed, and
+the three affected workloads' numbers would need re-stating.
+**Recommended; this is the most under-valued finding of the investigation.**
+
+**O13a-2 — Leave it, and note the discrepancy.** *For:* zero cost. *Against:*
+`ACCOMMODATIONS.md` then carries a declared infidelity whose justification is
+contradicted by the engine it is declared against, which is worse than an
+undeclared one — a reader who checks it finds it wrong.
+
+## F3 — `wl_cloud × VeriFlow-FR`: a ternary value it cannot represent
+
+**There is no fix, and that is the finding.** The refusal is correct and
+deliberate (`veriflow.cc:54`, pinned by `literature_unit.cc`): a ternary value
+that is not a prefix is not an interval. Making it accept would be
+approximating, which is APKeep's idea and not VeriFlow's — `VERIFLOW_PLAN.md`
+§4.6 already refuses that trade.
+
+**O3a — Declare `wl_cloud × vf` an empty cell with a stated reason**, in
+`ACCOMMODATIONS.md`, as a *reducing* limitation of range-based engines.
+*For:* truthful, and a genuine comparative result — "this workload is outside
+the model class of interval-based verifiers" is a finding about the tool
+family, not a failure of the harness. *Against:* leaves a hole in the matrix.
+**Recommended.**
+
+**O3b — First settle whether the value is workload content or adapter-made.**
+Run `python3 bench/feature_survey.py --bench bench/wl_cloud`. Minutes. The
+on-disk evidence (no ternary in the generated routes, topology or sources)
+already points at workload content, which would mean `feature_survey`'s "no
+rule in the suite carries a ternary value" is over-generalised and that
+item 31 leans on an over-generalised finding. *For:* O3a's wording depends on
+the answer. *Against:* none. **Do this before O3a.**
+
+## F6 — VeriFlow-FR reports 28 diagonal self-reachability violations on `wl_up`
+
+All 28 are `source.X → probe.X`, zero off-diagonal, so this is a semantic
+disagreement about self-reachability, not forwarding.
+
+**O6a — Decide the diagonal at the check generator and regenerate.**
+`_convert_policy_to_checks` already has `--strict`, which exists to decide
+"whether a filled diagonal means anything". Settle it there and the question
+stops being per-engine. *For:* fixes the class, not the instance; the option
+already exists. *Against:* changes `wl_up`'s check count again — and `wl_up`'s
+denominator has already moved once (11,902 → 18,811, F5), so every figure
+quoting it moves a second time. **Recommended, but it must be done before any
+`wl_up` number is published, not after.**
+
+**O6b — Declare VeriFlow-FR's self-reachability semantics in
+`ACCOMMODATIONS.md`** and leave the check set alone. *For:* cheapest; no
+denominator churn. *Against:* it records a disagreement as a property of one
+tool when it is really an unanswered question about the workload — and the
+other two engines pass those 28 checks by not asking, rather than by analysis.
+
+**O6c — Get a third and fourth opinion first.** ad6 and BDD both ran `wl_up` in
+phase A; their verdicts on those 28 checks are already on disk and were not
+examined. *For:* free, and it decides whether VeriFlow-FR is the outlier or the
+only engine answering the question. *Against:* none.
+**Do this first — it is free and it may settle O6a vs O6b outright.**
+
+## F7 — ad6 answered `wl_cloud`, which §5.1 says it refuses
+
+**O7a — Correct §5.1's matrix and re-check §1.7.2's structural claim.** The
+matrix cell says "refuses (structural)"; ad6 answered, agreeing with NDD
+line-for-line. *For:* a documented refusal that does not happen is exactly the
+claim a reviewer checks, and the agreement suggests nothing was being protected
+against. *Against:* requires finding out whether §1.7.2's reason was fixed or
+mis-scoped — archaeology.
+**Recommended; the matrix is cited and is currently wrong.**

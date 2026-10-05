@@ -1,0 +1,83 @@
+{
+  "workload": "wl_tum",
+  "backend": "apkeep",
+  "engine": "ndd",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-05T16:16:09.207877+00:00",
+  "git_head": "80f28c1b1f27e3902d3dab09c1444a4301548592",
+  "engine_commit": "a7eb8ad29a565d476067d88a62ea89e8421f8105 2026-10-01",
+  "apkeep_engine": "ndd",
+  "engine_options": "--apkeep-engine ndd",
+  "allow_out_iface": true,
+  "driver": "bench/wl_tum/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 4.197,
+  "memory_stop": null,
+  "peak_rss_mb": 1936,
+  "peak_rss_by_process_mb": {
+    "python3": 141,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 1797,
+    "sleep": 1
+  },
+  "least_available_mb": 60593,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_tum_ndd.status.jsonl",
+  "check_compliance_s": [],
+  "switch_command_s": null,
+  "switch_commands": 0,
+  "gc": {
+    "pauses": 6,
+    "full_pauses": 2,
+    "pause_s": 0.018,
+    "max_heap_after_gc_mb": 1022,
+    "max_heap_committed_mb": 1112
+  },
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "verdict_valid": false,
+  "apkeep_jar": "1cee97f1928fcf1c4516c4c1fc66a67d1cfab63d8246ab1e4a03ff01d07d29a8",
+  "ndd_jar": "860e4a1a12c068ce216caf90903db2d5cf18f1e5e8ee6e97e9266206045e396d",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+    "engine": "ndd",
+    "faithful_vlan": true
+  },
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+  "expected_violations": null,
+  "outcome": "error"
+}

@@ -1,0 +1,70 @@
+[
+ {
+  "name": "wl_example_ndd",
+  "workload": "wl_example",
+  "backend": "apkeep",
+  "apkeep-engine": "ndd",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "expect-violations": 0
+ },
+ {
+  "name": "wl_tum_ndd",
+  "workload": "wl_tum",
+  "backend": "apkeep",
+  "apkeep-engine": "ndd",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_up_ndd",
+  "workload": "wl_up",
+  "backend": "apkeep",
+  "apkeep-engine": "ndd",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_example_bdd",
+  "workload": "wl_example",
+  "backend": "apkeep",
+  "apkeep-engine": "bdd",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "expect-violations": 0
+ },
+ {
+  "name": "wl_tum_bdd",
+  "workload": "wl_tum",
+  "backend": "apkeep",
+  "apkeep-engine": "bdd",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_up_bdd",
+  "workload": "wl_up",
+  "backend": "apkeep",
+  "apkeep-engine": "bdd",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ }
+]

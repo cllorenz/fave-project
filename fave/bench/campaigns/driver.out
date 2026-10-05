@@ -1,3 +1,13 @@
 [2026-10-02T15:03:58Z] === campaign driver up, 63 h of budget left ===
 [2026-10-02T15:03:58Z]     net_plumber: /home/ubuntu/fave-project/net_plumber/build/net_plumber
 [2026-10-02T15:03:58Z] --- phase A: the cheap matrix, 51 cells ---
+[2026-10-05T16:03:01Z] phase A exit=0 (51 result files)
+[2026-10-05T16:03:01Z] SKIP phase B (wl_berkeley drill) -- needs 5 h, -9 h left before the budget deadline.
+[2026-10-05T16:03:01Z]      NOT a did-not-finish: this phase was never started (§8.1).
+[2026-10-05T16:03:01Z] SKIP phase C probes -- needs 3 h, -9 h left before the budget deadline.
+[2026-10-05T16:03:01Z]      NOT a did-not-finish: this phase was never started (§8.1).
+[2026-10-05T16:03:01Z] SKIP phase C (bdd x wl_cloud, 24 h) -- needs 26 h, -9 h left before the budget deadline.
+[2026-10-05T16:03:01Z]      NOT a did-not-finish: this phase was never started (§8.1).
+[2026-10-05T16:03:01Z] SKIP phase E (the deferred vf-plain cells) -- needs 25 h, -9 h left before the budget deadline.
+[2026-10-05T16:03:01Z]      NOT a did-not-finish: this phase was never started (§8.1).
+[2026-10-05T16:03:01Z] === campaign driver done, -9 h of budget left ===

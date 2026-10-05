@@ -111,3 +111,15 @@
 [run ] wl_airtel2_bdd               wl_airtel2 --apkeep-engine bdd --backend apkeep --expect-violations 0 --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_airtel2_bdd.json
 {"workload": "wl_airtel2", "engine": "bdd", "status": "completed", "outcome": "correct", "limit_class": "v5", "limit_tripped": "none", "wall_s": 4.444, "peak_rss_mb": 892, "violations": 0, "checks": 256, "verdict_valid": true}
 [run ] wl_i2_bdd                    wl_i2 --apkeep-engine bdd --backend apkeep --limit-class v5 --limit-rss 32768 --limit-wall 86400 --memory-floor 2000 --status-every 60 --out /home/ubuntu/fave-project/fave/bench/campaigns/results_v5_20261002/wl_i2_bdd.json
+{"workload": "wl_i2", "engine": "bdd", "status": "deadline", "outcome": "did_not_finish", "limit_class": "v5", "limit_tripped": "wall", "wall_s": 86400.655, "peak_rss_mb": 2883, "violations": null, "checks": 72, "verdict_valid": false}
+queue: 0 skipped, 51 run, 9 of those non-zero
+[2026-10-05T16:03:01Z] phase A exit=0 (51 result files)
+[2026-10-05T16:03:01Z] SKIP phase B (wl_berkeley drill) -- needs 5 h, -9 h left before the budget deadline.
+[2026-10-05T16:03:01Z]      NOT a did-not-finish: this phase was never started (§8.1).
+[2026-10-05T16:03:01Z] SKIP phase C probes -- needs 3 h, -9 h left before the budget deadline.
+[2026-10-05T16:03:01Z]      NOT a did-not-finish: this phase was never started (§8.1).
+[2026-10-05T16:03:01Z] SKIP phase C (bdd x wl_cloud, 24 h) -- needs 26 h, -9 h left before the budget deadline.
+[2026-10-05T16:03:01Z]      NOT a did-not-finish: this phase was never started (§8.1).
+[2026-10-05T16:03:01Z] SKIP phase E (the deferred vf-plain cells) -- needs 25 h, -9 h left before the budget deadline.
+[2026-10-05T16:03:01Z]      NOT a did-not-finish: this phase was never started (§8.1).
+[2026-10-05T16:03:01Z] === campaign driver done, -9 h of budget left ===
