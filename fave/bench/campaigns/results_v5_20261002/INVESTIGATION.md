@@ -460,3 +460,78 @@ claim a reviewer checks, and the agreement suggests nothing was being protected
 against. *Against:* requires finding out whether §1.7.2's reason was fixed or
 mis-scoped — archaeology.
 **Recommended; the matrix is cited and is currently wrong.**
+
+---
+
+# The two free options, executed 2026-10-05
+
+## O6c — done. VeriFlow-FR is alone, 1 against 4.
+
+ad6's and BDD's `wl_up` verdicts were already on disk and unexamined:
+
+| `wl_up` (18,811 checks) | violations | diagonal | off-diagonal |
+|---|---:|---:|---:|
+| NetPlumber | 0 | 0 | 0 |
+| NDD-APKeep | 0 | 0 | 0 |
+| BDD-APKeep | 0 | 0 | 0 |
+| ad6 | 0 | 0 | 0 |
+| **VeriFlow-FR 4+10** | **28** | **28** | **0** |
+
+Four engines across three independent families — header-space (NetPlumber),
+APKeep (BDD and NDD), and SAT (ad6) — report none. VeriFlow-FR alone reports
+28, all diagonal.
+
+**This shifts the recommendation from O6a to O6b.** With only NetPlumber and
+NDD it was open whether VeriFlow-FR was the one engine *asking* the question;
+at 1-against-4 the likelier reading is that **VeriFlow-FR's self-reachability
+semantics differ from every other engine in the suite**, which is a property of
+that engine and belongs in `ACCOMMODATIONS.md`. Changing the check generator
+(O6a) would move `wl_up`'s denominator a second time (F5) to accommodate one
+engine's reading — a high price on thin grounds.
+
+Stated with the caveat this campaign earned the hard way: **a majority is not
+an oracle** (F4-R). Four engines agreeing is evidence, not proof. But the
+asymmetry in cost between O6a and O6b is large, and the evidence now points one
+way rather than being balanced.
+
+## O3b — done, and it REVERSES this document's earlier lean on F3
+
+`python3 bench/feature_survey.py --bench bench/wl_cloud`:
+
+    packet.ipv4.destination   {'exact': 14, 'prefix': 1668}
+    packet.ipv4.source        {'prefix': 358}
+    packet.ipv6.proto         {'exact': 1131}
+    packet.upper.dport        {'exact': 382}
+    packet.upper.sport        {'exact': 353}
+
+**No ternary value anywhere, and no VLAN field at all** — across all 1,741
+rules and 86 tables.
+
+Earlier in this document I wrote that the evidence "favours the value being
+workload content, and therefore that `feature_survey`'s 'no rule in the suite
+carries a ternary value' is over-generalised". **That was wrong**, and it was
+wrong because absence from `routes.json`/`topology.json`/`sources.json` is weak
+evidence where the survey is direct evidence. The survey classifies this exact
+string as `ternary` and would have reported it.
+
+So:
+
+* `feature_survey`'s conclusion **stands** for `wl_cloud`;
+* `x1xxxxxxxxxxxxxx` is **manufactured between the rules and VeriFlow-FR**, not
+  present in the workload — the VLAN field does not even appear in what the
+  survey records the engines as being handed;
+* F3 therefore resolves to **fork-branch 2**: an adapter encoding that changes
+  the *kind* of value an engine is handed, which `ACCOMMODATIONS.md` requires to
+  be declared with its cost (item 31's rule 2: "Adapter encodings are
+  preprocessing too").
+
+**This also downgrades O3a.** `wl_cloud × vf` is *not* "a workload outside the
+model class of interval-based verifiers" — the workload is pure prefix/exact.
+It is **FaVe handing VeriFlow-FR a value the workload never contained**, which
+is a defect in FaVe's encoding and is very likely fixable. The next step is to
+find what inserts a VLAN slot into a workload that has no VLANs; `wl_cloud`'s
+mapping does carry `packet.ether.vlan` at offset 0 (`cloud_tf.py`
+`CLOUD_MAPPING`) while no rule constrains it, which is where to start.
+
+**Revised recommendation for F3: do not declare an accommodation yet.** It
+would record as a tool limitation something the evidence now says is ours.
