@@ -76,3 +76,36 @@ PREDICTIONS (§7, declared in advance, scored afterwards, never edited)
      so neither faithful cell is re-run.
      Falsified by: either probe outside 1.5x, which triggers its 24 h run --
      left for the owner, per the rule above.
+
+ADDENDUM 2026-10-06 -- WHEN THIS RAN, AND ONE THING THE COMMAND LINE OMITTED
+  Declared 2026-10-02; phase C was skipped by the driver's budget guard
+  ("needs 3 h, -9 h left" for the probes, "needs 26 h" for wl_cloud) and §7.1
+  scored P7 and P8 "NOT TESTED -- phase C never started". Run 2026-10-06, with
+  P7 and P8 UNEDITED.
+
+  THE HEAP IS PINNED TO -Xmx8g, WHICH THE COMMAND LINES ABOVE DO NOT SAY.
+  faithful_bdd_measure.py takes its heap from FAVE_JVM_XMX and records it; both
+  2026-09-26 counterparts record xmx: 8g. Unset, the JVM would take a quarter
+  of RAM -- 16 GB on this box -- and the probe would differ from its baseline
+  in TWO respects while the decision rule attributes the difference to one
+  ("within ~1.5x on rules and ap_num -> the recorded result stands").
+
+  This is not a change of plan; it is the heap the baselines were measured at,
+  made explicit. Phase B had just demonstrated the cost of leaving it implicit:
+  its P6 compared a 32 GB box at -Xmx16g against a 64 GB box at -Xmx20g under a
+  15% band, and the one figure that moved 28.5% cannot be attributed to the
+  machine rather than the heap. Recorded here BEFORE the probes run rather than
+  explained afterwards.
+
+  WHAT WOULD MAKE THIS WRONG: if the baselines' 8g were itself the binding
+  constraint -- i.e. if these probes are heap-bound rather than merge-bound --
+  then matching it reproduces a limitation instead of measuring staleness. The
+  evidence they are not: §5.3 measures the build MERGE-DOMINATED,
+  merge_ms/ppm_ms = 7.3x on stanford and 31.4x on i2, and the baselines record
+  bdd_mem_mib 375.7 on both -- 4.6% of an 8 GB heap. A run that is using 0.4 GB
+  of 8 is not bound by the 8.
+
+  THE PROBES ARE EXPECTED TO END AT status: deadline. That is their DECLARED
+  limit doing its job, not a failure: a probe is a 1 h window on a cell already
+  known not to finish, and §8.1's reportable did-not-finish is exactly what it
+  should record.
