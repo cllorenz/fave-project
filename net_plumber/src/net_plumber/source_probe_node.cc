@@ -189,8 +189,38 @@ void SourceProbeNode<T1, T2>::absorb_src_flow(typename list< Flow<T1, T2> *>::it
   Node<T1, T2>::absorb_src_flow(s_flow, first);
 }
 
+/*
+ * LEGACY_CHECKS -- the probe-condition technique, OFF BY DEFAULT.
+ *
+ * `update_check` / `start_probe` evaluate a probe's `filter` and `test`
+ * conditions (Condition, PathCondition, PortSpecifier, ...) and report through
+ * `probe_callback`. That is the ORIGINAL compliance mechanism and it is no
+ * longer how FaVe decides anything.
+ *
+ * WHAT ACTUALLY DECIDES COMPLIANCE is `NetPlumber::check_compliance` -- a
+ * FORWARD analysis over the reachability trees, which walks the destination
+ * node's `source_flow` and tests source identity and header-space overlap. It
+ * never consults a probe's `test`.
+ *
+ * And nothing consumes what this computes: `rpc_handler`'s `add_source_probe`
+ * passes `nullptr` for the callback, so the constructor substitutes
+ * `default_probe_callback`, whose whole body is a LOG4CXX_WARN. So the
+ * condition evaluation ran on every probe creation and every flow
+ * add/modify/delete, and its only observable effect was a log line -- while
+ * `PathCondition::check` is a backwards walk over a flow's provenance with a
+ * decision-point stack, i.e. not cheap.
+ *
+ * Retained, compiled and unit-tested (`conditions_unit.cc` drives the classes
+ * directly, so it is unaffected by this guard) rather than deleted, so the
+ * technique can be revived or removed deliberately. Build with
+ * `-DLEGACY_CHECKS` to re-enable the evaluation.
+ */
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::update_check(Flow<T1, T2> *f, PROBE_FLOW_ACTION action) {
+#ifndef LEGACY_CHECKS
+  (void)f; (void)action;   // see the LEGACY_CHECKS note above
+  return;
+#else
   /*
    * 0: add
    * 1: modified
@@ -288,6 +318,10 @@ void SourceProbeNode<T1, T2>::update_check(Flow<T1, T2> *f, PROBE_FLOW_ACTION ac
   }
 }
 
+#endif  // LEGACY_CHECKS
+}
+
+
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::start_probe() {
   NetPlumber<T1, T2>* n = (NetPlumber<T1, T2> *)this->plumber;
@@ -295,6 +329,9 @@ void SourceProbeNode<T1, T2>::start_probe() {
   n->set_last_event(e);
   this->state = STARTED;
 
+#ifndef LEGACY_CHECKS
+  return;   // see the LEGACY_CHECKS note above
+#else
   for (auto const &flow: this->source_flow) {
     if (!filter->check(flow)) continue;
     bool c = test->check(flow);
@@ -317,6 +354,10 @@ void SourceProbeNode<T1, T2>::start_probe() {
     );
   this->state = RUNNING;
 }
+
+#endif  // LEGACY_CHECKS
+}
+
 
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::stop_probe() {
