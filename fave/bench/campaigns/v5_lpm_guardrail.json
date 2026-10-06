@@ -1,0 +1,134 @@
+[
+ {
+  "name": "wl_cloud_np_faithful",
+  "workload": "wl_cloud",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_cloud_np_inverted",
+  "workload": "wl_cloud",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "invert-lpm": true
+ },
+ {
+  "name": "wl_cloud_vf_faithful",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_cloud_vf_inverted",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "invert-lpm": true
+ },
+ {
+  "name": "wl_stanford_np_faithful",
+  "workload": "wl_stanford",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_stanford_np_inverted",
+  "workload": "wl_stanford",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "invert-lpm": true
+ },
+ {
+  "name": "wl_stanford_vf_faithful",
+  "workload": "wl_stanford",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_stanford_vf_inverted",
+  "workload": "wl_stanford",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "invert-lpm": true
+ },
+ {
+  "name": "wl_i2_np_faithful",
+  "workload": "wl_i2",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_i2_np_inverted",
+  "workload": "wl_i2",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "invert-lpm": true
+ },
+ {
+  "name": "wl_i2_vf_faithful",
+  "workload": "wl_i2",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_i2_vf_inverted",
+  "workload": "wl_i2",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "invert-lpm": true
+ }
+]

@@ -1,0 +1,116 @@
+THE LPM GUARDRAIL -- MEASUREMENT_RUN_PLAN.md §5.4, OPEN SINCE 2026-09-22
+========================================================================
+declared 2026-10-06, BEFORE the run. queue: ../v5_lpm_guardrail.json, 12 cells.
+
+THE QUESTION, and whose it is
+-----------------------------
+"A FIB workload must prove its evidence can see LPM" (owner, 2026-09-22). The
+check: invert the ordering so the SHORTEST prefix wins, and re-run. If the
+verdict does not change, the workload's gating evidence is blind to rule
+priority -- it would have passed just as well against a model that forwards
+every packet by its default route. wl_deltanet failed exactly this and needed a
+dedicated guard.
+
+This is NOT a question about an engine. It is a question about a CHECK SET.
+
+WHY IT HAS NEVER BEEN RUN
+-------------------------
+§6 defines phase A as "§5.1's cheap matrix + faithful variants + §5.4's LPM
+guardrail". The queue that shipped, v5_phase_a.json, contained only the matrix.
+Neither absence is visible from the queue, and prediction 11 -- "at least one of
+the three inversions does not change the verdict" -- was unfalsifiable from the
+start, which is how §7.1 scored it.
+
+There was also no mechanism. bench/stanford_priority_check.py looks like one and
+says in its own docstring that it stopped being one in 2026-09: the FIB
+re-prioritisation moved from generation time into the adapter, which orders BOTH
+of its columns, so its A/B is a tautology. Its 10 -> 165 result is a real
+measured fact from when it did work, and is not re-measured here.
+
+WHAT IS RUN
+-----------
+Three workloads, both arms, on the two engines that order a declared-LPM table
+themselves. 12 cells.
+
+    wl_cloud, wl_stanford, wl_i2   x   np, vf   x   faithful, inverted
+
+Both arms are run even though the faithful arm exists in phase A, because the
+comparison has to be between two cells from ONE build. That is not a hypothetical
+concern here: the faithful arm of this very experiment was invalidated once
+already today by the tree being edited under a running queue.
+
+apkeep and ad6 are absent, and `build_engine` REFUSES --invert-lpm on them
+rather than ignoring it. APKeep resolves longest prefix inside its own
+ForwardElement trie; ad6 orders at translation. Neither would apply the
+inversion, and a cell that did not apply it reports an unchanged verdict -- which
+this experiment reads as "the check set is blind to LPM". Every accidental route
+to a null result points at the same conclusion, and that conclusion retires a
+guard, so the accidental routes are closed rather than noted.
+
+THE DENOMINATOR
+---------------
+An unchanged verdict is evidence about the check set ONLY if something was in
+fact reordered. So each cell carries the count:
+
+* np   -- `worker: lpm ordering: <table>, <n> rules, SHORTEST-first` per
+          declared table, in the cell's own aggregator.log.
+* vf   -- `vf_lpm_tables_ordered` and `vf_lpm_rules_ordered` in the backend
+          stamp.
+
+A cell whose denominator is 0 says NOTHING about its check set and is reported
+as "not applicable", never as "the guard passed".
+
+PREDICTIONS (§7, scored afterwards, never edited)
+-------------------------------------------------
+G0  Every inverted cell reorders at least one table. Expected non-zero
+    denominators: wl_stanford 16 tables (its `mid` stage, measured by
+    test_table_semantics), wl_i2 9 (its `out` stage). wl_cloud is NOT KNOWN:
+    its devices come from devices/router.py, which declares `<node>.routing`
+    LPM, but how many such tables the workload builds has never been counted.
+    FALSIFIED BY: any inverted cell with a denominator of 0 -- in which case
+    that workload's row is "not applicable" and §5.4 stays open for it, which
+    is a worse outcome than either verdict.
+
+G1  wl_stanford's verdict MOVES. Its FIB is the workload whose LPM sensitivity
+    is already demonstrated: re-prioritising it once lifted NetPlumber's
+    reachable-pair count 10 -> 165, a 16x move, and bbra_rtr's 172.28.0.0/14
+    toward rozb sits under both a /12 drop and the default route. A check set
+    over 240 checks that could not see that is hard to construct.
+    FALSIFIED BY: 75/240 in both arms.
+
+G2  wl_i2's verdict MOVES. Its FIB is the `out` stage and carries 3,731 rules
+    that were shadowed by a containing prefix while the old repair hardcoded
+    `mid.` (AD6_PLAN.md §5.5) -- a measured mass of prefix-nested rules, which
+    is the structure an inversion acts on.
+    FALSIFIED BY: 11/72 in both arms.
+
+G3  wl_cloud is the one at risk, and the reason to run this at all. Its 71
+    checks are the smallest set here against the largest claim: CLOUD_BENCH_PLAN
+    calls its re-prioritisation "load-bearing". NO PREDICTION is declared on
+    which way it goes. If its verdict does not move, the workload with the
+    suite's only external oracle has gating evidence that cannot see rule
+    priority, and that is a finding about the workload.
+
+G4  np and vf AGREE, arm for arm, on all three workloads -- the faithful arms
+    at phase A's counts (wl_cloud 58 np / 57 vf is the known F4-R disagreement
+    and is expected to persist), and the inverted arms at each other.
+    FALSIFIED BY: the two engines' inverted counts differing by more than the
+    faithful arms already do. That would make the inversion engine-dependent,
+    and no conclusion about a check set could be drawn from it.
+
+G5  No inverted cell errors or times out. Shortest-first ordering is a
+    permutation of the same rules; it changes which rule wins, not how many
+    there are. FALSIFIED BY: any `error` or `did_not_finish`. Note wl_i2_vf
+    runs ~129 s faithfully and the inverted arm may differ -- a change in
+    WALL-CLOCK is not a falsification of anything here.
+
+NOT MEASURED
+------------
+Whether a verdict that moves moves to the RIGHT answer. It does not: the
+inverted arm is a deliberately wrong model (ACCOMMODATIONS.md, "reducing
+variant"). The only claim is that the check set can tell the two apart.
+
+ENGINE BUILDS
+-------------
+net_plumber 4bdbe622, veriflow_fr f6836389, harness 95e14708. The tree is NOT
+touched between this declaration and the run.

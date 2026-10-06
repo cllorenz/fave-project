@@ -145,3 +145,34 @@ nine cells. Two of them were in fact already observed on the np cells that ran
 (wl_example 0/10, wl_ifi 27/299, wl_cloud 58/71 -- R4 held on three of nine),
 and R2's vf counts were visible too and matched. They are scored on the full
 run below, not on this fragment.
+
+SECOND ADDENDUM, 2026-10-06 14:50 UTC -- THE SECOND ATTEMPT WAS ALSO ABORTED
+----------------------------------------------------------------------------
+Not for a result, and not for anything the engines did. The tree was EDITED
+WHILE THE QUEUE WAS RUNNING -- the §5.4 LPM guardrail was being implemented in
+netplumber/adapter.py and veriflow/translate.py, and those files were written at
+14:46:37 and 14:46:49 against a cell that started at 14:46:27. A cell imports
+the working tree; wl_stanford_vf therefore ran on a half-written adapter, came
+back `error` with its aggregator log missing, and six cells behind it would have
+run on code that no commit describes.
+
+21 cells had completed cleanly before the first edit at 14:44:13 -- the last of
+them, wl_stanford_np, finished at ~14:43:58. Keeping those and re-running seven
+would have put two builds in one directory, which the "WHAT IS NOT HERE" note
+above explicitly refuses for the O3c cells. So all 22 were deleted and the queue
+restarted whole, from a committed tree (95e14708), with no edits pending.
+
+What the 21 clean cells showed before they were discarded, recorded because a
+prediction that was effectively observed should not later be claimed as a
+blind one:
+
+    R4  held on 8 np cells -- wl_example 0/10, wl_ifi 27/299, wl_cloud 58/71,
+        wl_stanford 75/240, airtel1/2 0/256, wl_tum 0/-, all unmoved.
+    R5  wl_stanford_np 6.496 s -> 5.006 s.
+    R6  all five wl_tum cells came back `measured`, verdict_valid true.
+    R2  every vf/vfplain count matched phase A.
+    R1 and R7 were not reached: wl_up_vf had not run.
+
+THE RULE THIS BREAKS, STATED SO IT IS NOT BROKEN AGAIN: while a measured queue
+is running, the tree is read-only. §6 serialises the cells against each other;
+it did not occur to §6 to serialise them against the person editing the engines.
