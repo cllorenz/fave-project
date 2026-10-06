@@ -74,3 +74,24 @@ IF k=1 COMPLETES
   started automatically by the driver: it is a new measurement whose budget
   the owner has not seen, and phase C's wl_cloud run outranks it (§5.3).
   Recorded as an open follow-up instead.
+
+ADDENDUM -- WHEN THIS ACTUALLY RAN
+  Declared 2026-10-02; the drill was NOT started then. The campaign driver's
+  budget guard skipped phase B ("needs 5 h, -9 h left"), and §7.1 scored
+  predictions P1-P6 "NOT TESTED -- phase B never started" rather than treating
+  an unstarted phase as a did-not-finish (§8.1).
+
+  Started 2026-10-06, on the same machine, with the predictions above UNEDITED.
+  Nothing between the two dates touches this cell: the four defects the
+  investigation fixed are in the APKeep `-o` path, VeriFlow-FR's negated-
+  condition expansion, VeriFlow-FR's delivery walk and the cell harness's
+  verdict_valid witness. wl_berkeley runs NDD-APKeep on a generated Delta-net
+  workload with no `-o` rules, no negated check conditions and a check set, so
+  none of the four reaches it. The one harness change that DOES reach it --
+  verdict_valid now requires `completed task report` as well -- is satisfied by
+  every cell that produces a report, which is every cell that has ever run
+  here.
+
+  Inputs re-verified on the day: berkeley-inserts.csv, 386,329,571 bytes,
+  sha256 96d57987...bb21, matching DERIVED.SHA256SUMS.
+  Machine re-checked: 64,294 MB total, 16 cores, no swap, 71 GB disk free.
