@@ -919,3 +919,80 @@ four may be collapsing a subnet-abstracting role to a single address.
   disagreement about a deliberate check as a stylistic difference between
   tools, which is exactly the "declared accurately or not at all" failure item
   31 is about.
+
+---
+
+# F6 — SOLVED. VeriFlow-FR ignores a probe's test path; NetPlumber does not.
+
+**The owner's hypothesis was right: the fault is in VeriFlow-FR's adapter.**
+
+## The revisit hypothesis is refuted first
+
+`wl_up × vf` re-run under NetPlumber's own traversal rule:
+
+| `vf_revisit` | violations | wall |
+|---|---:|---:|
+| `state` (the thesis's rule, default) | 28/18811 | 639 s |
+| `path` (NetPlumber's rule) | **28/18811** | 2884 s |
+
+Identical. So item 33's table-granular loop trait is **not** the cause, and the
+reading that had NetPlumber under-approximating is wrong. *(Incidental, and
+undocumented until now: `path` costs **4.5×** `state` on this workload.)*
+
+## The cause
+
+`veriflow/translate.py` states:
+
+> A probe's test path is accepted and **does not affect compliance**, as in
+> NetPlumber, whose check_compliance reads the flows arriving at a probe.
+
+**The "as in NetPlumber" is false.** `netplumber/adapter.py::add_probe` compiles
+the test path into a path expression and passes it to `add_source_probe`:
+
+    elif test_path:
+        test_expr = {"type": "path", "pathlets": test_path}
+
+What NetPlumber ignores is a probe's **filter fields** — `filter_expr = None`,
+commented out deliberately. It does **not** ignore the **test path**. The
+docstring conflates the two, and VeriFlow-FR implemented the wrong half.
+
+## Why that produces exactly these 28
+
+Every `wl_up` probe carries `.*(p=pgf.uni-potsdam.de.1);$` — the flow must
+arrive **via the gateway's port 1**.
+
+* **Only the diagonal differs** because inter-subnet traffic traverses the
+  gateway anyway, so dropping the condition changes nothing for it. Only
+  self/intra-subnet flows hairpin locally without passing `pgf.1`.
+* **The 8 DMZ servers:** `src=::3, dst=::3` hairpins at the DMZ switch back to
+  web's own port, never touching `pgf.1`. The firewall permits it because all
+  45 FORWARD rules to a DMZ destination are source-unconstrained or scoped to
+  the whole `/48` (23 carry no `-s` at all), so a DMZ server satisfies the
+  source condition for reaching itself.
+* **The 20 client subnets, and why NOT the department servers:** every
+  department declares `XClients`, `XPrivateServers` and `XPublicServers` on the
+  *same* `/120`, and the clients device is `…::100/120` — the whole `/120`. So
+  the route for that `/120` points at the **clients** port, and a packet to
+  `file.api` (`::5`) lands at `clients.api`'s input filter, firing
+  `probe.clients.api`. The same route sends `file.api → file.api` to the
+  clients port too, so `probe.file.api` never fires. That asymmetry is why the
+  servers are clean and the clients are not.
+* **`clients.wifi`** has no entry in `roles.json` at all (`Wifi <--> Wifi` is
+  the only filled diagonal in the 71×71 matrix), so it carries no diagonal
+  self-check and cannot differ.
+
+## Two defects, and they are separable
+
+1. **VeriFlow-FR ignores probe test paths** (`veriflow/translate.py`), against a
+   stated-but-false claim about NetPlumber. This is what makes VeriFlow-FR
+   report 28 where four engines report 0. **It is a correctness defect in a
+   backend and it is ours, not the literature's.**
+2. **The workload's model permits self-reach at all** — coarse FPL translation
+   (source-unconstrained DMZ rules) and overlapping `/120` role declarations.
+   That is a `wl_up` modelling question, independent of any engine, and it is
+   the owner's to decide: it also means `wl_up`'s 28 diagonal must-NOT-reach
+   checks are asserting something the model cannot honour.
+
+Fixing (1) makes VeriFlow-FR agree with the other four and is a bug fix.
+Fixing (2) is a workload decision and would change what the checks mean.
+**They should not be conflated**, and (1) does not depend on (2).
