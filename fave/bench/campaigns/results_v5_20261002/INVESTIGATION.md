@@ -1152,3 +1152,78 @@ restriction — and the cost of each was a full re-run.
 
 Baseline for comparison, on the reverted tree: `./test.sh integration` with ad6
 **PASSED** — 423 passed/4 skipped, 22 passed, `OK (105)`, `OK (44)`.
+
+---
+
+# F6 — why the model fix moved APKeep's verdict
+
+## `_demux_ingress` is not the cause
+
+It splits a device into one element per ingress CLASS — a set of ports at which
+the same rules apply (`_ingress_classes`). Restricting `in_ports` per route does
+make every port its own class, so the `dmz` switch would become ~9 elements
+instead of ~2. But that is a change of *representation*, and it is not what
+moved the verdict.
+
+## The cause is that `in_ports` does not mean "drop"
+
+`wl_up`'s `dmz` switch, for traffic to `web` (`…::3`, attached to `dmz.4`):
+
+| route | match | → | `in_ports` |
+|---|---|---|---|
+| prio 2 | `dst=…::3` | `dmz.4` | `[]` = all |
+| prio 65535 | *(any)* | `dmz.1` (uplink) | ports 2–9, **including `dmz.4`** |
+
+Restricting the specific route to "all ports except `dmz.4`" does not drop the
+U-turn packet — **it makes the next-best route apply**, and the default route
+still covers `dmz.4`. So the packet is forwarded to the **gateway** instead of
+being discarded.
+
+**"No U-turn" means DROP; `in_ports` means "this route does not apply here."**
+Those differ whenever a less-specific route exists, which on a switch is
+always. My model fix had the wrong semantics, and that is a model-level fact,
+independent of any engine.
+
+VeriFlow-FR nevertheless went to 0 — but by luck, not by correctness: the
+redirected packet reaches `pgf`, a packet_filter, whose `post_routing` carries
+the real U-turn drop rules, and VeriFlow-FR honours them. APKeep does not, for
+the reason below, so its packet comes back and is delivered: the 8 DMZ
+self-checks.
+
+## The finding that outlives this attempt: APKeep never receives `post_routing`
+
+`apkeep/adapter.py` captures a packet_filter's chains only for
+`input_filter`, `output_filter` and `forward_filter` (the dispatch at ~1095,
+feeding `_capture_pf_rule`). **`post_routing` is not among them**, and
+`post_routing` is exactly where FaVe puts its U-turn rules.
+
+So the rule is handled inconsistently across the suite, and no single place
+guarantees it:
+
+| backend | engine rule | model rules (`post_routing`) |
+|---|---|---|
+| NetPlumber | **yes** (`Node::should_block_flow`) | receives them |
+| VeriFlow-FR | **no** | **yes** — `add_rules` snapshots every table |
+| BDD/NDD-APKeep | **no** (`ForwardElement` is in-port-agnostic) | **NO — never captured** |
+| ad6 | not established | not established |
+
+APKeep therefore has U-turn protection from *neither* source, yet answers 0 on
+`wl_up` today. **Why it gets the right answer is not established**, and that is
+now the open question — a backend that is right for an unknown reason is one
+regression away from being wrong for an unknown reason.
+
+## What the correct fix looks like
+
+Give the **switch model** what the packet_filter model has: an explicit
+high-priority DROP, not an `in_ports` restriction. Per port P and each route
+`dst → P`, a rule with `in_ports=[P]`, the same `dst` match, and no action —
+higher priority than the route it shadows, so it discards rather than falling
+through. That is the semantics NetPlumber implements in its engine, stated once
+in the model where every backend can see it.
+
+**Not attempted here.** It needs APKeep's `post_routing` gap understood first:
+a drop rule in a switch table reaches APKeep through a different path
+(`_capture_fwd_table_rule` / `_translate_fib_rule`, where "a dst but no
+out_port and no actions" is already read as a route-unknown discard), and
+whether that path preserves the ingress qualification is exactly the kind of
+assumption that has been refuted five times in this investigation.
