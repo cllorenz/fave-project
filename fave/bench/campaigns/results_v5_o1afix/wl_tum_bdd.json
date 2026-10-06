@@ -1,0 +1,83 @@
+{
+  "workload": "wl_tum",
+  "backend": "apkeep",
+  "engine": "bdd",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-06T09:41:15.793493+00:00",
+  "git_head": "f872c01d4a3c6a20dad5b416ceb92f5de36ea52d",
+  "engine_commit": "a7eb8ad29a565d476067d88a62ea89e8421f8105 2026-10-01",
+  "apkeep_engine": "bdd",
+  "engine_options": "--apkeep-engine bdd",
+  "allow_out_iface": true,
+  "driver": "bench/wl_tum/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 4.312,
+  "memory_stop": null,
+  "peak_rss_mb": 254,
+  "peak_rss_by_process_mb": {
+    "python3": 140,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 114,
+    "sleep": 1
+  },
+  "least_available_mb": 62133,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_tum_bdd.status.jsonl",
+  "check_compliance_s": [],
+  "switch_command_s": null,
+  "switch_commands": 0,
+  "gc": {
+    "pauses": 1,
+    "full_pauses": 1,
+    "pause_s": 0.008,
+    "max_heap_after_gc_mb": 3,
+    "max_heap_committed_mb": 80
+  },
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "verdict_valid": false,
+  "apkeep_jar": "f4526612e4a6c75f0d2e3d4026847f9b5fdf1f00ba479bf8a48a118e59946ba3",
+  "ndd_jar": "adbe915644374484a2749f6a2efee8574941eed87c85f073926beec430d4973d",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)",
+    "engine": "bdd",
+    "faithful_vlan": true
+  },
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)",
+  "expected_violations": null,
+  "outcome": "error"
+}

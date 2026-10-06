@@ -1,0 +1,18 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)', 'engine': 'bdd', 'faithful_vlan': True}
+master: open and bind tcp/ip socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.09077310562133789 seconds.
+worker: completed task probe in 0.0028073787689208984 seconds.
+worker: completed task links in 3.4809112548828125e-05 seconds.
+worker: completed task generators in 8.535385131835938e-05 seconds.
+worker: completed task links in 3.981590270996094e-05 seconds.
+worker: completed task report in 0.0008118152618408203 seconds.
+worker: initiate stopping
+worker: completed task stop in 7.62939453125e-05 seconds.
+worker: stop handler after 3.5343270301818848 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

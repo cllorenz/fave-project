@@ -808,3 +808,42 @@ port rather than applying to everything or vanishing.
 from "ignores it" on `wl_example` alone. The two-workload argument above does
 not need it, but it would be the cheapest single confirmation and it needs the
 workload's policy changed, not just a check added.
+
+---
+
+# O1a — IMPLEMENTED AND VERIFIED, 2026-10-06
+
+`_lpm_destinations` / `_restrict_dst` in `apkeep/adapter.py`: an `-o
+N`-qualified filter rule is resolved against the device's FIB — restricted to
+the destinations whose longest-prefix match egresses N — instead of being
+skipped. Results in `../results_v5_o1afix/`.
+
+| cell | phase A | with the fix | the other engines |
+|---|---:|---:|---|
+| `wl_example_ndd` | 1/10 | **0/10** | 0/10 (np, ad6, vf, vf-plain) |
+| `wl_example_bdd` | 1/10 | **0/10** | 0/10 |
+| `wl_up_ndd` | 0/18811 | **0/18811** | 0/18811 (np, ad6, bdd) |
+| `wl_up_bdd` | 0/18811 | **0/18811** | 0/18811 |
+| `wl_tum_ndd` / `_bdd` | 0/— | 0/— | unchanged (no FIB; skip stands) |
+
+**F1 is CLOSED.** All five engine configurations now agree on `wl_example`.
+
+**The `wl_up` row is the one that matters.** It is unchanged, and the first
+attempt at this fix turned it into 3025 violations — so holding at 0 is what
+separates a fix from another plausible wrong answer. `./test.sh fast` 864
+passed; `FAVE_REQUIRE_BACKENDS=1 ./test.sh integration` passed, including the
+cross-engine differentials on `wl_up` and `wl_ifi`.
+
+## What this leaves open
+
+* **The campaign's recorded `wl_example` APKeep cells are now superseded.** Six
+  phase A cells were measured on the old semantics. The rest of phase A is
+  unaffected — `-o` appears only in `wl_example`, `wl_up` and `wl_tum`.
+* **Item 13a is now wrong in the other direction too.** O13a-1 showed its
+  premise false for NetPlumber, ad6 and VeriFlow-FR; this closes the gap for
+  APKeep as well. `FAVE_ALLOW_OUT_IFACE` now gates an infidelity **no backend
+  has**, and the accommodation can be retired rather than re-scoped — but that
+  is a decision, not a repair, and `wl_tum`'s FIB-less terminal filter is the
+  one case still genuinely unresolvable.
+* **`wl_tum` is untested by this.** It has no checks and no FIB, so neither the
+  old path nor the new one is exercised by a verdict there.
