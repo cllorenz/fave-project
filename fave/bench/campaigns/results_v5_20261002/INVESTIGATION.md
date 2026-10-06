@@ -847,3 +847,75 @@ cross-engine differentials on `wl_up` and `wl_ifi`.
   one case still genuinely unresolvable.
 * **`wl_tum` is untested by this.** It has no checks and no FIB, so neither the
   old path nor the new one is exercised by a verdict there.
+
+---
+
+# F6 — O6b's premise is WRONG. The 28 are not a VeriFlow-FR quirk.
+
+O6b was "declare VeriFlow-FR's self-reachability semantics in
+`ACCOMMODATIONS.md` and leave the check set alone". Checking what the 28 checks
+actually *are*, before writing that entry, refutes it.
+
+**`wl_up` has 130 diagonal checks, 129 of them must-NOT-reach.** VeriFlow-FR
+violates **28**. A blanket "a role reaches itself" semantics would violate all
+129, so this is selective, and the selection is exact:
+
+| | min hosts in the role | role spans a subnet |
+|---|---|---|
+| **violated (28)** | **1** — the sole member | yes |
+| unviolated (102) | 2 or 3 | yes |
+
+**All 28 are hosts that are the sole member of a role standing for a whole
+/120** — and that is not an accident of the data, it is a condition FaVe's own
+check generator tests for by name. `bench/reach_csv_to_checks.py`:
+
+    keep_self = (args.strict
+                 and source_role == target_role
+                 and source_role != _INTERNET
+                 and len(sources) == 1 and len(targets) == 1
+                 and _abstracts_a_subnet(role_attributes.get(source_role, {})))
+
+`--roles` exists so that *"a role whose single node stands for a whole subnet
+**may carry a self-check**, one standing for a single device may not"*, and
+`_abstracts_a_subnet` is true iff the declared address is a **proper subnet**
+— more than one address, not the whole space. `wl_up` runs `strict=True` and
+passes both `--roles` and `--cchecks`.
+
+So for exactly these 28 roles FaVe **deliberately makes the diagonal
+meaningful**, and the policy's diagonal being empty turns it into a
+must-NOT-reach. The check is an assertion the workload intends, not a
+degenerate artefact — which is the opposite of what O6b assumed.
+
+## What the disagreement actually is
+
+A role whose single node abstracts a /120 emits from, and receives on, a
+**whole subnet**. Two different addresses inside it can plainly talk to each
+other, so "this role reaches itself" is *true of the model FaVe built*.
+VeriFlow-FR reports that. NetPlumber, ad6, BDD and NDD do not.
+
+So this is not a tool quirk to declare away. It is a genuine disagreement about
+a check the workload meant to ask, and on the face of it **VeriFlow-FR's answer
+is the one consistent with `_abstracts_a_subnet`'s own premise** — the other
+four may be collapsing a subnet-abstracting role to a single address.
+
+## Revised options
+
+* **O6d — find out which engines are right, first.** Check how each backend
+  models a single-node subnet-abstracting role: as the /120, or as one address.
+  If the other four collapse it to one address, they are under-approximating
+  and VeriFlow-FR is correct; if VeriFlow-FR expands something the others
+  deliberately do not, the reverse. Cheap: it is a question about the model
+  each adapter builds, answerable the way O1a was. **Recommended — nothing
+  below can be chosen honestly without it.**
+* **O6e — if VeriFlow-FR is right:** the 28 are real violations of `wl_up`'s
+  policy and the headline `wl_up` row changes from "all engines agree, 0
+  violations" to "four engines miss 28". That is a finding about the four, and
+  a significant one.
+* **O6f — if the other four are right:** VeriFlow-FR over-approximates
+  subnet-abstracting roles, and *that* is the `ACCOMMODATIONS.md` entry — but
+  it is a different entry from the one O6b proposed, naming an
+  over-approximation rather than a semantic preference.
+* **O6b as originally written is withdrawn.** It would have recorded a
+  disagreement about a deliberate check as a stylistic difference between
+  tools, which is exactly the "declared accurately or not at all" failure item
+  31 is about.
