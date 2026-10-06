@@ -142,7 +142,13 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         stamp = self.provenance()
         stamp.update({"vf_fields": self.fields,
                       "vf_revisit": self.revisit, "vf_slicing": self.slicing,
-                      "vf_budget": self.budget})
+                      "vf_budget": self.budget,
+                      # MEASUREMENT_RUN_PLAN.md §5.4's guardrail. It reached
+                      # `Ir.stamps` already (`vf_invert_lpm`) but not here, so
+                      # a CELL could not tell an inverted run from a faithful
+                      # one -- the stamp was in the model's record and not in
+                      # the measurement's. Always present, never only when set.
+                      "vf_invert_lpm": self.invert_lpm})
         return stamp
 
     # -- building --------------------------------------------------------------

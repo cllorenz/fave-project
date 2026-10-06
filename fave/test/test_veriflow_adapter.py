@@ -43,7 +43,7 @@ class TestConfigurationStamp(unittest.TestCase):
         stamp = VeriFlowAdapter(logging.getLogger("t")).configuration_stamp()
         self.assertEqual(stamp, {"impl": "reimpl-literature", "vf_fields": "4+10",
                                  "vf_revisit": "state", "vf_slicing": "device",
-                                 "vf_budget": 0})
+                                 "vf_budget": 0, "vf_invert_lpm": False})
 
     def test_the_model_stamps_are_logged_at_build(self):
         from devices.switch import SwitchModel

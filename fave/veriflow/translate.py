@@ -200,6 +200,9 @@ class Translator:
         # SHORTEST prefix first in declared-LPM tables. Exists for one purpose:
         # to show the LPM guard can fail (test/test_veriflow_airtel.py). Stamped.
         self.invert_lpm = invert_lpm
+        #: (table, rule count) per declared-LPM table this translation ordered
+        #: -- §5.4's denominator, reported in `Ir.stamps`.
+        self._lpm_ordered_tables: List[Tuple[str, int]] = []
         # Read and written by the aggregator on the engine it drives.
         self.links: Dict[Any, List[Any]] = {}
         self.asyncore_socks: Dict[Any, Any] = {}
@@ -260,6 +263,11 @@ class Translator:
                 raise Unsupported(
                     "%s model %s: VeriFlow-FR translates switch, router and "
                     "packet-filter models only" % (model.type, model.node))
+
+        # Per translation, not per translator: `build()` can retranslate, and a
+        # count that accumulated across calls would overstate §5.4's
+        # denominator without ever looking wrong.
+        self._lpm_ordered_tables = []
 
         layout = self._layout(extra_fields)
         ir = Ir(fields=layout, tables={}, ports={}, port_table={}, links=[],
@@ -333,6 +341,8 @@ class Translator:
             "vf_fields": "plain",
             "vf_slicing": "device",
             "vf_invert_lpm": self.invert_lpm,
+            "vf_lpm_tables_ordered": len(self._lpm_ordered_tables),
+            "vf_lpm_rules_ordered": sum(n for _t, n in self._lpm_ordered_tables),
             "vf_field_order": [n for n, _w in layout],
             "vf_inport_expansion": (
                 round(sum(1 for r in ir.rules if not r.consume) / fave_rules, 3)
@@ -394,6 +404,10 @@ class Translator:
             sign = 1 if self.invert_lpm else -1
             order = sorted(rules, key=lambda r: (sign * lpm_prefix_len(r), r.idx))
             prio = {id(r): -(pos + 1) for pos, r in enumerate(order)}
+            # The denominator for §5.4's guardrail, as NetPlumberAdapter logs
+            # it: an unchanged verdict is evidence about the check set only if
+            # a table was in fact reordered.
+            self._lpm_ordered_tables.append((tname, len(order)))
         else:
             prio = {id(r): -r.idx for r in rules}
         seen = set()

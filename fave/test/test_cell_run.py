@@ -57,7 +57,7 @@ def _args(**kwargs):
     spec = dict(workload='wl_ifi', backend='apkeep', apkeep_engine='ndd',
                 vf_fields='4+10', engine_options='', jvm_xmx=None,
                 keep_every=None, reuse_inputs=False, mutate=False,
-                mutate_cell='s1,s8')
+                mutate_cell='s1,s8', invert_lpm=False)
     spec.update(kwargs)
     return argparse.Namespace(**spec)
 

@@ -185,6 +185,14 @@ def build_command(args):
         # off in every reportable run. Stamped so that is visible, not assumed.
         options += ' --vf-budget 0'
         stamps['vf_budget'] = 0
+    if args.invert_lpm:
+        # §5.4: the inverted arm of the LPM guardrail. STAMPED, because the
+        # whole experiment is a comparison of two cells and a reader has to be
+        # able to tell which arm a cell is. `build_engine` REFUSES it on
+        # apkeep and ad6 rather than ignoring it, which is what keeps a
+        # mis-specified cell from reading as a guardrail that passed.
+        options = (options + ' --invert-lpm').strip()
+        stamps['invert_lpm'] = True
     if args.engine_options:
         options = (options + ' ' + args.engine_options).strip()
     env['FAVE_ENGINE_OPTIONS'] = options
@@ -548,6 +556,10 @@ def main(argv=None):
                         default='4+10')
     parser.add_argument('--engine-options', default='',
                         help='appended to FAVE_ENGINE_OPTIONS verbatim')
+    parser.add_argument('--invert-lpm', action='store_true',
+                        help="MEASUREMENT_RUN_PLAN.md §5.4's guardrail: order "
+                             'declared-LPM tables SHORTEST-prefix-first. Never '
+                             'a faithful run. netplumber and veriflow only')
     parser.add_argument('--limit-class', choices=('v5', 'dev'), required=True,
                         help='v5 is reportable; dev never is')
     parser.add_argument('--limit-wall', type=float, required=True,

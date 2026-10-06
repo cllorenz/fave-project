@@ -114,7 +114,8 @@ def build_engine(
         faithful_vlan: bool = True, grounding: Optional[str] = None,
         solver: Optional[str] = None, lite_acyclic: bool = False,
         vf_fields: str = '4+10', vf_revisit: str = 'state',
-        vf_slicing: str = 'device', vf_budget: int = 0
+        vf_slicing: str = 'device', vf_budget: int = 0,
+        invert_lpm: bool = False
 ) -> Any:
     """ The verification engine named by `backend`.
 
@@ -134,10 +135,28 @@ def build_engine(
             "unknown backend %r -- expected one of %s" % (
                 backend, ', '.join(repr(b) for b in BACKENDS)))
 
+    # The one backend option that must NOT be silently ignored, which is why it
+    # is checked here and not left to the adapters. §5.4's guardrail reads a
+    # verdict that did not move as "this check set cannot see rule priority".
+    # On a backend that never applied the inversion, the verdict cannot move
+    # for a reason that has nothing to do with the check set -- so the
+    # experiment would manufacture its own conclusion, in the direction that
+    # retires a guardrail. APKeep resolves longest-prefix in its own
+    # ForwardElement trie and ad6 orders at translation rather than here.
+    if invert_lpm and backend not in (BACKEND_NETPLUMBER, BACKEND_VERIFLOW):
+        raise ValueError(
+            "--invert-lpm is not implemented for %s. It is MEASUREMENT_RUN_PLAN"
+            ".md §5.4's guardrail, and a run that quietly ignored it would "
+            "report an unchanged verdict -- which that guardrail reads as "
+            "'this check set is blind to longest-prefix-match'. Use netplumber "
+            "or veriflow, which order a declared-LPM table themselves."
+            % backend)
+
     if backend == BACKEND_NETPLUMBER:
         return NetPlumberAdapter(
             list(socks or []), logger,
-            asyncore_socks=asyncore_socks or {}, mapping=mapping)
+            asyncore_socks=asyncore_socks or {}, mapping=mapping,
+            invert_lpm=invert_lpm)
 
     if backend == BACKEND_VERIFLOW:
         # The decided defaults (VERIFLOW_PLAN.md D6, Q4, Q22); every one is a
@@ -145,7 +164,8 @@ def build_engine(
         # default: the suite's did-not-finish limit is external (TODO item 31).
         from veriflow.adapter import VeriFlowAdapter
         return VeriFlowAdapter(logger, slicing=vf_slicing, budget=vf_budget,
-                               revisit=vf_revisit, fields=vf_fields)
+                               revisit=vf_revisit, fields=vf_fields,
+                               invert_lpm=invert_lpm)
 
     if backend == BACKEND_APKEEP:
         from apkeep.adapter import APKeepAdapter
@@ -963,6 +983,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--vf-slicing', dest='vf_slicing',
                         choices=('device', 'network'), default='device')
     parser.add_argument('--vf-budget', dest='vf_budget', type=int, default=0)
+    # MEASUREMENT_RUN_PLAN.md §5.4's guardrail, and NEVER a faithful run: order
+    # every declared-LPM table shortest-prefix-first, so the default route
+    # outranks every specific one. Honoured by netplumber and veriflow, which
+    # order such a table themselves; see `build_engine`.
+    parser.add_argument('--invert-lpm', dest='invert_lpm', action='store_true',
+                        default=False)
 
     return parser
 
@@ -1023,7 +1049,8 @@ def main(argv: List[str]) -> None:
             lite_acyclic=args.lite_acyclic, apkeep_engine=args.apkeep_engine,
             faithful_vlan=args.faithful_vlan,
             vf_fields=args.vf_fields, vf_revisit=args.vf_revisit,
-            vf_slicing=args.vf_slicing, vf_budget=args.vf_budget)
+            vf_slicing=args.vf_slicing, vf_budget=args.vf_budget,
+            invert_lpm=args.invert_lpm)
     except ValueError as err:
         # A malformed backend option (an unknown solver, or a solver/grounding
         # combination that would silently answer the wrong question). Reported

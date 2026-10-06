@@ -217,9 +217,11 @@ class _RecordingVeriFlow:
     """ Stands in for VeriFlowAdapter, which needs the native engine built;
     what is under test is the OPTIONS build_engine hands it. """
 
-    def __init__(self, logger, slicing=None, budget=None, revisit=None, fields=None):
+    def __init__(self, logger, slicing=None, budget=None, revisit=None,
+                 fields=None, invert_lpm=False):
         self.logger, self.slicing, self.budget = logger, slicing, budget
         self.revisit, self.fields = revisit, fields
+        self.invert_lpm = invert_lpm
 
 
 def _build_veriflow(**kwargs):
@@ -240,6 +242,44 @@ def _build_veriflow(**kwargs):
         raise AssertionError("build_engine did not return the one VeriFlow-FR "
                              "adapter it constructed")
     return built[0]
+
+
+class TestTheLpmGuardrailIsNotSilentlyIgnored(unittest.TestCase):
+    """ MEASUREMENT_RUN_PLAN.md §5.4's guardrail, and the one backend option
+    that must be REFUSED rather than ignored where it does not apply.
+
+    `build_engine`'s rule is that backend-specific options are accepted and
+    ignored by the backends they do not apply to, so one command line can
+    switch engines. That rule is right for options that SELECT behaviour and
+    wrong for this one. The guardrail reads "the verdict did not change under
+    inversion" as "this check set cannot see longest-prefix-match"; on a
+    backend that never applied the inversion the verdict cannot change for a
+    reason that has nothing to do with the check set, so a silently-ignored
+    flag manufactures the conclusion -- and the conclusion it manufactures is
+    the one that retires the guardrail.
+    """
+
+    def test_netplumber_and_veriflow_take_it(self):
+        self.assertTrue(_build_veriflow(invert_lpm=True).invert_lpm)
+        engine = build_engine(BACKEND_NETPLUMBER, _LOG, invert_lpm=True)
+        self.assertTrue(engine.invert_lpm)
+        self.assertIs(engine.configuration_stamp()['np_invert_lpm'], True)
+
+    def test_apkeep_and_ad6_REFUSE_it(self):
+        for backend in (BACKEND_APKEEP, BACKEND_AD6):
+            with self.subTest(backend=backend):
+                with self.assertRaises(ValueError) as caught:
+                    build_engine(backend, _LOG, invert_lpm=True)
+                self.assertIn('--invert-lpm', str(caught.exception))
+                self.assertIn(backend, str(caught.exception))
+
+    def test_they_are_still_BUILDABLE_without_it(self):
+        """ The refusal must be about the flag, not about the backend: a
+        faithful apkeep or ad6 cell goes on working. """
+        self.assertIsNotNone(build_engine(BACKEND_AD6, _LOG))
+        self.assertFalse(
+            build_engine(BACKEND_NETPLUMBER, _LOG).configuration_stamp()
+            ['np_invert_lpm'])
 
 
 class TestVeriFlowDefaults(unittest.TestCase):

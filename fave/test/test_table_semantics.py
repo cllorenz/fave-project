@@ -443,7 +443,7 @@ def _mid_models_and_rules(honour_declaration):
     return models
 
 
-def _rules_netplumber_would_receive(honour_declaration):
+def _rules_netplumber_would_receive(honour_declaration, invert_lpm=False):
     """ (the (table, index, match, out_ports) tuples sent, declared table count).
 
     The RPC is mocked, so no backend is involved: what is asserted is the
@@ -454,7 +454,7 @@ def _rules_netplumber_would_receive(honour_declaration):
         from netplumber.adapter import NetPlumberAdapter
         log = logging.getLogger("s3a")
         log.setLevel(logging.ERROR)
-        adapter = NetPlumberAdapter(['SOCK'], log)
+        adapter = NetPlumberAdapter(['SOCK'], log, invert_lpm=invert_lpm)
         for model in _mid_models_and_rules(honour_declaration):
             adapter.add_tables(model)
             adapter.add_rules(model)
@@ -512,6 +512,51 @@ class TestNetPlumberHonoursTheDeclaration(unittest.TestCase):
         honoured, _ = _rules_netplumber_would_receive(True)
         ignored, _ = _rules_netplumber_would_receive(False)
         self.assertNotEqual(honoured, ignored)
+
+    def test_the_guardrail_inverts_the_order_and_nothing_else(self):
+        """ MEASUREMENT_RUN_PLAN.md §5.4: order SHORTEST-prefix-first.
+
+        A guardrail that silently did nothing would make every workload look
+        like it passed -- an unchanged verdict is read as "this check set is
+        blind to longest-prefix-match", so a no-op inversion retires the
+        guardrail by appearing to confirm it. Hence this asserts the inverted
+        order IS inverted, over all sixteen of wl_stanford's declared tables,
+        and not merely that the flag is accepted.
+        """
+        faithful, declared = _rules_netplumber_would_receive(True)
+        inverted, declared_i = _rules_netplumber_would_receive(
+            True, invert_lpm=True)
+
+        self.assertEqual(declared, 16)       # non-vacuous, as above
+        self.assertEqual(declared_i, 16)
+        self.assertEqual(len(inverted), len(faithful))
+        self.assertNotEqual(inverted, faithful)
+
+        by_table = collections.defaultdict(list)
+        for table, index, match, _ports in inverted:
+            by_table[table].append((index, len(match) - match.count('x')))
+        for table, entries in by_table.items():
+            lengths = [length for _index, length in sorted(entries)]
+            self.assertEqual(lengths, sorted(lengths),
+                             "table %s is not SHORTEST-prefix-first" % table)
+
+        # Same rules, same tables, same actions: one respect differs. Otherwise
+        # the two arms of the experiment are not comparable and a verdict that
+        # moved would not say WHY.
+        self.assertEqual(sorted((t, m, p) for t, _i, m, p in inverted),
+                         sorted((t, m, p) for t, _i, m, p in faithful))
+
+    def test_the_faithful_default_is_off(self):
+        """ Nothing in a reportable run may order a FIB shortest-first by
+        accident, so the default is asserted here and stamped in the cell. """
+        from netplumber.adapter import NetPlumberAdapter
+        log = logging.getLogger("s3a")
+        adapter = NetPlumberAdapter(['SOCK'], log)
+        self.assertFalse(adapter.invert_lpm)
+        self.assertIs(adapter.configuration_stamp()['np_invert_lpm'], False)
+        self.assertIs(
+            NetPlumberAdapter(['SOCK'], log, invert_lpm=True)
+            .configuration_stamp()['np_invert_lpm'], True)
 
     def test_a_second_batch_for_a_declared_table_is_REFUSED(self):
         """ Indices are dense (1..n), so a later batch has no free index below

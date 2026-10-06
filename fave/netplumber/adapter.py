@@ -163,9 +163,19 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         socks: List[Any],
         logger: TraceLogger,
         asyncore_socks: Optional[Dict[Any, Any]] = None,
-        mapping: Optional[Any] = None
+        mapping: Optional[Any] = None,
+        invert_lpm: bool = False
     ) -> None:
         self.socks = socks
+        #: MEASUREMENT_RUN_PLAN.md §5.4's guardrail, off by default and NEVER a
+        #: faithful run: order a declared FIB SHORTEST-prefix-first, so the
+        #: default route outranks every specific one. The question it answers is
+        #: not about the engine -- it is whether the WORKLOAD'S CHECK SET can
+        #: see rule priority at all. A check set whose verdict is unchanged by
+        #: this is blind to LPM, and the workload's gating evidence proves less
+        #: than it appears to. `wl_deltanet` failed exactly that and needed a
+        #: dedicated guard (owner, 2026-09-22).
+        self.invert_lpm = invert_lpm
         self.asyncore_socks = asyncore_socks if asyncore_socks else {}
         self.mapping = Mapping.from_json(mapping) if mapping else Mapping(0)
         self.mapping_keys: Set[str] = set(self.mapping.keys())
@@ -193,6 +203,18 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         # in-process libnetplumber binding). For this class it IS the jsonrpc
         # module, so behaviour is unchanged.
         self._rpc: Any = jsonrpc
+
+    def configuration_stamp(self) -> Dict[str, Any]:
+        """ Provenance, plus the one choice here that can change an answer.
+
+        `np_invert_lpm` is in EVERY stamp and not only when it is set, because
+        an absent key does not say "faithful" -- it says the cell was produced
+        by a build that could not have told you either way. Item 31 asks for
+        the measurement-affecting choices to reach the run's own record; a
+        default that is invisible is not recorded. """
+        stamp = self.provenance()
+        stamp['np_invert_lpm'] = self.invert_lpm
+        return stamp
 
     def stop(self) -> None:
         """ Stops NetPlumber.
@@ -874,10 +896,25 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         # repair is deleted (S3b), so `idx` is the file position again and this
         # key gives longest prefix first, ties in the order the table was
         # written -- the same assignment the repair used to make.
+        # `sign` is §5.4's guardrail and is -1 in every faithful run; see
+        # `invert_lpm`. Ties break on the model's own index either way, so the
+        # inverted arm differs from the faithful one in ONE respect only.
+        sign = 1 if self.invert_lpm else -1
         order = sorted(range(len(rules)),
-                       key=lambda i: (-lpm_prefix_len(rules[i]),
+                       key=lambda i: (sign * lpm_prefix_len(rules[i]),
                                       getattr(rules[i], 'idx', i)))
         ordered = [rules[i] for i in order]
+        # THE DENOMINATOR for §5.4's guardrail, in the run's own record.
+        # "The verdict did not change under inversion" is only evidence about
+        # the check set if something WAS inverted; on a workload that declares
+        # no LPM table it is evidence about nothing, and reads the same way.
+        # So every ordered table says so, in both arms, and a guardrail cell
+        # can be read without trusting that the flag reached anything.
+        self.logger.info(
+            "worker: lpm ordering: %s, %d rules, %s" % (
+                table, len(ordered),
+                "SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)"
+                if self.invert_lpm else "longest-first"))
         return ordered, list(range(1, len(ordered) + 1))
 
 
