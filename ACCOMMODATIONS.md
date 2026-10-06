@@ -84,6 +84,44 @@ by the aggregator (`configuration_stamp`) and by the adapter at build
 |---|---|---|
 | `--lite-acyclic` mandatory on `wl_i2` (TODO item 0a) | adapter encoding | seed |
 
+## Retired — `-o` in a filter chain (TODO item 13a), CLOSED 2026-10-06
+
+Recorded here because it was **never recorded here**, which is the point.
+
+From 2026-09-18 to 2026-10-06, FaVe refused an `-o` (egress-interface) match in
+any filter chain and offered `FAVE_ALLOW_OUT_IFACE=1` to model it as **no
+constraint instead** — a declared infidelity, over-permitting for `-j ACCEPT`
+and over-restricting for `-j DROP`, in force for the five workloads whose
+rulesets carry such a rule (`wl_example`, `wl_generic_fw`, `wl_shadow`,
+`wl_tum`, `wl_up`). It was announced on stderr per device and written up in
+TODO item 13a — **and it never reached this registry**, which item 31 created so
+that the write-up could cite one document instead of five. A reader auditing the
+comparison from this file alone would not have known it existed.
+
+**It is retired, not reclassified.** The premise was wrong. The refusal rested
+on "a filter chain runs before `routing`, so `out_port` is wildcard when the
+rule is evaluated and `routing` overwrites the narrowing — the match constrains
+nothing". The narrowing does its FILTERING before the rewrite, so the rule
+applies to exactly the slice of the flow that will leave by that port. Measured
+on the two `-o` workloads, whose rules have opposite polarity:
+
+| engine | `wl_example` (`-o` ACCEPT) | `wl_up` (`-o` DROP ×2) |
+|---|---|---|
+| NetPlumber, ad6, VeriFlow-FR | correct | correct |
+| BDD/NDD-APKeep, before 2026-10-06 | **lost the permit** | correct (by skipping) |
+| BDD/NDD-APKeep, now | correct | correct |
+
+Three backends always modelled it; APKeep's adapter dropped such rules, and now
+resolves them against the FIB (`_lpm_destinations`): an `-o N` rule applies to
+the destinations whose longest-prefix match egresses N.
+
+**What remains, and it is small.** APKeep on a device with **no FIB** — a
+terminal filter such as `wl_tum`'s `fw.tum`, which has no routing at all —
+still cannot resolve the egress and drops the rule. That is now logged per
+device with a count and the direction of the error. It is the only surviving
+`-o` infidelity in the suite, it affects one backend on one device shape, and
+`wl_tum` has no check set, so no verdict in the comparison rests on it.
+
 ## Workloads
 
 | entry | kind | status |

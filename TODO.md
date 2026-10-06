@@ -1524,9 +1524,73 @@ Linux is the other way round -- netfilter routes *before* the FORWARD chain, whi
         over-permissive where the rule ACCEPTs and over-restrictive where it
         DROPs. See TODO.md item 13a.
 
-  An exported-but-empty value, `0`, `false`, `no` and `off` do NOT count as opting in — an empty exported variable is a common accident and must not silently re-enable a known infidelity. Verified: wl_example runs green again with it set. **This exists to be deleted — see item 13a.**
+  An exported-but-empty value, `0`, `false`, `no` and `off` do NOT count as opting in — an empty exported variable is a common accident and must not silently re-enable a known infidelity. Verified: wl_example runs green again with it set. ~~**This exists to be deleted — see item 13a.**~~ **DELETED 2026-10-06** along with the refusal it overrode; item 13a records why the refusal was wrong in the first place.
 
-### 13a. The faithful fix: route BEFORE the filter chains -- and why it is not small
+### 13a. CLOSED 2026-10-06 — `-o` was always expressible; the refusal rested on a wrong premise
+
+**Retired in full: the refusal, the opt-out and the notice are deleted**, which
+is what this item's own definition of done asked for. What it did NOT need was
+the pipeline reordering described below — that never happened, and is not why
+this closed.
+
+**The premise was wrong.** The refusal rested on: a filter chain runs before
+`routing`, so `out_port` is wildcard when the rule is evaluated, `routing` then
+WRITES it, and the narrowing is overwritten — *"the match constrains nothing"*.
+But the narrowing does its **filtering** before the rewrite happens, so the rule
+applies to exactly the slice of the flow that will leave by that port, and the
+rewrite afterwards is consistent with it.
+
+**Measured, not argued.** The suite's two `-o` workloads carry rules of opposite
+polarity, so between them they separate every possible behaviour. `wl_example`'s
+single `-o` **ACCEPT** is the only permit for `office -> internet`, so an engine
+that SKIPS it loses that check. `wl_up`'s two `-o` **DROPs** cover `wl_up`'s own
+entire /48, so an engine that IGNORES the qualifier drops all internal traffic —
+measured at **3025 false violations of 18,811** when that was tried.
+
+| engine | `wl_example` | `wl_up` off-diagonal | behaviour |
+|---|---:|---:|---|
+| NetPlumber | 0/10 | 0 | models `-o` |
+| ad6 | 0/10 | 0 | models `-o` |
+| VeriFlow-FR | 0/10 | 0 | models `-o` |
+| NDD/BDD-APKeep (before) | **1/10** | 0 | **skipped it** |
+| NDD/BDD-APKeep (now) | 0/10 | 0 | models `-o` |
+
+Three of the four backends were never affected. The item generalised the APKeep
+adapter's limitation to the whole suite and made the other three opt into an
+infidelity none of them had. APKeep now resolves an `-o N` rule against the FIB
+(`apkeep/adapter.py` `_lpm_destinations`): it applies to the destinations whose
+longest-prefix match egresses N.
+
+- [x] **Deleted `OutInterfaceUnsupported`, `_out_iface_allowed`,
+  `_count_out_iface`, the stderr notice and `FAVE_ALLOW_OUT_IFACE` from every
+  caller** — `iptables/generator.py`, `bench/cell_run.py` (with
+  `OUT_IFACE_WORKLOADS` and `--allow-out-iface`), and `test.sh` (the
+  `FAVE_OUT_IFACE_TESTS` group folded back into the integration group, plus
+  `run_smoke`/`run_bench`'s overrides). **Verified the folded modules still
+  execute** rather than silently vanishing — which is this file's own recorded
+  failure mode for that group: `test_iptables_out_iface` 9,
+  `test_ad6_wl_up` 3, `test_apkeep_tum` 1, `test_backend_differential` 9+2s,
+  `test_veriflow_differential` 4+1s, the last running **one more** test than
+  before because the refusal is no longer skipping it.
+- [x] **Replaced `fave/test/test_iptables_out_iface.py`** with a test that `-o`
+  now CONSTRAINS: it generates an `out_port` match naming the device's egress
+  port, a VLAN-qualified interface yields both halves, nothing is announced on
+  stderr, and the retired flag is neither required nor able to resurrect the old
+  behaviour (checked at `''`, `'0'`, `'1'`, `'false'`).
+- [x] **Declared what survives.** APKeep on a device with **no FIB** — a
+  terminal filter such as `wl_tum`'s `fw.tum` — still cannot resolve the egress
+  and drops the rule. It is now logged per device with a count and the direction
+  of the error, because a silent infidelity is what this item existed to
+  prevent. `wl_tum` has no check set, so no verdict rests on it.
+- [x] **Recorded in [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md)** — where it had
+  **never been recorded**, despite being a declared five-workload infidelity and
+  despite item 31 creating that registry so the write-up could cite one document
+  instead of five.
+
+<details>
+<summary>The original plan — route BEFORE the filter chains — never needed, kept for the record</summary>
+
+### 13a (original). The faithful fix: route BEFORE the filter chains -- and why it is not small
 **This is what item 13 should eventually do**, and the refusal above is only a placeholder for it.
 
 **Why reordering is the faithful answer.** In netfilter the routing decision happens *before* the chain that can match on egress, in both directions:
@@ -1558,6 +1622,8 @@ Three further consequences to work through:
 - [ ] **Re-examine wl_up's DROP rule** specifically -- an over-restrictive drop produces false "does not reach" results, which is the direction that looks like a correct verdict.
 
 ---
+
+</details>
 
 ### 12a. STANDING: a FIB workload must prove its evidence can see LPM (owner, 2026-09-22)
 
