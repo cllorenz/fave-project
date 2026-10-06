@@ -42,8 +42,7 @@ wl_up, wl_tum and wl_stanford too, equal to NetPlumber:
     predicts 1.74e10).
 
 wl_i2 takes minutes per engine, so it runs only with
-VERIFLOW_FULL_DIFFERENTIAL=1. The file needs FAVE_ALLOW_OUT_IFACE=1 for
-wl_example and wl_tum (TODO item 13a) and runs in test.sh's group for it.
+VERIFLOW_FULL_DIFFERENTIAL=1. `-o` needs no opt-in since TODO item 13a was closed (2026-10-06).
 
 Needs libveriflow_fr, libnetplumber and the generated inputs; skips without them.
 """

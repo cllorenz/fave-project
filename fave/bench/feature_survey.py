@@ -46,9 +46,8 @@ Usage, from fave/ with PYTHONPATH=. and the venv active:
     python3 bench/feature_survey.py --bench bench/wl_i2/i2-json \\
         --files topology=device_topology.json,policies=probes.json --json out.json
 
-Firewall workloads with an `-o` match in a filter chain need
-FAVE_ALLOW_OUT_IFACE=1 (TODO item 13a); the model then leaves that match
-unmodelled, and the survey says so in its `notes`.
+An `-o` match in a filter chain needs no opt-in and is modelled: TODO item 13a
+was closed 2026-10-06 and its refusal, override and notice are all gone.
 """
 
 import argparse
@@ -353,11 +352,9 @@ def run(prefix: str, files: Optional[Dict[str, str]] = None,
     if checks:
         with open(checks) as raw:
             result["checks"] = survey_checks(json.load(raw))
-    notes = []
-    if os.environ.get("FAVE_ALLOW_OUT_IFACE"):
-        notes.append("FAVE_ALLOW_OUT_IFACE=1: `-o` matches in filter chains "
-                     "are left unmodelled (TODO item 13a)")
-    result["notes"] = notes
+    # No `-o` note: item 13a is closed and the match is modelled, so there is
+    # no longer an infidelity for the survey to qualify.
+    result["notes"] = []
     return result
 
 

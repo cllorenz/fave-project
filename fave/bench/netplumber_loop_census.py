@@ -31,7 +31,7 @@ twice (a router on a stick), which the rule loses.
 Usage, from fave/ with PYTHONPATH=. and the venv active, after the workloads'
 test/gen_*_inputs.sh and net_plumber/python/build_libnetplumber.sh:
 
-    FAVE_ALLOW_OUT_IFACE=1 python3 bench/netplumber_loop_census.py
+    python3 bench/netplumber_loop_census.py
 """
 
 import logging
