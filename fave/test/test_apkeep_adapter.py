@@ -35,7 +35,8 @@ import unittest
 from types import SimpleNamespace
 
 from rule.rule_model import Rule, Match, RuleField, Forward, Rewrite
-from apkeep.adapter import APKeepAdapter, available
+from apkeep.adapter import (APKeepAdapter, available, _lpm_destinations,
+                            _restrict_dst)
 from test.backend_gate import require_or_skip
 
 _DST = 'packet.ipv4.destination'
@@ -126,3 +127,91 @@ class TestAPKeepAdapter(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestOutInterfaceResolvedAgainstTheFib(unittest.TestCase):
+    """ `-o` is resolved against the FIB, not skipped and not ignored.
+
+    `-o N` means "will leave by interface N". FaVe runs filter chains BEFORE
+    routing, so the egress is unknown when the rule is evaluated -- which is why
+    the adapter used to drop such rules outright. Both of the simple answers are
+    wrong, and the V5 campaign measured both:
+
+    * **skipping** loses an `-o` ACCEPT's permit. `wl_example`'s `pgf` is
+      `-P FORWARD DROP` plus one `-o 1 -s <office> -j ACCEPT`, and with the rule
+      dropped both APKeep engines reported `source.office does not reach
+      probe.internet` where NetPlumber, ad6 and VeriFlow-FR all say it does.
+    * **ignoring the qualifier** over-applies an `-o` DROP. `wl_up`'s two
+      `-o 1 -d <own /48> -j DROP` rules are anti-spoofing over its ENTIRE
+      address space, and emitting them port-agnostically produced 3025 false
+      violations of 18,811.
+
+    The egress is a function of the destination and the FIB is already
+    materialised, so the rule is equivalent to itself restricted to the
+    destinations that route to that port. These pin the arithmetic.
+    """
+
+    #: wl_example's `pgf`: two connected /120s and a default route out the
+    #: uplink -- the minimal shape that has both a specific and a default route.
+    FIB = [("2001:db8::100/120", "2", 120),
+           ("2001:db8::200/120", "3", 120),
+           (None, "1", 0)]
+
+    def test_a_specific_route_is_its_own_prefix(self):
+        self.assertEqual(_lpm_destinations(self.FIB, "2"),
+                         ["2001:db8::100/120"])
+        self.assertEqual(_lpm_destinations(self.FIB, "3"),
+                         ["2001:db8::200/120"])
+
+    def test_the_default_route_excludes_the_more_specific_ones(self):
+        """ LPM, not containment: both /120s are INSIDE ::/0, and a packet to
+        either leaves by 2 or 3, never by 1. """
+        import ipaddress
+        pieces = _lpm_destinations(self.FIB, "1")
+        self.assertTrue(pieces, "the default route must yield destinations")
+        self.assertNotIn(None, pieces, "::/0 whole would include the /120s")
+        for internal in ("2001:db8::100/120", "2001:db8::200/120"):
+            net = ipaddress.ip_network(internal)
+            covered = [p for p in pieces
+                       if net.subnet_of(ipaddress.ip_network(p))]
+            self.assertEqual(covered, [], "%s routes to its own port, not 1"
+                             % internal)
+        # and the pieces must still cover something outside them
+        outside = ipaddress.ip_network("2001:db8::300/120")
+        self.assertTrue(any(outside.subnet_of(ipaddress.ip_network(p))
+                            for p in pieces))
+
+    def test_a_same_egress_child_is_kept(self):
+        """ A more-specific route to the SAME port still routes there, so it is
+        not carved out -- only a DIFFERENT egress is. """
+        import ipaddress
+        fib = [("10.0.0.0/8", "1", 8), ("10.1.0.0/16", "1", 16)]
+        pieces = _lpm_destinations(fib, "1")
+        net = ipaddress.ip_network("10.1.0.0/16")
+        self.assertTrue(any(net.subnet_of(ipaddress.ip_network(p))
+                            for p in pieces))
+
+    def test_the_route_unknown_discard_is_not_an_egress(self):
+        """ `__drop__` destinations leave by no port, so they are carved out of
+        a covering route just as a different physical egress would be. """
+        import ipaddress
+        fib = [(None, "1", 0), ("10.9.0.0/16", "__drop__", 16)]
+        pieces = _lpm_destinations(fib, "1")
+        net = ipaddress.ip_network("10.9.0.0/16")
+        self.assertFalse(any(net.subnet_of(ipaddress.ip_network(p))
+                             for p in pieces))
+
+    def test_a_device_with_no_fib_resolves_nothing(self):
+        """ A terminal filter (wl_tum's fw.tum) has no routing, so there is
+        nothing to resolve against and the rule is emitted for no destination.
+        Honest, and the pre-existing behaviour for that shape. """
+        self.assertEqual(_lpm_destinations([], "1"), [])
+
+    def test_a_rules_own_destination_is_narrowed_not_replaced(self):
+        self.assertEqual(_restrict_dst(None, "10.0.0.0/8"), "10.0.0.0/8")
+        self.assertEqual(_restrict_dst("10.1.0.0/16", "10.0.0.0/8"),
+                         "10.1.0.0/16")          # rule's dst is narrower
+        self.assertEqual(_restrict_dst("10.0.0.0/8", "10.1.0.0/16"),
+                         "10.1.0.0/16")          # the route's piece is narrower
+        self.assertIs(_restrict_dst("192.168.0.0/16", "10.0.0.0/8"), False)
+        self.assertIs(_restrict_dst("2001:db8::/32", "10.0.0.0/8"), False)

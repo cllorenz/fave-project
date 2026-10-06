@@ -37,6 +37,7 @@ NotImplemented stubs and APKEEP_BACKEND.md.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import sys
 
@@ -529,6 +530,73 @@ def _is_acceptall_filter_rule(tokens: List[str]) -> bool:
 def _fib_name(device: str) -> str:
     """ Companion ForwardElement/FIB device name for a transit packet_filter. """
     return device + '.fib'
+
+
+def _lpm_destinations(fib: List[Tuple[Optional[str], str, int]],
+                      port: str) -> List[Optional[str]]:
+    """ The destination prefixes whose LONGEST-PREFIX match in `fib` egresses
+    `port`, as prefix strings (None = that family's whole space).
+
+    This is what makes an `-o` match expressible. `-o N` means "will leave by
+    interface N", and FaVe runs filter chains BEFORE routing, so at filter time
+    the egress is unknown -- which is why such rules used to be dropped here.
+    But the egress is a FUNCTION of the destination, and the FIB that computes
+    it is already materialised in `_filter_fib`. So an `-o N`-qualified rule is
+    equivalent to the same rule restricted to the destinations that route to N,
+    which is computable here and needs nothing from the pipeline order.
+
+    LPM, not plain containment: a destination inside a prefix that egresses N is
+    routed to N only if no LONGER prefix with a different egress also matches
+    it, so each N-entry has its more-specific non-N children carved out. A
+    more-specific child with the SAME egress is kept -- it still routes to N.
+    `__drop__` (FaVe's route-unknown discard) counts as a different egress:
+    those destinations leave by no port at all.
+    """
+    out: List[Optional[str]] = []
+    families = {6 if ':' in str(d) else 4 for d, _e, _p in fib if d is not None}
+    for fam in (sorted(families) or [4]):
+        whole = ipaddress.ip_network('::/0' if fam == 6 else '0.0.0.0/0')
+        nets = [(whole if d is None
+                 else ipaddress.ip_network(str(d), strict=False), e)
+                for d, e, _p in fib
+                if d is None or (':' in str(d)) == (fam == 6)]
+        for net, egress in nets:
+            if egress != port:
+                continue
+            pieces = [net]
+            for other, other_egress in nets:
+                if other_egress == port or other.prefixlen <= net.prefixlen:
+                    continue
+                if not other.subnet_of(net):
+                    continue
+                carved = []
+                for piece in pieces:
+                    if other.subnet_of(piece):
+                        carved.extend(piece.address_exclude(other))
+                    elif not piece.subnet_of(other):
+                        carved.append(piece)
+                pieces = carved
+            for piece in pieces:
+                out.append(None if piece == whole else str(piece))
+    return out
+
+
+def _restrict_dst(dst: Optional[str], allowed: Optional[str]) -> Any:
+    """ `dst` narrowed to `allowed`; `False` when the two are disjoint, so the
+    caller emits nothing for that piece. None means "any". """
+    if allowed is None:
+        return dst
+    if dst is None:
+        return allowed
+    a = ipaddress.ip_network(str(dst), strict=False)
+    b = ipaddress.ip_network(str(allowed), strict=False)
+    if a.version != b.version:
+        return False
+    if a.subnet_of(b):
+        return dst
+    if b.subnet_of(a):
+        return allowed
+    return False
 
 
 def _fib_rule_string(fib_dev: str, egress: str, dst: Optional[str], plen: int) -> str:
@@ -2192,13 +2260,37 @@ class APKeepAdapter(AbstractVerificationEngine):
             all_elems.append(elem)
             in_by: Dict[str, List[Tuple]] = {}
             for t in self._pf_rules.get(dev, {}).get(chain, []):
-                if handle_quals and t[8] is not None:   # out_port-qualified -> skip
-                    continue
-                if handle_quals and t[7] is not None:   # in_port-qualified -> prefilter
-                    in_by.setdefault(t[7], []).append(t)
-                    continue
-                rule_strings.append(_filter_rule_string(
-                    elem, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
+                # An out_port-qualified rule (`-o`) is RESOLVED AGAINST THE FIB
+                # rather than skipped: it applies exactly to the destinations
+                # that route to the qualified port, which `_lpm_destinations`
+                # computes. Skipping it was wrong in both directions and the
+                # campaign measured both -- an `-o` ACCEPT lost its permit
+                # (`wl_example`: `source.office` could not reach
+                # `probe.internet`, where NetPlumber, ad6 and VeriFlow-FR all
+                # say it can), while simply ignoring the qualifier instead
+                # over-applies an `-o` DROP (`wl_up`'s anti-spoofing pair covers
+                # its own /48, and port-agnostic emission produced 3025 false
+                # violations of 18,811). Resolving against the FIB is right for
+                # both, and is what the other three backends effectively do.
+                #
+                # A device with no FIB -- a terminal filter such as `wl_tum`'s
+                # `fw.tum`, which has no routing at all -- cannot resolve it, so
+                # the old skip stands there and is the honest answer.
+                expanded = [t]
+                if handle_quals and t[8] is not None:
+                    allowed = _lpm_destinations(self._filter_fib.get(dev, []),
+                                                t[8])
+                    expanded = []
+                    for dst in allowed:
+                        narrowed = _restrict_dst(t[3], dst)
+                        if narrowed is not False:
+                            expanded.append(t[:3] + (narrowed,) + t[4:])
+                for t in expanded:
+                    if handle_quals and t[7] is not None:  # in_port-qualified
+                        in_by.setdefault(t[7], []).append(t)
+                        continue
+                    rule_strings.append(_filter_rule_string(
+                        elem, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
             port_target: Dict[str, str] = {}
             pre_edges: List[str] = []
             for port, prules in in_by.items():
