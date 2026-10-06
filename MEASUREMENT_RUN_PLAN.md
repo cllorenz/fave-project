@@ -565,16 +565,48 @@ changed no answer and no partition size). **1.28× cannot move a 10× margin.**
 is far likelier to survive than a 24-hour one, and these two cells' whole
 information content is in the first hour anyway.
 
-### 5.4 The LPM guardrail — cheap, mechanical, and open on three workloads
+### 5.4 The LPM guardrail — RUN 2026-10-06, and one of three passes
 
 A FIB workload must **prove its evidence can see LPM** (owner, 2026-09-22). The
 check: **invert the ordering so the shortest prefix wins, and re-run.** If the
 verdict does not change, the workload's gating evidence is blind to rule
 priority. `wl_deltanet` failed exactly this and needed a dedicated guard.
 
-**Open for `wl_stanford`, `wl_i2` and `wl_cloud`** — whether each *check set* is
-sensitive to an inversion has never been measured (S4), and on `wl_cloud` the
-re-prioritisation is called "load-bearing". Two cells each, minutes apiece.
+**Measured 2026-10-06** —
+`bench/campaigns/results_v5_lpm_guardrail_20261006/`, 12 cells, both arms on
+both engines that order a declared-LPM table themselves. The mechanism did not
+exist before that date (`--invert-lpm`; `bench/stanford_priority_check.py`
+looks like one and says in its own docstring that it stopped being one in
+2026-09), which is why prediction 11 was unfalsifiable.
+
+| workload | faithful | inverted | reordered | guard |
+|---|---|---|---|---|
+| `wl_stanford` | 75/240 | **230/240** | 16 tables, 3,844 rules | **passes** |
+| `wl_i2` | 11/72 | 11/72 | 9 tables, **77,451 rules** | **FAILS** |
+| `wl_cloud` | 58 np / 57 vf | unchanged | **0 tables, 0 rules** | **not applicable** |
+
+Both engines agree arm for arm on all three.
+
+**`wl_i2`'s check set is blind to rule priority.** 77,451 rules reordered so the
+shortest prefix wins, and none of its 72 checks noticed — on two independent
+engines. `wl_i2` therefore cannot be cited as evidence that an engine resolves
+longest-prefix-match; any claim of that shape rests on `wl_stanford`. The repair
+is a check set that distinguishes nested prefixes, which is new measurement
+input and the owner's call.
+
+**`wl_cloud` was never an open case, and this section was wrong to list it.**
+It declares **no LPM table at all**, deliberately:
+`bench/wl_cloud/cloud_preparation.py` records that 45 of the dataset's devices
+hold one table mixing forwarding and filtering, where two rules share a prefix
+and disagree so only their *order* can resolve them — and that the repair which
+used to run there was **measured a complete no-op**, the generated routes
+byte-identical at 1,741 rules. The "re-prioritisation is called *load-bearing*"
+claim above cites a position the project had already withdrawn in the code.
+**That is the second prediction in this campaign scored against a withdrawn
+claim**; the first was prediction 10 against `CLOUD_BENCH_PLAN.md` §1.7.2. Both
+times the plan's summary outlived the body that supported it.
+
+So: **two workloads were ever in scope, and one of them passes.**
 
 ---
 
@@ -682,7 +714,7 @@ recorded as such, not quietly dropped.
 | 8 | both faithful probes within 1.5× | **NOT TESTED** — phase C never started |
 | 9 | `vf` completes all nine; `vf-plain` DNF on `wl_up`/`wl_tum` | **HALF HELD, HALF NOT TESTED.** `vf` completed all nine — but only after the F3 fix; on the campaign's own run `wl_cloud × vf` errored, and the cause was a FaVe defect (`expand_negated`), not the engine. The `vf-plain` half was never tested: both cells were deferred and never run. |
 | 10 | `ad6` **refuses** `wl_cloud` | **FALSIFIED.** ad6 answered: 57 violations of 71, line-for-line identical to NDD. See below. |
-| 11 | at least one of three LPM inversions does not change the verdict | **NOT TESTED** — and it could not have been; see the coverage gap below. |
+| 11 | at least one of three LPM inversions does not change the verdict | **TESTED 2026-10-06, HELD** — `wl_i2` did not change. But see §5.4: it holds because one of the three workloads has gating evidence that cannot see rule priority, and a second was never a candidate. **One of three passes.** |
 
 **Prediction 10 was drawn from a matrix that was already stale.** §5.1's
 `ad6 × wl_cloud` cell said "**refuses** (structural)", citing
@@ -710,6 +742,40 @@ workloads. It has:
 Neither absence is visible from the queue, and `test_cell_run.py` checks the
 queue's cells for well-formedness but not for **coverage** against §6. A
 completed phase A would still have left both open.
+
+**The LPM half is closed as of 2026-10-06** — `--invert-lpm` was built, the 12
+cells were run, and §5.4 carries the result. The faithful-VLAN variant cells
+remain absent.
+
+---
+
+## 7.2 The scores — the investigation's re-measurement, 2026-10-06
+
+After phase A the owner asked for the campaign's disagreements to be drilled
+into and the affected cells re-run. Four defects were found; the cells they
+reach were re-measured into
+`bench/campaigns/results_v5_remeasure_20261006/` (28 cells, 24 minutes), with
+R1–R8 declared in that directory's `PROTOCOL.txt` beforehand and scored in its
+`FINDINGS.md`. **Seven of eight held.**
+
+| fix | what it was | effect |
+|---|---|---|
+| O1a | the APKeep adapter skipped `-o`-qualified rules instead of resolving them against the FIB | `wl_example × bdd/ndd` 1 → 0 violations |
+| O3c | `expand_negated` produced non-prefix ternary vectors | `wl_cloud × vf/vfplain` `error` → 57/71 |
+| **Q23** | **VeriFlow-FR had no no-U-turn rule**, which the other four engines all enforce | **`wl_up × vf` 28 → 0 of 18,811**, and 639 s → 402 s |
+| `verdict_valid` | required a `check_compliance` task that `wl_tum` never dispatches, having no check set | five `error` cells → `measured` |
+
+**The engines now agree on eight of nine workloads.** The one remaining
+disagreement is `wl_cloud`: **NetPlumber 58/71 against 57/71 from NDD-APKeep,
+ad6, `vf` and `vfplain`** — four engines against one, on the only workload with
+an external oracle. §5.4's guardrail rules out rule priority as the cause: the
+disagreement is unchanged under inversion.
+
+R5 is the one worth reading: it held by its declared falsifier and was **wrong
+about which cells would move**. It named `wl_up` and `wl_i2` as the flow-heavy
+NetPlumber cells, using wall-clock as the proxy; the retired work was per flow
+*event*, `wl_up` is slow because it answers 18,811 checks, and the cell that
+actually moved was `wl_stanford` (−24%, unnamed), with `wl_up` going **up** 4%.
 
 ---
 
