@@ -781,6 +781,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         # routing as a companion FilterElement (a first-match dst-LPM FIB) chained
         # off the accept port -- see _build_pf_pipeline. device -> [(dst, egress, plen)].
         self._filter_fib: Dict[str, List[Tuple[Optional[str], str, int]]] = {}
+        #: device -> count of `-o` rules that could NOT be resolved against
+        #: a FIB, i.e. the one residue of TODO.md item 13a. Reported once
+        #: per device rather than per rule (wl_tum's tum-ruleset alone
+        #: carries 3,286, and a per-rule notice would bury the run).
+        self._unresolved_out_iface: Dict[str, int] = {}
         # device -> (ACCOUNT_*, why). Which mechanism stands in for a semantic
         # the chosen element type cannot carry, and how completely. Read by
         # `_assert_ingress_accounted`; an unlisted device that needs one is
@@ -2280,6 +2285,18 @@ class APKeepAdapter(AbstractVerificationEngine):
                 if handle_quals and t[8] is not None:
                     allowed = _lpm_destinations(self._filter_fib.get(dev, []),
                                                 t[8])
+                    if not allowed:
+                        # No FIB, so the egress is not a function of anything
+                        # this adapter can see -- a terminal filter such as
+                        # wl_tum's fw.tum, which has no routing at all. The rule
+                        # is dropped, which is the pre-2026-10 behaviour and the
+                        # ONLY case where `-o` is still not modelled here. It is
+                        # announced rather than silent: that silence is what
+                        # TODO.md item 13a existed to prevent, and the item is
+                        # closed on the understanding that what remains of it
+                        # says so out loud.
+                        self._unresolved_out_iface.setdefault(dev, 0)
+                        self._unresolved_out_iface[dev] += 1
                     expanded = []
                     for dst in allowed:
                         narrowed = _restrict_dst(t[3], dst)
@@ -2405,6 +2422,15 @@ class APKeepAdapter(AbstractVerificationEngine):
                 if has_routing:
                     new_edges.append("%s output_filter_accept %s in" % (out_elem, fib_dev))
 
+        for device, count in sorted(self._unresolved_out_iface.items()):
+            # Declared, not silent: this is all that is left of item 13a.
+            self.logger.warning(
+                "apkeep: %s: %d `-o` match(es) NOT modelled -- this device has "
+                "no FIB (a terminal filter with no routing), so the egress "
+                "cannot be resolved from the destination. Results are "
+                "over-permissive where such a rule DROPs and over-restrictive "
+                "where it ACCEPTs. Every other device resolves `-o` exactly.",
+                device, count)
         return new_edges, all_elems, rule_strings
 
     def _src_seeded_source(self, cidr: Optional[str]) -> bool:
