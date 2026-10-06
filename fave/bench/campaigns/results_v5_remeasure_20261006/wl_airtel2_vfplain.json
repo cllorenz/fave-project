@@ -1,0 +1,109 @@
+{
+  "workload": "wl_airtel2",
+  "backend": "veriflow",
+  "engine": "veriflow",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-06T14:52:54.531967+00:00",
+  "git_head": "cf2ec3a6a2b404626e6831491c0572d30862c19a",
+  "engine_commit": "95e14708b1f84df74cf2176a9c52f3ceaa737b70 2026-10-06",
+  "vf_fields": "plain",
+  "vf_budget": 0,
+  "engine_options": "--vf-fields plain --vf-budget 0",
+  "driver": "bench.deltanet.workload.build",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 4.218,
+  "memory_stop": null,
+  "peak_rss_mb": 197,
+  "peak_rss_by_process_mb": {
+    "benchmark": 69,
+    "bash": 3,
+    "aggregator": 127,
+    "sleep": 1,
+    "python3": 14
+  },
+  "least_available_mb": 62207,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0,
+    "python3": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_airtel2_vfplain.status.jsonl",
+  "check_compliance_s": [
+    1.1717417240142822
+  ],
+  "report_task_s": [
+    0.0008840560913085938
+  ],
+  "switch_command_s": 0.3710324764251709,
+  "switch_commands": 16,
+  "gc": null,
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "checks": 256,
+  "input_files": {
+    "cchecks": "7176cd44e673767f19307b32f900f6077b9a9c5dfe4a2c735ceb0622132232ab",
+    "checks": "84d8bea0c85d7ca1e61c6b3a97fdfb4a444d53b2a64b047ce3a6ee024f467c86",
+    "inventory": "12526d54d7e8aa3d37937bbe0b62c5418a43585e090e10c4baaad4491f5c1c60",
+    "policies": "2dd93ea816049893b9ac83db4172162dfad1ca0d2b489a9861042482f4e0e1c5",
+    "reach_csv": "e1bc20a92e014d74eb35744210d89d217e78920599a34f5a456b7e3232de976e",
+    "reach_json": "9eb2e82ea2bbb3068661d639ac6786ebb88a24aabd24d933602d138cff4f23f3",
+    "reach_policies": "b683c675b1f014df4c9fb4d151457b976c59869685d9de0c2925c8614e2988f9",
+    "roles_json": "e4e8500353d3fd3af78fb7fe79bab2f293084c5de71bb626f7c9a98ac2b190b9",
+    "roles_services": "5c86e6f53625209b1e80f876dd43bacab92d52b742ae49de9edd87a9ef7ef191",
+    "routes": "be56efed8e0239c26f2eb9132ed2f494657e0f138a4a12baacf3e7607858d5e0",
+    "sources": "1b1f7f3bbe189e76e2ef0baa73ed6f3fc7fc29e378a2e624da696a93bdcf0702",
+    "topology": "99412471daa799fc659eb044a13797a5ebdb2aa935440d1066b44e8ae8e8dab0"
+  },
+  "drift_from_previous": [],
+  "census": {
+    "delivery_rules": 1400,
+    "devices": 16,
+    "links": 52,
+    "probes": 16,
+    "rules": 39500,
+    "sources": 16,
+    "transit_rules": 38100
+  },
+  "verdict_valid": true,
+  "apkeep_jar": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "reimpl-literature",
+    "vf_fields": "plain",
+    "vf_revisit": "state",
+    "vf_slicing": "device",
+    "vf_budget": 0,
+    "vf_invert_lpm": false
+  },
+  "impl": "reimpl-literature",
+  "upstream": null,
+  "expected_violations": 0,
+  "outcome": "correct"
+}

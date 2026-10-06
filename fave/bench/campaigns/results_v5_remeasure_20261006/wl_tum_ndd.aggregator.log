@@ -1,0 +1,18 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)', 'engine': 'ndd', 'faithful_vlan': True}
+master: open and bind tcp/ip socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.08232569694519043 seconds.
+worker: completed task probe in 0.00193023681640625 seconds.
+worker: completed task links in 2.9802322387695312e-05 seconds.
+worker: completed task generators in 9.083747863769531e-05 seconds.
+worker: completed task links in 4.100799560546875e-05 seconds.
+worker: completed task report in 0.0007832050323486328 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.00010251998901367188 seconds.
+worker: stop handler after 2.7752928733825684 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

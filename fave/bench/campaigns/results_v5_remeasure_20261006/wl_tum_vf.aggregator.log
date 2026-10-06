@@ -1,0 +1,18 @@
+backend: veriflow {'impl': 'reimpl-literature', 'vf_fields': '4+10', 'vf_revisit': 'state', 'vf_slicing': 'device', 'vf_budget': 0, 'vf_invert_lpm': False}
+master: open and bind tcp/ip socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.07234954833984375 seconds.
+worker: completed task probe in 0.0017006397247314453 seconds.
+worker: completed task links in 2.2649765014648438e-05 seconds.
+worker: completed task generators in 0.00010275840759277344 seconds.
+worker: completed task links in 3.409385681152344e-05 seconds.
+worker: completed task report in 0.001107931137084961 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.00011205673217773438 seconds.
+worker: stop handler after 3.647542953491211 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

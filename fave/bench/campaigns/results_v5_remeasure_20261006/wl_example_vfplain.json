@@ -1,0 +1,85 @@
+{
+  "workload": "wl_example",
+  "backend": "veriflow",
+  "engine": "veriflow",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-06T14:51:13.460066+00:00",
+  "git_head": "cf2ec3a6a2b404626e6831491c0572d30862c19a",
+  "engine_commit": "95e14708b1f84df74cf2176a9c52f3ceaa737b70 2026-10-06",
+  "vf_fields": "plain",
+  "vf_budget": 0,
+  "engine_options": "--vf-fields plain --vf-budget 0",
+  "driver": "bench/wl_example/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 2.061,
+  "memory_stop": null,
+  "peak_rss_mb": 67,
+  "peak_rss_by_process_mb": {
+    "python3": 37,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 30,
+    "sleep": 2
+  },
+  "least_available_mb": 62320,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_example_vfplain.status.jsonl",
+  "check_compliance_s": [
+    0.009889841079711914
+  ],
+  "report_task_s": [
+    0.0007238388061523438
+  ],
+  "switch_command_s": 0.00037026405334472656,
+  "switch_commands": 3,
+  "gc": null,
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "checks": 10,
+  "verdict_valid": true,
+  "apkeep_jar": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "reimpl-literature",
+    "vf_fields": "plain",
+    "vf_revisit": "state",
+    "vf_slicing": "device",
+    "vf_budget": 0,
+    "vf_invert_lpm": false
+  },
+  "impl": "reimpl-literature",
+  "upstream": null,
+  "expected_violations": 0,
+  "outcome": "correct"
+}

@@ -1,0 +1,147 @@
+backend: netplumber {'impl': 'authors+fave', 'upstream': 'hassel-public master 697b35c9', 'np_invert_lpm': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.0005402565002441406 seconds.
+worker: completed task switch in 0.00020170211791992188 seconds.
+worker: completed task switch in 0.0003204345703125 seconds.
+worker: completed task switch in 8.58306884765625e-05 seconds.
+worker: completed task switch in 8.511543273925781e-05 seconds.
+worker: completed task switch in 0.0001304149627685547 seconds.
+worker: completed task switch in 0.00019812583923339844 seconds.
+worker: completed task switch in 0.0001556873321533203 seconds.
+worker: completed task switch in 0.0004942417144775391 seconds.
+worker: completed task switch in 0.0001838207244873047 seconds.
+worker: completed task switch in 0.00018668174743652344 seconds.
+worker: completed task switch in 0.0003228187561035156 seconds.
+worker: completed task switch in 6.461143493652344e-05 seconds.
+worker: completed task switch in 7.033348083496094e-05 seconds.
+worker: completed task switch in 8.106231689453125e-05 seconds.
+worker: completed task switch in 6.985664367675781e-05 seconds.
+worker: completed task switch in 6.222724914550781e-05 seconds.
+worker: completed task switch in 7.62939453125e-05 seconds.
+worker: completed task switch in 0.0001461505889892578 seconds.
+worker: completed task switch in 0.00016069412231445312 seconds.
+worker: completed task switch in 0.0003674030303955078 seconds.
+worker: completed task switch in 0.00012803077697753906 seconds.
+worker: completed task switch in 0.00013947486877441406 seconds.
+worker: completed task switch in 0.00035452842712402344 seconds.
+worker: completed task switch in 0.0001270771026611328 seconds.
+worker: completed task switch in 0.0001251697540283203 seconds.
+worker: completed task switch in 0.00027370452880859375 seconds.
+worker: completed task switch in 0.00013828277587890625 seconds.
+worker: completed task switch in 0.00013875961303710938 seconds.
+worker: completed task switch in 0.00029015541076660156 seconds.
+worker: completed task switch in 0.0001537799835205078 seconds.
+worker: completed task switch in 0.00014925003051757812 seconds.
+worker: completed task switch in 0.0003952980041503906 seconds.
+worker: completed task switch in 0.00014090538024902344 seconds.
+worker: completed task switch in 0.00012612342834472656 seconds.
+worker: completed task switch in 0.0003032684326171875 seconds.
+worker: completed task switch in 6.365776062011719e-05 seconds.
+worker: completed task switch in 6.222724914550781e-05 seconds.
+worker: completed task switch in 0.00010776519775390625 seconds.
+worker: completed task switch in 8.749961853027344e-05 seconds.
+worker: completed task switch in 6.389617919921875e-05 seconds.
+worker: completed task switch in 7.081031799316406e-05 seconds.
+worker: completed task switch in 0.00015735626220703125 seconds.
+worker: completed task switch in 0.00023412704467773438 seconds.
+worker: completed task switch in 0.0004086494445800781 seconds.
+worker: completed task switch in 8.511543273925781e-05 seconds.
+worker: completed task switch in 0.00017571449279785156 seconds.
+worker: completed task switch in 0.00010204315185546875 seconds.
+worker: completed task links in 0.03407740592956543 seconds.
+worker: completed task switch_command in 0.0011410713195800781 seconds.
+worker: lpm ordering: mid.bbra_rtr.1, 869 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.045496225357055664 seconds.
+worker: completed task switch_command in 0.0013561248779296875 seconds.
+worker: completed task switch_command in 0.00036907196044921875 seconds.
+worker: lpm ordering: mid.bbrb_rtr.1, 843 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.0349116325378418 seconds.
+worker: completed task switch_command in 0.0014543533325195312 seconds.
+worker: completed task switch_command in 0.0018630027770996094 seconds.
+worker: lpm ordering: mid.boza_rtr.1, 202 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.008820056915283203 seconds.
+worker: completed task switch_command in 0.0008642673492431641 seconds.
+worker: completed task switch_command in 0.001863718032836914 seconds.
+worker: lpm ordering: mid.bozb_rtr.1, 174 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.008739233016967773 seconds.
+worker: completed task switch_command in 0.0009150505065917969 seconds.
+worker: completed task switch_command in 0.006440401077270508 seconds.
+worker: lpm ordering: mid.coza_rtr.1, 188 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.008202791213989258 seconds.
+worker: completed task switch_command in 0.0003638267517089844 seconds.
+worker: completed task switch_command in 0.006040334701538086 seconds.
+worker: lpm ordering: mid.cozb_rtr.1, 125 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.005642890930175781 seconds.
+worker: completed task switch_command in 0.0003414154052734375 seconds.
+worker: completed task switch_command in 0.0026357173919677734 seconds.
+worker: lpm ordering: mid.goza_rtr.1, 166 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.00945734977722168 seconds.
+worker: completed task switch_command in 0.0012831687927246094 seconds.
+worker: completed task switch_command in 0.0026962757110595703 seconds.
+worker: lpm ordering: mid.gozb_rtr.1, 145 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.008327722549438477 seconds.
+worker: completed task switch_command in 0.0013031959533691406 seconds.
+worker: completed task switch_command in 0.0019087791442871094 seconds.
+worker: lpm ordering: mid.poza_rtr.1, 123 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.006417512893676758 seconds.
+worker: completed task switch_command in 0.0008013248443603516 seconds.
+worker: completed task switch_command in 0.009743690490722656 seconds.
+worker: lpm ordering: mid.pozb_rtr.1, 108 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.0054416656494140625 seconds.
+worker: completed task switch_command in 0.0008158683776855469 seconds.
+worker: completed task switch_command in 0.0012178421020507812 seconds.
+worker: lpm ordering: mid.roza_rtr.1, 103 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.004431247711181641 seconds.
+worker: completed task switch_command in 0.000990152359008789 seconds.
+worker: completed task switch_command in 0.001195669174194336 seconds.
+worker: lpm ordering: mid.rozb_rtr.1, 90 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.004137277603149414 seconds.
+worker: completed task switch_command in 0.0008301734924316406 seconds.
+worker: completed task switch_command in 0.011576175689697266 seconds.
+worker: lpm ordering: mid.soza_rtr.1, 204 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.008873224258422852 seconds.
+worker: completed task switch_command in 0.0003764629364013672 seconds.
+worker: completed task switch_command in 0.006280660629272461 seconds.
+worker: lpm ordering: mid.sozb_rtr.1, 142 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.006329774856567383 seconds.
+worker: completed task switch_command in 0.00036644935607910156 seconds.
+worker: completed task switch_command in 0.0022454261779785156 seconds.
+worker: lpm ordering: mid.yoza_rtr.1, 247 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.013158559799194336 seconds.
+worker: completed task switch_command in 0.08191323280334473 seconds.
+worker: completed task switch_command in 0.0015361309051513672 seconds.
+worker: lpm ordering: mid.yozb_rtr.1, 115 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 0.003927946090698242 seconds.
+worker: completed task switch_command in 0.012287378311157227 seconds.
+worker: completed task probe in 0.00023818016052246094 seconds.
+worker: completed task probe in 9.036064147949219e-05 seconds.
+worker: completed task probe in 7.128715515136719e-05 seconds.
+worker: completed task probe in 6.413459777832031e-05 seconds.
+worker: completed task probe in 6.008148193359375e-05 seconds.
+worker: completed task probe in 5.841255187988281e-05 seconds.
+worker: completed task probe in 5.3882598876953125e-05 seconds.
+worker: completed task probe in 6.031990051269531e-05 seconds.
+worker: completed task probe in 7.176399230957031e-05 seconds.
+worker: completed task probe in 5.459785461425781e-05 seconds.
+worker: completed task probe in 5.459785461425781e-05 seconds.
+worker: completed task probe in 5.507469177246094e-05 seconds.
+worker: completed task probe in 5.412101745605469e-05 seconds.
+worker: completed task probe in 6.842613220214844e-05 seconds.
+worker: completed task probe in 5.435943603515625e-05 seconds.
+worker: completed task probe in 5.2928924560546875e-05 seconds.
+worker: completed task links in 0.02496027946472168 seconds.
+worker: completed task generators in 0.0007410049438476562 seconds.
+worker: completed task links in 0.031632423400878906 seconds.
+worker: completed task check_compliance in 0.0012884140014648438 seconds.
+worker: completed task check_anomalies in 0.0002875328063964844 seconds.
+worker: completed task report in 0.0007376670837402344 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.04789543151855469 seconds.
+worker: stop handler after 2.3229050636291504 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

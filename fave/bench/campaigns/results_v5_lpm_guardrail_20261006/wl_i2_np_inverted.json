@@ -1,0 +1,103 @@
+{
+  "workload": "wl_i2",
+  "backend": "netplumber",
+  "engine": "netplumber",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-06T15:20:17.405766+00:00",
+  "git_head": "cf2ec3a6a2b404626e6831491c0572d30862c19a",
+  "engine_commit": "4bdbe622f59f45b5bd1b4c5ae33596fb04b7ef6a 2026-10-06",
+  "invert_lpm": true,
+  "engine_options": "--invert-lpm",
+  "driver": "bench/wl_i2/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 62.485,
+  "memory_stop": null,
+  "peak_rss_mb": 1787,
+  "peak_rss_by_process_mb": {
+    "python3": 158,
+    "net_plumber": 1505,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 192,
+    "sleep": 1
+  },
+  "least_available_mb": 60736,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "net_plumber": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [
+    {
+      "pid": 1212524,
+      "label": "net_plumber"
+    },
+    {
+      "pid": 1212532,
+      "label": "aggregator"
+    }
+  ],
+  "status_trail": "wl_i2_np_inverted.status.jsonl",
+  "check_compliance_s": [
+    0.1605846881866455
+  ],
+  "report_task_s": [
+    0.0008242130279541016
+  ],
+  "switch_command_s": 14.23331904411316,
+  "switch_commands": 18,
+  "gc": null,
+  "report": true,
+  "violations": 11,
+  "violation_lines": [
+    "- `source.chic` does not reach `probe.hous`",
+    "- `source.chic` does not reach `probe.kans`",
+    "- `source.chic` does not reach `probe.losa`",
+    "- `source.atla` does not reach `probe.salt`",
+    "- `source.chic` does not reach `probe.salt`",
+    "- `source.newy32aoa` does not reach `probe.salt`",
+    "- `source.wash` does not reach `probe.salt`",
+    "- `source.atla` does not reach `probe.seat`",
+    "- `source.chic` does not reach `probe.seat`",
+    "- `source.newy32aoa` does not reach `probe.seat`"
+  ],
+  "checks": 72,
+  "verdict_valid": true,
+  "apkeep_jar": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "hassel-public master 697b35c9",
+    "np_invert_lpm": true
+  },
+  "impl": "authors+fave",
+  "upstream": "hassel-public master 697b35c9",
+  "expected_violations": null,
+  "outcome": "measured"
+}

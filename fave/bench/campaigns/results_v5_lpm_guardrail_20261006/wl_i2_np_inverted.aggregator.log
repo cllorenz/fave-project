@@ -1,0 +1,68 @@
+backend: netplumber {'impl': 'authors+fave', 'upstream': 'hassel-public master 697b35c9', 'np_invert_lpm': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.0004584789276123047 seconds.
+worker: completed task switch in 0.00013256072998046875 seconds.
+worker: completed task switch in 9.894371032714844e-05 seconds.
+worker: completed task switch in 9.870529174804688e-05 seconds.
+worker: completed task switch in 9.512901306152344e-05 seconds.
+worker: completed task switch in 8.988380432128906e-05 seconds.
+worker: completed task switch in 7.700920104980469e-05 seconds.
+worker: completed task switch in 7.343292236328125e-05 seconds.
+worker: completed task switch in 8.821487426757812e-05 seconds.
+worker: completed task switch in 6.961822509765625e-05 seconds.
+worker: completed task switch in 7.414817810058594e-05 seconds.
+worker: completed task switch in 7.534027099609375e-05 seconds.
+worker: completed task switch in 6.723403930664062e-05 seconds.
+worker: completed task switch in 7.843971252441406e-05 seconds.
+worker: completed task switch in 7.033348083496094e-05 seconds.
+worker: completed task switch in 7.987022399902344e-05 seconds.
+worker: completed task switch in 8.821487426757812e-05 seconds.
+worker: completed task switch in 8.749961853027344e-05 seconds.
+worker: completed task links in 0.0022144317626953125 seconds.
+worker: completed task switch_command in 0.0009307861328125 seconds.
+worker: lpm ordering: out.atla.1, 8746 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.2226505279541016 seconds.
+worker: completed task switch_command in 0.01033782958984375 seconds.
+worker: lpm ordering: out.chic.1, 8635 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.416947603225708 seconds.
+worker: completed task switch_command in 0.010220766067504883 seconds.
+worker: lpm ordering: out.hous.1, 8466 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.4772884845733643 seconds.
+worker: completed task switch_command in 0.012505054473876953 seconds.
+worker: lpm ordering: out.kans.1, 8626 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.6063237190246582 seconds.
+worker: completed task switch_command in 0.013068437576293945 seconds.
+worker: lpm ordering: out.losa.1, 8452 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.61320161819458 seconds.
+worker: completed task switch_command in 0.014715909957885742 seconds.
+worker: lpm ordering: out.newy32aoa.1, 8856 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.6663260459899902 seconds.
+worker: completed task switch_command in 0.014827489852905273 seconds.
+worker: lpm ordering: out.salt.1, 8383 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.5967071056365967 seconds.
+worker: completed task switch_command in 0.015291690826416016 seconds.
+worker: lpm ordering: out.seat.1, 8423 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.6018102169036865 seconds.
+worker: completed task switch_command in 0.020261764526367188 seconds.
+worker: lpm ordering: out.wash.1, 8864 rules, SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)
+worker: completed task switch_command in 1.9199039936065674 seconds.
+worker: completed task probe in 0.013976812362670898 seconds.
+worker: completed task probe in 0.0001232624053955078 seconds.
+worker: completed task probe in 0.00021028518676757812 seconds.
+worker: completed task probe in 8.463859558105469e-05 seconds.
+worker: completed task probe in 6.532669067382812e-05 seconds.
+worker: completed task probe in 5.91278076171875e-05 seconds.
+worker: completed task probe in 5.91278076171875e-05 seconds.
+worker: completed task probe in 5.602836608886719e-05 seconds.
+worker: completed task probe in 6.246566772460938e-05 seconds.
+worker: completed task links in 0.03417468070983887 seconds.
+worker: completed task generators in 0.0005955696105957031 seconds.
+worker: completed task links in 44.57112789154053 seconds.
+worker: completed task check_compliance in 0.1605846881866455 seconds.
+worker: completed task check_anomalies in 0.0003840923309326172 seconds.
+worker: completed task report in 0.0008242130279541016 seconds.
+worker: initiate stopping
+master: close receiving socket
+master: join queue

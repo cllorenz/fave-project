@@ -1,0 +1,131 @@
+backend: veriflow {'impl': 'reimpl-literature', 'vf_fields': '4+10', 'vf_revisit': 'state', 'vf_slicing': 'device', 'vf_budget': 0, 'vf_invert_lpm': False}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00013518333435058594 seconds.
+worker: completed task switch in 4.220008850097656e-05 seconds.
+worker: completed task switch in 5.841255187988281e-05 seconds.
+worker: completed task switch in 1.8358230590820312e-05 seconds.
+worker: completed task switch in 2.002716064453125e-05 seconds.
+worker: completed task switch in 2.2411346435546875e-05 seconds.
+worker: completed task switch in 3.123283386230469e-05 seconds.
+worker: completed task switch in 2.3603439331054688e-05 seconds.
+worker: completed task switch in 3.5762786865234375e-05 seconds.
+worker: completed task switch in 2.5510787963867188e-05 seconds.
+worker: completed task switch in 2.6226043701171875e-05 seconds.
+worker: completed task switch in 5.269050598144531e-05 seconds.
+worker: completed task switch in 1.5497207641601562e-05 seconds.
+worker: completed task switch in 1.3589859008789062e-05 seconds.
+worker: completed task switch in 1.6450881958007812e-05 seconds.
+worker: completed task switch in 1.3589859008789062e-05 seconds.
+worker: completed task switch in 1.52587890625e-05 seconds.
+worker: completed task switch in 1.71661376953125e-05 seconds.
+worker: completed task switch in 2.1457672119140625e-05 seconds.
+worker: completed task switch in 2.2411346435546875e-05 seconds.
+worker: completed task switch in 3.504753112792969e-05 seconds.
+worker: completed task switch in 3.1948089599609375e-05 seconds.
+worker: completed task switch in 2.9325485229492188e-05 seconds.
+worker: completed task switch in 7.367134094238281e-05 seconds.
+worker: completed task switch in 2.956390380859375e-05 seconds.
+worker: completed task switch in 2.288818359375e-05 seconds.
+worker: completed task switch in 3.1948089599609375e-05 seconds.
+worker: completed task switch in 2.6226043701171875e-05 seconds.
+worker: completed task switch in 2.47955322265625e-05 seconds.
+worker: completed task switch in 3.2901763916015625e-05 seconds.
+worker: completed task switch in 2.2649765014648438e-05 seconds.
+worker: completed task switch in 2.8371810913085938e-05 seconds.
+worker: completed task switch in 4.00543212890625e-05 seconds.
+worker: completed task switch in 2.6464462280273438e-05 seconds.
+worker: completed task switch in 3.123283386230469e-05 seconds.
+worker: completed task switch in 4.696846008300781e-05 seconds.
+worker: completed task switch in 1.7642974853515625e-05 seconds.
+worker: completed task switch in 1.430511474609375e-05 seconds.
+worker: completed task switch in 1.7881393432617188e-05 seconds.
+worker: completed task switch in 0.00010776519775390625 seconds.
+worker: completed task switch in 1.9550323486328125e-05 seconds.
+worker: completed task switch in 2.5272369384765625e-05 seconds.
+worker: completed task switch in 4.00543212890625e-05 seconds.
+worker: completed task switch in 3.457069396972656e-05 seconds.
+worker: completed task switch in 7.557868957519531e-05 seconds.
+worker: completed task switch in 2.3126602172851562e-05 seconds.
+worker: completed task switch in 7.915496826171875e-05 seconds.
+worker: completed task switch in 2.2172927856445312e-05 seconds.
+worker: completed task links in 0.0020432472229003906 seconds.
+worker: completed task switch_command in 0.0003590583801269531 seconds.
+worker: completed task switch_command in 0.009198665618896484 seconds.
+worker: completed task switch_command in 0.0004374980926513672 seconds.
+worker: completed task switch_command in 9.655952453613281e-05 seconds.
+worker: completed task switch_command in 0.008176088333129883 seconds.
+worker: completed task switch_command in 0.00034546852111816406 seconds.
+worker: completed task switch_command in 0.0004343986511230469 seconds.
+worker: completed task switch_command in 0.0017883777618408203 seconds.
+worker: completed task switch_command in 0.0002589225769042969 seconds.
+worker: completed task switch_command in 0.0004520416259765625 seconds.
+worker: completed task switch_command in 0.0019054412841796875 seconds.
+worker: completed task switch_command in 0.00026535987854003906 seconds.
+worker: completed task switch_command in 0.0020215511322021484 seconds.
+worker: completed task switch_command in 0.0017974376678466797 seconds.
+worker: completed task switch_command in 0.00011301040649414062 seconds.
+worker: completed task switch_command in 0.001954317092895508 seconds.
+worker: completed task switch_command in 0.0018036365509033203 seconds.
+worker: completed task switch_command in 9.226799011230469e-05 seconds.
+worker: completed task switch_command in 0.0006461143493652344 seconds.
+worker: completed task switch_command in 0.0015251636505126953 seconds.
+worker: completed task switch_command in 0.00042629241943359375 seconds.
+worker: completed task switch_command in 0.0006835460662841797 seconds.
+worker: completed task switch_command in 0.0014247894287109375 seconds.
+worker: completed task switch_command in 0.0004298686981201172 seconds.
+worker: completed task switch_command in 0.0008299350738525391 seconds.
+worker: completed task switch_command in 0.0012292861938476562 seconds.
+worker: completed task switch_command in 0.0002493858337402344 seconds.
+worker: completed task switch_command in 0.0005276203155517578 seconds.
+worker: completed task switch_command in 0.0010771751403808594 seconds.
+worker: completed task switch_command in 0.00026679039001464844 seconds.
+worker: completed task switch_command in 0.0003437995910644531 seconds.
+worker: completed task switch_command in 0.0009951591491699219 seconds.
+worker: completed task switch_command in 0.00027680397033691406 seconds.
+worker: completed task switch_command in 0.000339508056640625 seconds.
+worker: completed task switch_command in 0.0009143352508544922 seconds.
+worker: completed task switch_command in 0.00025773048400878906 seconds.
+worker: completed task switch_command in 0.0037000179290771484 seconds.
+worker: completed task switch_command in 0.0021104812622070312 seconds.
+worker: completed task switch_command in 0.00010991096496582031 seconds.
+worker: completed task switch_command in 0.0019419193267822266 seconds.
+worker: completed task switch_command in 0.0015070438385009766 seconds.
+worker: completed task switch_command in 0.00010204315185546875 seconds.
+worker: completed task switch_command in 0.0009093284606933594 seconds.
+worker: completed task switch_command in 0.009852409362792969 seconds.
+worker: completed task switch_command in 0.017516136169433594 seconds.
+worker: completed task switch_command in 0.0009391307830810547 seconds.
+worker: completed task switch_command in 0.0010693073272705078 seconds.
+worker: completed task switch_command in 0.003169536590576172 seconds.
+worker: completed task probe in 0.00011658668518066406 seconds.
+worker: completed task probe in 2.5033950805664062e-05 seconds.
+worker: completed task probe in 2.3126602172851562e-05 seconds.
+worker: completed task probe in 1.52587890625e-05 seconds.
+worker: completed task probe in 1.4781951904296875e-05 seconds.
+worker: completed task probe in 1.4543533325195312e-05 seconds.
+worker: completed task probe in 1.52587890625e-05 seconds.
+worker: completed task probe in 1.3589859008789062e-05 seconds.
+worker: completed task probe in 1.3589859008789062e-05 seconds.
+worker: completed task probe in 1.3828277587890625e-05 seconds.
+worker: completed task probe in 2.193450927734375e-05 seconds.
+worker: completed task probe in 1.3113021850585938e-05 seconds.
+worker: completed task probe in 1.3113021850585938e-05 seconds.
+worker: completed task probe in 1.3589859008789062e-05 seconds.
+worker: completed task probe in 1.3828277587890625e-05 seconds.
+worker: completed task probe in 1.2636184692382812e-05 seconds.
+worker: completed task links in 0.0010898113250732422 seconds.
+worker: completed task generators in 0.00018095970153808594 seconds.
+worker: completed task links in 3.24249267578125e-05 seconds.
+veriflow: built 14396 rules, stamps {'impl': 'reimpl-literature', 'vf_mode': 'bulk', 'vf_node': 'table', 'vf_ports': 'field', 'vf_fields': "4+10:trie=['packet.ipv4.source', 'packet.ipv4.destination', 'packet.upper.dport', 'packet.upper.tcp.flags'],scan=['packet.ether.vlan', 'packet.ipv6.proto']", 'vf_slicing': 'device', 'vf_invert_lpm': False, 'vf_lpm_tables_ordered': 32, 'vf_lpm_rules_ordered': 3844, 'vf_field_order': ['packet.ether.vlan', 'packet.ipv4.source', 'packet.ipv4.destination', 'packet.ipv6.proto', 'packet.upper.dport', 'packet.upper.tcp.flags'], 'vf_inport_expansion': 1.636, 'vf_budget': 0, 'vf_revisit': 'state'}
+worker: completed task check_compliance in 149.66309714317322 seconds.
+worker: completed task report in 0.0007932186126708984 seconds.
+worker: initiate stopping
+worker: completed task stop in 7.963180541992188e-05 seconds.
+worker: stop handler after 151.5386779308319 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

@@ -1,0 +1,39 @@
+deleting old logs and measurements...
+deleted old logs and measurements.
+generate policy matrix...
+Error: could not read the input file(s).
+generated policy matrix.
+generate inventory...
+generated inventory.
+convert policy matrix to checks...
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/reach_csv_to_checks.py", line 294, in <module>
+    role_attributes = _load_role_attributes(args.roles_file)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/reach_csv_to_checks.py", line 45, in _load_role_attributes
+    with open(path, 'r') as raw:
+         ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'bench/wl_tum/roles.json'
+converted policy matrix.
+generate topology, routes, and probes...
+generated topology, routes, and probes.
+backend apkeep needs no netplumber process; not starting one
+starting aggregator (backend: apkeep --apkeep-engine ndd)...
+started aggregator.
+wait for fave
+initialize topology...
+topology sent to fave
+initialize routes...
+routes sent to fave
+initialize probes...
+probes sent to fave
+initialize sources...
+sources sent to fave
+wait for fave
+fave stopped successfully
+SKIPPED anomaly check: backend apkeep does not implement it (this run's verdict covers compliance only)
+generating report...
+report generated.
+wait for fave
+stopping fave and netplumber...
+fave ordered to stop

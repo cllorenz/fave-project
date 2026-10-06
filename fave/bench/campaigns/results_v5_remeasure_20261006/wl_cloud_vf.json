@@ -1,0 +1,99 @@
+{
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "engine": "veriflow",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-06T14:51:35.398743+00:00",
+  "git_head": "cf2ec3a6a2b404626e6831491c0572d30862c19a",
+  "engine_commit": "95e14708b1f84df74cf2176a9c52f3ceaa737b70 2026-10-06",
+  "vf_fields": "4+10",
+  "vf_budget": 0,
+  "engine_options": "--vf-fields 4+10 --vf-budget 0",
+  "driver": "bench/wl_cloud/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 2.42,
+  "memory_stop": null,
+  "peak_rss_mb": 187,
+  "peak_rss_by_process_mb": {
+    "python3": 35,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 42,
+    "sleep": 1,
+    "pandoc": 109
+  },
+  "least_available_mb": 62340,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0,
+    "pandoc": 0,
+    "pdflatex": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_cloud_vf.status.jsonl",
+  "check_compliance_s": [
+    0.27236127853393555
+  ],
+  "report_task_s": [
+    0.0007975101470947266
+  ],
+  "switch_command_s": 0.016510009765625,
+  "switch_commands": 86,
+  "gc": null,
+  "report": true,
+  "violations": 57,
+  "violation_lines": [
+    "- `source.internet` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc0_leaf1_host1` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc1_leaf0_host20` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc1_leaf5_host5` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc1_leaf6_host0` does not reach `probe.dc0_leaf1_host1` with ",
+    "- `source.dc1_leaf6_host0` reaches `probe.dc0_leaf1_host1` with ",
+    "- `source.dc1_leaf6_host2` reaches `probe.dc0_leaf1_host1` with ",
+    "- `source.dc2_leaf7_host6` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc4_leaf3_host22` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc0_leaf1_host1` reaches `probe.dc1_leaf0_host20`"
+  ],
+  "checks": 71,
+  "verdict_valid": true,
+  "apkeep_jar": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "reimpl-literature",
+    "vf_fields": "4+10",
+    "vf_revisit": "state",
+    "vf_slicing": "device",
+    "vf_budget": 0,
+    "vf_invert_lpm": false
+  },
+  "impl": "reimpl-literature",
+  "upstream": null,
+  "expected_violations": null,
+  "outcome": "measured"
+}

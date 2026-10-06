@@ -113,6 +113,42 @@ class TestPriority(unittest.TestCase):
                  sorted(ir.rules, key=lambda r: -r.priority)]
         self.assertEqual(order, [1, 2])
         self.assertTrue(ir.stamps["vf_invert_lpm"])
+        # §5.4's denominator: two rules in one declared table, reordered.
+        self.assertEqual(ir.stamps["vf_lpm_tables_ordered"], 1)
+        self.assertEqual(ir.stamps["vf_lpm_rules_ordered"], 2)
+
+    def test_the_lpm_denominator_counts_tables_actually_REORDERED(self):
+        """ An EMPTY declared table is not reordered and is not counted.
+
+        The count exists only so that "the verdict did not move under
+        inversion" can be read against how much was moved -- so a count that
+        is wrong in the generous direction defeats its own purpose. Counting
+        empty tables put wl_stanford at 32 against NetPlumber's 16 and wl_i2
+        at 18 against 9, while the RULE counts agreed to the unit (3,844 and
+        77,451), which is what gave the inflation away.
+        """
+        tr = Translator()
+        _feed(tr, _switch("s1", ["1", "2"], [
+            _rule("s1", 1, "10.0.0.0/8", ["s1.1"]),
+        ], lpm=True))
+        # A second declared table with no rules at all.
+        model = _switch("s2", ["1"], [], lpm=True)
+        _feed(tr, model)
+        ir = tr.translate()
+        self.assertEqual(ir.stamps["vf_lpm_tables_ordered"], 1)
+        self.assertEqual(ir.stamps["vf_lpm_rules_ordered"], 1)
+
+    def test_the_denominator_does_not_accumulate_across_translations(self):
+        """ `build()` can retranslate; a count that accumulated would overstate
+        the denominator without ever looking wrong. """
+        tr = Translator()
+        _feed(tr, _switch("s1", ["1", "2"], [
+            _rule("s1", 1, "10.0.0.0/8", ["s1.1"]),
+            _rule("s1", 2, "10.1.0.0/16", ["s1.2"]),
+        ], lpm=True))
+        first = tr.translate().stamps["vf_lpm_rules_ordered"]
+        self.assertEqual(first, 2)
+        self.assertEqual(tr.translate().stamps["vf_lpm_rules_ordered"], first)
 
 
 class TestPorts(unittest.TestCase):

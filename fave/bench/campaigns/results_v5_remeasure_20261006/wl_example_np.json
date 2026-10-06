@@ -1,0 +1,82 @@
+{
+  "workload": "wl_example",
+  "backend": "netplumber",
+  "engine": "netplumber",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-06T14:51:04.961415+00:00",
+  "git_head": "cf2ec3a6a2b404626e6831491c0572d30862c19a",
+  "engine_commit": "4bdbe622f59f45b5bd1b4c5ae33596fb04b7ef6a 2026-10-06",
+  "engine_options": "",
+  "driver": "bench/wl_example/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 2.172,
+  "memory_stop": null,
+  "peak_rss_mb": 86,
+  "peak_rss_by_process_mb": {
+    "python3": 52,
+    "net_plumber": 6,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 27,
+    "sleep": 1
+  },
+  "least_available_mb": 62385,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "net_plumber": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_example_np.status.jsonl",
+  "check_compliance_s": [
+    0.00044536590576171875
+  ],
+  "report_task_s": [
+    0.0008754730224609375
+  ],
+  "switch_command_s": 0.0009412765502929688,
+  "switch_commands": 3,
+  "gc": null,
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "checks": 10,
+  "verdict_valid": true,
+  "apkeep_jar": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "hassel-public master 697b35c9",
+    "np_invert_lpm": false
+  },
+  "impl": "authors+fave",
+  "upstream": "hassel-public master 697b35c9",
+  "expected_violations": 0,
+  "outcome": "correct"
+}

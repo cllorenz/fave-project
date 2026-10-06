@@ -406,8 +406,13 @@ class Translator:
             prio = {id(r): -(pos + 1) for pos, r in enumerate(order)}
             # The denominator for §5.4's guardrail, as NetPlumberAdapter logs
             # it: an unchanged verdict is evidence about the check set only if
-            # a table was in fact reordered.
-            self._lpm_ordered_tables.append((tname, len(order)))
+            # a table was in fact REORDERED. An empty declared table is not
+            # reordered -- nothing in it can win differently -- so it is not
+            # counted. Counting it inflated wl_stanford to 32 tables against
+            # NetPlumber's 16 and wl_i2 to 18 against 9, in a figure whose only
+            # job is to stop a denominator being believed.
+            if order:
+                self._lpm_ordered_tables.append((tname, len(order)))
         else:
             prio = {id(r): -r.idx for r in rules}
         seen = set()

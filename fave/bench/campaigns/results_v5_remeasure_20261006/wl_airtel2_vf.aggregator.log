@@ -1,0 +1,67 @@
+backend: veriflow {'impl': 'reimpl-literature', 'vf_fields': '4+10', 'vf_revisit': 'state', 'vf_slicing': 'device', 'vf_budget': 0, 'vf_invert_lpm': False}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.00013518333435058594 seconds.
+worker: completed task switch in 4.38690185546875e-05 seconds.
+worker: completed task switch in 1.9788742065429688e-05 seconds.
+worker: completed task switch in 1.71661376953125e-05 seconds.
+worker: completed task switch in 2.2172927856445312e-05 seconds.
+worker: completed task switch in 1.33514404296875e-05 seconds.
+worker: completed task switch in 1.239776611328125e-05 seconds.
+worker: completed task switch in 1.5974044799804688e-05 seconds.
+worker: completed task switch in 1.4066696166992188e-05 seconds.
+worker: completed task switch in 1.8835067749023438e-05 seconds.
+worker: completed task switch in 1.2874603271484375e-05 seconds.
+worker: completed task switch in 1.2874603271484375e-05 seconds.
+worker: completed task switch in 3.314018249511719e-05 seconds.
+worker: completed task switch in 1.2159347534179688e-05 seconds.
+worker: completed task switch in 1.6450881958007812e-05 seconds.
+worker: completed task switch in 1.2636184692382812e-05 seconds.
+worker: completed task links in 9.989738464355469e-05 seconds.
+worker: completed task switch_command in 0.027051925659179688 seconds.
+worker: completed task switch_command in 0.04448890686035156 seconds.
+worker: completed task switch_command in 0.012492895126342773 seconds.
+worker: completed task switch_command in 0.02083444595336914 seconds.
+worker: completed task switch_command in 0.011075735092163086 seconds.
+worker: completed task switch_command in 0.011144876480102539 seconds.
+worker: completed task switch_command in 0.011088371276855469 seconds.
+worker: completed task switch_command in 0.03362250328063965 seconds.
+worker: completed task switch_command in 0.03023982048034668 seconds.
+worker: completed task switch_command in 0.023946046829223633 seconds.
+worker: completed task switch_command in 0.011849641799926758 seconds.
+worker: completed task switch_command in 0.04217195510864258 seconds.
+worker: completed task switch_command in 0.011297941207885742 seconds.
+worker: completed task switch_command in 0.02348494529724121 seconds.
+worker: completed task switch_command in 0.04733872413635254 seconds.
+worker: completed task switch_command in 0.013657808303833008 seconds.
+worker: completed task probe in 0.0002644062042236328 seconds.
+worker: completed task probe in 1.6689300537109375e-05 seconds.
+worker: completed task probe in 1.4781951904296875e-05 seconds.
+worker: completed task probe in 1.5735626220703125e-05 seconds.
+worker: completed task probe in 1.239776611328125e-05 seconds.
+worker: completed task probe in 1.1682510375976562e-05 seconds.
+worker: completed task probe in 1.33514404296875e-05 seconds.
+worker: completed task probe in 1.1682510375976562e-05 seconds.
+worker: completed task probe in 1.1444091796875e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task probe in 1.5974044799804688e-05 seconds.
+worker: completed task probe in 1.71661376953125e-05 seconds.
+worker: completed task probe in 1.2159347534179688e-05 seconds.
+worker: completed task links in 4.38690185546875e-05 seconds.
+worker: completed task generators in 0.00018405914306640625 seconds.
+worker: completed task links in 4.3392181396484375e-05 seconds.
+veriflow: built 42016 rules, stamps {'impl': 'reimpl-literature', 'vf_mode': 'bulk', 'vf_node': 'table', 'vf_ports': 'field', 'vf_fields': "4+10:trie=['packet.ipv4.destination'],scan=[]", 'vf_slicing': 'device', 'vf_invert_lpm': False, 'vf_lpm_tables_ordered': 32, 'vf_lpm_rules_ordered': 39500, 'vf_field_order': ['packet.ipv4.destination'], 'vf_inport_expansion': 1.063, 'vf_budget': 0, 'vf_revisit': 'state'}
+worker: completed task check_compliance in 1.0991766452789307 seconds.
+worker: completed task report in 0.0008187294006347656 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.00011467933654785156 seconds.
+worker: stop handler after 3.4280319213867188 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter
