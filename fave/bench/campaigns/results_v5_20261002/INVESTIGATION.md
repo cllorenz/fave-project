@@ -535,3 +535,103 @@ mapping does carry `packet.ether.vlan` at offset 0 (`cloud_tf.py`
 
 **Revised recommendation for F3: do not declare an accommodation yet.** It
 would record as a tool limitation something the evidence now says is ours.
+
+---
+
+# O1a — executed. The retraction was wrong; the original diagnosis stands.
+
+Run with the FIB translation and filter emission instrumented (temporary,
+env-gated, reverted afterwards; adapter is pristine).
+
+## The default-route hypothesis is refuted
+
+`wl_example`'s `pgf` FIB is complete, default route included:
+
+    KEPT  pgf dst=2001:db8::100/120 egress=2 plen=120
+    KEPT  pgf dst=2001:db8::200/120 egress=3 plen=120
+    KEPT  pgf dst=None              egress=1 plen=0     <- the default route
+
+So the candidate named at the end of the previous section is wrong. Routing is
+not where `office → internet` is lost.
+
+## What the emitted filter shows
+
+`pgf.fwd`, as APKeep receives it, with the skip in place:
+
+    accept  proto6 src=…::101 sport=80       related=1     (return HTTP)
+    accept  proto6 src=…::101 sport=22 dst=…::200/120 related=1  (return SSH)
+    __drop__ everything                      related=1
+    accept  proto6 dst=…::101 dport=80                     (HTTP to web)
+    accept  proto6 src=…::200/120 dst=…::101 dport=22      (SSH office->web)
+    __drop__ everything                                    (-P FORWARD DROP)
+
+**The `-o 1 -s 2001:db8::200/120 -j ACCEPT` is absent.** An office packet bound
+for the internet matches neither `--dport` accept and falls to the final drop.
+That is precisely the reported violation.
+
+## Why the earlier experiment looked like a failure — a method error, mine
+
+Removing the skip emits the rule at priority 9999994, above the final drop:
+
+    accept  proto0-255 src=2001:db8::200/120 dst=any       <- the permit, restored
+
+and the verdict count stayed at **1/10**, from which the previous section
+concluded the skip was not the cause. **That conclusion was wrong**, and the
+mistake is worth naming because it is the one this repo already legislates
+against in another form: *I compared totals instead of lines.*
+
+| | violation reported |
+|---|---|
+| skip in place (phase A) | `` `source.office` does not reach `probe.internet` `` |
+| skip removed | `` `source.dmz` does not reach `probe.office` `` |
+
+**The count is the same and the check is different.** The patch *did* fix the
+violation it was aimed at. It introduced a second, unrelated one — and 1 = 1
+hid the swap completely. §8.1 says "never compare totals across different query
+counts"; this is the same error with the query count held constant, which makes
+it harder to see, not easier.
+
+## What actually breaks when the skip is removed
+
+Removing it emits a *second* out-qualified rule that the ruleset does not
+contain literally — a mirrored, state-related DROP, at the **highest** priority:
+
+    OUTQUAL t0=__drop__ out_qual=1 dst=2001:db8::/32   (related=1)
+
+This is the reverse direction FaVe synthesises for
+`-A FORWARD -i 1 -s 2001:db8::0/32 -j DROP`. Emitted port-agnostically, it
+drops *all* related traffic to the internal /32 — which is what fails
+`source.dmz → probe.office, related:1`, and, at `wl_up`'s scale with its
+anti-spoofing pair over its own /48, is the 3025 violations.
+
+## So the real defect, stated precisely
+
+`-o N` means "will egress interface N". FaVe evaluates filter chains **before**
+routing, so at filter time the egress is unknown, and the adapter has exactly
+two bad choices — drop the rule (loses an ACCEPT) or ignore the qualifier
+(over-applies a DROP). **Both are wrong, which is why neither one-line change
+works.**
+
+The information needed is already in the adapter: `self._filter_fib[dev]` holds
+`(dst, egress, plen)` for every route. The egress of a packet is a function of
+its destination, so an `-o N`-qualified filter rule is **equivalent to the same
+rule with its destination intersected with the set of prefixes that route to
+port N under LPM.** For `wl_example`:
+
+* `-o 1 -s office ACCEPT` → `src=office, dst = 0/0 minus {::100/120, ::200/120}`
+  — office reaches the internet, and nothing else is permitted;
+* the mirrored `-o 1 -d 2001:db8::/32 DROP` → `dst = 2001:db8::/32 minus those
+  two /120s` — the internal traffic it was wrongly killing is no longer in it.
+
+Both cases come out right from one rule, and `wl_up`'s anti-spoofing becomes
+"drop traffic to our own /48 that would leave via the uplink", which is what it
+means.
+
+**This is a real fix, not a workaround, and it is not a one-liner**: it needs
+LPM complement arithmetic over the FIB (subtracting more-specific prefixes from
+a less-specific one), per out-qualified rule. It is tractable — the FIB is small
+and already materialised — but it is a change with its own blast radius across
+`wl_example`, `wl_up` and `wl_tum`, and it should be built with the minimal
+`wl_example` reduction as its regression test.
+
+**Status: F1 root cause CONFIRMED. A correct fix is designed but NOT written.**
