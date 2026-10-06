@@ -84,6 +84,7 @@ AGGREGATOR_LOG = '/dev/shm/np/aggregator.log'
 REPORT = 'report.md'
 
 _TASK = re.compile(r'completed task check_compliance in ([0-9.e+-]+) seconds')
+_ANOM = re.compile(r'completed task check_anomalies in ([0-9.e+-]+) seconds')
 _LOAD = re.compile(r'completed task switch_command in ([0-9.e+-]+) seconds')
 _DONE = re.compile(r'completed task ([a-z_]+)')
 
@@ -420,11 +421,13 @@ def read_verdict(workload, out_dir, stem, gc_log):
         with open(AGGREGATOR_LOG) as handle:
             text = handle.read()
         found['check_compliance_s'] = [float(t) for t in _TASK.findall(text)]
+        found['check_anomalies_s'] = [float(t) for t in _ANOM.findall(text)]
         loads = [float(t) for t in _LOAD.findall(text)]
         found['switch_command_s'] = sum(loads) if loads else None
         found['switch_commands'] = len(loads)
     else:
         found['check_compliance_s'] = []
+        found['check_anomalies_s'] = []
         found['switch_command_s'] = None
 
     found['gc'] = (cell_metrics.gc_summary(gc_log)
@@ -459,8 +462,28 @@ def read_verdict(workload, out_dir, stem, gc_log):
             if key in stamp:
                 found[key] = stamp[key]
 
+    # A VERDICT IS VALID WHEN THE RUN ASKED EVERY QUESTION THE WORKLOAD HAS.
+    #
+    # `check_compliance` alone is the wrong test, because one workload has no
+    # compliance checks at all. wl_tum carries a single universal probe and no
+    # `checks.json`, so `check_compliance` is never dispatched; under the old
+    # condition its report -- which exists, and says what it found -- was read
+    # as no verdict, and all five of its phase A cells recorded `outcome:
+    # error`. That is the failure mode §3 is meant to prevent, pointed the
+    # other way: not a missing check believed, but a complete run reported as
+    # an engine failure. wl_tum is a throughput cell, and a throughput cell
+    # that says `error` is worse than useless in a comparison table.
+    #
+    # `check_anomalies` runs on EVERY workload including that one, so it is the
+    # task that witnesses "the pipeline reached the end"; `check_compliance` is
+    # additionally required exactly when the workload has checks to run. Both
+    # must appear exactly ONCE: twice means the log is from more than one run
+    # and the report cannot be attributed to this one.
     found['verdict_valid'] = bool(
-        found['report'] and len(found['check_compliance_s']) == 1)
+        found['report']
+        and len(found['check_anomalies_s']) == 1
+        and (len(found['check_compliance_s']) == 1
+             if 'checks' in found else not found['check_compliance_s']))
     return found
 
 

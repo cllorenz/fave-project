@@ -519,6 +519,71 @@ class TestTheQueueResumes(unittest.TestCase):
         self.assertIn("result.get(k) for k in", source)
         self.assertNotIn("result[k] for k in", source)
 
+    def test_a_checkless_workload_has_a_valid_verdict(self):
+        """ `wl_tum` runs no compliance check, and that is not an engine error.
+
+        `verdict_valid` asked only for `completed task check_compliance`, which
+        wl_tum never dispatches: it carries one universal probe and no
+        `checks.json`. All five of its phase A cells therefore came back
+        `outcome: error` -- five fabricated engine failures in a comparison
+        table, for a workload whose whole purpose is throughput.
+
+        The guard is kept, and aimed at a task that EVERY workload runs:
+        `check_anomalies` witnesses that the pipeline reached the end, and
+        `check_compliance` is required exactly when there are checks to run.
+        """
+        prev_log, prev_report = cell_run.AGGREGATOR_LOG, cell_run.REPORT
+        log = os.path.join(self.dir, 'aggregator.log')
+        report = os.path.join(self.dir, 'report.md')
+        cell_run.AGGREGATOR_LOG, cell_run.REPORT = log, report
+        with open(report, 'w') as handle:
+            handle.write('# Report\n\n## Compliance Check\n'
+                         'No compliance violations have been found.\n')
+        # `read_verdict` looks for `bench/<workload>/checks.json` RELATIVELY,
+        # as every cell does -- so the test has to stand where a cell stands,
+        # whatever directory pytest was started from.
+        prev_cwd = os.getcwd()
+        os.chdir(os.path.dirname(os.path.dirname(
+            os.path.abspath(cell_run.__file__))))
+        try:
+            # wl_tum's real log, trimmed: anomalies and report, no compliance.
+            with open(log, 'w') as handle:
+                handle.write(
+                    'worker: completed task packet_filter in 0.78 seconds.\n'
+                    'worker: completed task check_anomalies in 0.0004 seconds.\n'
+                    'worker: completed task report in 0.0008 seconds.\n')
+            found = cell_run.read_verdict('wl_tum', self.dir, 'c', '/nonexistent')
+            self.assertNotIn('checks', found)        # the premise of the case
+            self.assertEqual(found['check_compliance_s'], [])
+            self.assertTrue(found['verdict_valid'])
+            self.assertEqual(cell_metrics.outcome('completed',
+                                                  found['verdict_valid']),
+                             'measured')
+
+            # A workload that HAS checks still needs its compliance task: the
+            # original guard, which caught a six-hour run read as "0
+            # violations" (AD6_PLAN.md 9.34.3), must not have been loosened.
+            found = cell_run.read_verdict('wl_up', self.dir, 'c', '/nonexistent')
+            self.assertIn('checks', found)
+            self.assertFalse(found['verdict_valid'])
+
+            # And neither survives a log with no end-of-pipeline task at all.
+            with open(log, 'w') as handle:
+                handle.write('worker: completed task packet_filter in 1 seconds.\n')
+            self.assertFalse(
+                cell_run.read_verdict('wl_tum', self.dir, 'c', '/x')['verdict_valid'])
+
+            # Twice means two runs, and the report cannot be attributed to one.
+            with open(log, 'w') as handle:
+                handle.write(
+                    'worker: completed task check_anomalies in 0.1 seconds.\n'
+                    'worker: completed task check_anomalies in 0.2 seconds.\n')
+            self.assertFalse(
+                cell_run.read_verdict('wl_tum', self.dir, 'c', '/x')['verdict_valid'])
+        finally:
+            os.chdir(prev_cwd)
+            cell_run.AGGREGATOR_LOG, cell_run.REPORT = prev_log, prev_report
+
     def test_two_cells_sharing_a_name_are_refused(self):
         # One would overwrite the other's result, and the campaign would be
         # one cell short with nothing saying so.
