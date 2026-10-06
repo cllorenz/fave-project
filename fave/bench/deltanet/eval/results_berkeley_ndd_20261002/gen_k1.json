@@ -1,0 +1,9 @@
+{
+  "step": "generate",
+  "keep_every": 1,
+  "status": "completed",
+  "wall_s": 196.1,
+  "peak_rss_mb": 13496,
+  "least_available_mb": 39608,
+  "deadline_s": 3600
+}

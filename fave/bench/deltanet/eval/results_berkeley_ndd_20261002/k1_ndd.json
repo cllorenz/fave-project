@@ -1,0 +1,145 @@
+{
+  "workload": "wl_berkeley",
+  "backend": "apkeep",
+  "engine": "ndd",
+  "mutated": false,
+  "mutated_cell": null,
+  "deadline_s": 28800.0,
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 1129.611,
+  "jvm_xmx": "20g",
+  "reuse_inputs": true,
+  "memory_floor_mb": 2000,
+  "peak_rss_mb": 44681,
+  "peak_rss_by_process_mb": {
+    "benchmark": 1898,
+    "bash": 3,
+    "aggregator": 44115,
+    "sleep": 1,
+    "python3": 14,
+    "pandoc": 110
+  },
+  "least_available_mb": 17891,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0,
+    "python3": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "when": "2026-10-06T16:10:24.045458+00:00",
+  "git_head": "fca3c073461135c90ed0d8845ba0cb4f2f34fa99",
+  "apkeep_jar": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "check_compliance_s": [
+    428.1040008068085
+  ],
+  "switch_command_s": 686.9748497009277,
+  "switch_commands": 23,
+  "gc": {
+    "pauses": 116,
+    "full_pauses": 47,
+    "pause_s": 3.11,
+    "max_heap_after_gc_mb": 13668,
+    "max_heap_committed_mb": 20480
+  },
+  "report": true,
+  "violations": 0,
+  "violation_lines": [],
+  "checks": 520,
+  "policy_has_mutation": false,
+  "input_files": {
+    "cchecks": "734de567f74dd5c3e4e124004cc5c9f2641f0654c0c9f1af43b9c4b5dbb0bc93",
+    "checks": "488c93ebe3baeadac9765942efb1b6016d4ed7ed8a8a812917539ba981d53242",
+    "inventory": "99a31778ca697006788d4e004e78e4e454d84d88fb6f6a6ca140cbd1491556a3",
+    "policies": "1ae06620d2bb600166cd1bdd893e50eddd8be22f5f34070b2cf1c937f943e0dd",
+    "reach_csv": "1bf7424479cf8d9b399547ec60b6da9d8e9401f0152749cac0be765f938edb5b",
+    "reach_json": "db9b6bf8fa01688220343cfdebc4b29ae6c91b4630d5a08aa7ca2339849bc884",
+    "reach_policies": "543d0c9e6c64dcf06e6205715f76649e2407e725abd0ca20dc9c45c7bfb8b31f",
+    "roles_json": "3bba92400fa105eb8c809552eb1c2e2b87ba8d79bff20ce40c5051c9e5f00800",
+    "roles_services": "3001dd1bac89fa9b5b8bdee9da1032be02d5f60cc67bce3ea643dc8f9053fa5b",
+    "routes": "bd818b8f2ab7f959d9ebfe452a97bcc90ce7610dd36ca25cd3ea024aa2d02d3f",
+    "sources": "589928174bf3caafbe5db4da6f00aa6408594746c58defdafd0eedb81fcc0570",
+    "topology": "f126bb5919fea99d53de0c9d94cbb02db59d61c057fa327b9139a56e76326cda"
+  },
+  "drift_from_previous": [],
+  "census": {
+    "delivery_rules": 584944,
+    "devices": 23,
+    "links": 504,
+    "probes": 23,
+    "rules": 13402846,
+    "sources": 23,
+    "transit_rules": 12817902
+  },
+  "keep_every": 1,
+  "lpm_sensitive_cells": [
+    [
+      "s1",
+      "s1"
+    ],
+    [
+      "s11",
+      "s11"
+    ],
+    [
+      "s16",
+      "s16"
+    ],
+    [
+      "s17",
+      "s17"
+    ],
+    [
+      "s2",
+      "s2"
+    ],
+    [
+      "s21",
+      "s21"
+    ],
+    [
+      "s22",
+      "s22"
+    ],
+    [
+      "s22",
+      "s23"
+    ],
+    [
+      "s23",
+      "s22"
+    ],
+    [
+      "s23",
+      "s23"
+    ],
+    [
+      "s3",
+      "s3"
+    ],
+    [
+      "s5",
+      "s5"
+    ],
+    [
+      "s6",
+      "s6"
+    ],
+    [
+      "s9",
+      "s9"
+    ]
+  ],
+  "mutated_cell_check": [
+    "s=source.s1 && EF p=probe.s8"
+  ],
+  "verdict_valid": true
+}

@@ -485,8 +485,23 @@ Three sizes are measured on 32 GB, all answering **0 of 520** with
 | 3 | 4,476,240 | 249.5 | 122.94 | 19,283 | 6,782 |
 | 2 | 6,707,829 | 336.5 | 192.48 | 25,969 | 8,582 |
 
-**k=1 (13,402,846 rules) has never been attempted** — it needs ~43 GB against a
-~29 GB ceiling on the 32 GB box. On 64 GB it fits with ~19 GB spare.
+**k=1 (13,402,846 rules) was MEASURED 2026-10-06 and COMPLETES**, 0 of 520 with
+`verdict_valid`, at `-Xmx20g` on 64 GB: aggregator peak 44,115 MB, live heap
+after GC 13,668 MB, rule load 687 s, compliance 428 s, 18m50s wall, with 17.9 GB
+still available at the low-water mark. The mutated k=10 control returned exactly
+1 of 520, so the verdict is not vacuous.
+
+| k | rules | load s | compliance s | aggregator MB | live heap MB |
+|---:|---:|---:|---:|---:|---:|
+| 30 | 459,202 | 18.5 | 6.9 | 4,043 | 2,437 |
+| 10 | 1,351,800 | 76.5 | 36.3 | 7,797 | 3,511 |
+| 3 | 4,476,240 | 217.3 | 115.8 | 20,553 | 6,688 |
+| **1** | **13,402,846** | **687.0** | **428.1** | **44,115** | **13,668** |
+
+**The live-set exponent is not flat** — 0.538 across k=10 → k=3, then 0.652
+across k=3 → k=1. Sublinearity is not in doubt (29× the rules for 5.6× the
+heap); extrapolating *past* k=1 on a flat exponent is. See the findings for P4
+and for the one re-anchored figure that moved 28.5%.
 
 **Run it as `CLOUD_BENCH_PLAN.md` §2.15's protocol:**
 
@@ -709,7 +724,7 @@ recorded as such, not quietly dropped.
 
 | # | about | score |
 |---|---|---|
-| 1–6 | `wl_berkeley` k=1, RSS, live heap, exponent, load time, re-anchoring | **NOT TESTED** — phase B never started |
+| 1–6 | `wl_berkeley` k=1, RSS, live heap, exponent, load time, re-anchoring | **TESTED 2026-10-06.** P1 **HELD** — k=1 completes, 13,402,846 rules, 0 of 520, `verdict_valid`. P2 **HELD** (43.1 GB). P3 **HELD** (13.35 GB). P4 **FALSIFIED** — the exponent is 0.652 same-machine and 0.672 across machines, and is **not flat**: 0.538 then 0.652 across the top of the series. P5 **HALF** — load 11.45 min as predicted, compliance 7.14 min against ~6. P6 **FALSIFIED on 1 figure of 8** — k=10 compliance +28.5%. Full scoring in `bench/deltanet/eval/results_berkeley_ndd_20261002/FINDINGS.md`. |
 | 7 | `bdd × wl_cloud` completes in 15–22 h | **NOT TESTED** — phase C never started |
 | 8 | both faithful probes within 1.5× | **NOT TESTED** — phase C never started |
 | 9 | `vf` completes all nine; `vf-plain` DNF on `wl_up`/`wl_tum` | **HALF HELD, HALF NOT TESTED.** `vf` completed all nine — but only after the F3 fix; on the campaign's own run `wl_cloud × vf` errored, and the cause was a FaVe defect (`expand_negated`), not the engine. The `vf-plain` half was never tested: both cells were deferred and never run. |

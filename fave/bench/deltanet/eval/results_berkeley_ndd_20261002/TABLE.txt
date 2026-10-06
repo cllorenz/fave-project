@@ -1,0 +1,7 @@
+| engine | k | rules | status | rule load s | x | compliance s | x | aggregator MB | net_plumber MB | JVM heap after GC MB | x |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ndd | 30 | 459,202 | completed | 18.5 |  | 6.92 |  | 4043 | -- | 2437 |  |
+| ndd | 10 | 1,351,800 | completed | 76.5 | 1.32 | 36.28 | 1.53 | 7797 | -- | 3511 | 0.34 |
+| ndd | 3 | 4,476,240 | completed | 217.3 | 0.87 | 115.77 | 0.97 | 20553 | -- | 6688 | 0.54 |
+| ndd | 1 | 13,402,846 | completed | 687.0 | 1.05 | 428.10 | 1.19 | 44115 | -- | 13668 | 0.65 |
+mutated ndd k=10: 1 of 520 -- ['- `source.s22` does not reach `probe.s23`']
