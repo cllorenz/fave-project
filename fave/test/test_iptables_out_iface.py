@@ -19,42 +19,26 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" An `-o` match in a FORWARD or OUTPUT rule is refused, loudly.
+""" An `-o` match in a filter chain CONSTRAINS, and is modelled.
 
-`devices/packet_filter.py` wires the pipeline `forward_filter -> routing ->
-post_routing`, so a filter chain runs BEFORE the routing decision. At that point
-the packet's `out_port` field is still wildcard: matching `-o <iface>` does not
-fail, it NARROWS the header space, and the routing table then WRITES `out_port`
-and overwrites the narrowing. The match therefore constrains nothing.
+TODO.md item 13a is closed. `-o` used to be refused outright here, gated behind
+`FAVE_ALLOW_OUT_IFACE`, on the reasoning that `devices/packet_filter.py` wires
+`forward_filter -> routing -> post_routing`, so a filter chain runs BEFORE the
+routing decision; the packet's `out_port` is wildcard at that point, `routing`
+then WRITES it, and the narrowing is therefore overwritten -- "the match
+constrains nothing".
 
-Linux is the other way round -- netfilter routes before FORWARD and before
-OUTPUT -- so a ruleset written for Linux means something FaVe silently does not
-model. Found on wl_example, where
+**That reasoning was wrong, and the V5 campaign measured it wrong.** The
+narrowing does its FILTERING before the rewrite happens, so the rule applies to
+exactly the slice of the flow that will leave by that port, and the rewrite
+afterwards is consistent with it. NetPlumber, ad6 and VeriFlow-FR all get both
+polarities right on the suite's two `-o` workloads -- `wl_example`'s `-o`
+ACCEPT, the only permit for `office -> internet`, and `wl_up`'s `-o` DROP pair,
+anti-spoofing over its own entire /48, which must NOT apply to internal
+traffic. APKeep was the sole exception, because its adapter dropped such rules;
+it now resolves them against the FIB.
 
-    ip6tables -A FORWARD -o 1 -s 2001:db8::200/120 -j ACCEPT
-
-is how `Office <->> Internet` is written: permit the office subnet out port 1,
-the INTERNET port. Modelled as no constraint it reduces to "accept anything from
-the office subnet", and the DMZ became reachable on every port and protocol --
-261 complement violations, which dropped to 0 when the rule was removed
-(TODO.md item 13).
-
-REFUSING IS NOT THE FIX, it is the honest interim. Reordering the pipeline so
-routing precedes the filters is the faithful answer and is not trivial; see item
-13a. Until then a ruleset whose meaning FaVe cannot represent must say so rather
-than be quietly modelled as something weaker or stronger than it is -- the
-direction of the error follows the target, `ACCEPT` over-permitting and `DROP`
-over-restricting.
-
-`FAVE_ALLOW_OUT_IFACE=1` overrides the refusal so the three affected workloads
-(wl_example, wl_up, wl_tum) stay runnable while item 13a is decided. It restores
-the OLD behaviour exactly -- the match is modelled as no constraint -- and says
-so once per device, with a count. The difference from before is only that it can
-no longer happen by accident. **It exists to be deleted**: once routing precedes
-the filter chains, `-o` becomes expressible and both the refusal and the
-override should go.
-
-`-i` is unaffected: the ingress port IS known when the chain runs.
+So these pin what holds now: `-o` generates, and it generates a constraint.
 """
 
 import contextlib
@@ -63,7 +47,7 @@ import os
 import tempfile
 import unittest
 
-from iptables.generator import OutInterfaceUnsupported, generate
+from iptables.generator import generate
 from iptables.parser_singleton import PARSER
 
 
@@ -78,110 +62,78 @@ def _rules(*lines):
         os.unlink(path)
 
 
-class TestRefusal(unittest.TestCase):
-
-    def test_an_out_interface_in_a_forward_rule_is_refused(self):
-        with self.assertRaises(OutInterfaceUnsupported):
-            generate(_rules(
-                'ip6tables -A FORWARD -o 1 -s 2001:db8::200/120 -j ACCEPT'
-            ), 'fw', None, ['1', '2', '3'])
-
-    def test_an_out_interface_in_an_output_rule_is_refused(self):
-        """ OUTPUT routes first in Linux too, and FaVe wires
-        `output_filter_accept -> routing_in` exactly like the forward path. """
-        with self.assertRaises(OutInterfaceUnsupported):
-            generate(_rules(
-                'ip6tables -A OUTPUT -o 1 -d 2001:db8::1 -j ACCEPT'
-            ), 'fw', None, ['1', '2', '3'])
-
-    def test_the_message_names_the_rule_and_says_why(self):
-        with self.assertRaises(OutInterfaceUnsupported) as raised:
-            generate(_rules(
-                'ip6tables -A FORWARD -o 1 -s 2001:db8::200/120 -j ACCEPT'
-            ), 'fw', None, ['1', '2', '3'])
-        message = str(raised.exception)
-
-        self.assertIn('-o', message)
-        self.assertIn('routing', message)
-        self.assertIn('item 13', message)
-
-    def test_a_vlan_qualified_out_interface_is_refused_too(self):
-        """ `-o eth1.110` also yields a `dvlan` match, which routing does NOT
-        overwrite -- so such a rule is PARTIALLY modelled, which is a worse
-        thing to be quiet about than a wholly ignored one. """
-        with self.assertRaises(OutInterfaceUnsupported):
-            generate(_rules(
-                'ip6tables -A FORWARD -o eth1.110 -i eth1.152 '
-                '-s 2001:db8::1 -j ACCEPT'
-            ), 'fw', None, ['1', '2', '3'])
+def _match_fields(model):
+    return [field.name
+            for rules in model.tables.values() for rule in rules
+            for field in (rule.match or [])]
 
 
-class TestTheOptOut(unittest.TestCase):
-    """ `FAVE_ALLOW_OUT_IFACE=1`: run anyway, with the infidelity stated. """
+class TestOutInterfaceIsModelled(unittest.TestCase):
+    """ It generates, and what it generates is a constraint. """
 
-    def setUp(self):
-        self._saved = os.environ.get('FAVE_ALLOW_OUT_IFACE')
-        self.addCleanup(self._restore)
-
-    def _restore(self):
-        if self._saved is None:
-            os.environ.pop('FAVE_ALLOW_OUT_IFACE', None)
-        else:
-            os.environ['FAVE_ALLOW_OUT_IFACE'] = self._saved
-
-    def _generate(self):
-        return generate(_rules(
+    def test_an_out_interface_in_a_forward_rule_generates(self):
+        model = generate(_rules(
             'ip6tables -A FORWARD -o 1 -s 2001:db8::200/120 -j ACCEPT'
         ), 'fw', None, ['1', '2', '3'])
+        self.assertIn('out_port', _match_fields(model))
 
-    def test_set_to_one_it_generates_instead_of_raising(self):
-        os.environ['FAVE_ALLOW_OUT_IFACE'] = '1'
-        self.assertIsNotNone(self._generate())
+    def test_an_out_interface_in_an_output_rule_generates(self):
+        # Needs an address and an INPUT policy: an OUTPUT-only ruleset raises
+        # KeyError('input_filter') whether or not `-o` is present, which is a
+        # separate pre-existing gap and not this test's subject.
+        model = generate(_rules(
+            'ip6tables -P INPUT DROP',
+            'ip6tables -A OUTPUT -o 1 -d 2001:db8::1 -j DROP'
+        ), 'fw', '2001:db8::ff', ['1', '2', '3'])
+        self.assertIn('out_port', _match_fields(model))
 
-    def test_unset_it_still_refuses(self):
-        os.environ.pop('FAVE_ALLOW_OUT_IFACE', None)
-        with self.assertRaises(OutInterfaceUnsupported):
-            self._generate()
+    def test_the_port_is_the_devices_egress_port(self):
+        """ Not a bare interface name: the value must name this device's port,
+        or nothing downstream could resolve it against a FIB. """
+        model = generate(_rules(
+            'ip6tables -A FORWARD -o 2 -j ACCEPT'
+        ), 'fw', None, ['1', '2', '3'])
+        values = [str(field.value)
+                  for rules in model.tables.values() for rule in rules
+                  for field in (rule.match or []) if field.name == 'out_port']
+        self.assertTrue(values)
+        self.assertTrue(any('fw.2' in v for v in values), values)
 
-    def test_an_empty_value_is_not_an_opt_in(self):
-        """ An exported-but-empty variable is a common accident and must not
-        silently re-enable a known infidelity. """
-        os.environ['FAVE_ALLOW_OUT_IFACE'] = ''
-        with self.assertRaises(OutInterfaceUnsupported):
-            self._generate()
-
-    def test_zero_and_false_are_not_opt_ins(self):
-        for value in ('0', 'false', 'False', 'no'):
-            os.environ['FAVE_ALLOW_OUT_IFACE'] = value
-            with self.assertRaises(OutInterfaceUnsupported):
-                self._generate()
-
-    def test_it_says_so_on_stderr_with_a_count(self):
-        os.environ['FAVE_ALLOW_OUT_IFACE'] = '1'
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr):
-            self._generate()
-        said = stderr.getvalue()
-
-        self.assertIn('FAVE_ALLOW_OUT_IFACE', said)
-        self.assertIn('1', said)
-        self.assertIn('fw', said)
-
-    def test_the_vlan_half_still_survives_under_the_opt_out(self):
-        """ `-o eth1.110` also yields a dvlan match, and THAT is a real header
-        field routing does not overwrite. Only the port half is lost. """
-        os.environ['FAVE_ALLOW_OUT_IFACE'] = '1'
+    def test_a_vlan_qualified_out_interface_gives_both_halves(self):
+        """ `-o eth1.110` is an egress port AND a dvlan match; both are real. """
         model = generate(_rules(
             'ip6tables -A FORWARD -o eth1.110 -i eth1.152 '
             '-s 2001:db8::1 -j ACCEPT'
         ), 'fw', None, ['eth1', '2', '3'])
-
-        fields = [
-            field.name
-            for rules in model.tables.values() for rule in rules
-            for field in (rule.match or [])
-        ]
+        fields = _match_fields(model)
         self.assertIn('packet.ether.dvlan', fields)
+        self.assertIn('out_port', fields)
+
+    def test_no_opt_in_is_needed_and_none_is_consulted(self):
+        """ The retired switch must neither be required for the new behaviour
+        nor able to resurrect the old one. A vestigial flag that still does
+        something is worse than one that does not exist. """
+        for value in ('', '0', '1', 'false'):
+            with self.subTest(value=value):
+                os.environ['FAVE_ALLOW_OUT_IFACE'] = value
+                try:
+                    model = generate(_rules(
+                        'ip6tables -A FORWARD -o 1 -j ACCEPT'
+                    ), 'fw', None, ['1', '2', '3'])
+                    self.assertIn('out_port', _match_fields(model))
+                finally:
+                    del os.environ['FAVE_ALLOW_OUT_IFACE']
+
+    def test_nothing_is_announced_on_stderr(self):
+        """ The per-device notice went with the refusal: there is no longer an
+        infidelity for it to qualify. """
+        said = io.StringIO()
+        with contextlib.redirect_stderr(said):
+            generate(_rules(
+                'ip6tables -A FORWARD -o 1 -j ACCEPT'
+            ), 'fw', None, ['1', '2', '3'])
+        self.assertNotIn('NO CONSTRAINT', said.getvalue())
+        self.assertNotIn('13a', said.getvalue())
 
 
 class TestWhatStaysAllowed(unittest.TestCase):

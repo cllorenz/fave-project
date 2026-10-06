@@ -107,18 +107,6 @@ ENGINE_TREES = {
 #: chains BEFORE it routes, so `out_port` is still unset when the rule is
 #: evaluated. Without the opt-in the generator refuses the ruleset outright.
 #:
-#: MEASURED 2026-10-02, not copied: `test.sh`'s `run_bench` opts in `wl_up` and
-#: `wl_tum`, which is right for the five workloads IT runs, and wrong as a
-#: suite-wide default -- a first smoke run of this harness died on `wl_example`,
-#: which carries such a rule too. These are every workload in `bench/` whose
-#: rulesets contain one. Workloads with no ruleset at all (`wl_stanford`,
-#: `wl_i2`, the Delta-net family) are unaffected either way.
-#:
-#: It is a measurement-affecting choice, so `--allow-out-iface` can override it
-#: per cell and the result is STAMPED either way.
-OUT_IFACE_WORKLOADS = ('wl_example', 'wl_generic_fw', 'wl_shadow', 'wl_tum',
-                       'wl_up')
-
 #: The bootstrap for the Delta-net family, which is built by a registry rather
 #: than by a `benchmark.py` of its own. Copied from `engine_run.py`, whose
 #: results must stay re-derivable from it, so the two must not drift.
@@ -201,12 +189,6 @@ def build_command(args):
     env['FAVE_ENGINE_OPTIONS'] = options
     stamps['engine_options'] = options
 
-    allow = getattr(args, 'allow_out_iface', 'auto')
-    allow = (args.workload in OUT_IFACE_WORKLOADS) if allow == 'auto' \
-        else allow == 'yes'
-    if allow:
-        env['FAVE_ALLOW_OUT_IFACE'] = '1'
-    stamps['allow_out_iface'] = allow
 
     if args.jvm_xmx:
         env['FAVE_JVM_XMX'] = args.jvm_xmx
@@ -537,12 +519,6 @@ def main(argv=None):
                         default='4+10')
     parser.add_argument('--engine-options', default='',
                         help='appended to FAVE_ENGINE_OPTIONS verbatim')
-    parser.add_argument('--allow-out-iface', choices=('auto', 'yes', 'no'),
-                        default='auto',
-                        help="TODO item 13a's opt-in. `auto` is the measured "
-                             'list of workloads whose rulesets carry an `-o` '
-                             'FORWARD rule; stamped either way')
-
     parser.add_argument('--limit-class', choices=('v5', 'dev'), required=True,
                         help='v5 is reportable; dev never is')
     parser.add_argument('--limit-wall', type=float, required=True,

@@ -22,8 +22,6 @@
 """
 
 import json
-import os
-import sys
 
 from copy import deepcopy as dc
 
@@ -120,50 +118,6 @@ _TAGS = {
     "dvlan" : "packet.ether.dvlan"
 }
 
-#: Set to a truthy value to model an `-o` match as the old code did -- i.e. as
-#: NO CONSTRAINT -- instead of refusing it. It exists so the three workloads
-#: that use `-o` (wl_example, wl_up, wl_tum) stay runnable while TODO.md item
-#: 13a is decided, and it is meant to be DELETED once routing precedes the
-#: filter chains and `-o` becomes expressible.
-_ALLOW_OUT_IFACE_ENV = 'FAVE_ALLOW_OUT_IFACE'
-
-
-def _out_iface_allowed() -> bool:
-    """ Whether the `-o` refusal is overridden.
-
-    An exported-but-empty variable is a common accident, and `0`/`false`/`no`
-    read as "off" to anyone who sets them, so none of those count as opting in
-    to a known infidelity.
-    """
-    return os.environ.get(_ALLOW_OUT_IFACE_ENV, '') not in (
-        '', '0', 'no', 'No', 'false', 'False', 'off', 'Off'
-    )
-
-
-def _count_out_iface(ast: Tree) -> int:
-    """ How many `-o` matches a rule set carries, at any depth. """
-    return (1 if ast.value == '-o' else 0) + sum(
-        _count_out_iface(child) for child in ast)
-
-
-class OutInterfaceUnsupported(Exception):
-    """ An `-o` match in a filter chain, which FaVe cannot model.
-
-    `devices/packet_filter.py` wires `forward_filter -> routing ->
-    post_routing`, so a filter chain runs BEFORE the routing decision. The
-    packet's `out_port` field is still wildcard there: matching it does not
-    fail, it NARROWS the header space, and `routing` then WRITES `out_port` and
-    overwrites the narrowing. The match constrains nothing.
-
-    Linux is the other way round -- netfilter routes before FORWARD and before
-    OUTPUT -- so a ruleset written for Linux means something this model does not
-    represent. Raised rather than modelled, because the direction of the error
-    follows the rule's target: `-j ACCEPT` over-PERMITS, `-j DROP`
-    over-RESTRICTS, and neither announces itself. See TODO.md item 13 for the
-    faithful fix and why it is not a small one.
-    """
-
-
 def _ast_to_rule(node: str, ast: Tree, idx: int = 0) -> Dict[str, Any]:
     is_default = False
     strip_ap = lambda x: x.lstrip('-')
@@ -198,34 +152,17 @@ def _ast_to_rule(node: str, ast: Tree, idx: int = 0) -> Dict[str, Any]:
             vast.add_child(vlan)
         else:
             _req(tmp.get_first()).value = node+'.'+value(tmp)+'_ingress'
-    if ast.has_child("-o") and not _out_iface_allowed():
-        # Refused, not modelled: see OutInterfaceUnsupported. The chain is read
-        # here rather than at line ~180 because the rewrite below would
-        # otherwise have already turned the interface into an `out_port` value
-        # and lost the raw text the message quotes.
-        raise OutInterfaceUnsupported(
-            "%s: `-o` is not supported in a %s rule.\n"
-            "  %s\n"
-            "FaVe's packet filter runs its filter chains BEFORE routing "
-            "(forward_filter -> routing -> post_routing), so `out_port` is "
-            "still unset when the rule is evaluated and is then overwritten by "
-            "the routing table -- the match would constrain nothing, silently, "
-            "and the resulting error would over-PERMIT for `-j ACCEPT` and "
-            "over-RESTRICT for `-j DROP`. Linux routes before FORWARD and "
-            "OUTPUT, which is what makes `-o` meaningful there.\n"
-            "Rewrite the rule without `-o`, or see TODO.md item 13 for the "
-            "pipeline reordering that would make it expressible." % (
-                node,
-                _get_chain_from_ast(ast).replace('_filter', '').upper(),
-                raw_line.strip() if raw_line else '(rule at line %s)' % lineno
-            ))
-
     if ast.has_child("-o"):
-        # Only reachable under the opt-out. This is the ORIGINAL translation,
-        # kept verbatim so the override restores the previous behaviour exactly
-        # rather than some third thing: the `out_port` field is written and then
-        # overwritten by `routing`, while the `dvlan` half of a VLAN-qualified
-        # interface DOES survive.
+        # `-o` becomes an `out_port` match (and, for a VLAN-qualified interface,
+        # a `dvlan` match as well). It used to be REFUSED here unless
+        # FAVE_ALLOW_OUT_IFACE was set, on the reasoning that a filter chain runs
+        # before `routing`, so `out_port` is wildcard when the rule is evaluated
+        # and `routing` then overwrites the narrowing -- "the match constrains
+        # nothing". That reasoning was wrong, and TODO.md item 13a records how it
+        # was found to be: the narrowing does its FILTERING before the rewrite
+        # happens, so the rule applies to exactly the slice of the flow that will
+        # leave by that port, and the later rewrite is consistent with it.
+        # Measured on all four backends -- see item 13a's closing note.
         tmp = _req(ast.get_child("-o"))
         if "." in value(tmp):
             iface, vlan = value(tmp).split(".")
@@ -712,21 +649,6 @@ def generate(ast: Tree, node: str, address: Optional[str], ports: Optional[List[
     address -- the node's address
     ports -- the node's physical interfaces
     """
-
-    # Say it ONCE per device rather than per rule -- wl_tum's tum-ruleset alone
-    # carries 3,286 of these, and a per-rule warning would bury the run it is
-    # meant to qualify. On stderr because that is where a benchmark's operator
-    # is looking (np_preparation's LPM notice does the same).
-    out_ifaces = _count_out_iface(ast)
-    if out_ifaces and _out_iface_allowed():
-        print(
-            "[iptables] %s: %d `-o` match(es) modelled as NO CONSTRAINT because "
-            "%s is set. This device's filter chains run before routing, so the "
-            "egress restriction is not represented: results are over-permissive "
-            "where the rule ACCEPTs and over-restrictive where it DROPs. See "
-            "TODO.md item 13a." % (
-                node, out_ifaces, _ALLOW_OUT_IFACE_ENV),
-            file=sys.stderr)
 
     # transform AST to basic model
     model = _transform_ast_to_model(

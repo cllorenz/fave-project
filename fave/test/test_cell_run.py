@@ -263,17 +263,20 @@ class TestTheCommandEachBackendGets(unittest.TestCase):
         _, env, _ = cell_run.build_command(_args(backend='ad6'))
         self.assertEqual(env['AD6_BRIDGE_PROGRESS'], '1')
 
-    def test_the_out_iface_opt_in_is_stamped_not_silent(self):
-        # TODO item 13a: wl_up and wl_tum carry `-o` FORWARD rules and are
-        # opted in; wl_stanford has no ruleset and stays strict. It changes
-        # what is measured, so it is a stamp.
-        for workload, expected in (('wl_up', True), ('wl_tum', True),
-                                   ('wl_stanford', False)):
+    def test_there_is_no_out_iface_opt_in_left(self):
+        """ TODO item 13a is CLOSED: `-o` is modelled on every backend, so
+        there is no infidelity to opt into and no cell carries a flag for it.
+
+        A retired workaround that keeps its switch is how one becomes folklore,
+        which is the item's own argument for deleting it rather than leaving it
+        inert.
+        """
+        for workload in ('wl_up', 'wl_tum', 'wl_example', 'wl_stanford'):
             with self.subTest(workload=workload):
                 _, env, stamps = cell_run.build_command(
                     _args(workload=workload))
-                self.assertEqual(stamps['allow_out_iface'], expected)
-                self.assertEqual('FAVE_ALLOW_OUT_IFACE' in env, expected)
+                self.assertNotIn('FAVE_ALLOW_OUT_IFACE', env)
+                self.assertNotIn('allow_out_iface', stamps)
 
     def test_a_deltanet_workload_goes_through_the_registry(self):
         argv, _, stamps = cell_run.build_command(_args(workload='wl_airtel1'))

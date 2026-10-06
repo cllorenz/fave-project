@@ -200,32 +200,11 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_veriflow_airtel.py # VeriFlow-FR V1 gates: airtel matrices == oracle == NetPlumber, and an LPM guard that can fail (~50s)
     test/test_veriflow_adapter.py # VeriFlow-FR V4: its measurement-affecting choices reach the run's log
     test/test_veriflow_census.py # VeriFlow-FR V2: EC counts reproduce APKeep's Table 3 (Airtel 2,799; Stanford* 2,283); multi-field products pinned (~45s)
-)
-# Integration-tier too, but these parse a ruleset that USES `-o` in a filter
-# chain, which TODO.md item 13a refuses by default -- so they run in their own
-# pytest process with FAVE_ALLOW_OUT_IFACE=1. Split out rather than exporting
-# the variable for the whole tier, because `test_iptables_out_iface.py` (above)
-# asserts that the default IS refusal, and setting it group-wide would turn that
-# test green for the wrong reason.
-#
-# They errored on every integration run from 5105a23a (which opted smoke and
-# bench in, but not this tier) until the split: 9 setup errors, all
-# `iptables.generator.OutInterfaceUnsupported`, on fw.tum and
-# pgf.uni-potsdam.de. A tier that cannot run a test reports the same red as a
-# tier whose test fails, and neither was being looked at.
-#
-# DELETE once routing precedes the filter chains (item 13a): this list, the
-# refusal, and run_smoke/run_bench's overrides all go together.
-FAVE_OUT_IFACE_TESTS=(
+    # Folded in from the former FAVE_OUT_IFACE_TESTS group when TODO.md
+    # item 13a was closed: these parse rulesets that use `-o`, which no
+    # longer needs an opt-in because it is no longer refused.
     test/test_ad6_wl_up.py       # wl_up's gateway firewall carries one `-o` rule
     test/test_apkeep_tum.py      # wl_tum's tum-ruleset carries 3,286 of them
-    # MOVED here from FAVE_INTEGRATION_TESTS 2026-09-23, because it never ran there:
-    # TestBackendDifferentialUp replays wl_up, whose `pgf` carries that same `-o`
-    # rule, so all three of its tests ERRORED at setup in every integration run
-    # since the wl_up workload was added to this file (a46a3bd0). It was verified
-    # by hand with FAVE_ALLOW_OUT_IFACE exported, which is exactly why the gap
-    # was invisible. The wl_ifi and wl_airtel1 classes in the same file carry no
-    # iptables ruleset, so taking the opt-in wholesale is a no-op for them.
     test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
     test/test_veriflow_differential.py # VeriFlow-FR V3 vs NetPlumber on the rewriting workloads; wl_tum a measured did-not-finish; wl_i2 opt-in (VERIFLOW_FULL_DIFFERENTIAL=1)
 )
@@ -236,11 +215,6 @@ FAVE_OUT_IFACE_TESTS=(
 # `java.lang.OutOfMemoryError: Java heap space` (default JVM heap is ~1/4 of RAM;
 # ~4 GB on a 16 GB CI runner). A fresh JVM per engine is the robust split; raising
 # FAVE_JVM_XMX only moves the wall. Both are gated by FAVE_REQUIRE_BACKENDS.
-# ALL THREE also need FAVE_ALLOW_OUT_IFACE=1 (see FAVE_OUT_IFACE_TESTS): every
-# one of them replays wl_up or wl_tum. That is why this group takes the opt-in
-# wholesale instead of being split again -- but it does mean a future NDD test
-# asserting the refusal would be silently defeated here, so that assertion
-# belongs in `test_iptables_out_iface.py`, which stays strict.
 FAVE_NDD_TESTS=(
     test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
@@ -252,7 +226,7 @@ FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_lib_equivalence.py  # libnetplumber vs net_plumber-RPC (skips if .so unbuilt)
 )
 # Everything excluded from the fast tier (pure-Python discovery ignores these).
-FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_OUT_IFACE_TESTS[@]}" \
+FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" \
                     "${FAVE_NDD_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
 
 # When measuring coverage, pin the data file to an absolute path. `coverage run
@@ -334,7 +308,7 @@ run_smoke() {
     # DELETE once routing precedes the filter chains (item 13a): the refusal
     # and this override go together.
     echo "== smoke: wl_example =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_ALLOW_OUT_IFACE=1 \
+    ( cd "$ROOT/fave" && PYTHONPATH=. \
         "$PYTHON" bench/wl_example/benchmark.py ) || rc=1
     echo "== smoke: wl_ifi =="
     ( cd "$ROOT/fave" && PYTHONPATH=. "$PYTHON" bench/wl_ifi/benchmark.py ) || rc=1
@@ -462,17 +436,11 @@ run_integration() {
 
     # Own process so the opt-in is SCOPED: test_iptables_out_iface.py, in the
     # group above, asserts that `-o` is refused by default (see
-    # FAVE_OUT_IFACE_TESTS).
-    echo "== integration: tests needing FAVE_ALLOW_OUT_IFACE (item 13a) =="
-    mapfile -t group < <(without_ad6 "${FAVE_OUT_IFACE_TESTS[@]}")
-    note_ad6_skip "$(( ${#FAVE_OUT_IFACE_TESTS[@]} - ${#group[@]} )) ad6 module(s) left out"
-    [ "${#group[@]}" -gt 0 ] && { ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_ALLOW_OUT_IFACE=1 \
-        $pt "${group[@]}" ) || rc=1; }
 
     # Separate process => fresh JVM for the NDD engine (see FAVE_NDD_TESTS),
     # which also needs the item 13a opt-in -- all three replay wl_up or wl_tum.
     echo "== integration: NDD engine tests (own JVM) =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_ALLOW_OUT_IFACE=1 \
+    ( cd "$ROOT/fave" && PYTHONPATH=. \
         $pt "${FAVE_NDD_TESTS[@]}" ) || rc=1
 
     return $rc
@@ -501,7 +469,6 @@ run_bench() {
         # from an expansion is NOT recognised as an assignment prefix.
         envs=()
         case "$wl" in
-            wl_up|wl_tum) envs=(FAVE_ALLOW_OUT_IFACE=1) ;;
         esac
         ( cd "$ROOT/fave" && PYTHONPATH=. env "${envs[@]}" \
             "$PYTHON" "bench/$wl/benchmark.py" ) || rc=1
