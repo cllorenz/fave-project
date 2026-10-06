@@ -1227,3 +1227,79 @@ a drop rule in a switch table reaches APKeep through a different path
 out_port and no actions" is already read as a route-unknown discard), and
 whether that path preserves the ingress qualification is exactly the kind of
 assumption that has been refuted five times in this investigation.
+
+---
+
+# F6 — ANSWERED: APKeep has the rule in its ENGINE. VeriFlow-FR is the sole exception.
+
+Traced by dumping what the adapter hands NDD (`FAVE_DEBUG_APKEEP`, temporary,
+reverted) on a `wl_up × ndd` run that reproduced the 0/18811 baseline.
+
+## The hairpin path EXISTS in APKeep's model
+
+The `dmz` switch is already split into two ingress classes, and every piece of
+the U-turn is present:
+
+    EDGE source.web.uni-potsdam.de 1 dmz.uni-potsdam.de@2 4
+    RULE + filter dmz.uni-potsdam.de@2 filter 0 4 … dst 2001:db8:abc:1::3 … 128
+    EDGE dmz.uni-potsdam.de@2 4 web.uni-potsdam.de 1
+    EDGE web.uni-potsdam.de input_filter_accept probe.web.uni-potsdam.de 1
+
+So `dmz@2` carries the route forwarding `…::3` out port 4, and the edge back to
+`web` exists. Two candidate explanations are therefore **refuted**:
+
+* it is not the ingress demultiplexing — the rule is present on web's own class;
+* it is not web's input filter — `dmz-web.uni-potsdam.de-ruleset` accepts
+  `-d …::3 -p tcp --dport 80` with **no source constraint**, so self-addressed
+  traffic would be accepted.
+
+## The rule is in APKeep's traversal
+
+`apkeep/src/main/java/apkeep/checker/Checker.java`,
+`traverseFowardingGraph`:
+
+    for(PositionTuple next_hop : g.node_ports.get(next_node)) {
+        if(next_hop.equals(connected_pt)) continue;   // the arrival port
+        …
+
+`connected_pt` is the port the packet arrives on at `next_node`; it is skipped
+as a candidate egress. **That is the no-U-turn rule**, enforced during
+traversal. It is separate from the forwarding DECISION, which really is dst-keyed
+and in-port-agnostic — which is why the adapter's note about
+`ForwardElement` being a function of `(element, packet)` reads as though APKeep
+could not express this. The decision cannot; the traversal does.
+
+## The corrected picture
+
+| backend | no-U-turn rule | where |
+|---|---|---|
+| NetPlumber | **yes** | `Node::should_block_flow` (engine) |
+| BDD/NDD-APKeep | **yes** | `Checker.traverseFowardingGraph` (engine) |
+| ad6 | presumably — answers 0; not established | — |
+| **VeriFlow-FR** | **NO** | — |
+
+**Three of the four engines implement it as an engine primitive, and
+VeriFlow-FR is the sole exception.** That settles the placement question the
+previous section left open: the rule is an expected engine-level primitive in
+this comparison, not something the model is supposed to supply. The model's
+`post_routing` drops are a *second* statement of it for multi-table devices,
+not the primary one — which is why APKeep never missing them does no harm.
+
+## So the fix belongs in VeriFlow-FR's engine, with its oracle
+
+The earlier engine guard (`walk` + `forward46`, skip `p == arrival`) gave the
+right answer — `wl_up × vf` 28 → 0 — and failed only because VeriFlow-FR's
+**oracle** does not implement the rule either, so engine and oracle disagreed
+(`test_oracle_random_rewrites`: "engine 1 tables, oracle 2"), and because I
+guarded the local walk but not the network-wide path.
+
+The complete change is therefore: the guard in `walk`, `forward46` **and** the
+network-wide `deliveries` path, **and** in the oracle. That is not "editing the
+spec to fit the code" — it is making the reimplementation do what every other
+engine in the comparison does, including the one it is differentially tested
+against. It should be declared in `ACCOMMODATIONS.md` as an extension, with the
+measured effect (28 spurious self-reach violations on `wl_up`, ~27% of the
+runtime).
+
+**Not implemented here** — it changes VeriFlow-FR's documented semantics, which
+is the owner's call.
