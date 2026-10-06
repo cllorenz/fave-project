@@ -317,9 +317,14 @@ internet is not a service.
       way.
 - [x] **C5** **DONE 2026-09-18 — all six oracle verdicts reproduced on
       NetPlumber, zero violations.** See §1.7.
-- [~] **C6** **ad6 REFUSES the workload** (§1.7.2, a structural encoding limit);
-      **APKeep drops all three reachable pairs** (§1.7.3). NetPlumber is
-      therefore the only family that currently answers this workload.
+- [x] **C6** ~~**ad6 REFUSES the workload**~~ — **CLOSED.** The structural
+      limit was removed 2026-09-21 (§1.7.2: ternary `<fieldmatch>` plus masked
+      rewrites, 2,480/2,480 matches and 24/24 rewrites translating), and the
+      V5 campaign **measured it**: ad6 answers `wl_cloud` at **57 violations of
+      71**, line-for-line identical to NDD-APKeep. APKeep also answers it now.
+      NetPlumber is no longer the only family that does — and on this workload
+      it is the one that disagrees, reporting 58 where ad6, NDD, VeriFlow-FR
+      and `vf-plain` all report 57.
 - [x] **C7 DONE 2026-09-21 for the MATRIX — §1.9.6.** wl_cloud goes through
       PolicyTranslator like every other workload: 26 roles (the dataset's 25
       services plus the Internet) over 65 endpoints, 215 FPL rules covering all
@@ -474,7 +479,7 @@ true at the perimeter for all three internet-sourced rules — the half of a
 conditional permission §1.9.3 added and which no workload had yet been able to
 check. The two that fail are both host-to-host, where no ACL sits.
 
-### 1.7.2 ad6 — refuses the workload, for a structural reason
+### 1.7.2 ad6 — refused the workload; RESOLVED 2026-09-21, and it now answers it
 
     UnsupportedField: field 'packet.ipv4.destination' matches '10.0.0.0/25',
     which is not an integer.

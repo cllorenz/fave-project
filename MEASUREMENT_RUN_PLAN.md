@@ -453,7 +453,7 @@ Engine configurations: `np` NetPlumber · `bdd` BDD-APKeep · `ndd` NDD-APKeep �
 | `wl_i2` | 78,047 | 72 | 788 s | ✓ | ✓ | 254 s | ✓ (`--lite-acyclic` mandatory) |
 | `wl_up` | 7,836 | 11,902 | 33 s | ✓ | 0.5 s | 788 s | 688 s rank |
 | `wl_tum` | 5,116 | **0** | 10 s | ✓ | ✓ | 612 s | ✓ |
-| `wl_cloud` | 1,741 | 5/66 | ✓ | **§5.3** | ✓ | ✓ 14,684 ECs | **refuses** (structural) |
+| `wl_cloud` | 1,741 | 5/66 | ✓ | **§5.3** | ✓ | ✓ 14,684 ECs | ✓ 57/71 (does **not** refuse) |
 
 **`wl_generic_fw` is NOT in this matrix — POSTPONED (owner, 2026-10-02).** It
 is repaired and generatable again (§4, P2a), but its one violation is
@@ -665,6 +665,51 @@ Scored after the runs; **not edited**. Each names what would falsify it.
     failing or answering.
 11. **At least one of the three LPM inversions (§5.4) does not change the
     verdict**, as `wl_deltanet`'s did not. *Falsified by:* all three flipping.
+
+---
+
+## 7.1 The scores — V5 campaign, 2026-10-02 → 2026-10-05
+
+**§7's predictions are NOT edited; they are scored here.** The campaign ran
+phase A only: phases B, C and E were skipped by the driver's budget guards, so
+most predictions were never put at risk. A prediction that was never tested is
+recorded as such, not quietly dropped.
+
+| # | about | score |
+|---|---|---|
+| 1–6 | `wl_berkeley` k=1, RSS, live heap, exponent, load time, re-anchoring | **NOT TESTED** — phase B never started |
+| 7 | `bdd × wl_cloud` completes in 15–22 h | **NOT TESTED** — phase C never started |
+| 8 | both faithful probes within 1.5× | **NOT TESTED** — phase C never started |
+| 9 | `vf` completes all nine; `vf-plain` DNF on `wl_up`/`wl_tum` | **HALF HELD, HALF NOT TESTED.** `vf` completed all nine — but only after the F3 fix; on the campaign's own run `wl_cloud × vf` errored, and the cause was a FaVe defect (`expand_negated`), not the engine. The `vf-plain` half was never tested: both cells were deferred and never run. |
+| 10 | `ad6` **refuses** `wl_cloud` | **FALSIFIED.** ad6 answered: 57 violations of 71, line-for-line identical to NDD. See below. |
+| 11 | at least one of three LPM inversions does not change the verdict | **NOT TESTED** — and it could not have been; see the coverage gap below. |
+
+**Prediction 10 was drawn from a matrix that was already stale.** §5.1's
+`ad6 × wl_cloud` cell said "**refuses** (structural)", citing
+`CLOUD_BENCH_PLAN.md` §1.7.2 — whose **body** records the refusal as
+**RESOLVED on 2026-09-21** (ternary `<fieldmatch>` plus masked rewrites;
+2,480/2,480 matches and 24/24 rewrites translating) and states in terms that
+"ad6 no longer refuses `wl_cloud`". The matrix cell, that section's own
+heading, and checklist item C6 were never updated to match, so a prediction was
+made against a claim the project had already withdrawn. All three are corrected
+as of 2026-10-06.
+
+### The coverage gap: phase A as shipped is narrower than §6 says
+
+§6's table defines phase A as "§5.1 cheap matrix **+ faithful variants + §5.4
+LPM guardrail**". The shipped queue, `bench/campaigns/v5_phase_a.json`,
+contains **only §5.1's matrix** — six engine configurations over the nine
+workloads. It has:
+
+* **no LPM-inversion cells**, so §5.4's guardrail — open on `wl_stanford`,
+  `wl_i2` and `wl_cloud`, and the thing that caught `wl_deltanet` — was never
+  going to run, and prediction 11 was unfalsifiable from the start;
+* **no faithful-VLAN variant cells**, which §5.1 explicitly calls "separate
+  cells, not the same workload".
+
+Neither absence is visible from the queue, and `test_cell_run.py` checks the
+queue's cells for well-formedness but not for **coverage** against §6. A
+completed phase A would still have left both open.
 
 ---
 
