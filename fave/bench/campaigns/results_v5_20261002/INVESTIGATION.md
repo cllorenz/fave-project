@@ -1075,3 +1075,80 @@ documentation before testing — the probe-path claim went into `translate.py`,
 a stamp, four tests and the registry before `check_compliance` was ever read.
 **A hypothesis about which code runs is cheap to test and should be tested
 before it is written down as fact.**
+
+---
+
+# F6 — CAUSE FOUND AND VERIFIED. Where the repair belongs is OPEN.
+
+## The cause
+
+**VeriFlow-FR has no no-U-turn rule**, so its single-table switches forward
+self-addressed traffic straight back to the sender.
+
+Evidence, in the order it was obtained:
+
+1. **Propagation, not verdict-reading.** NetPlumber's dumped flow trees
+   (`dump_np -t`, 137 trees, one per generator) show `source.web`'s tree
+   reaching **30 probes and not `probe.web`**. The hairpin does not exist in
+   NetPlumber's propagation at all.
+2. **NetPlumber's mechanism**, `Node::should_block_flow`:
+   `if (is_input_layer) return f->in_port == out_port;`, consulted from
+   `propagate_src_flow_on_pipes` at the output layer. A flow is never forwarded
+   back out the port it arrived on.
+3. **VeriFlow-FR has no equivalent.** Its delivery walks (`walk`, and
+   `forward46` for the `4+10` path) iterate `r.out_ports` and follow every link
+   without comparing against the arrival port.
+4. **The FIB permits it:** `wl_up`'s switch routes carry `in_ports=[]`, so
+   `web → dmz.4`, route `dst=::3 → fd=dmz.4`, straight back to web.
+5. **Only the diagonal can differ**, because only self-destined traffic has
+   egress == ingress — which is exactly the 28, and why `clients.wifi` (no role
+   entry) and the department servers are unaffected.
+
+**Measured twice, independently.** Adding the rule — in the engine, or in the
+model — drives `wl_up × vf` from **28/18811 to 0/18811**, `verdict_valid`, and
+~27% faster (652 s → ~400 s) because the spurious branches are no longer
+explored.
+
+## Why the owner's framing was the key
+
+FaVe expresses this rule **in the model** for multi-table devices:
+`devices/packet_filter.py`'s `post_routing` carries high-priority drop rules
+matching `in_port == <p>_ingress && out_port == <p>_egress` — the ingress kept
+as metadata and checked at the egress table. A **switch is a single table** and
+`devices/switch.py` has no such rules, so switches rely on the ENGINE having
+the rule. NetPlumber does. APKeep cannot express it as a primitive (its
+`ForwardElement` "uses the arrival port only to look the element up and then
+discards it") and the adapter splits per ingress class instead. VeriFlow-FR has
+nothing.
+
+## Both candidate repairs are measured, and both fail elsewhere
+
+| | `wl_up × vf` | APKeep | VeriFlow-FR's oracle |
+|---|---|---|---|
+| guard in the delivery walks | 28 → **0** | unchanged | **2 tests fail** |
+| `in_ports` restricted in the model | 28 → **0** | **0 → 8 false violations** | unchanged |
+
+**The engine guard** contradicts VeriFlow-FR's own specification:
+`test_oracle_random_rewrites` reports *"trial 1 range 0xx01x start 4: engine 1
+tables, oracle 2"* — the oracle expects the delivery the guard removes. (The
+second failure, `test_local_equals_network_without_rewrites`, was my own
+inconsistency: I guarded the local walk and not the network-wide one.)
+
+**The model restriction** regresses APKeep: NDD reports 8 violations on
+`wl_up` where it reported 0, and they are exactly the 8 DMZ servers'
+self-checks. **The direction is backwards** — restricting `in_ports` can only
+remove forwarding, yet APKeep then FINDS a reachability it previously did not.
+That points at the adapter: an `in_ports` on every switch route makes every
+switch ingress-qualified, which routes it down `_demux_ingress` (one element
+per ingress class) instead of the plain `ForwardElement` path.
+
+## What has to be understood before a third attempt
+
+**Why does APKeep's ingress-demultiplexing path change a switch's verdict?**
+Until that is answered, any placement of this rule is a guess. Five hypotheses
+were refuted here by measurement — revisit semantics, probe test paths, a
+`/120` overlap, a guard in `next_hops` (dead code for delivery), and the model
+restriction — and the cost of each was a full re-run.
+
+Baseline for comparison, on the reverted tree: `./test.sh integration` with ad6
+**PASSED** — 423 passed/4 skipped, 22 passed, `OK (105)`, `OK (44)`.
