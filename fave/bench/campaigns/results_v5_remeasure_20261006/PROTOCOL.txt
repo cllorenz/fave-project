@@ -1,0 +1,109 @@
+RE-MEASUREMENT OF THE PHASE A CELLS THE INVESTIGATION'S FIXES REACH
+==================================================================
+declared 2026-10-06, BEFORE the run, per MEASUREMENT_RUN_PLAN.md §7.
+queue: ../v5_remeasure_q23.json, 28 cells, limits copied from
+       v5_phase_a_main.json rather than retyped (limit_class=v5, 24 h, 32 GB).
+
+The phase A results in results_v5_20261002/ are NOT overwritten. They are the
+"before" evidence and must stay readable as such.
+
+WHY EACH CELL IS HERE
+---------------------
+Three fixes landed after phase A. Each reaches a different set, and the sets
+are declared here so that a cell cannot be quietly added later to make a
+prediction come true.
+
+(1) Q23, the no-U-turn rule -- f6836389. VeriFlow-FR forwarded a packet back
+    out the port it arrived on; the other four engines never do. This changes
+    what the engine DELIVERS, so it reaches every VeriFlow-FR cell: 9 `vf` and
+    7 `vfplain`. (wl_tum_vfplain and wl_up_vfplain are in the deferred queue
+    v5_phase_a_dnf.json and have never been run; they are not re-measurements
+    and are not here.)
+
+(2) LEGACY_CHECKS -- 4bdbe622. The retired probe-condition evaluation ran on
+    every flow event. Removing it cannot change a verdict -- the compliance
+    answer comes from NetPlumber::check_compliance's forward analysis, which
+    never consulted the probe's `test` -- but it removes work from the measured
+    path. A reported wall-clock has to come from the code that is reported, so
+    all 9 `np` cells are re-run.
+
+(3) verdict_valid -- this commit. `wl_tum` dispatches no check_compliance task,
+    because it carries one universal probe and no checks.json; the old guard
+    required that task, so all five of its phase A cells recorded
+    `outcome: error`. Five fabricated engine failures in a throughput row.
+    wl_tum_np and wl_tum_vf are already in (1) and (2); wl_tum_ad6,
+    wl_tum_bdd and wl_tum_ndd are here for this reason alone.
+
+WHAT IS NOT HERE, AND WHY
+-------------------------
+* The three 24 h did-not-finishes -- wl_i2_ad6, wl_stanford_bdd, wl_i2_bdd.
+  No fix reaches them. They stand.
+* Every other ad6 cell, and APKeep on the six workloads without `-o`.
+* The APKeep cells O1a reached (wl_example, wl_up, wl_tum x bdd/ndd) --
+  already re-measured in results_v5_o1afix/.
+* wl_cloud x vf/vfplain under O3c -- already re-measured in results_v5_f3fix/,
+  but they are re-run HERE anyway, because O3c was measured before Q23 landed
+  and a cell must be produced by one build, not two.
+* The retirement of TODO item 13a changed fave/iptables/generator.py, and
+  reaches NOTHING: phase A ran with FAVE_ALLOW_OUT_IFACE=1 on the three `-o`
+  workloads, and the retirement kept that path verbatim as the only path. The
+  generated model is byte-identical. Checked, not assumed.
+
+PREDICTIONS (§7; scored afterwards, never edited)
+-------------------------------------------------
+R1  wl_up_vf: 28 violations of 18811 -> 0. The 28 were U-turn deliveries and
+    nothing else. FALSIFIED BY: any count other than 0.
+
+R2  Every OTHER vf/vfplain verdict is unchanged from phase A, cell for cell:
+      wl_example 0/10      wl_ifi 27/299      wl_airtel1 0/256
+      wl_airtel2 0/256     wl_stanford 75/240 wl_i2 11/72
+      wl_cloud 57/71       (wl_tum: 0, no check set)
+    Q23 prunes branches that revisit the arrival port; it adds none. The
+    evidence it changes nothing else is that test_veriflow_census did not move
+    under it -- the EC counts against APKeep's Table 3 are identical.
+    FALSIFIED BY: any one of those counts moving.
+
+R3  wl_cloud stays the one disagreement: NetPlumber 58/71 against 57/71 from
+    NDD, ad6, vf and vfplain. Q23 does not touch it -- VeriFlow-FR was already
+    at 57 after O3c, on the majority side. FALSIFIED BY: np != 58, or vf != 57.
+
+R4  Every np verdict is unchanged, cell for cell. LEGACY_CHECKS removed code
+    whose only effect was a LOG4CXX_WARN through default_probe_callback.
+    FALSIFIED BY: any np count moving. This is the prediction that would
+    retract the claim that the retirement is verdict-neutral, so it is the one
+    worth being wrong about.
+
+R5  np wall-clocks do not INCREASE beyond noise, and fall measurably on the
+    two flow-heavy cells: wl_up (22.0 s) and wl_i2 (65.1 s). The removed work
+    was per-flow-event, so the saving should scale with flow count and be
+    invisible on wl_example (2.1 s). FALSIFIED BY: a flat profile across all
+    nine -- which would mean the retired code was already dead at run time,
+    and the timing argument for re-running np was wrong.
+    NOT A PREDICTION ABOUT CORRECTNESS: R5 failing costs nothing but the claim.
+
+R6  All five wl_tum cells come back `outcome: measured`, violations 0,
+    checks null, verdict_valid true. FALSIFIED BY: any of them still `error`.
+
+R7  wl_up_vf's wall-clock falls from 639.3 s to roughly 400 s (one post-fix
+    run measured 399.6 s). Pruned branches are work not done.
+    FALSIFIED BY: >550 s. Noise band, so a miss here is a miss about the
+    machine, not about the fix.
+
+R8  No cell changes outcome class in the UNFAVOURABLE direction: nothing that
+    was `measured` or `correct` in phase A comes back `error` or
+    `did_not_finish`. FALSIFIED BY: exactly that.
+
+ORDER AND ISOLATION
+-------------------
+Cheapest workload first, strictly serial (bench/cell_queue.py), nothing else
+running on the box: §6, because peak RSS and wall-clock are meaningless if two
+cells share the machine. /dev/shm/np is the symlink to /var/tmp/np-logs -- the
+64 MB tmpfs is what made wl_stanford_np look like an engine failure once.
+
+ENGINE BUILDS, CHECKED BEFORE THE RUN
+-------------------------------------
+net_plumber   4bdbe622 (LEGACY_CHECKS), binary up to date against its sources
+veriflow_fr   f6836389 (Q23), libveriflow_fr .so newer than queries.cc
+Both verified by a no-op rebuild, not by reading a timestamp -- `make -C
+veriflow_fr/build` is a silent no-op on this tree and has reported OK on a
+stale binary three times.
