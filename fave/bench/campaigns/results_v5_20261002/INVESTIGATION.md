@@ -635,3 +635,94 @@ and already materialised — but it is a change with its own blast radius across
 `wl_example` reduction as its regression test.
 
 **Status: F1 root cause CONFIRMED. A correct fix is designed but NOT written.**
+
+---
+
+# O3c — SOLVED and FIXED. It was never VLAN.
+
+## The value is made by FaVe's own negated-condition expansion
+
+`veriflow/translate.py`'s `expand_negated` emitted, per fixed bit of the
+negated value:
+
+    'x' * (offset + i) + flipped_bit + 'x' * rest
+
+i.e. **wildcards, one concrete bit, wildcards**. Sliced to a 16-bit field with
+the flip at index 1 that is `x1xxxxxxxxxxxxxx` — the error string exactly:
+
+    port 332      = 0000000101001100
+    bit 1 flipped = x1xxxxxxxxxxxxxx
+    error string  = x1xxxxxxxxxxxxxx
+
+**My VLAN identification earlier in this document was wrong.** 16 bits matched
+`packet.ether.vlan` and I stopped there; `packet.upper.dport` is also 16 bits,
+and it is the one actually involved. The coincidence of width was the whole
+basis of that reading, which is not enough.
+
+`wl_cloud` is the **only** workload in the suite with negated field conditions
+— 8 checks over `port` and `protocol`; every other workload has zero. That is
+why only `wl_cloud × vf` died, and why the defect survived this long.
+
+## The fix
+
+The pieces now fix the earlier bits — the standard complement decomposition:
+
+| | old | new |
+|---|---|---|
+| piece | `{w : w[i] ≠ v[i]}` | `{w : w[0..i-1] = v[0..i-1], w[i] ≠ v[i]}` |
+| union | complement | complement (same) |
+| prefixes? | **no** | **yes** |
+| disjoint? | no (overlapping, so ECs are double-counted) | **yes** |
+
+Verified algebraically on a 4-bit case: union equals the complement, pieces are
+pairwise disjoint, every piece is a prefix. `fast` 864 passed, `integration`
+PASSED including every differential.
+
+`test_a_negated_field_expands_to_single_bit_sets` pinned the old strings and is
+replaced by `..._expands_to_prefixes`, which pins the three properties instead
+— union, disjointness, prefix-ness — because the strings are what went wrong.
+
+## The result: both cells recovered
+
+| `wl_cloud × veriflow` | before | after |
+|---|---|---|
+| `vf` (4+10) | `status: error`, no verdict | **57/71, `verdict_valid`, 2.39 s** |
+| `vf-plain` | `status: error`, no verdict | **57/71, `verdict_valid`, 2.24 s** |
+
+**P9 is no longer falsified by `wl_cloud`.** It was falsified by a FaVe defect,
+not by VeriFlow-FR failing to complete a workload.
+
+## And it settles F4-R, which phase C was supposed to settle
+
+| `wl_cloud`, 71 checks | violations |
+|---|---|
+| **NetPlumber** | **58** |
+| NDD-APKeep | 57 |
+| ad6 | 57 |
+| VeriFlow-FR 4+10 | 57 |
+| `vf-plain` | 57 |
+
+VeriFlow-FR's report is **line-for-line identical to NDD's**. The one line only
+NetPlumber reports:
+
+    - `source.dc1_leaf6_host0` reaches `probe.dc0_leaf1_host1` with …
+
+Four engines from three independent families — APKeep (NDD), SAT (ad6) and
+interval/Delta-net (VeriFlow-FR) — do not find that reachability. **NetPlumber
+is the outlier on `wl_cloud`, and the evidence is now much stronger than the
+two-engine reading F4 got wrong.**
+
+This is the adjudication phase C's 24-hour BDD run was scheduled to provide,
+obtained instead from a 2.4-second cell, because fixing F3 unblocked the engine
+that could give it. It is worth noting against §5.3's triage: the long run was
+chosen as the way to settle this, and a defect fix settled it for nothing.
+
+## What the external oracle can and cannot do here
+
+`wl_cloud` is cited as the suite's only workload with an external oracle.
+`bench/wl_cloud/oracle.json` holds **6 queries**, all sourced at the internet
+(`source: 1500000`), carrying the dataset's own sat/unsat verdicts.
+`dc1_leaf6_host0 → dc0_leaf1_host1` is an internal-to-internal pair and **is
+not among them**. So the oracle does not adjudicate this disagreement, and the
+four-to-one reading stands on engine agreement alone — which, per F4-R, is
+evidence and not proof.

@@ -159,14 +159,37 @@ def expand_negated(base: str, offset: int, bits: str) -> List[str]:
     union of ternary sets: per fixed bit, the set where that bit differs (Q17,
     the expansion `netplumber/adapter._expand_field` makes). """
     out = []
+    # The pieces FIX the earlier bits of `bits` rather than leaving them
+    # wildcard. Both forms union to the same complement -- w differs from v iff
+    # it differs at some fixed bit -- but they are not interchangeable here:
+    #
+    #   leaving them wildcard gives {w : w[i] != v[i]}, whose field slice is
+    #   `x..x <bit> x..x`. A concrete bit AFTER a wildcard run is not a prefix,
+    #   so it is not an interval, and veriflow.cc's prefix_to_interval REFUSES
+    #   it -- "not a prefix: x1xxxxxxxxxxxxxx", which is wl_cloud's `f=!port:332`
+    #   with bit 1 of 0000000101001100 flipped. VeriFlow-FR is interval-based by
+    #   construction and is right to refuse; it is this expansion that was
+    #   handing it something outside its model.
+    #
+    #   fixing them gives the standard decomposition {w : w[0..i-1] = v[0..i-1],
+    #   w[i] != v[i]}, which IS a prefix whenever the negated value is exact,
+    #   and is additionally DISJOINT -- the wildcard form overlaps, so it also
+    #   double-counts ECs.
+    #
+    # A negated value that is itself non-prefix still yields non-prefix pieces,
+    # and VeriFlow-FR still refuses them, which is correct: that set is not an
+    # interval either. TODO.md item 31 / VERIFLOW_PLAN.md Q17.
+    seen = ''
     for i, bit in enumerate(bits):
         if bit not in '01':
+            seen += 'x'
             continue
-        flipped = 'x' * (offset + i) + ('1' if bit == '0' else '0') + \
+        flipped = 'x' * offset + seen + ('1' if bit == '0' else '0') + \
             'x' * (len(base) - offset - i - 1)
         met = _intersect(base, flipped)
         if met is not None:
             out.append(met)
+        seen += bit
     return out
 
 

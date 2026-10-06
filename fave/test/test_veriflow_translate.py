@@ -41,6 +41,7 @@ native engine:
     packet-filter models, rewrites and negated rule fields arrive with V3.
 """
 
+import itertools
 import unittest
 
 from devices.generator import GeneratorModel
@@ -202,12 +203,38 @@ class TestSourcesAndProbes(unittest.TestCase):
 
 class TestNegatedConditions(unittest.TestCase):
 
-    def test_a_negated_field_expands_to_single_bit_sets(self):
-        # dport != 80 on 16 bits: one set per fixed bit of 80, that bit flipped.
-        sets = expand_negated("x" * 16, 0, "0000000001010000")
-        self.assertEqual(len(sets), 16)
-        self.assertIn("1" + "x" * 15, sets)
-        self.assertIn("x" * 9 + "0" + "x" * 6, sets)
+    def test_a_negated_field_expands_to_prefixes(self):
+        """ dport != 80 on 16 bits: one set per fixed bit, that bit flipped and
+        the EARLIER bits fixed -- the standard complement decomposition.
+
+        Pins the three properties rather than the strings, because the strings
+        are what went wrong. The pieces used to leave the earlier bits wildcard,
+        giving {w : w[i] != v[i]}, whose field slice is `x..x<bit>x..x`. A
+        concrete bit after a wildcard run is NOT a prefix, so it is not an
+        interval, and `veriflow.cc`'s `prefix_to_interval` refuses it -- which
+        is how `wl_cloud`'s `f=!port:332` killed the whole cell with
+        "not a prefix: x1xxxxxxxxxxxxxx". VeriFlow-FR is interval-based and was
+        right to refuse; the expansion was handing it a set outside its model.
+        """
+        value = "0000000001010000"
+        sets = expand_negated("x" * 16, 0, value)
+        self.assertEqual(len(sets), 16)       # one per fixed bit, as before
+
+        def members(pattern):
+            return {"".join(c) for c in itertools.product(
+                *[("0", "1") if b == "x" else (b,) for b in pattern])}
+
+        whole = members("x" * 16)
+        union = set().union(*[members(p) for p in sets])
+        # 1. it is still the complement
+        self.assertEqual(union, whole - {value})
+        # 2. the pieces are now DISJOINT -- the old form overlapped, so it also
+        #    double-counted ECs
+        self.assertEqual(sum(len(members(p)) for p in sets), len(union))
+        # 3. and every piece is a prefix, which is the point
+        for piece in sets:
+            if "x" in piece:
+                self.assertEqual(set(piece[piece.index("x"):]), {"x"}, piece)
 
 
 class TestMatchCensus(unittest.TestCase):

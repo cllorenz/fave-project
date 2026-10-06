@@ -1,0 +1,24 @@
+[
+ {
+  "name": "wl_cloud_vf",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_cloud_vfplain",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "plain",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ }
+]
