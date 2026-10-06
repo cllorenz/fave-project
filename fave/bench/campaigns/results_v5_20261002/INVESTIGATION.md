@@ -726,3 +726,85 @@ chosen as the way to settle this, and a defect fix settled it for nothing.
 not among them**. So the oracle does not adjudicate this disagreement, and the
 four-to-one reading stands on engine agreement alone — which, per F4-R, is
 evidence and not proof.
+
+---
+
+# O13a-1 — executed. `-o` is expressible on three of the four backends.
+
+Item 13a declares `-o` unmodellable and gates it behind `FAVE_ALLOW_OUT_IFACE`
+for the whole suite, justified by: *"`out_port` is still unset when the rule is
+evaluated and is then overwritten by the routing table — the match would
+constrain nothing."* That is a claim about every backend, and it is testable
+against data the campaign already produced.
+
+## The experiment, which the campaign already ran
+
+The suite's two `-o` workloads carry rules of **opposite polarity**, so between
+them they separate the three possible behaviours:
+
+* `wl_example` — one `-o` **ACCEPT** (`-o 1 -s 2001:db8::200/120 -j ACCEPT`),
+  the sole permit for `office → internet`;
+* `wl_up` — two `-o` **DROPs** (`-o 1 -d 2001:db8:abc::0/48`) over `wl_up`'s own
+  entire address space (136 of 137 sources), i.e. anti-spoofing.
+
+Predicted signature of each behaviour:
+
+| behaviour | `wl_example` | `wl_up`, off-diagonal |
+|---|---|---|
+| **skip** the `-o` rule | **1 violation** (`office → internet` lost) | 0 |
+| **ignore the qualifier** (apply to all) | 0 | **thousands** (internal traffic dropped) |
+| **model `-o`** | 0 | 0 |
+
+The middle row is not a guess: removing the skip from the APKeep adapter
+produced exactly that — **3025 violations of 18,811** on `wl_up`. The failed
+fix is the calibration for what "the match constrains nothing" looks like.
+
+## Observed
+
+| engine | `wl_example` | `wl_up` | off-diagonal | behaviour |
+|---|---:|---:|---:|---|
+| NetPlumber | 0/10 | 0/18811 | 0 | **models `-o`** |
+| ad6 | 0/10 | 0/18811 | 0 | **models `-o`** |
+| VeriFlow-FR | 0/10 | 28/18811 | **0** | **models `-o`** |
+| NDD-APKeep | **1/10** | 0/18811 | 0 | **skips** |
+| BDD-APKeep | **1/10** | 0/18811 | 0 | **skips** |
+
+VeriFlow-FR's 28 are all diagonal (F6) and unrelated to `-o`; its off-diagonal
+count is 0, which is the figure this test reads.
+
+NetPlumber, ad6 and VeriFlow-FR are in neither failing row: they keep the
+ACCEPT (so they do not skip) and do not over-apply the DROP (so they do not
+ignore the qualifier). Only one behaviour is left.
+
+**Mechanism, for NetPlumber:** `netplumber/adapter.py` builds a rule's match
+with `rvec = self._build_vector(rule.match)`, and `out_port` is a field of the
+mapping like any other. So an `-o`-qualified rule constrains the `out_port`
+dimension of the header space, carving out the slice that will leave by that
+port rather than applying to everything or vanishing.
+
+## What follows
+
+1. **Item 13a's stated premise is false for three of the four backends.** It
+   describes the APKeep adapter, which cannot express an `-o`-qualified filter
+   rule, and generalises that to the suite.
+2. **`FAVE_ALLOW_OUT_IFACE` is an opt-in to an infidelity those three do not
+   have.** `iptables/generator.py` refuses `-o` *before* any backend is chosen,
+   so NetPlumber, ad6 and VeriFlow-FR are made to opt into a loss of fidelity
+   none of them suffers. The refusal should be **backend-conditional**, or the
+   message should stop claiming the match constrains nothing.
+3. **`ACCOMMODATIONS.md` currently over-states it.** Item 31's rule is that an
+   accommodation is declared accurately or not at all; this one is declared
+   suite-wide and is APKeep-only. A reader who checks it against NetPlumber
+   finds it contradicted.
+4. **It makes F1 sharper, not just differently worded.** `wl_example`'s
+   disagreement is not "four engines against two on an unmodellable match" — it
+   is **three engines modelling `-o` correctly and APKeep's adapter dropping the
+   rule**, with the correct behaviour demonstrated three times over in the same
+   campaign. The O1a design (intersect the rule's destination with the prefixes
+   routing to that port) is how APKeep would join them.
+
+**Not done here:** a purpose-built discriminating check — e.g.
+`office → dmz` on a port no other rule permits, which separates "models `-o`"
+from "ignores it" on `wl_example` alone. The two-workload argument above does
+not need it, but it would be the cheapest single confirmation and it needs the
+workload's policy changed, not just a check added.
