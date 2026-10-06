@@ -442,6 +442,38 @@ item 31's registry.
 V1's exit (§8). Each is about what *their* experiment did, which only they can say. They
 are phrased in the paper's terms only (Delta-net §4.3.2, Table 4).
 
+- **Q23 — No U-turn: an EXTENSION, not the thesis's.** RESOLVED 2026-10-06 by the V5
+  campaign's F6. A packet is never forwarded back out the port it arrived on. **The
+  thesis and the paper do not state this rule**, so it is ours and is declared in
+  `ACCOMMODATIONS.md` as an extension; it is nevertheless what every other engine in
+  the comparison does — NetPlumber in `Node::should_block_flow` (`if (is_input_layer)
+  return f->in_port == out_port;`), APKeep in `Checker.traverseFowardingGraph`
+  (`if(next_hop.equals(connected_pt)) continue;`).
+
+  **Why it is needed here and nowhere else.** FaVe states the rule in its MODELS for
+  multi-table devices: `devices/packet_filter.py`'s `post_routing` carries
+  high-priority drops matching `in_port == <p>_ingress && out_port == <p>_egress` — the
+  ingress kept as metadata and checked at the egress table. A SWITCH is a single table
+  (`devices/switch.py`) and carries no such rules, so for switches the rule can only
+  come from the engine. NetPlumber and APKeep have it; VeriFlow-FR did not, and its
+  switches delivered self-addressed traffic back to its sender.
+
+  **Measured.** `wl_up × vf` reported **28 violations of 18,811** — every one a
+  `source.X -> probe.X` self-check — where NetPlumber, ad6, BDD- and NDD-APKeep all
+  reported none. With the rule: **0**, and ~27% faster (652 s → ~400 s), the difference
+  being the branches no longer explored. Independent confirmation that the hairpin is
+  absent from the reference: NetPlumber's dumped flow tree for `source.web` reaches 30
+  probes and **not** `probe.web`. Not a traversal-rule artefact either — under
+  NetPlumber's own `vf_revisit=path` the unfixed engine still gave the identical 28.
+
+  **Applied consistently, including the oracle.** Both delivery walks (`walk`,
+  `forward46`) and `ForwardingGraph::next_hops` — which also governs `table_edges`,
+  `path_revisits` and `has_loop`, since a U-turn the engine never performs is not a
+  loop it should report — **and `rewrite_unit.cc`'s oracle**. Guarding the engine alone
+  was tried first and correctly failed `test_oracle_random_rewrites` ("engine 1 tables,
+  oracle 2"): an oracle that does not model the rule is no longer a reference for what
+  the engine computes.
+
 - **Q10 — Which data plane is the Airtel snapshot?** The paper says it was extracted "from
   ONOS", with 38,100 rules and 158 queries. We identify it with the final state of
   `airtel1-only-inserts.csv`, but by counts only: both airtel traces replay to 38,100
