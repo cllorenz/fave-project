@@ -382,9 +382,24 @@ std::vector<std::pair<uint32_t, int64_t>> ForwardingGraph::next_hops(
   std::vector<std::pair<uint32_t, int64_t>> out;
   const Rule *r = decide(table, in_port);
   if (!r) return out;
-  for (uint64_t p : r->out_ports)
+  // NO U-TURN -- a FaVe EXTENSION to the thesis's algorithm, see
+  // VERIFLOW_PLAN.md and ACCOMMODATIONS.md. A packet is never forwarded back out
+  // the port it arrived on. The thesis does not state the rule, but every other
+  // engine in the comparison enforces it: NetPlumber in
+  // `Node::should_block_flow` ("if (is_input_layer) return f->in_port ==
+  // out_port"), APKeep in `Checker.traverseFowardingGraph`
+  // ("if(next_hop.equals(connected_pt)) continue"). Without it FaVe's
+  // single-table SWITCH models -- which, unlike `devices/packet_filter.py`'s
+  // multi-table pipeline, carry no explicit `in_port`/`out_port` drop rules of
+  // their own -- deliver self-addressed traffic straight back to its sender.
+  // MEASURED on wl_up: 28 spurious `source.X -> probe.X` violations of 18,811
+  // that the other four engines all report as none, and ~27% of the runtime
+  // spent exploring the branches.
+  for (uint64_t p : r->out_ports) {
+    if (in_port != ANY_PORT && (int64_t)p == in_port) continue;
     for (uint64_t to : net_->links_from(p))
       out.push_back({net_->port_table(to), (int64_t)to});
+  }
   return out;
 }
 

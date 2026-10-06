@@ -366,9 +366,15 @@ class RewriteTest : public CppUnit::TestFixture {
           next = grown;
         }
         path.push_back(t);
-        for (uint64_t op : best->out_ports)
+        // NO U-TURN, mirroring the engine (a FaVe extension to the thesis's
+        // algorithm -- ForwardingGraph::next_hops, VERIFLOW_PLAN.md). The
+        // oracle has to carry it too, or it is no longer a reference for what
+        // the engine computes.
+        for (uint64_t op : best->out_ports) {
+          if (arr != ANY_PORT && (int64_t)op == arr) continue;
           for (uint64_t to : links[op])
             for (unsigned p : next) sim(net.port_table(to), (int64_t)to, p, path, out);
+        }
         path.pop_back();
       };
 

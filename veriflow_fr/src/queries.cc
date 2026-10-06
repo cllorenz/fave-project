@@ -230,7 +230,8 @@ struct Slicer {
 
   // ---- the V3b walk ---------------------------------------------------------
 
-  void forward46(const Rule &r, const Box &b, const std::vector<Box> &excl,
+  void forward46(int64_t arrival, const Rule &r, const Box &b,
+                 const std::vector<Box> &excl,
                  std::vector<uint32_t> &path, std::set<uint32_t> &out) {
     // A rewrite of a field an exclusion constrains (does not cover the whole
     // field range of the set) cannot be applied to primary and exclusions
@@ -252,9 +253,13 @@ struct Slicer {
         for (Box &x : set.second) x[rw.first] = rw.second;
       }
       if (on_state) on_state(0, set.first);
-      for (uint64_t p : r.out_ports)
+      // NO U-TURN (a FaVe extension; see ForwardingGraph::next_hops and
+      // VERIFLOW_PLAN.md): never leave by the port the packet arrived on.
+      for (uint64_t p : r.out_ports) {
+        if (arrival != ANY_PORT && (int64_t)p == arrival) continue;
         for (uint64_t to : net.links_from(p))
           walk46(net.port_table(to), (int64_t)to, set.first, set.second, path, out);
+      }
     }
   }
 
@@ -331,7 +336,7 @@ struct Slicer {
         if (r.consume) {
           out.insert(table);
         } else if (!r.out_ports.empty()) {
-          forward46(r, share, share_excl, path, out);
+          forward46(arrival, r, share, share_excl, path, out);
         }
         if (share == ec) break;           // it covers the EC: nothing is left
         rest.push_back(share);            // a finer rule: its share is excluded
@@ -427,9 +432,13 @@ struct Slicer {
         Box next = ec;
         for (const auto &rw : best->rewrites) next[rw.first] = rw.second;
         if (on_state) on_state(table, next);
-        for (uint64_t p : best->out_ports)
+        // NO U-TURN (a FaVe extension; see ForwardingGraph::next_hops and
+        // VERIFLOW_PLAN.md): never leave by the port the packet arrived on.
+        for (uint64_t p : best->out_ports) {
+          if (arrival != ANY_PORT && (int64_t)p == arrival) continue;
           for (uint64_t to : net.links_from(p))
             walk(net.port_table(to), (int64_t)to, next, path, out);
+        }
       }
       size_t f = box.size();
       bool done = true;
