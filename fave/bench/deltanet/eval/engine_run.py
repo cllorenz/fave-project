@@ -157,7 +157,16 @@ def main(argv=None):
         if os.path.exists(stale):
             os.remove(stale)
 
-    env = dict(os.environ, PYTHONPATH='.', FAVE_BACKEND=args.backend,
+    # PYTHON pins the aggregator to THIS interpreter. The engine process below
+    # already runs on `sys.executable`, but it starts the aggregator through
+    # `scripts/start_aggr.sh`, which defaults to a bare `python3` -- so without
+    # this the two halves of one measurement run on two interpreters and the
+    # aggregator dies with `No module named 'filelock'`, which surfaces four
+    # frames later as "could not connect to fave" and names nothing.
+    # `bench/cell_run.py` and `bench/cloud_bdd_measure.py` both do this; this
+    # driver did not, and phase B found out.
+    env = dict(os.environ, PYTHONPATH='.', PYTHON=sys.executable,
+               FAVE_BACKEND=args.backend,
                FAVE_ENGINE_OPTIONS=('--apkeep-engine %s' % args.engine
                                     if args.backend == 'apkeep' else ''))
     cell = args.mutate_cell.split(',')

@@ -95,3 +95,22 @@ ADDENDUM -- WHEN THIS ACTUALLY RAN
   Inputs re-verified on the day: berkeley-inserts.csv, 386,329,571 bytes,
   sha256 96d57987...bb21, matching DERIVED.SHA256SUMS.
   Machine re-checked: 64,294 MB total, 16 cores, no swap, 71 GB disk free.
+
+  FIRST START, 2026-10-06 15:31:40Z, ABORTED IN 0.1 s -- ENVIRONMENT, NOT A
+  RESULT. berkeley_drill.py launched test/gen_deltanet_inputs.sh without
+  exporting PYTHON. Every shell script in this tree opens with
+  PYTHON="${PYTHON:-python3}", so the generator ran on the SYSTEM interpreter
+  and died with ModuleNotFoundError: No module named 'filelock'. Recorded by
+  the drill as gen_k30 status=error, which by §8.1 is an environment failure
+  and is RE-RUN -- it says nothing about NDD-APKeep at any size, and the
+  deleted gen_k30.json is cited nowhere.
+
+  bench/cell_run.py had already learned this and written the reason down, and
+  bench/cloud_bdd_measure.py already applies it; bench/deltanet/eval/ did
+  neither, in BOTH its drivers. Fixed in berkeley_drill.py (the generation
+  subprocess) and engine_run.py (the engine subprocess, whose aggregator starts
+  through scripts/start_aggr.sh), with a guard over the whole set of drivers --
+  test/test_drivers_pin_the_interpreter.py -- because the next driver to spawn
+  a script is the one that matters.
+
+  No prediction is edited. P1-P6 stand exactly as declared on 2026-10-02.

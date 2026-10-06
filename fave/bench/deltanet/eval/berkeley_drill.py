@@ -75,9 +75,18 @@ def _generate(out_dir, keep_every, deadline, memory_floor):
     """ The inputs for one size, in their own sampled process. """
     started = time.time()
     with open(os.path.join(out_dir, 'gen_k%d.stdout' % keep_every), 'w') as log:
+        # PYTHON, for the reason `bench/cell_run.py` spells out and
+        # `bench/cloud_bdd_measure.py` already applies: every shell script in
+        # this tree defaults to a bare `python3`
+        # (`PYTHON="${PYTHON:-python3}"`), so without this the generator runs
+        # on the SYSTEM interpreter and dies with `No module named 'filelock'`.
+        # It cost phase B a start on 2026-10-06: the drill exited in 0.1 s at
+        # k=30 and recorded `status: error`, which is an ENVIRONMENT failure
+        # and not a result about the engine (§8.1).
         proc = subprocess.Popen(
             ['bash', 'test/gen_deltanet_inputs.sh', '--keep-every',
              str(keep_every), 'wl_berkeley'],
+            env=dict(os.environ, PYTHON=sys.executable),
             stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         peak, least, status = 0, _available_mb(), None
         while status is None:
