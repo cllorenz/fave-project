@@ -44,6 +44,11 @@ pyparsing==3.3.2
 lxml==6.1.2
 python-sat==1.9.dev15
 
+# Declared rather than left transitive (it arrives via mypy anyway): used at
+# RUNTIME by util/path_util.py's @deprecated marker for the retired probe-path
+# mechanism. Pure-python wheel, so the fast tier stays compiler-free.
+typing_extensions==4.16.0
+
 # --- testing ---
 coverage==7.14.2
 pytest==9.1.1

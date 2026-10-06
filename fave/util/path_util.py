@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import re
 
+from typing_extensions import deprecated
 from typing import List, Optional, Tuple, Union, cast
 
 from util.typing_util import JSONDict
@@ -274,8 +275,33 @@ class Path(object):
             self.pathlets = []
 
 
+    @deprecated(
+        "Probe paths feed NetPlumber's LEGACY probe-condition mechanism, which "
+        "is guarded off by default (-DLEGACY_CHECKS). Compliance is decided by "
+        "NetPlumber::check_compliance, a forward analysis over the reachability "
+        "trees that never consults a probe's filter or test condition."
+    )
     def to_json(self) -> JSONDict:
         """ Converts the path to JSON.
+
+        DEPRECATED. This serialises a probe's `filter_path`/`test_path` for
+        `add_source_probe`, i.e. for `Condition`/`PathCondition` evaluation in
+        `SourceProbeNode::start_probe` and `update_check`. That is the ORIGINAL
+        compliance technique and it decides nothing today:
+
+        * `NetPlumber::check_compliance` -- what FaVe actually calls -- walks
+          the destination node's `source_flow` and tests source identity and
+          header-space overlap. It never reads a probe's condition.
+        * nothing consumes the result either: `rpc_handler`'s
+          `add_source_probe` passes `nullptr` for the callback, so the
+          constructor substitutes `default_probe_callback`, whose whole body is
+          a `LOG4CXX_WARN`.
+
+        The C++ side is guarded by `LEGACY_CHECKS` (off by default) rather than
+        deleted, so the technique can be revived or removed deliberately; this
+        marker is the Python half of the same retirement. The workloads still
+        EMIT probe paths (`wl_up` alone has 136), which is why this is
+        deprecated rather than removed -- they would all have to stop first.
         """
         return {
             'pathlets' : [pathlet_to_json(p) for p in self.pathlets]
