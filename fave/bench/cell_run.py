@@ -84,7 +84,7 @@ AGGREGATOR_LOG = '/dev/shm/np/aggregator.log'
 REPORT = 'report.md'
 
 _TASK = re.compile(r'completed task check_compliance in ([0-9.e+-]+) seconds')
-_ANOM = re.compile(r'completed task check_anomalies in ([0-9.e+-]+) seconds')
+_REPORT = re.compile(r'completed task report in ([0-9.e+-]+) seconds')
 _LOAD = re.compile(r'completed task switch_command in ([0-9.e+-]+) seconds')
 _DONE = re.compile(r'completed task ([a-z_]+)')
 
@@ -421,13 +421,13 @@ def read_verdict(workload, out_dir, stem, gc_log):
         with open(AGGREGATOR_LOG) as handle:
             text = handle.read()
         found['check_compliance_s'] = [float(t) for t in _TASK.findall(text)]
-        found['check_anomalies_s'] = [float(t) for t in _ANOM.findall(text)]
+        found['report_task_s'] = [float(t) for t in _REPORT.findall(text)]
         loads = [float(t) for t in _LOAD.findall(text)]
         found['switch_command_s'] = sum(loads) if loads else None
         found['switch_commands'] = len(loads)
     else:
         found['check_compliance_s'] = []
-        found['check_anomalies_s'] = []
+        found['report_task_s'] = []
         found['switch_command_s'] = None
 
     found['gc'] = (cell_metrics.gc_summary(gc_log)
@@ -474,14 +474,20 @@ def read_verdict(workload, out_dir, stem, gc_log):
     # an engine failure. wl_tum is a throughput cell, and a throughput cell
     # that says `error` is worse than useless in a comparison table.
     #
-    # `check_anomalies` runs on EVERY workload including that one, so it is the
-    # task that witnesses "the pipeline reached the end"; `check_compliance` is
-    # additionally required exactly when the workload has checks to run. Both
-    # must appear exactly ONCE: twice means the log is from more than one run
-    # and the report cannot be attributed to this one.
+    # So the end-of-pipeline witness has to be a task EVERY ENGINE dispatches,
+    # not merely every workload. `check_anomalies` is not it: only NetPlumber
+    # runs it, and using it marked all six VeriFlow-FR cells of a re-measure
+    # `error` before the mistake was caught. `report` is the aggregator's OWN
+    # task -- the one that writes the report.md being read here -- and appears
+    # exactly once in all 51 phase A logs across all six engine
+    # configurations. `check_compliance` is additionally required exactly when
+    # the workload has checks to run.
+    #
+    # Both must appear exactly ONCE: twice means the log spans more than one
+    # run and the report cannot be attributed to either.
     found['verdict_valid'] = bool(
         found['report']
-        and len(found['check_anomalies_s']) == 1
+        and len(found['report_task_s']) == 1
         and (len(found['check_compliance_s']) == 1
              if 'checks' in found else not found['check_compliance_s']))
     return found

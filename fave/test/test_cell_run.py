@@ -528,9 +528,13 @@ class TestTheQueueResumes(unittest.TestCase):
         `outcome: error` -- five fabricated engine failures in a comparison
         table, for a workload whose whole purpose is throughput.
 
-        The guard is kept, and aimed at a task that EVERY workload runs:
-        `check_anomalies` witnesses that the pipeline reached the end, and
-        `check_compliance` is required exactly when there are checks to run.
+        The guard stays, aimed at a task every ENGINE dispatches. The first
+        attempt used `check_anomalies` and was wrong: only NetPlumber runs it,
+        so it marked all six VeriFlow-FR cells of a re-measure `error` -- which
+        is why the VeriFlow case below is in this test. `report` is the
+        aggregator's own task, the one that writes the report.md being read,
+        and it appears exactly once in all 51 phase A logs across all six
+        engine configurations.
         """
         prev_log, prev_report = cell_run.AGGREGATOR_LOG, cell_run.REPORT
         log = os.path.join(self.dir, 'aggregator.log')
@@ -539,20 +543,24 @@ class TestTheQueueResumes(unittest.TestCase):
         with open(report, 'w') as handle:
             handle.write('# Report\n\n## Compliance Check\n'
                          'No compliance violations have been found.\n')
-        # `read_verdict` looks for `bench/<workload>/checks.json` RELATIVELY,
-        # as every cell does -- so the test has to stand where a cell stands,
+
+        def write(*lines):
+            with open(log, 'w') as handle:
+                handle.write(''.join(
+                    'worker: completed task %s in 0.1 seconds.\n' % t
+                    for t in lines))
+
+        # `read_verdict` resolves `bench/<workload>/checks.json` RELATIVELY, as
+        # every cell does, so the test has to stand where a cell stands --
         # whatever directory pytest was started from.
         prev_cwd = os.getcwd()
         os.chdir(os.path.dirname(os.path.dirname(
             os.path.abspath(cell_run.__file__))))
         try:
-            # wl_tum's real log, trimmed: anomalies and report, no compliance.
-            with open(log, 'w') as handle:
-                handle.write(
-                    'worker: completed task packet_filter in 0.78 seconds.\n'
-                    'worker: completed task check_anomalies in 0.0004 seconds.\n'
-                    'worker: completed task report in 0.0008 seconds.\n')
-            found = cell_run.read_verdict('wl_tum', self.dir, 'c', '/nonexistent')
+            # wl_tum on NETPLUMBER, trimmed from the real log: it alone runs
+            # check_anomalies, and it runs no check_compliance here.
+            write('packet_filter', 'check_anomalies', 'report')
+            found = cell_run.read_verdict('wl_tum', self.dir, 'c', '/nonexist')
             self.assertNotIn('checks', found)        # the premise of the case
             self.assertEqual(found['check_compliance_s'], [])
             self.assertTrue(found['verdict_valid'])
@@ -560,26 +568,31 @@ class TestTheQueueResumes(unittest.TestCase):
                                                   found['verdict_valid']),
                              'measured')
 
+            # wl_tum on any OTHER engine: no check_anomalies either. This is
+            # the case the first fix got wrong.
+            write('packet_filter', 'report')
+            self.assertTrue(cell_run.read_verdict(
+                'wl_tum', self.dir, 'c', '/x')['verdict_valid'])
+
             # A workload that HAS checks still needs its compliance task: the
             # original guard, which caught a six-hour run read as "0
             # violations" (AD6_PLAN.md 9.34.3), must not have been loosened.
-            found = cell_run.read_verdict('wl_up', self.dir, 'c', '/nonexistent')
+            self.assertFalse(cell_run.read_verdict(
+                'wl_up', self.dir, 'c', '/x')['verdict_valid'])
+            write('packet_filter', 'check_compliance', 'report')
+            found = cell_run.read_verdict('wl_up', self.dir, 'c', '/x')
             self.assertIn('checks', found)
-            self.assertFalse(found['verdict_valid'])
+            self.assertTrue(found['verdict_valid'])
 
-            # And neither survives a log with no end-of-pipeline task at all.
-            with open(log, 'w') as handle:
-                handle.write('worker: completed task packet_filter in 1 seconds.\n')
-            self.assertFalse(
-                cell_run.read_verdict('wl_tum', self.dir, 'c', '/x')['verdict_valid'])
+            # Neither survives a log that never reached the report task.
+            write('packet_filter', 'check_compliance')
+            self.assertFalse(cell_run.read_verdict(
+                'wl_up', self.dir, 'c', '/x')['verdict_valid'])
 
-            # Twice means two runs, and the report cannot be attributed to one.
-            with open(log, 'w') as handle:
-                handle.write(
-                    'worker: completed task check_anomalies in 0.1 seconds.\n'
-                    'worker: completed task check_anomalies in 0.2 seconds.\n')
-            self.assertFalse(
-                cell_run.read_verdict('wl_tum', self.dir, 'c', '/x')['verdict_valid'])
+            # Twice means two runs, and the report belongs to neither.
+            write('report', 'report')
+            self.assertFalse(cell_run.read_verdict(
+                'wl_tum', self.dir, 'c', '/x')['verdict_valid'])
         finally:
             os.chdir(prev_cwd)
             cell_run.AGGREGATOR_LOG, cell_run.REPORT = prev_log, prev_report

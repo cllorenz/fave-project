@@ -107,3 +107,41 @@ veriflow_fr   f6836389 (Q23), libveriflow_fr .so newer than queries.cc
 Both verified by a no-op rebuild, not by reading a timestamp -- `make -C
 veriflow_fr/build` is a silent no-op on this tree and has reported OK on a
 stale binary three times.
+
+ADDENDUM, 2026-10-06 16:50 -- THE FIRST ATTEMPT WAS ABORTED AFTER 9 CELLS
+--------------------------------------------------------------------------
+Recorded here rather than silently re-run, because a measurement directory that
+does not say it was started twice is not evidence.
+
+Reason (3) above -- the verdict_valid fix -- shipped with a wrong witness task.
+It required `check_anomalies`, on the finding that all nine workloads dispatch
+it exactly once. They do; but only NETPLUMBER does. The claim was checked
+across workloads and not across engines, on four NetPlumber logs. The first
+nine cells therefore came back:
+
+    wl_example_np   measured   (correct)
+    wl_example_vf   error      <- wrong: 0/10 violations, a complete run
+    wl_example_vfpl error      <- wrong
+    wl_ifi_np       measured   (correct)
+    wl_ifi_vf       error      <- wrong: 27/299, matching np exactly
+    wl_ifi_vfpl     error      <- wrong
+    wl_cloud_np     measured   (correct)
+    wl_cloud_vf     error      <- wrong
+    wl_cloud_vfpl   error      <- wrong
+
+The run was stopped at the 10th cell and all nine results deleted. None of them
+is in this directory and none is cited anywhere.
+
+The witness is now `report` -- the AGGREGATOR's own task, the one that writes
+the report.md being read -- which appears exactly once in all 51 phase A
+aggregator logs across all six engine configurations. Verified before
+restarting by re-deriving verdict_valid and outcome for all 51 archived phase A
+cells through read_verdict itself, against their archived logs: exactly 5
+differ, the 5 wl_tum cells, all error -> measured. That is the whole intended
+effect and nothing else.
+
+Predictions R1-R8 above are UNCHANGED and were not edited after seeing those
+nine cells. Two of them were in fact already observed on the np cells that ran
+(wl_example 0/10, wl_ifi 27/299, wl_cloud 58/71 -- R4 held on three of nine),
+and R2's vf counts were visible too and matched. They are scored on the full
+run below, not on this fragment.
