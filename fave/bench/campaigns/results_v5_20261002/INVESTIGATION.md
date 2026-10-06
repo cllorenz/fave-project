@@ -996,3 +996,82 @@ arrive **via the gateway's port 1**.
 Fixing (1) makes VeriFlow-FR agree with the other four and is a bug fix.
 Fixing (2) is a workload decision and would change what the checks mean.
 **They should not be conflated**, and (1) does not depend on (2).
+
+---
+
+# F6 — RE-OPENED. My probe-path solution was WRONG and is reverted.
+
+**Owner, 2026-10-06: "that verification approach is outdated; currently a
+forward analysis along the reachability trees is used."** Correct, and it
+invalidates the previous section.
+
+## What I got wrong
+
+I claimed `veriflow/translate.py` carried a false statement — that a probe's
+test path "does not affect compliance, **as in NetPlumber**" — and that
+NetPlumber in fact enforces it. **That original statement is true.** I replaced
+it with a false one, stamped a measured cost against a cause that is not the
+cause, and wrote an `ACCOMMODATIONS.md` entry for a divergence that does not
+exist. All reverted.
+
+`NetPlumber::check_compliance` — the function FaVe actually calls, via
+`rpc_handler`'s `check_compliance` — is:
+
+    for (auto incoming_flow: dst_it->second->source_flow) {
+        const bool matching_source = incoming_flow->source == src;
+        const bool overlapping_hs  = cond ? hs_overlaps_arr(...) : true;
+        if (matching_source && overlapping_hs) { any = true; break; }
+    }
+
+It reads the flows arriving at the destination node and tests source identity
+and header-space overlap. **It never consults the probe's `test`.** Measured:
+zero references to `test->` or `filter->` in that function, and all five uses
+of them in the whole backend live in `source_probe_node.cc`
+(`start_probe` / `update_check`) — the older probe-callback mechanism, which
+`check_compliance` does not use.
+
+So `PathCondition::check` and the whole `PortSpecifier`/`EndPathSpecifier`
+machinery is **dead with respect to compliance**. Both engines ignore probe
+paths, there is no divergence, and `translate.py` described the situation
+accurately all along.
+
+## A second error, in the same investigation
+
+I also claimed the department `/120`s overlap — that `clients.api`'s range
+contains `file.api`. It does not. The clients DEVICE is
+`2001:db8:abc:4::100/120` = `::100`–`::1ff`; the servers are at `::1`, `::4`,
+`::5`, outside it. I had compared against the ROLES' declared
+`ipv6: 2001:db8:abc:4::0/120`, a different range from the device's. The
+"clients cover their own servers" mechanism is withdrawn.
+
+*(A real inconsistency is left behind by that check, and it is not the one I
+claimed: `roles.json` declares `ApiClients` on `::0/120` while the device is
+`::100/120`. Those are disjoint /120s. Whether that is intended is a question
+for the workload, not for any engine.)*
+
+## Where F6 actually stands
+
+**Unexplained.** What survives from the investigation:
+
+* the 28 are exactly the roles with ONE host — 8 DMZ servers (single `/128`s)
+  and 20 department client subnets (`/120`s); `clients.wifi` has no role entry
+  and `Wifi <--> Wifi` is the only filled matrix diagonal;
+* all 45 FORWARD rules to a DMZ destination are source-unconstrained or scoped
+  to the whole `/48`, so the firewall does permit a DMZ server to reach itself;
+* it is **not** the traversal rule: `vf_revisit=path` gives the identical 28;
+* it is **not** probe-path handling: neither engine enforces paths.
+
+Since `check_compliance` counts a flow iff `incoming_flow->source == src`, and
+VeriFlow-FR likewise answers per generator, the divergence must be in **whether
+the hairpin flow exists in each engine's propagation** — not in how the verdict
+is read off. That is where to look next, and I have no further hypothesis that
+has survived contact with the data.
+
+## The method lesson, since this is three wrong hypotheses in one finding
+
+Each was plausible from reading code and each was refuted by the next
+measurement. The two that cost the most were the ones I wrote into
+documentation before testing — the probe-path claim went into `translate.py`,
+a stamp, four tests and the registry before `check_compliance` was ever read.
+**A hypothesis about which code runs is cheap to test and should be tested
+before it is written down as fact.**
