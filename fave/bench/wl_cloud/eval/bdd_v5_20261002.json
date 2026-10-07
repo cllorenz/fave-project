@@ -20,58 +20,57 @@
   "sources": 8,
   "probes": 8,
   "trend": {
-    "samples": 26,
-    "elapsed_s": 750.0,
-    "rules": 1248,
+    "samples": 241,
+    "elapsed_s": 7200.1,
+    "rules": 1440,
     "total_rules": 1773,
-    "pct_rules": 70.39,
-    "ap_num": 80518,
+    "pct_rules": 81.22,
+    "ap_num": 84600,
     "elements": 119,
-    "ppm_entries": 9581642,
-    "bdd_mem_mib": 149.1,
-    "encode_ms": 25,
-    "insert_ms": 18,
-    "ppm_ms": 281460,
-    "merge_ms": 404206,
-    "split_count": 81046,
+    "ppm_entries": 10067400,
+    "bdd_mem_mib": 161.7,
+    "encode_ms": 48,
+    "insert_ms": 39,
+    "ppm_ms": 421722,
+    "merge_ms": 6462160,
+    "split_count": 88287,
     "windows": {
       "300s": {
-        "d_rules": 9,
+        "d_rules": 8,
         "span_s": 270.0,
-        "rate_per_s": 0.0333,
-        "d_ap": 280,
-        "ap_per_rule": 31.111,
+        "rate_per_s": 0.0296,
+        "d_ap": 72,
+        "ap_per_rule": 9.0,
         "is_tail": true
       },
       "900s": {
-        "d_rules": 1248,
-        "span_s": 750.0,
-        "rate_per_s": 1.664,
-        "d_ap": 80517,
-        "ap_per_rule": 64.517,
-        "is_tail": false
+        "d_rules": 27,
+        "span_s": 870.0,
+        "rate_per_s": 0.031,
+        "d_ap": 635,
+        "ap_per_rule": 23.519,
+        "is_tail": true
       },
       "1800s": {
-        "d_rules": 1248,
-        "span_s": 750.0,
-        "rate_per_s": 1.664,
-        "d_ap": 80517,
-        "ap_per_rule": 64.517,
-        "is_tail": false
+        "d_rules": 55,
+        "span_s": 1770.0,
+        "rate_per_s": 0.0311,
+        "d_ap": 1461,
+        "ap_per_rule": 26.564,
+        "is_tail": true
       },
       "3600s": {
-        "d_rules": 1248,
-        "span_s": 750.0,
-        "rate_per_s": 1.664,
-        "d_ap": 80517,
-        "ap_per_rule": 64.517,
-        "is_tail": false
+        "d_rules": 109,
+        "span_s": 3570.0,
+        "rate_per_s": 0.0305,
+        "d_ap": 3228,
+        "ap_per_rule": 29.615,
+        "is_tail": true
       }
     },
-    "rules_left": 525,
-    "bound_h": 4.38,
-    "bound_basis": "tail rate 0.0333 rules/s over the window it is keyed to",
-    "ap_num_projected": 96851,
-    "rate_falling": true
+    "rules_left": 333,
+    "bound_h": 3.03,
+    "bound_basis": "tail rate 0.0305 rules/s over the window it is keyed to",
+    "ap_num_projected": 94461
   }
 }

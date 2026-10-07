@@ -1,19 +1,19 @@
 wl_cloud BDD build -- live status (APKEEP_NDD_EVAL.md 2.6b protocol)
 engine=bdd  deadline=86400s  started=2026-10-07T09:13:08Z
 
-elapsed        750.0 s (0.21 h)
-rules applied  1248 / 1773  (70.39 %)
-ap_num         80518
-elements       119   ppm_entries 9581642   split_count 81046
-bdd table      149.1 MiB
-timers (ms)    encode=25 insert=18 ppm=281460 merge=404206
+elapsed        7200.1 s (2.00 h)
+rules applied  1440 / 1773  (81.22 %)
+ap_num         84600
+elements       119   ppm_entries 10067400   split_count 88287
+bdd table      161.7 MiB
+timers (ms)    encode=48 insert=39 ppm=421722 merge=6462160
 
 window    d_rules   rate/s   d_ap   AP/rule   tail?
-300s            9   0.0333    280    31.111   yes
-900s         1248    1.664  80517    64.517   WHOLE RUN
-1800s        1248    1.664  80517    64.517   WHOLE RUN
-3600s        1248    1.664  80517    64.517   WHOLE RUN
+300s            8   0.0296     72       9.0   yes
+900s           27    0.031    635    23.519   yes
+1800s          55   0.0311   1461    26.564   yes
+3600s         109   0.0305   3228    29.615   yes
 
-rules left     525
-COMPLETION     >= 4.38 h at the tail rate (rate still falling -> true lower bound)
-ap_num proj.   96851 (extrapolation, not a measurement)
+rules left     333
+COMPLETION     >= 3.03 h at the tail rate (windows still overlap -> no direction readable yet)
+ap_num proj.   94461 (extrapolation, not a measurement)

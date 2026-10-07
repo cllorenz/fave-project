@@ -1,0 +1,116 @@
+APKeep-BDD ON wl_berkeley k=3 -- RE-RUNNING A LOST CELL
+========================================================
+Declared 2026-10-07, BEFORE the run. Owner-requested 2026-10-07; queued behind
+the NetPlumber wl_berkeley cells, which are themselves behind phase C.
+MEASUREMENT_RUN_PLAN.md §5.2, §8.1, §8.2.
+
+WHY: AN INTERRUPTED CELL IS RE-RUN, AND THIS ONE NEVER WAS
+----------------------------------------------------------
+The 2026-09-29 size series took APKeep-BDD through five sizes and then lost the
+sixth. Its record, hand-written because the driver never returned:
+
+  status: "lost" ... "The sandbox and the session driving the series died while
+  this run was in its compliance check (k3_bdd.stdout, last written
+  2026-09-29T13:46:50Z, ends at 'checking flow trees...'). The owner restarted
+  the sandbox. The cause is NOT established ... Memory pressure is plausible --
+  the k=3 NDD run just before took MemAvailable to 2,081 MB -- but not shown.
+  No verdict, no timing."
+
+§8.1 is explicit that this is an ENVIRONMENT death and is re-run, and that only
+a DECLARED limit gives a reportable did-not-finish. It was never re-run. So
+**APKeep-BDD's limit on wl_berkeley is unmeasured above 1,351,800 rules.**
+Nothing in the tree says BDD fails at k=3; the tree says we do not know.
+
+WHAT WAS MEASURED BEFORE (2026-09-29, 3,600 s deadline per run)
+----------------------------------------------------------------
+  k      rules       status     wall s   load s  compliance s  aggregator MB
+  1000      26,237   completed    83.6      1.3          7.4          1,032
+  300       57,513   completed    95.2      3.0         14.4            993
+  100      146,759   completed   146.0     10.0         40.5          1,771
+  30       459,202   completed   296.2     48.4        142.4          3,697
+  10     1,351,800   completed   502.2     89.1        324.4          7,873
+  3      4,476,240   LOST          --       --           --             --
+
+  All five: 0 of 520, verdict_valid. The k=1000 mutated control: 1 of 520.
+  BDD is COMPLIANCE-dominated here (324 s against 89 s of load at k=10) -- the
+  inverse of NetPlumber on the same workload, where compliance was 50 ms.
+
+THIS IS NOT A REPEAT. TWO THINGS DIFFER, AND BOTH ARE STATED BEFORE THE RUN.
+----------------------------------------------------------------------------
+1. THE HEAP WAS NEVER SET. Those cells record `jvm_xmx: null`, so they ran on
+   the JVM DEFAULT -- a quarter of RAM. §5.2's own gotcha list says why that
+   matters: "Set -Xmx explicitly; the JVM default is a quarter of RAM and its
+   OOM reads like an engine limit." At k=10 the aggregator reached 7,873 MB,
+   which on a box whose default heap was ~8 GB means the run was at or near its
+   ceiling. The "memory pressure is plausible" in the lost cell's record is
+   therefore more than plausible: k=3 is 3.3x k=10 against a heap that k=10 had
+   already filled.
+2. THE MACHINE IS DIFFERENT AND WAS NEVER STAMPED. Those cells record
+   `machine: null` -- the absence item 31 exists to fix. They were taken before
+   the move to this 64 GB box.
+
+So this run answers a question the 2026-09-29 series could not pose, and its
+numbers are NOT directly comparable with that table's. They ARE comparable with
+phase B's NDD rows, which is the point: same box, same harness, explicit heap.
+
+WHAT IS RUN
+-----------
+One cell, through `bench/deltanet/eval/engine_run.py` -- the SAME entry point
+phase B's NDD cells used, so the two engines differ in the engine and nothing
+else:
+
+  generate k=3 in its own process (test/gen_deltanet_inputs.sh), then
+  engine_run.py wl_berkeley --backend apkeep --engine bdd --keep-every 3
+      --reuse-inputs --jvm-xmx 24g --memory-floor 2000 --deadline 86400
+
+  -Xmx24g, chosen and declared: k=10 used ~7.9 GB at 1.35M rules, k=3 is 3.31x
+  that, so ~26 GB is the linear projection and 24g is deliberately BELOW it --
+  if the live set really is linear this will not fit, and that is the answer.
+  Phase B's NDD at k=1 (13.4M rules) needed 13.35 GB live at -Xmx20g, so if BDD
+  needs more than 24g at a THIRD of the rules, that gap is the finding.
+
+  NO 32 GB RSS CAP. Phase B's NDD cells ran this way too (drill path,
+  --memory-floor 2000 only), and capping one engine and not the other would
+  make the comparison meaningless. An OOM against the 64 GB box is a faithful
+  result (§8.2) and is NOT retried smaller.
+
+PREDICTIONS (scored afterwards, never edited)
+---------------------------------------------
+B1  The cell COMPLETES within 24 h: 0 of 520, verdict_valid.
+    Basis: both terms scale close to linearly in rules across the measured
+    range (k=30 -> k=10: rules x2.94, load x1.84, compliance x2.28), so k=3 at
+    x3.31 projects to roughly 25-30 minutes. The deadline is not the risk here.
+    FALSIFIED BY: a deadline trip, or a verdict other than 0 of 520.
+
+B2  It does NOT fit -Xmx24g, and the run ends on memory rather than on time.
+    Basis: 7,873 MB at 1.35M rules x 3.31 = ~26 GB projected, against a 24 GB
+    heap. This prediction is deliberately on the side that costs something: if
+    it is wrong the cell simply succeeds, and if it is right the result is a
+    publishable bound.
+    FALSIFIED BY: completing inside the heap -- which is the better outcome and
+    the more likely one if the live set is sublinear, as NDD's turned out to be
+    (29x the rules for 5.6x the heap, phase B).
+    B1 AND B2 ARE IN TENSION ON PURPOSE. Scored independently.
+
+B3  Compliance remains the dominant term -- over 60% of wall -- so BDD stays
+    the inverse of NetPlumber on this workload.
+    Basis: 324 of 502 s at k=10 is 65%, rising across the series.
+    FALSIFIED BY: load overtaking compliance.
+
+B4  BDD is slower than NDD at the same size by between 2x and 6x.
+    Basis: at k=10, BDD 502.2 s against NDD 116.4 s = 4.3x -- but those are
+    different machines and heaps, so this is the loosest band here.
+    At k=3 phase B measured NDD at 339.6 s on THIS box, so the comparison is
+    finally like for like.
+    FALSIFIED BY: outside 2x-6x.
+
+WHAT THIS DECIDES
+-----------------
+Whether a BDD cell at k=1 is worth a 24 h slot. §5.2 made that conditional on
+NDD's k=1 completing, which it now has (phase B: 0 of 520, 18m50s, 44.1 GB).
+If k=3 fits and is fast, k=1 is worth asking for. If k=3 is already at the
+memory wall, k=1 is an expected OOM and should be entered DELIBERATELY as one
+or not at all -- not discovered by extrapolation, which is how this cell was
+lost in the first place.
+
+NOT DECIDED HERE: anything about k=1. One cell, one sample, no variance claim.
