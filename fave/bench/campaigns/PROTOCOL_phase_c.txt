@@ -109,3 +109,33 @@ ADDENDUM 2026-10-06 -- WHEN THIS RAN, AND ONE THING THE COMMAND LINE OMITTED
   limit doing its job, not a failure: a probe is a 1 h window on a cell already
   known not to finish, and §8.1's reportable did-not-finish is exactly what it
   should record.
+
+  FIRST PROBE PAIR, 2026-10-06 16:13-18:13Z, VOID -- NO MEASUREMENT TAKEN.
+  Both probes ran their full declared hour, ended at status: deadline as
+  designed, wrote their result files -- and recorded trend {"samples": 0}.
+
+  `trend` is computed ONLY from the Java-side sampler's JSONL, whose path comes
+  from APKEEP_BUILD_PROFILE. The command lines above do not set it and were run
+  verbatim, so no sampler ran and no profile file was written. rules, ap_num
+  and the window rates -- every quantity the decision rule above compares -- do
+  not exist for either probe. P8 CANNOT BE SCORED on them, in either direction:
+  this is not a falsified probe, it is an unmeasured one.
+
+  The asymmetry that hid it: the 2026-09-26 baselines being compared against DO
+  carry a profile path (probe_stanford_1h.profile.jsonl), and the sibling
+  driver bench/cloud_bdd_measure.py has defaulted the path from --out all
+  along. Only faithful_bdd_measure.py required the caller to ask to be
+  measured, and §5.3's command line did not know that.
+
+  Fixed at the driver rather than worked around in this file: the path now
+  defaults from --out, as the sibling's does, and
+  test/test_probe_records_its_measurement.py fails if either driver loses it.
+  Both probes re-run 2026-10-07. The two void result files are deleted and
+  cited nowhere. P7 and P8 are UNEDITED.
+
+  COST: two hours of measurement, plus thirteen hours in which the box sat idle
+  because the next phase was not chained to the probes. The re-run chains the
+  24 h wl_cloud run directly after them, which §5.3's ordering permits -- the
+  ordering exists so that a falsified probe is known before a day is committed,
+  and the rule above already decides what happens then: the faithful 24 h run
+  is left for the owner and wl_cloud runs regardless.

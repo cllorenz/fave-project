@@ -133,7 +133,7 @@ def measure(bench, routers, out_path, deadline_s=0, status_every_s=60):
     log = logging.getLogger("faithful_bdd"); log.setLevel(logging.WARNING)
     replay_dir, files, cleanup = _prepare_replay_dir(bench, routers)
 
-    profile = os.environ.get("APKEEP_BUILD_PROFILE")
+    profile = _enable_profile(out_path)
     status_jsonl = out_path + ".status.jsonl" if out_path else None
     status_txt = out_path + ".status.txt" if out_path else None
 
@@ -242,6 +242,37 @@ def measure(bench, routers, out_path, deadline_s=0, status_every_s=60):
             json.dump(result, fh, indent=2)
         print("wrote %s" % out_path, file=sys.stderr)
     return result
+
+
+def _enable_profile(out_path):
+    """ The profiler's JSONL path, DEFAULTED FROM `--out` and switched on.
+
+    THE PROFILE IS WHERE THE MEASUREMENT IS. `trend` -- rules, ap_num, the
+    window rates, everything `MEASUREMENT_RUN_PLAN.md` §5.3's decision rule
+    compares a probe against its baseline on -- is computed ONLY from the
+    Java-side sampler's JSONL. With no path it is `{"samples": 0}`: a run that
+    burns its entire declared deadline and records nothing about the engine.
+
+    That is what happened to both V5 probes on 2026-10-06. §5.3's command line
+    and `bench/campaigns/PROTOCOL_phase_c.txt` do not mention
+    APKEEP_BUILD_PROFILE; they were run verbatim; two hours produced
+    `samples: 0` and no way to score P8. The 2026-09-26 baselines they were to
+    be compared against DO carry a profile path, which is the asymmetry that
+    made the omission invisible from the command line.
+
+    The sibling driver `bench/cloud_bdd_measure.py` has defaulted it from
+    `--out` all along. This one only read the environment, so the two drivers
+    disagreed about whether a caller must ask to be measured.
+
+    An explicit APKEEP_BUILD_PROFILE still wins, so the uncapped invocation in
+    this module's usage block keeps working.
+    """
+    profile = os.environ.get("APKEEP_BUILD_PROFILE") or (
+        out_path + ".profile.jsonl" if out_path else None)
+    if profile:
+        os.environ["APKEEP_BUILD_PROFILE"] = profile
+        os.environ.setdefault("APKEEP_BUILD_PROFILE_MS", "30000")
+    return profile
 
 
 def main(argv=None):
