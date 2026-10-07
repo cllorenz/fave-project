@@ -1,0 +1,103 @@
+wl_berkeley AT THE TOP OF THE SERIES: BDD k=1 AND NetPlumber k=3
+=================================================================
+Declared 2026-10-07, BEFORE either run. Owner-requested 2026-10-07 after the
+k=30/k=10/k=3 results. MEASUREMENT_RUN_PLAN.md §5.2, §8.1, §8.2.
+
+ORDER: BDD k=1 first (projected ~45 min), NetPlumber k=3 second (projected
+~17 h). Cheapest first, as §6 orders every phase, and the cheap one is also the
+one more likely to produce a headline.
+
+WHAT IS ALREADY MEASURED ON THIS BOX
+-------------------------------------
+  engine   k      rules        wall        peak RSS    live heap   verdict
+  NDD      1      13,402,846   1,129.6 s   44,115 MB   13,668 MB   0/520
+  BDD      3       4,476,240     775.7 s   18,319 MB    5,834 MB   0/520
+  np       10      1,351,800   3,083.4 s    7,159 MB   --          0/520
+  np       30        459,202     210.0 s    2,382 MB   --          0/520
+
+CELL 1 -- APKeep-BDD, k=1, 13,402,846 rules
+--------------------------------------------
+  Through `bench/deltanet/eval/engine_run.py`, the entry point phase B's NDD
+  cells used and today's BDD k=3 used, so all three are one harness:
+
+    engine_run.py wl_berkeley --backend apkeep --engine bdd --keep-every 1
+        --reuse-inputs --jvm-xmx 24g --memory-floor 2000 --deadline 86400
+
+  NO 32 GB RSS CAP, because NDD's k=1 had none. Capping one engine and not the
+  other would make the comparison meaningless. An OOM against 64 GB is a
+  faithful result (§8.2) and is not retried smaller.
+
+  THE HEAP IS 24g, AND THE CHOICE IS A COMPROMISE, STATED RATHER THAN HIDDEN.
+  BDD k=3 used 24g; NDD k=1 used 20g. Matching one means differing from the
+  other. 24g is chosen because the claim this cell tests is a WITHIN-ENGINE one
+  -- does BDD's live set stay sublinear from k=3 to k=1 -- and that comparison
+  must hold the heap fixed. The cross-engine comparison with NDD is about peak
+  RSS and wall, which are far less heap-sensitive while the live set sits well
+  below the ceiling: 5,834 MB measured at k=3 and ~12.3 GB projected at k=1,
+  against 24 GB.
+  WHAT WOULD MAKE THAT WRONG: if BDD's live set is NOT sublinear and approaches
+  24 GB, the heap becomes binding and the 20g/24g difference stops being
+  second-order. B5 below is the prediction that would fail first if so.
+
+CELL 2 -- NetPlumber, k=3, 4,476,240 rules
+-------------------------------------------
+    cell_run.py wl_berkeley --backend netplumber --keep-every 3 --reuse-inputs
+        --limit-class v5 --limit-wall 86400 --limit-rss 32768
+        --memory-floor 2000 --status-every 60
+
+  limit_class=v5, the reportable class, with its 32,768 MB RSS limit KEPT --
+  unlike cell 1, because the two NetPlumber cells it extends (k=30, k=10) were
+  measured under it and this one must be comparable with them. The projection
+  is ~24 GB, so a memory trip is possible; if it happens that is a reportable
+  result ("NetPlumber does not fit 32 GB at 4.5 M rules") and not a mishap.
+
+  Inputs generated per size in its own process, as §5.2 requires.
+
+PREDICTIONS (scored afterwards, never edited)
+----------------------------------------------
+B5  BDD k=1 COMPLETES: 0 of 520, verdict_valid, within 24 h.
+    Wall between 20 and 60 minutes. Two independent routes give that band --
+    the 2026-09-29 series' own exponents applied to today's k=3 anchor give
+    22 min, and today's measured BDD/NDD wall ratio of 2.28x at k=3 applied to
+    NDD's measured 1,129.6 s at k=1 gives 43 min.
+    FALSIFIED BY: a limit trip, a verdict other than 0 of 520, or a wall
+    outside 20-60 min.
+
+B6  Its live heap after GC stays under 16 GB, so the heap is never binding.
+    Projection ~12.3 GB from a 0.700 memory exponent. NDD measured 13,668 MB
+    at the same size.
+    FALSIFIED BY: live heap above 16 GB -- which would also retire the
+    "second-order" argument for the 24g choice above.
+
+B7  Peak RSS is BELOW NDD's measured 44,115 MB at the same size.
+    Projection ~38.6 GB. This is the cross-engine claim and the loosest one
+    here: it rests on a memory exponent fitted to a different machine.
+    FALSIFIED BY: peak RSS at or above 44,115 MB.
+
+N5  NetPlumber k=3 COMPLETES within 24 h: 0 of 520, verdict_valid.
+    Projection 17.1 h of load from a 2.504 exponent fitted to TWO points, both
+    taken today. CONFIDENCE LOW, and the reason is arithmetic: an exponent of
+    2.6 puts it at 21 h and 2.7 puts it past the limit. The margin is thinner
+    than the basis for the estimate.
+    FALSIFIED BY: a deadline trip -- which is a reportable did-not-finish at
+    4.48 M rules and the honest form of where NetPlumber stops.
+
+N6  Its peak RSS stays under the declared 32,768 MB.
+    Projection ~24 GB from a memory exponent of 1.004 -- linear, measured over
+    a 2.94x step, and the sturdier of the two projections.
+    FALSIFIED BY: a memory trip, which is also a reportable result.
+
+N7  Compliance stays under 1 s, so the cost remains ~100% rule loading.
+    Measured 0.036 s at k=30 and 0.13 s at k=10; linear gives ~0.4 s.
+    FALSIFIED BY: compliance above 5% of wall.
+
+WHAT THIS DOES NOT SETTLE
+--------------------------
+NetPlumber at k=1. Already excluded on BOTH axes by the k=30/k=10 points --
+~267 h and ~74 GB against a 64 GB box -- and nothing here changes that. If N5
+fails, k=1 is excluded a fortiori; if N5 holds, the k=1 projection still rests
+on the same two points and a further 3x extrapolation. It is not queued.
+
+One sample per cell. No variance claim, except that the LEGACY_CHECKS A/B gave
+a run-to-run spread of 1.1% on NetPlumber at k=30, which is the only noise
+figure this series has.
