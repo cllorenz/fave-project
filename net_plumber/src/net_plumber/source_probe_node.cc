@@ -316,7 +316,6 @@ void SourceProbeNode<T1, T2>::update_check(Flow<T1, T2> *f, PROBE_FLOW_ACTION ac
       }
     }
   }
-}
 
 #endif  // LEGACY_CHECKS
 }
@@ -353,7 +352,6 @@ void SourceProbeNode<T1, T2>::start_probe() {
       this->plumber, this, nullptr, probe_callback_data, STARTED_TRUE
     );
   this->state = RUNNING;
-}
 
 #endif  // LEGACY_CHECKS
 }
