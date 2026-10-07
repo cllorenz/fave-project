@@ -1,0 +1,141 @@
+reusing the inputs stamped in bench/wl_berkeley (4476240 rules)
+INFO:wl_berkeley:reusing the inputs stamped in bench/wl_berkeley (4476240 rules)
+deleting old logs and measurements...
+INFO:wl_berkeley:deleting old logs and measurements...
+deleted old logs and measurements.
+INFO:wl_berkeley:deleted old logs and measurements.
+generate policy matrix...
+INFO:wl_berkeley:generate policy matrix...
+generated policy matrix.
+INFO:wl_berkeley:generated policy matrix.
+convert policy matrix to checks...
+INFO:wl_berkeley:convert policy matrix to checks...
+converted policy matrix.
+INFO:wl_berkeley:converted policy matrix.
+backend apkeep needs no netplumber process; not starting one
+INFO:wl_berkeley:backend apkeep needs no netplumber process; not starting one
+starting aggregator (backend: apkeep --apkeep-engine bdd)...
+INFO:wl_berkeley:starting aggregator (backend: apkeep --apkeep-engine bdd)...
+started aggregator.
+INFO:wl_berkeley:started aggregator.
+wait for fave
+INFO:wl_berkeley:wait for fave
+initialize topology...
+INFO:wl_berkeley:initialize topology...
+topology sent to fave
+INFO:wl_berkeley:topology sent to fave
+initialize routes...
+INFO:wl_berkeley:initialize routes...
+routes sent to fave
+INFO:wl_berkeley:routes sent to fave
+initialize probes...
+INFO:wl_berkeley:initialize probes...
+probes sent to fave
+INFO:wl_berkeley:probes sent to fave
+initialize sources...
+INFO:wl_berkeley:initialize sources...
+sources sent to fave
+INFO:wl_berkeley:sources sent to fave
+checking flow trees...
+INFO:wl_berkeley:checking flow trees...
+100000 35 3
+200000 63 3
+300000 31 2
+400000 36 9
+500000 41 22
+600000 67 29
+700000 57 11
+800000 69 32
+900000 32 31
+1000000 56 31
+1100000 54 27
+1200000 44 3
+1300000 65 2
+1400000 43 2
+1500000 70 6
+1600000 64 27
+1700000 64 20
+1800000 59 24
+1900000 70 25
+2000000 65 19
+2100000 54 22
+2200000 53 19
+2300000 61 24
+2400000 45 8
+2500000 42 10
+2600000 67 21
+2700000 40 12
+2800000 72 3
+2900000 35 2
+3000000 62 0
+3100000 39 11
+3200000 33 0
+3300000 53 3
+3400000 81 2
+3500000 68 6
+3600000 62 24
+3700000 53 24
+3800000 42 26
+3900000 44 23
+4000000 49 2
+4100000 38 3
+4200000 62 0
+4300000 60 4
+4400000 77 3
+4500000 83 3
+4600000 47 4
+4700000 55 0
+4800000 53 3
+4900000 79 0
+5000000 59 4
+5100000 39 5
+5200000 83 0
+5300000 45 2
+5400000 83 4
+5500000 42 5
+5600000 65 8
+5700000 57 27
+5800000 38 23
+5900000 72 24
+6000000 41 22
+6100000 44 27
+6200000 83 8
+6300000 44 26
+6400000 67 2
+6500000 64 4
+6600000 49 0
+6700000 68 0
+6800000 55 8
+6900000 65 26
+7000000 60 9
+7100000 55 24
+7200000 43 19
+7300000 76 22
+7400000 75 21
+7500000 77 27
+7600000 57 23
+7700000 39 25
+7800000 75 23
+7900000 66 25
+8000000 63 7
+8100000 68 4
+8200000 34 311
+8300000 64 5
+8400000 49 27
+8500000 64 23
+8600000 51 28
+8700000 67 26
+checked flow trees.
+INFO:wl_berkeley:checked flow trees.
+SKIPPED anomaly check: backend apkeep does not implement it (this run's verdict covers compliance only)
+INFO:wl_berkeley:SKIPPED anomaly check: backend apkeep does not implement it (this run's verdict covers compliance only)
+generating report...
+INFO:wl_berkeley:generating report...
+report generated.
+INFO:wl_berkeley:report generated.
+wait for fave
+INFO:wl_berkeley:wait for fave
+stopping fave and netplumber...
+INFO:wl_berkeley:stopping fave and netplumber...
+fave ordered to stop
+INFO:wl_berkeley:fave ordered to stop

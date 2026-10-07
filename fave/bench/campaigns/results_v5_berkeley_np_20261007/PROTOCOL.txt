@@ -108,3 +108,40 @@ HOW §5.2 CHANGES EITHER WAY
                  24 h". The boundary is then MEASURED rather than extrapolated.
   N1 falsified -> the original sentence stands at the reportable limit too, and
                  is restated with the limit named.
+
+ADDENDUM 2026-10-07 -- AN A/B TO ATTRIBUTE THE RESULT, DECLARED BEFORE IT RUNS
+------------------------------------------------------------------------------
+Both cells completed, and far faster than N1/N2 predicted. k=30 took 210.0 s
+against a 2026-09-29 run that did not finish in 3,600 s -- better than 10x.
+
+A 10x needs a cause, and TWO changed between the runs:
+  (a) the engine. 2026-10-07 runs net_plumber at 4bdbe622, which retired the
+      probe-condition technique behind -DLEGACY_CHECKS. `update_check` ran on
+      EVERY flow event at a probe node, and wl_berkeley has 23 probes, 520
+      checks and 459k rules, so the removed work scales with exactly the thing
+      that got cheaper.
+  (b) the machine. 64 GB / 16 cores here; the 2026-09-29 series recorded
+      `machine: null` and predates the move.
+
+Attributing a 10x to (a) because it is the author's own change, without
+separating it from (b), is the error this campaign has already made twice --
+see §7.1's two predictions scored against claims the project had withdrawn.
+
+SO: the same cell, on the same machine, with the same inputs, against a
+net_plumber built WITH -DLEGACY_CHECKS. One variable.
+
+  limit_class=dev -- NOT reportable. This is an attribution experiment, not a
+  cell of the comparison, and `dev` exists so it cannot be quoted as one.
+  Deadline 3,600 s, deliberately the SAME limit the 2026-09-29 series declared,
+  so the LEGACY_CHECKS arm either reproduces that did-not-finish or does not.
+
+PREDICTION
+  A1  The LEGACY_CHECKS arm does NOT finish k=30 in 3,600 s, reproducing
+      2026-09-29, and the default arm's 210.0 s stands on re-run. That would
+      put the 10x on the engine change and leave the machine a minor term.
+      FALSIFIED BY: the LEGACY_CHECKS arm also completing quickly -- in which
+      case the speed-up is the MACHINE, the retirement bought little on this
+      workload, and the -24% measured on wl_stanford is the honest size of it.
+
+  Either outcome is reportable and neither changes the two v5 cells above,
+  which were measured on the default binary and stand as they are.
