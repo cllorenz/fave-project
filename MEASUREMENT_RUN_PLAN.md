@@ -519,21 +519,31 @@ and for the one re-anchored figure that moved 28.5%.
    the headline. **If it OOMs, that is the result** (§8.2) — do not retry it
    smaller.
 
-**NetPlumber is out of this series** — rule load scales at size^2.2–2.6 and it
-deadlines at 459k rules **under a 1 h limit** (2026-09-29; that series declared
-3,600 s per run). This sentence omitted the limit until 2026-10-07 and so read
-as a statement about the engine when it is a statement about a one-hour window:
-the V5 reportable class is 86,400 s, 24× larger, and NetPlumber has never been
-given it on this workload. The k=30 cell was also **marginal rather than
-hopeless** — at the cut it had completed 2,092.6 s of load with tasks still in
-flight, against a projected ~2,750 s total.
+~~**NetPlumber is out of this series** — rule load scales at size^2.2–2.6 and
+it already deadlines at 459k rules.~~ **MEASURED AND WITHDRAWN, 2026-10-07.**
 
-It is measured at the reportable limit **after phase D** (owner, 2026-10-07):
-k=30 then k=10, gated so the second runs only if the first returns a valid
-verdict. Declared in
-`bench/campaigns/results_v5_berkeley_np_20261007/PROTOCOL.txt`. Whatever the
-outcome, NetPlumber does not reach k=3 or k=1 — the same exponent puts k=3 at
-roughly nine days — so this fixes **where** it stops, not whether it scales.
+| cell | rules | wall | rule load | compliance | peak RSS | verdict |
+|---|---:|---:|---:|---:|---:|---|
+| k=30 | 459,202 | **210.0 s** | 205.9 s | 0.036 s | 2,382 MB | 0/520 |
+| k=10 | 1,351,800 | **3,083.4 s** | 3,075.8 s | 0.13 s | 7,159 MB | 0/520 |
+
+The cell said to "already deadline" takes three and a half minutes, and
+NetPlumber answers 1.35 M rules in 51 minutes. Compliance is 0.036 s — **0.017%
+of wall** — so the whole cost is rule loading.
+
+**The old result was the old MACHINE, not the limit and not the code.** An A/B
+on this box (`results_v5_berkeley_np_20261007/FINDINGS.md`) put `-DLEGACY_CHECKS`
+at 209.5 s against two default runs at 205.9 s and 208.2 s: the treatment is
+smaller than the 1.1% spread between two *identical* runs. The −24% measured on
+`wl_stanford` remains the honest size of that retirement, which scales with
+flows arriving at probes — `wl_stanford` has 83,710 loop reports, `wl_berkeley`
+has 23 leaf probes.
+
+**Where it stops.** Two points give a load exponent of **2.504** and linear
+memory (1.004). k=3 projects to **17.1 h** and ~24 GB — inside the limit but not
+comfortably. k=1 projects to **267 h and ~74 GB**, excluded on both axes
+independently; the memory axis is the sturdier, being linear over a measured
+2.94× step. Two points is a thin basis and is stated as such.
 
 **Gotchas that have each cost a run:**
 

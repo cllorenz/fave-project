@@ -1,0 +1,5 @@
+{"elapsed_s": 1.0, "peak_rss_mb": 68, "rss_by_process_mb": {"benchmark": 31, "net_plumber": 6, "bash": 3, "aggregator": 27, "sleep": 1}, "available_mb": 62376, "status": "running", "aggregator_log_bytes": 202, "tasks_completed": {}}
+{"elapsed_s": 61.5, "peak_rss_mb": 967, "rss_by_process_mb": {"benchmark": 71, "net_plumber": 461, "aggregator": 421, "python3": 14}, "available_mb": 61601, "status": "running", "aggregator_log_bytes": 2937, "tasks_completed": {"switch": 23, "links": 1, "switch_command": 9}}
+{"elapsed_s": 121.9, "peak_rss_mb": 1351, "rss_by_process_mb": {"benchmark": 71, "net_plumber": 720, "aggregator": 546, "python3": 14}, "available_mb": 61228, "status": "running", "aggregator_log_bytes": 3701, "tasks_completed": {"switch": 23, "links": 1, "switch_command": 15}}
+{"elapsed_s": 182.4, "peak_rss_mb": 1685, "rss_by_process_mb": {"benchmark": 71, "net_plumber": 937, "aggregator": 663, "python3": 14}, "available_mb": 60896, "status": "running", "aggregator_log_bytes": 4340, "tasks_completed": {"switch": 23, "links": 1, "switch_command": 20}}
+{"elapsed_s": 216.1, "peak_rss_mb": 2397, "status": "completed", "limit_tripped": "none"}
