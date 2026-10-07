@@ -64,10 +64,67 @@ set `APKEEP_BUILD_PROFILE` and only the sibling driver defaulted it. Not
 falsified probes — **unmeasured** ones. Fixed at the driver, re-run here, and
 those two result files are deleted and cited nowhere.
 
-## P7 — pending
+## P7 — scored: **FALSIFIED**, and in the direction that costs nothing
 
 > *"`bdd × wl_cloud` completes within 24 h, between 15 and 22 h."*
 
-Running since 2026-10-07T09:13:08Z, `-Xmx8g`, 86,400 s / 32,768 MB declared.
-At 8.5 minutes: 1,240 of 1,773 rules (69.9%), `ap_num` 80,278, own tail-rate
-bound ≥2.35 h, 2.85 GB RSS. Scored when it lands.
+**It completed in 3.24 h** — 11,676.8 s, 2026-10-07 09:13:08 → 12:27:46 UTC.
+The "within 24 h" half held; the band did not, by **4.6×** against its own
+floor.
+
+| | |
+|---|---|
+| status | **completed**, 1,773 of 1,773 rules (100%) |
+| wall | 11,676.8 s = **3.24 h** of a declared 86,400 s |
+| build / query / replay | 11,675.7 s / **0.785 s** / 0.115 s |
+| atomic predicates | 97,709 |
+| heap | `-Xmx8g`; `bdd_mem_mib` **186.9** |
+| merge / ppm | 10,143 s / 903 s = **11.2×** |
+
+The query is **0.785 seconds**. 99.99% of this cell is the build, and 87% of
+the build is merge — the same shape §5.3 describes, at a quarter of the
+expected cost.
+
+## The two surprises have one cause, and §5.3 named it in advance
+
+**The verdict moved too: 53 → 59 reachable pairs.**
+
+| run | date | jar | pairs |
+|---|---|---|---:|
+| `bdd_build_6h` | 2026-09-25 | `7d5c8fa0` | 53 |
+| `natfix_full_before` | 2026-09-27 | `7d5c8fa0` | 53 |
+| `natfix_endpoint_prune_before` | — | — | 53 |
+| `natfix_endpoint_prune_after` | — | — | **59** |
+| `natfix_endpoint_prune_ndd` | — | **NDD** | **59** |
+| **`bdd_v5_20261002`** | **2026-10-07** | **`e9269099`** | **59** |
+
+**59 is corroborated twice over** — by the post-NAT-fix BDD probe and by NDD
+independently — and 53 belongs to a binary from before that fix. This is
+exactly what §5.3 selected this cell for: *"the only one of the three that is
+both stale (S1) and reachable ... and it has never completed on a correct
+binary (S4)."* It has now.
+
+So the 3.24 h and the 59 are **not two findings**. P7's 15–22 h band was
+derived from a trajectory measured on the stale jar (§5.3's "79.2% of rules at
+5 h, tail-rate bound ≥14.6 h"); this run passed 95% at 3 h. The corrected
+binary is faster **and** answers differently, and the band inherited the error.
+**A prediction extrapolated from a run the plan itself had labelled stale was
+never going to hold** — which is a lesson about the prediction, not about the
+engine.
+
+**`reachable_pairs` is not the campaign's `violations/checks`.** This driver
+measures the build and then asks a reachability query; the matrix cells ask the
+FPL compliance set. 59 and 57/71 are different quantities and are not compared.
+
+## All three phase C predictions, and what they have in common
+
+| # | prediction | score |
+|---|---|---|
+| P7 | `bdd × wl_cloud` completes in 15–22 h | **FALSIFIED** — 3.24 h |
+| P8 | both faithful probes within 1.5× | **HELD** — 0.98×–1.15× |
+
+P8 held, but the probes' own cost profile moved the same way P7 did:
+`ppm_ms` fell to 0.118× on i2 while `merge_ms` held. Across all three cells the
+per-packet-match work got much cheaper and the merge work did not. **Phase C
+was uniformly cheaper than its predictions expected**, and the one prediction
+that depended on a stale measurement is the one that broke.
