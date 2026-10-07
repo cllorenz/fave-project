@@ -520,7 +520,20 @@ and for the one re-anchored figure that moved 28.5%.
    smaller.
 
 **NetPlumber is out of this series** — rule load scales at size^2.2–2.6 and it
-already deadlines at 459k rules.
+deadlines at 459k rules **under a 1 h limit** (2026-09-29; that series declared
+3,600 s per run). This sentence omitted the limit until 2026-10-07 and so read
+as a statement about the engine when it is a statement about a one-hour window:
+the V5 reportable class is 86,400 s, 24× larger, and NetPlumber has never been
+given it on this workload. The k=30 cell was also **marginal rather than
+hopeless** — at the cut it had completed 2,092.6 s of load with tasks still in
+flight, against a projected ~2,750 s total.
+
+It is measured at the reportable limit **after phase D** (owner, 2026-10-07):
+k=30 then k=10, gated so the second runs only if the first returns a valid
+verdict. Declared in
+`bench/campaigns/results_v5_berkeley_np_20261007/PROTOCOL.txt`. Whatever the
+outcome, NetPlumber does not reach k=3 or k=1 — the same exponent puts k=3 at
+roughly nine days — so this fixes **where** it stops, not whether it scales.
 
 **Gotchas that have each cost a run:**
 

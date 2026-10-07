@@ -1,0 +1,110 @@
+FaVe+NetPlumber ON wl_berkeley, UNDER THE V5 REPORTABLE LIMIT
+=============================================================
+Declared 2026-10-07, BEFORE any run. Owner-requested 2026-10-07; queued to
+start after the plan's last phase (D), so it cannot displace anything §6
+declares. MEASUREMENT_RUN_PLAN.md §2 (limit class), §8.1 (stopping rule).
+
+WHY THIS EXISTS
+---------------
+§5.2 removes NetPlumber from the wl_berkeley series with: "NetPlumber is out of
+this series -- rule load scales at size^2.2-2.6 and it already deadlines at
+459k rules."
+
+The conclusion is sound; the sentence omits the limit. "Already deadlines at
+459k rules" was measured on 2026-09-29 under a **3,600 s** deadline declared by
+that series. The V5 reportable class is **86,400 s** -- 24 times larger. So the
+claim as written reads as a statement about the engine and is in fact a
+statement about a one-hour window, and NetPlumber has never been given the
+reportable limit on this workload.
+
+That matters because the k=30 cell was MARGINAL rather than hopeless. At the
+cut it had completed 2,092.6 s of switch_command tasks with more in flight, and
+the load exponent fitted to the two steps below it predicts a total near
+2,750 s. A cell that was perhaps three quarters done when a one-hour clock
+stopped it is not evidence about a 24-hour one.
+
+WHAT WAS MEASURED BEFORE (2026-09-29, 3,600 s deadline, same machine family)
+---------------------------------------------------------------------------
+  k      rules     status      wall s   rule load s  compliance s  np RSS MB
+  1000    26,237   completed     80.1          3.5        0.0086        121
+  300     57,513   completed     92.5         15.1        0.0177        237
+  100    146,759   completed    249.8        167.9        0.0502        567
+  30     459,202   DEADLINE    3,600.3     >=2,092.6     never ran     1,313
+
+  Every completed run: 0 of 520, verdict_valid. The mutated control at k=1000
+  returned exactly 1 of 520, so the green is not vacuous.
+  Load exponents: 1.85 (k=1000->300), 2.57 (k=300->100). Compliance is FREE --
+  50 ms at 147k rules. The whole cost is rule loading, and at k=30 the check
+  never started.
+
+WHAT IS RUN
+-----------
+Two cells, serially, limit_class=v5 (86,400 s wall / 32,768 MB RSS), the
+machine idle, inputs generated per size in their OWN process and then reused --
+§5.2's rule, because generation peaked at 13.5 GB at k=1 and measuring it
+inside the run measures the harness.
+
+  1. wl_berkeley k=30  (459,202 rules)   -- the cell the 1 h limit cut
+  2. wl_berkeley k=10  (1,351,800 rules) -- the real boundary
+
+THE GATE, DECLARED NOW SO THE BUDGET DOES NOT DECIDE IT LATER: cell 2 runs ONLY
+if cell 1 produces a valid verdict. This is the 2026-09-29 series' own rule
+("an engine leaves the series at its first run that is not a valid verdict and
+is never retried"). If k=30 does not finish in 24 h, k=10 cannot, and running
+it would manufacture a second 24 h did-not-finish that adds nothing to the
+first. A skipped cell 2 is recorded as skipped, NOT as a did-not-finish (§8.1).
+
+COST: ~12 h if both complete as predicted; 48 h plus generation if both trip
+their declared limit. Either is a result.
+
+PREDICTIONS (scored afterwards, never edited)
+---------------------------------------------
+N1  k=30 COMPLETES within 24 h: 0 of 520, verdict_valid.
+    Basis: at the 1 h cut it had completed 2,092.6 s of load with tasks still
+    running, and the 2.57 exponent from k=300->k=100 projects ~2,750 s of load
+    in total -- call it 70-80 min of wall including generation. That is 5% of
+    the declared limit. CONFIDENCE HIGH.
+    FALSIFIED BY: any limit trip, or a verdict other than 0 of 520.
+
+N2  k=10 COMPLETES within 24 h: 0 of 520, verdict_valid.
+    Basis: 2.94x the rules of k=30 at exponent 2.57 is 13.6x the load, i.e.
+    ~10.4 h, against a 24 h limit.
+    CONFIDENCE LOW, and this is the cell worth being wrong about. The exponent
+    is fitted to TWO steps at the bottom of the series, both under 150k rules;
+    it has never been checked above 459k, and the one measurement above 147k is
+    a lower bound rather than a value. An exponent of 2.9 instead of 2.57 puts
+    k=10 at 17 h, and 3.2 puts it past the limit.
+    FALSIFIED BY: a deadline trip -- which would be a REPORTABLE did-not-finish
+    at 1.35M rules under the declared class, and the honest form of the §5.2
+    claim.
+
+N3  Peak RSS stays under 16 GB at k=10, so neither cell trips the 32 GB limit.
+    Basis: net_plumber's own RSS is near-linear in rules -- 121/237/567/1,313 MB
+    at 26k/58k/147k/459k, about 2.9 KB per rule -- giving ~3.9 GB at 1.35M, plus
+    the generator process, which held a flat 3.58 GB across all four sizes.
+    FALSIFIED BY: a memory trip, or a peak above 16 GB.
+
+N4  Compliance stays under 1 s at BOTH sizes, so the cost remains ~100% rule
+    loading. Basis: 0.0086 / 0.0177 / 0.0502 s, near-linear, giving ~0.5 s at
+    1.35M rules.
+    FALSIFIED BY: compliance above 5% of wall -- which would mean the cost
+    profile changes with size and the "load-dominated" characterisation of
+    NetPlumber on this workload is size-local.
+
+WHAT THIS CANNOT SETTLE
+-----------------------
+One sample per cell, so no variance claim (the 2026-09-29 series says the same
+of itself). And whatever the outcome, NetPlumber does not reach k=3 or k=1:
+the same exponent puts k=3 at roughly nine days. The question here is only
+WHERE the engine stops under the reportable limit, not whether it reaches full
+size. It does not.
+
+HOW §5.2 CHANGES EITHER WAY
+---------------------------
+  N1+N2 hold  -> "deadlines at 459k rules" is wrong at the reportable limit and
+                 becomes "completes 1.35M rules in ~10 h; does not reach 4.5M".
+  N1 holds,
+  N2 falsified -> "completes 459k rules in ~1.2 h; does not finish 1.35M in
+                 24 h". The boundary is then MEASURED rather than extrapolated.
+  N1 falsified -> the original sentence stands at the reportable limit too, and
+                 is restated with the limit named.
