@@ -780,11 +780,23 @@ R1–R8 declared in that directory's `PROTOCOL.txt` beforehand and scored in its
 | **Q23** | **VeriFlow-FR had no no-U-turn rule**, which the other four engines all enforce | **`wl_up × vf` 28 → 0 of 18,811**, and 639 s → 402 s |
 | `verdict_valid` | required a `check_compliance` task that `wl_tum` never dispatches, having no check set | five `error` cells → `measured` |
 
-**The engines now agree on eight of nine workloads.** The one remaining
-disagreement is `wl_cloud`: **NetPlumber 58/71 against 57/71 from NDD-APKeep,
-ad6, `vf` and `vfplain`** — four engines against one, on the only workload with
-an external oracle. §5.4's guardrail rules out rule priority as the cause: the
-disagreement is unchanged under inversion.
+**The engines now agree on ALL NINE workloads.**
+
+This said "eight of nine" until 2026-10-07, with `wl_cloud` as *"NetPlumber
+58/71 against 57/71 — four engines against one"*. Asked which check differed,
+the set difference is empty both ways: NetPlumber's 58 is 57 distinct violations
+**plus one line printed twice**, the same (source, probe) pair witnessed by two
+overlapping header-space fragments, because HSA's union-of-wildcards
+representation is not canonical. `cell_metrics.violations` counts report LINES.
+`wl_cloud × np` is the only cell in the suite with a duplicated line, and it was
+exactly the cell that appeared to disagree.
+
+A metric artefact, and one §8.1's own rule names — *"never compare totals; state
+the denominator"*. The denominator was stated. The numerator was counted at
+different granularity by different engines and nothing checked that. **Open:
+whether `cell_metrics.violations` should count distinct violated checks rather
+than report lines**, which would change recorded numbers across the campaign and
+is therefore the owner's call.
 
 R5 is the one worth reading: it held by its declared falsifier and was **wrong
 about which cells would move**. It named `wl_up` and `wl_i2` as the flow-heavy

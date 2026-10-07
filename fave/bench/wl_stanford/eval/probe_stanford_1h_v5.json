@@ -1,0 +1,71 @@
+{
+  "bench": "stanford",
+  "engine": "bdd",
+  "faithful_vlan": true,
+  "routers": null,
+  "xmx": "8g",
+  "profile": "bench/wl_stanford/eval/probe_stanford_1h_v5.json.profile.jsonl",
+  "deadline_s": 3600,
+  "status": "deadline",
+  "started_utc": "2026-10-07T07:13:07Z",
+  "jar_sha256": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar_sha256": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "sources": 16,
+  "probes": 16,
+  "wall_s": 3600.011,
+  "trend": {
+    "samples": 120,
+    "elapsed_s": 3570.1,
+    "rules": 4202,
+    "total_rules": 9491,
+    "pct_rules": 44.27,
+    "ap_num": 13498,
+    "elements": 375,
+    "ppm_entries": 5061750,
+    "bdd_mem_mib": 375.7,
+    "encode_ms": 43,
+    "insert_ms": 45,
+    "ppm_ms": 380948,
+    "merge_ms": 2377039,
+    "split_count": 28309,
+    "windows": {
+      "300s": {
+        "d_rules": 12,
+        "span_s": 270.0,
+        "rate_per_s": 0.0444,
+        "d_ap": 35,
+        "ap_per_rule": 2.917,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 38,
+        "span_s": 870.0,
+        "rate_per_s": 0.0437,
+        "d_ap": 87,
+        "ap_per_rule": 2.289,
+        "is_tail": true
+      },
+      "1800s": {
+        "d_rules": 69,
+        "span_s": 1770.0,
+        "rate_per_s": 0.039,
+        "d_ap": 252,
+        "ap_per_rule": 3.652,
+        "is_tail": true
+      },
+      "3600s": {
+        "d_rules": 4202,
+        "span_s": 3570.1,
+        "rate_per_s": 1.177,
+        "d_ap": 13497,
+        "ap_per_rule": 3.212,
+        "is_tail": false
+      }
+    },
+    "rules_left": 5289,
+    "bound_h": 37.67,
+    "bound_basis": "tail rate 0.0390 rules/s over the window it is keyed to",
+    "ap_num_projected": 32813,
+    "rate_falling": true
+  }
+}

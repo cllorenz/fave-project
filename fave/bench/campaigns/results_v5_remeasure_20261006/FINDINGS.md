@@ -21,16 +21,47 @@ the one workload that exists to be timed reported five engine failures.
 
 ## Where the engines now stand
 
-Every engine agrees with every other on eight of the nine workloads. The single
-remaining disagreement is `wl_cloud`:
+**Every engine agrees with every other on all nine workloads.**
 
-> **NetPlumber 58 / 71, against 57 / 71 from NDD-APKeep, ad6, `vf` and
-> `vfplain`.**
+This section first said otherwise, and the correction is recorded rather than
+edited away. It read: *"The single remaining disagreement is `wl_cloud`:
+NetPlumber 58/71 against 57/71 from NDD-APKeep, ad6, `vf` and `vfplain`. Four
+independent engines against one, on the only workload in the suite with an
+external oracle."*
 
-Four independent engines against one, on the only workload in the suite with an
-external oracle. That is F4-R and it is still open. The LPM guardrail run
-alongside this one rules out one explanation: the disagreement is unchanged
-under prefix-order inversion, so it is not about rule priority.
+**That disagreement does not exist.** Asked which check NetPlumber differs on,
+the set difference is empty in both directions. Its 58 is **57 distinct
+violations plus one line printed twice**:
+
+```
+- `source.dc1_leaf6_host0` reaches `probe.dc0_leaf1_host1` with
+    - packet.upper.dport=xxxxxxxxxxxx0xxx
+- `source.dc1_leaf6_host0` reaches `probe.dc0_leaf1_host1` with
+    - packet.upper.dport=xxxxxxxxxxxxxxx0
+```
+
+Same source, same probe, two **overlapping** header-space fragments —
+`xxxx0xxx` and `xxxxxxx0` both admit dport 0. HSA represents a set as a union
+of wildcard expressions and that union is not canonical, so one violated check
+can be witnessed by more than one fragment. `cell_metrics.violations` counts
+report LINES, so NetPlumber scores 58 where an engine that emits one line per
+violated check scores 57.
+
+Every `.report.md` in both campaign directories was scanned: **`wl_cloud × np`
+is the only cell in the suite with a duplicated violation line**, and it is
+exactly the cell where the engines appeared to disagree.
+
+So F4-R was a **metric artefact**, and it is one this project's own rule names:
+*"Never compare totals across different query counts. State the denominator."*
+The denominator was stated; the NUMERATOR was counted differently by different
+engines, and nothing checked that. The LPM guardrail had already ruled out rule
+priority as a cause — correctly, and for a question that turned out not to
+exist.
+
+**Open, and deliberately not changed here:** `cell_metrics.violations` counts
+lines. Counting distinct violated checks would be the faithful metric, and it
+would change recorded numbers across the campaign, so it is a decision for the
+owner and not a patch — see the open items.
 
 ## Scores
 

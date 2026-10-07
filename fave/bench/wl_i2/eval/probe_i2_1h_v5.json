@@ -1,0 +1,70 @@
+{
+  "bench": "i2",
+  "engine": "bdd",
+  "faithful_vlan": true,
+  "routers": null,
+  "xmx": "8g",
+  "profile": "bench/wl_i2/eval/probe_i2_1h_v5.json.profile.jsonl",
+  "deadline_s": 3600,
+  "status": "starting",
+  "started_utc": "2026-10-07T08:13:08Z",
+  "jar_sha256": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar_sha256": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "sources": 9,
+  "probes": 9,
+  "trend": {
+    "samples": 95,
+    "elapsed_s": 2820.1,
+    "rules": 87500,
+    "total_rules": 154974,
+    "pct_rules": 56.46,
+    "ap_num": 14823,
+    "elements": 260,
+    "ppm_entries": 3853980,
+    "bdd_mem_mib": 375.7,
+    "encode_ms": 249,
+    "insert_ms": 798,
+    "ppm_ms": 56642,
+    "merge_ms": 2438638,
+    "split_count": 194754,
+    "windows": {
+      "300s": {
+        "d_rules": 229,
+        "span_s": 270.0,
+        "rate_per_s": 0.8481,
+        "d_ap": 386,
+        "ap_per_rule": 1.686,
+        "is_tail": true
+      },
+      "900s": {
+        "d_rules": 820,
+        "span_s": 870.0,
+        "rate_per_s": 0.9425,
+        "d_ap": 1340,
+        "ap_per_rule": 1.634,
+        "is_tail": true
+      },
+      "1800s": {
+        "d_rules": 2603,
+        "span_s": 1770.0,
+        "rate_per_s": 1.4706,
+        "d_ap": 3659,
+        "ap_per_rule": 1.406,
+        "is_tail": true
+      },
+      "3600s": {
+        "d_rules": 87500,
+        "span_s": 2820.0,
+        "rate_per_s": 31.0279,
+        "d_ap": 14822,
+        "ap_per_rule": 0.169,
+        "is_tail": false
+      }
+    },
+    "rules_left": 67474,
+    "bound_h": 12.74,
+    "bound_basis": "tail rate 1.4706 rules/s over the window it is keyed to",
+    "ap_num_projected": 109691,
+    "rate_falling": true
+  }
+}
