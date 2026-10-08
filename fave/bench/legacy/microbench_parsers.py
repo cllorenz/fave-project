@@ -19,6 +19,36 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+""" RETIRED (2026-10-08). Which ip6tables parser is fastest?
+
+Written 2019-06-19 to compare three parsing approaches for an ip6tables rule
+set -- ANTLR, pyparsing and pybison -- over ten runs each on wl_up's
+pgf.uni-potsdam.de ruleset, reporting mean and median.
+
+**pybison won, and that answer is still in force.** FaVe's production ip6tables
+parser is `iptables/parser.py`, `IP6TablesParser(BisonParser)` -- "a fast parser
+for ip6tables rule sets based on GNU Flex and Bison". The cost of that choice is
+still being paid deliberately: `fave/setup.sh` builds `pybison==0.6.4` from
+source because the prebuilt cp312 wheel segfaults, and the Dockerfile installs
+`bison` and `m4` for it. So this file is the record of why FaVe carries that
+dependency.
+
+**It does not run, and has not since 2021.** It is kept for the comparison, not
+as a harness. Its three imports all name modules from the old layout:
+
+  - `ip6np.parser` -- the ANTLR parser, since removed; nothing in the tree
+    mentions ANTLR any more except this file;
+  - `models.iptables.pybison_singleton` -- moved out from under `models/` in
+    a8c92343 (2021-08-13); today's equivalent is `iptables/parser.py`;
+  - `misc.pyparsing_test` -- deleted in 5f6e697b (2021-12-03).
+
+There is also a Python-2 residue that 2to3 did not catch: `len(meas)/2` below
+is true division, so the median index is a float and would raise TypeError.
+The 2023-02-02 python3 migration ran over a file that had already been
+unrunnable for eighteen months -- the clearest evidence that nothing invoked it
+in between.
+"""
+
 import time
 import sys
 

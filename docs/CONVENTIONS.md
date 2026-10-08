@@ -82,6 +82,6 @@ reorganised: those paths are recorded in protocols as runnable commands.
 | the live QA backlog | `../TODO.md` (root) |
 | measurement harness | `fave/bench/` — the scripts protocols name |
 | one-off analysis and oracles | `fave/bench/analysis/` |
-| the pre-V5 shell benchmark pipeline | `fave/bench/legacy/` |
+| retired benchmarking code | `fave/bench/legacy/` — the pre-V5 shell pipeline and retired experiments; see its `README.md` |
 | campaign results | `fave/bench/campaigns/` — start at `RESULTS.md` |
 | Delta-net eval results | `fave/bench/deltanet/eval/` |
