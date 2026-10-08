@@ -36,6 +36,20 @@ This repository is organized as follows:
  - `z3-anomalies` - includes an implementation of [4] to detect anomalies in ip6tables rule sets using the Z3 SMT solver
  - `stl-anomalies` - includes an implementation of [5] to detect anomalies in ip6tables rule sets using the STL algorithm
  - `np_reproduction` - includes scripts to reproduce the original HSA benchmark results from [1]
+ - `docs/` - the project's reference documents, one per backend, workload track and testing scope
+
+
+## Documentation
+
+[`docs/INDEX.md`](docs/INDEX.md) maps the twenty reference documents: what each
+one covers, how long it is, and whether it describes work that is finished. They
+are lab notebooks rather than specifications — every one carries a dated status
+header, and several record completed tracks that are kept because results and
+source comments cite them.
+
+Two documents stay at the root: this file, and [`TODO.md`](TODO.md), the live QA
+backlog. Measurement **results** live beside the artifacts that produced them,
+under [`fave/bench/campaigns/`](fave/bench/campaigns/) — start at its `RESULTS.md`.
 
 
 ## First Steps (tested on Ubuntu 24.04)
