@@ -2,7 +2,7 @@
 
 **Owner:** Claas Lorenz. Agreed 2026-09-25. Companions:
 [`CLOUD_BENCH_PLAN.md`](CLOUD_BENCH_PLAN.md) §1.7.3,
-[`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md) §2.6a/§2.6b, [`TODO.md`](TODO.md) item 29.
+[`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md) §2.6a/§2.6b, [`TODO.md`](../TODO.md) item 29.
 
 ## 0. Why this campaign exists
 

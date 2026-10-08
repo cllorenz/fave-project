@@ -1922,7 +1922,7 @@ Claas to supply the archive again.
 
 **What the two traces contain is no longer stated here.** It is derived from
 them by `fave/bench/deltanet/census.py` into
-[`fave/bench/deltanet/TRACES.md`](fave/bench/deltanet/TRACES.md) and
+[`fave/bench/deltanet/TRACES.md`](../fave/bench/deltanet/TRACES.md) and
 pinned byte for byte by `fave/test/test_deltanet_census.py`, on §1.8's principle.
 The headline: **38,100 inserts, 57 routers, 52 next-hops, 1,400 distinct
 prefixes** — the same figures for *both* traces, not airtel2 alone — and prefix
@@ -2557,7 +2557,7 @@ consensus between implementations in this tree, which is §0's first gap and onl
 ## 2.4 The topology, derived (D3's interface half)
 
 Derived by `bench/deltanet/topology.py`, rendered into
-[`fave/bench/deltanet/TRACES.md`](fave/bench/deltanet/TRACES.md) and
+[`fave/bench/deltanet/TRACES.md`](../fave/bench/deltanet/TRACES.md) and
 asserted by `fave/test/test_deltanet_census.py`. Identical from both traces.
 
 | | |

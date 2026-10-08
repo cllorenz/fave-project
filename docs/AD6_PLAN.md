@@ -50,7 +50,7 @@ giant single SCC (99.3% of nodes) is why so many edges need it at all. Full deta
 §5.5. Owner: Claas
 Lorenz. Companions:
 [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md), [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md),
-[`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](TODO.md).
+[`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](../TODO.md).
 This plans integrating **ad6** — the author's
 SAT/QBF model checker for IPv6 firewalls/networks (`ad6/`, SECRYPT'15) — as a **fourth
 verification family** alongside NetPlumber (HSA), APKeep(BDD), and APKeep(NDD), for a
@@ -1818,7 +1818,7 @@ corrected directly — see §4.4.)
   in-stage VLAN admission (390 `vlan=V` rules) x out-stage `rw=vlan:V` rewrite
   coupling, with probes existential on `vlan=0`. That is precisely the dimension
   plain mode drops. **NetPlumber has never been cross-checked on i2** (see
-  [`TODO.md`](TODO.md) item 1s: `apkeep_vs_netplumber.py` measures time only;
+  [`TODO.md`](../TODO.md) item 1s: `apkeep_vs_netplumber.py` measures time only;
   `test_backend_differential` is wl_ifi-only), so this is the first faithful signal
   on this workload, and it is unexplained in either direction.
 
@@ -1861,7 +1861,7 @@ corrected directly — see §4.4.)
     distribution is min 1.11 s / median 133 s / max 1688.8 s, a ~1500x spread, and
     this set is drawn deliberately from the fast tail.
 
-  **Prerequisites** (tracked as checkboxes in [`TODO.md`](TODO.md) item 1s): a
+  **Prerequisites** (tracked as checkboxes in [`TODO.md`](../TODO.md) item 1s): a
   `faithful_vlan` switch on `bench/ad6_i2_measure.py` (currently hardcoded `False` at
   line 101) and an explicit pair-list selector (`--pair-filter` exists but only does
   self/exclude-self).

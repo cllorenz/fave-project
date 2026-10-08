@@ -3,7 +3,7 @@
 `ad6` is the author's own 2014 SECRYPT'15 proof-of-concept (SAT/QBF model checking for
 IPv6 firewalls/networks) — first-party code, not a vendored fork of an external project.
 It is being revived and integrated as a fourth verification family alongside NetPlumber
-(HSA), APKeep(BDD), and APKeep(NDD); see `../AD6_PLAN.md`. As with `apkeep/FAVE_CHANGES.md`
+(HSA), APKeep(BDD), and APKeep(NDD); see `../docs/AD6_PLAN.md`. As with `apkeep/FAVE_CHANGES.md`
 and `ndd/FAVE_CHANGES.md`, changes are stated prominently here. Kinds:
 
 - **[NEW]** — a capability ad6 did not have;

@@ -36,7 +36,7 @@ from devices.switch import SwitchModel
 from rule.rule_model import Forward, Match, Rule, RuleField
 from veriflow.translate import Translator
 
-_REGISTRY = os.path.join(os.path.dirname(__file__), "..", "..", "ACCOMMODATIONS.md")
+_REGISTRY = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "ACCOMMODATIONS.md")
 
 #: VeriFlowAdapter.configuration_stamp()'s keys (it needs the native engine).
 _CONFIG_KEYS = ("impl", "vf_fields", "vf_revisit", "vf_slicing", "vf_budget")

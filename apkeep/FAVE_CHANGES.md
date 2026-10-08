@@ -168,7 +168,7 @@ packet-filter device *before* `constructTopology`, so a topology link does not
 overwrite it with a `ForwardElement`); `APKeeper.initialize` seeds a filter
 device's initial all-space AP on its `__drop__` port. Tests: `FilterElementTest`
 (first-match forward-to-out_port vs drop; multi-out_port priority). 27 Java tests
-green. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase 2.
+green. FaVe-side context: `../docs/APKEEP_TUM_UP_PLAN.md` Phase 2.
 
 ## 8. Source IPv6 + IPv6 ACL/filter matching  **[NEW]** / **[FIX]**
 
@@ -187,7 +187,7 @@ ones); `ConvertACLRule` routes an address token containing `':'` to the IPv6 pat
 feeds both `ACLElement` and `FilterElement` (both encode via `ConvertACLRule`).
 Tests: `BDDACLWrapperTest` IPv6 prefix containment/disjointness + src6/dst6
 independence. 29 Java tests green. FaVe-side context:
-`../APKEEP_TUM_UP_PLAN.md` Phase 6 (P9b).
+`../docs/APKEEP_TUM_UP_PLAN.md` Phase 6 (P9b).
 
 ## 9. Reachability instrumentation (scaling diagnosis)  **[INFRA]**
 
@@ -200,7 +200,7 @@ query's cost. `Network` gains read-only structural accessors `numElements()`,
 `numElementsOfType(simpleClassName)`, `numPorts()`. Together these quantify the
 per-pair simple-path DFS cost and the single-AP-universe precondition
 (`ACLElement`/`NATElement` == 0) that the Phase-7 per-source reachability
-fixpoint requires. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase 7
+fixpoint requires. FaVe-side context: `../docs/APKEEP_TUM_UP_PLAN.md` Phase 7
 (Phase 0 guard + Phase A curve).
 
 **Phase C addition — streaming build profiler.** `utils/BuildProfiler.java` (new):
@@ -215,7 +215,7 @@ build steps (`encodeOneRule`, `insert/removeOneRule`, `updatePortPredicateMap`,
 `numPPMEntries()`. These attribute the from-zero build cost: on wl_up it is **PPM
 update (93 %)**, a quadratic AP-partition explosion detonated by the dst-LPM FIB
 rules (encode/merge negligible, insert flat). FaVe-side context:
-`../APKEEP_TUM_UP_PLAN.md` Phase C (C0).
+`../docs/APKEEP_TUM_UP_PLAN.md` Phase C (C0).
 
 **Phase C1 addition — split counters + element-name accessor.** `APKeeper.
 updateSplitAP` increments `BuildProfiler.splitCount` (AP-partition splits) and
@@ -226,7 +226,7 @@ which retired the ForwardElement-trie hypothesis (it moves neither factor) and
 redirected the fix to element-count and split-count reduction. `Network` gains
 `elementNames()` so the FaVe adapter can bucket elements by role and size the
 reduction. All additions are inert (counter increments / a read-only accessor);
-gate green. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase C (C1).
+gate green. FaVe-side context: `../docs/APKEEP_TUM_UP_PLAN.md` Phase C (C1).
 
 **Phase C1 Lever B — query-time source-IPv6 seed (retires the per-source .sf
 element).** `BDDACLWrapper.encodeSrcIP6Prefix(cidr)` builds the exact src-IPv6
@@ -240,7 +240,7 @@ used to force. On wl_up those per-source src predicates induced ~80 % of the AP
 partition (slice ap_num 1128 -> 215, ppm_ms 11.6 s -> 2.4 s), all recovered at zero
 correctness cost (NP-parity 0 diffs on cs+jura). The `.sf` path remains for the
 ACL-division / IPv4 case (wl_stanford). FaVe-side context:
-`../APKEEP_TUM_UP_PLAN.md` Phase C (C1 Lever B).
+`../docs/APKEEP_TUM_UP_PLAN.md` Phase C (C1 Lever B).
 
 **BUGFIX -- protect `parta`/`partb` against JDD's GC in `APKeeper.addPredicate`
 (FaVe TODO item 29).** Upstream computes `parta = and(pred, oldap)` and leaves it
@@ -265,7 +265,7 @@ rules, `ap_num` 53 978**, reproduced twice with every structural quantity
 identical. Patched, it runs past that point with **zero exceptions**, reaches
 `ap_num` 66 656 at 1 244 rules, and `merge_ms` becomes non-zero (235 238 vs 631)
 -- AP merging works again, which it cannot over a corrupted partition. Java core
-suite green (`mvn package` runs it). FaVe-side context: `../CLOUD_BENCH_PLAN.md`
+suite green (`mvn package` runs it). FaVe-side context: `../docs/CLOUD_BENCH_PLAN.md`
 §1.7.3, `../TODO.md` item 29.
 
 **A first attempt patched the wrong frame and is recorded because it is the
@@ -330,12 +330,12 @@ Patched, a 343-rule prune of the same model -- the endpoint-bearing leaves only,
 on which NDD reproduces the full 64-cell matrix exactly -- goes **53/64 ->
 59/64, cell for cell identical to both NDD and NetPlumber**. The partition grows
 little (`ap_num` 16 485 -> 17 925, +8.7 %) but the build slows 2.8x (150 s ->
-427 s); `dc0` goes 2/4 -> 3/4 at `ap_num` 4 329 -> 5 584 and 9.6 s -> 22.6 s. FaVe-side context: `../CLOUD_BENCH_PLAN.md` §1.7.3, `../TODO.md` item 29.
+427 s); `dc0` goes 2/4 -> 3/4 at `ap_num` 4 329 -> 5 584 and 9.6 s -> 22.6 s. FaVe-side context: `../docs/CLOUD_BENCH_PLAN.md` §1.7.3, `../TODO.md` item 29.
 
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the
-roadmap) lives in `../APKEEP_BACKEND.md`.*
+roadmap) lives in `../docs/APKEEP_BACKEND.md`.*
 
 ## 10. A VLAN on a destination FIB outside the HSA stages  **[FIX]**
 

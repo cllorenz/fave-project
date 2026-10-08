@@ -10,7 +10,7 @@ measurements.
 
 `net_plumber/` (the C++ verification backend) is **explicitly out of scope**
 here — it is tracked separately under the "Verification-engine-specific" items
-in [`TODO.md`](TODO.md) (C++ sanitizer/coverage builds, the header-space
+in [`TODO.md`](../TODO.md) (C++ sanitizer/coverage builds, the header-space
 soundness work). The two Python tools are independent (no cross-imports;
 `policy_translator/` is type-checked and tested with its own root), so they are
 treated together but assessed on their own terms.
