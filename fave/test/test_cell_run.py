@@ -597,6 +597,80 @@ class TestTheQueueResumes(unittest.TestCase):
             os.chdir(prev_cwd)
             cell_run.AGGREGATOR_LOG, cell_run.REPORT = prev_log, prev_report
 
+    def test_the_invariant_events_are_preserved_and_counted(self):
+        """ `inv.log` is EVIDENCE and was being discarded.
+
+        NetPlumber's loop and blackhole detections go to the Event appender,
+        `/dev/shm/np/inv.log`. `ACCOMMODATIONS.md` cites loop counts for the
+        table-granular loop rule -- 491 on wl_i2, 83,710 on wl_stanford -- and
+        until 2026-10-08 no cell kept that log, so a completed run could not be
+        asked afterwards what it had reported. wl_berkeley's 1,113 reports were
+        recovered only because nothing happened to overwrite the file first.
+
+        A count of 0 and an absent log are DIFFERENT FACTS: only NetPlumber
+        writes one, so `None` means "this backend has no such log" and 0 means
+        "it ran and reported nothing".
+        """
+        prev = (cell_run.AGGREGATOR_LOG, cell_run.REPORT, cell_run.INV_LOG)
+        log = os.path.join(self.dir, 'aggregator.log')
+        report = os.path.join(self.dir, 'report.md')
+        inv = os.path.join(self.dir, 'inv.log')
+        cell_run.AGGREGATOR_LOG, cell_run.REPORT, cell_run.INV_LOG = (
+            log, report, inv)
+        with open(report, 'w') as handle:
+            handle.write('# Report\n\n## Compliance Check\n'
+                         'No compliance violations have been found.\n')
+        with open(log, 'w') as handle:
+            handle.write('worker: completed task check_compliance in 1 seconds.\n'
+                         'worker: completed task report in 1 seconds.\n')
+        prev_cwd = os.getcwd()
+        os.chdir(os.path.dirname(os.path.dirname(
+            os.path.abspath(cell_run.__file__))))
+        try:
+            # No inv.log: not an engine that writes one.
+            found = cell_run.read_verdict('wl_up', self.dir, 'none', '/x')
+            self.assertIsNone(found['loop_reports'])
+            self.assertIsNone(found['blackhole_reports'])
+
+            # Present and empty: it ran and reported nothing. NOT the same.
+            open(inv, 'w').close()
+            found = cell_run.read_verdict('wl_up', self.dir, 'empty', '/x')
+            self.assertEqual(found['loop_reports'], 0)
+            self.assertEqual(found['blackhole_reports'], 0)
+            self.assertTrue(os.path.exists(
+                os.path.join(self.dir, 'empty.inv.log')))
+
+            # Real shape, from wl_berkeley's k=3 cell: each detection is logged
+            # twice by log4cxx, and the count is of detections as written.
+            with open(inv, 'w') as handle:
+                for _ in range(3):
+                    handle.write('2026-10-08 08:59:10,011 [0x7636] FATAL '
+                                 'DefaultLoopDetectionLogger - Loop Detected: '
+                                 'after event Add Link (ID1: 3473409)\n')
+                handle.write('2026-10-08 08:59:11,000 [0x7636] FATAL '
+                             'DefaultLoopBlackholeDetectionLogger - Blackhole '
+                             'Detected: after event Add Rule (ID1: 42)\n')
+            found = cell_run.read_verdict('wl_up', self.dir, 'real', '/x')
+            self.assertEqual(found['loop_reports'], 3)
+            self.assertEqual(found['blackhole_reports'], 1)
+            copied = os.path.join(self.dir, 'real.inv.log')
+            self.assertIn('Loop Detected', open(copied).read())
+        finally:
+            os.chdir(prev_cwd)
+            (cell_run.AGGREGATOR_LOG, cell_run.REPORT,
+             cell_run.INV_LOG) = prev
+
+    def test_a_stale_inv_log_cannot_be_inherited(self):
+        """ The previous run's loops must not be counted as this one's -- the
+        same failure the backend stamp guards against, in another file. """
+        import inspect
+        source = inspect.getsource(cell_run.main)
+        self.assertIn('INV_LOG', source,
+                      'main() does not clear INV_LOG before the run, so a '
+                      "leftover would be copied into the next cell's result")
+        stale = source.split('for stale in (')[1].split(')')[0]
+        self.assertIn('INV_LOG', stale)
+
     def test_two_cells_sharing_a_name_are_refused(self):
         # One would overwrite the other's result, and the campaign would be
         # one cell short with nothing saying so.

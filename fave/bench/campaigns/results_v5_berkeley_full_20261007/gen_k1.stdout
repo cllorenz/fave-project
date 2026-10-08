@@ -1,0 +1,13 @@
+fib walk: 514 of 529 cells reached; inverting LPM changes 14
+INFO:gen_wl_berkeley:fib walk: 514 of 529 cells reached; inverting LPM changes 14
+deltanet model from berkeley-inserts.csv: 23 devices, 504 links, 13402846 rules (12817902 read from the trace + 584944 SYNTHESISED delivery rules), 23 roles of which 23 are addressable
+INFO:gen_wl_berkeley:deltanet model from berkeley-inserts.csv: 23 devices, 504 links, 13402846 rules (12817902 read from the trace + 584944 SYNTHESISED delivery rules), 23 roles of which 23 are addressable
+generate policy matrix...
+INFO:gen_wl_berkeley:generate policy matrix...
+generated policy matrix.
+INFO:gen_wl_berkeley:generated policy matrix.
+convert policy matrix to checks...
+INFO:gen_wl_berkeley:convert policy matrix to checks...
+converted policy matrix.
+INFO:gen_wl_berkeley:converted policy matrix.
+generated bench/wl_berkeley/ from berkeley-inserts.csv in 191.6 s, peak RSS 13494 MB

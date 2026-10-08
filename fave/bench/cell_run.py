@@ -81,12 +81,21 @@ sys.path.insert(0, os.path.abspath(
 from bench import cell_metrics                           # noqa: E402
 
 AGGREGATOR_LOG = '/dev/shm/np/aggregator.log'
+#: NetPlumber's invariant-event appender (`log4j.appender.Event.File` in a
+#: workload's np.conf): loop and blackhole detections, and nothing else.
+#: Preserved per cell because it is EVIDENCE -- `ACCOMMODATIONS.md` cites
+#: loop counts for the table-granular loop rule, and until 2026-10-08 no
+#: cell kept the log those counts come from, so a completed run could not
+#: be asked afterwards how many it reported.
+INV_LOG = '/dev/shm/np/inv.log'
 REPORT = 'report.md'
 
 _TASK = re.compile(r'completed task check_compliance in ([0-9.e+-]+) seconds')
 _REPORT = re.compile(r'completed task report in ([0-9.e+-]+) seconds')
 _LOAD = re.compile(r'completed task switch_command in ([0-9.e+-]+) seconds')
 _DONE = re.compile(r'completed task ([a-z_]+)')
+_LOOP = re.compile(r'Loop Detected')
+_BLACKHOLE = re.compile(r'Blackhole Detected')
 
 JARS = {
     'apkeep_jar': '../apkeep/target/apkeep-1.0.0.jar',
@@ -438,6 +447,21 @@ def read_verdict(workload, out_dir, stem, gc_log):
         found['report_task_s'] = []
         found['switch_command_s'] = None
 
+    # The invariant events, COUNTED INTO THE CELL and not only copied beside
+    # it, so a table can carry the number without re-reading a log. A count of
+    # 0 and an absent log are different facts and are recorded as such: `None`
+    # means this backend wrote no inv.log at all (only NetPlumber does), while
+    # 0 means it ran and reported nothing.
+    if os.path.exists(INV_LOG):
+        shutil.copy(INV_LOG, os.path.join(out_dir, stem + '.inv.log'))
+        with open(INV_LOG, errors='replace') as handle:
+            events = handle.read()
+        found['loop_reports'] = len(_LOOP.findall(events))
+        found['blackhole_reports'] = len(_BLACKHOLE.findall(events))
+    else:
+        found['loop_reports'] = None
+        found['blackhole_reports'] = None
+
     found['gc'] = (cell_metrics.gc_summary(gc_log)
                    if os.path.exists(gc_log) else None)
 
@@ -636,7 +660,10 @@ def main(argv=None):
     gc_log = os.path.join(out_dir, stem + '.gc.log')
     ad6_progress = os.path.join(out_dir, stem + '.ad6_progress.log')
 
-    for stale in (REPORT, AGGREGATOR_LOG, gc_log, ad6_progress):
+    # INV_LOG is in the list for the reason the backend stamp is checked
+    # against the log: a leftover from the PREVIOUS run would otherwise be
+    # copied into this cell and counted as its own.
+    for stale in (REPORT, AGGREGATOR_LOG, INV_LOG, gc_log, ad6_progress):
         if os.path.exists(stale):
             os.remove(stale)
 
