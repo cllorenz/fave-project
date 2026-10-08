@@ -365,6 +365,98 @@ class TestTheCommandEachBackendGets(unittest.TestCase):
                 self.assertIn(backend, cell_run.ENGINE_TREES)
 
 
+class TestTheInterpreterGuard(unittest.TestCase):
+    """ A cell run by the wrong `python3` does not fail -- it RECORDS a failure.
+
+    2026-10-08, launching the ad6 x wl_i2 flow cell: `python3
+    bench/cell_run.py ...` on the system interpreter died in 0.032 s with
+    `ModuleNotFoundError: No module named 'filelock'` and wrote
+    `{"status": "error", "outcome": "error", "verdict_valid": false,
+    "checks": 72, "violations": null}`. Nothing in that artifact says the
+    interpreter was wrong; it reads as an engine failure, and a queue writes
+    one per cell.
+
+    The same defect cost phase B (`berkeley_drill.py` launching the input
+    generator without PYTHON). There it was caught by the run dying in 0.1 s.
+    Here it is refused before anything is spawned. """
+
+    def test_the_universal_module_is_checked_for_every_backend(self):
+        # Both the benchmark and the aggregator reach util.lock_util at module
+        # level, so filelock is not backend-specific -- it is the cell path.
+        for backend in ('netplumber', 'apkeep', 'ad6', 'veriflow'):
+            with self.subTest(backend=backend):
+                missing = cell_run.missing_child_imports(
+                    backend, find_spec=lambda name: None)
+                self.assertIn('filelock', missing)
+
+    def test_each_backend_declares_what_its_own_children_need(self):
+        gone = cell_run.missing_child_imports(
+            'ad6', find_spec=lambda name: None)
+        self.assertEqual(gone, ['filelock', 'pysat', 'lxml'])
+        self.assertEqual(
+            cell_run.missing_child_imports('apkeep',
+                                           find_spec=lambda name: None),
+            ['filelock', 'jpype'])
+        # netplumber and veriflow add nothing: their engines are a binary and
+        # pure Python respectively.
+        self.assertEqual(
+            cell_run.missing_child_imports('netplumber',
+                                           find_spec=lambda name: None),
+            ['filelock'])
+
+    def test_only_the_missing_ones_are_named(self):
+        # The message is the fix, so it must not list modules that are fine.
+        def _spec(name):
+            return None if name == 'pysat' else object()
+        self.assertEqual(cell_run.missing_child_imports('ad6',
+                                                        find_spec=_spec),
+                         ['pysat'])
+
+    def test_a_module_whose_parent_is_absent_counts_as_missing(self):
+        # find_spec RAISES rather than returning None when the parent package
+        # is gone; a guard that let that propagate would replace a clear
+        # refusal with a traceback.
+        def _raises(name):
+            raise ModuleNotFoundError("No module named %r" % name)
+        self.assertEqual(cell_run.missing_child_imports('apkeep',
+                                                        find_spec=_raises),
+                         ['filelock', 'jpype'])
+
+    def test_the_guard_locates_and_does_not_import(self):
+        # Importing jpype starts a JVM. A guard that costs more than the thing
+        # it guards gets removed, and one with a side effect that large is not
+        # a guard. `jpype` need not be installed for this to hold.
+        before = set(sys.modules)
+        cell_run.missing_child_imports('apkeep')
+        self.assertNotIn('jpype', set(sys.modules) - before)
+
+    def test_the_requirements_backed_modules_resolve_here(self):
+        # filelock, lxml and python-sat are pinned in requirements.txt, so any
+        # interpreter that can run this suite has them -- which is exactly the
+        # claim the guard makes. jpype is NOT pinned there (it needs a JVM, and
+        # the fast tier excludes one), so apkeep is not asserted.
+        for backend in ('netplumber', 'veriflow', 'ad6'):
+            with self.subTest(backend=backend):
+                self.assertEqual(cell_run.missing_child_imports(backend), [])
+
+    def test_main_refuses_before_a_result_is_written(self):
+        # The point of the guard: no artifact. A cell that writes `error` has
+        # already done the damage.
+        out = os.path.join(tempfile.mkdtemp(), 'never-written.json')
+        real = cell_run.missing_child_imports
+        cell_run.missing_child_imports = lambda backend, find_spec=None: \
+            ['filelock']
+        try:
+            with self.assertRaises(SystemExit) as caught:
+                cell_run.main(['wl_ifi', '--backend', 'veriflow',
+                               '--limit-class', 'v5', '--limit-wall', '60',
+                               '--out', out])
+        finally:
+            cell_run.missing_child_imports = real
+        self.assertEqual(caught.exception.code, 2)   # argparse's refusal
+        self.assertFalse(os.path.exists(out))
+
+
 class TestTheQueueResumes(unittest.TestCase):
     """ The campaign must survive being started three times. """
 

@@ -66,6 +66,7 @@ Usage (from fave/, venv active, PYTHONPATH=.):
 import argparse
 import ast
 import datetime
+import importlib.util
 import json
 import os
 import re
@@ -96,6 +97,49 @@ _LOAD = re.compile(r'completed task switch_command in ([0-9.e+-]+) seconds')
 _DONE = re.compile(r'completed task ([a-z_]+)')
 _LOOP = re.compile(r'Loop Detected')
 _BLACKHOLE = re.compile(r'Blackhole Detected')
+
+#: Third-party modules a cell's CHILDREN import. `build_command` pins every
+#: child to `sys.executable` -- that is the fix the deltanet drivers needed,
+#: where a bare `python3` ran the input generator on the SYSTEM interpreter --
+#: so the parent's import path IS the children's. If this process cannot find
+#: a module, neither can the benchmark or the aggregator it spawns.
+#:
+#: The `None` entry is every cell whatever the backend: `bench/generic_
+#: benchmark.py` and `aggregator/aggregator_service.py` both reach
+#: `util.lock_util` -> `filelock` at module level.
+#:
+#: `jpype` is deliberately absent from `requirements.txt` (it needs a JVM and
+#: the fast tier is defined to exclude one), so it is checked only when an
+#: apkeep cell asks for it -- and checked by LOCATING, never importing.
+CHILD_IMPORTS = {
+    None: ('filelock',),
+    'ad6': ('pysat', 'lxml'),
+    'apkeep': ('jpype',),
+}
+
+
+def missing_child_imports(backend, find_spec=None):
+    """ Which of `CHILD_IMPORTS` this interpreter cannot find, in order.
+
+    Locates rather than imports. Starting a JVM, or paying for lxml's
+    extension load, is not something a guard may do before a measured run --
+    and a guard that costs more than it saves gets removed.
+
+    A module whose PARENT package is missing raises rather than returning
+    None (`ModuleNotFoundError`), and a namespace-package edge can raise
+    `ValueError`; both mean the same thing here. """
+    if find_spec is None:
+        find_spec = importlib.util.find_spec
+    missing = []
+    for name in CHILD_IMPORTS[None] + CHILD_IMPORTS.get(backend, ()):
+        try:
+            found = find_spec(name)
+        except (ImportError, ValueError):
+            found = None
+        if found is None:
+            missing.append(name)
+    return missing
+
 
 JARS = {
     'apkeep_jar': '../apkeep/target/apkeep-1.0.0.jar',
@@ -653,6 +697,27 @@ def main(argv=None):
                 "table that mixes them mixes encodings (TODO item 0a). Use "
                 "--limit-class dev for an exploratory run."
                 % ' and '.join(missing))
+
+    # THE INTERPRETER GUARD. Every child is pinned to `sys.executable`, so a
+    # cell started by a `python3` that is not the venv's dies in ~0.03 s on
+    # `ModuleNotFoundError: No module named 'filelock'` -- and does not merely
+    # die, it WRITES A RESULT: `status: error`, `outcome: error`,
+    # `verdict_valid: false`, the workload's check count, no violations. In a
+    # results directory that artifact is indistinguishable at a glance from an
+    # engine that failed, and a queue produces one per cell.
+    #
+    # It is the defect that cost phase B -- `berkeley_drill.py` launched the
+    # input generator without PYTHON, on the system interpreter -- caught there
+    # only because the run died in 0.1 s. Refused here before anything is
+    # spawned, so the failure cannot be mistaken for a measurement.
+    missing = missing_child_imports(args.backend)
+    if missing:
+        parser.error(
+            "this interpreter (%s) cannot import %s, which every child of "
+            "this cell needs. Use the venv's interpreter "
+            "(.venv/bin/python3 bench/cell_run.py ...): a cell started by the "
+            "wrong one does not fail, it RECORDS a failure."
+            % (sys.executable, ', '.join(missing)))
 
     out_dir = os.path.dirname(os.path.abspath(args.out)) or '.'
     os.makedirs(out_dir, exist_ok=True)
