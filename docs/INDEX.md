@@ -20,6 +20,7 @@ that produced them, under [`../fave/bench/campaigns/`](../fave/bench/campaigns/)
 |---|---:|---|
 | [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) | 986 | **The run book.** The measurements that are open and worth running, ordered so a session with no prior context can execute it top to bottom, unattended. Start here to run something. |
 | [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md) | 136 | **The accommodation registry.** Every way a tool was helped to run the suite, or a workload changed for it — what was done, what it costs, the evidence it is right. The write-up cites this for all of them. |
+| [`CONVENTIONS.md`](CONVENTIONS.md) | 87 | How result directories and per-cell artifacts are named, what a run directory must carry, and why a committed result directory is never renamed. Read before starting a run. |
 
 ## The verification backends — one document per engine family
 
