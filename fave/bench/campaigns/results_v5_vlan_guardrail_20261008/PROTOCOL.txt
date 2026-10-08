@@ -1,0 +1,125 @@
+THE VLAN GUARDRAIL -- `--no-vlan`, BOTH ARMS, ON ONE BUILD
+==========================================================
+declared 2026-10-08, BEFORE the run, per MEASUREMENT_RUN_PLAN.md §7.
+five cells. four reportable (limit_class=v5, 24 h, 32 GB), one `dev` probe
+that is expected to FAIL and is not a measurement.
+
+THE QUESTION, AND WHY IT IS NOT "IS APKEEP RIGHT"
+-------------------------------------------------
+§5.4's guardrail asks whether a workload's CHECK SET can see a dimension at
+all. For longest-prefix-match the arm inverts the ordering; for VLAN it is
+`--no-vlan`, which relaxes the dimension. Relaxing can only ADD reachability,
+so the direction is known in advance: violations can only FALL. An unchanged
+verdict therefore reads as "this check set is blind to VLAN", and every VLAN
+claim resting on that workload is unsupported by it.
+
+This is a question about the evidence, not about the engine. A `--no-vlan` run
+is NEVER a faithful run (`ACCOMMODATIONS.md`: reducing variant, "not a
+like-for-like comparand").
+
+WHAT HAD TO BE BUILT FIRST, AND WHY THE ARM WAS NOT RUNNABLE WITHOUT IT
+-----------------------------------------------------------------------
+Both were missing until this commit, and both are failure modes the LPM arm
+already had fixed:
+
+(1) THE REFUSAL. `build_engine` passed `faithful_vlan` only to APKeepAdapter
+    and ACCEPTED-AND-IGNORED it on netplumber, veriflow and ad6 -- twenty
+    lines below the comment explaining why `--invert-lpm` must never be
+    ignored. On a backend that relaxes nothing the verdict cannot move for a
+    reason that has nothing to do with the check set, so the experiment
+    manufactures its own conclusion, in the direction that RETIRES the
+    guardrail. And `cell_run` stamps `engine_options` verbatim, so the cell
+    would have recorded `--no-vlan` while nothing applied it.
+
+(2) THE DENOMINATOR. `faithful_vlan: false` alone cannot distinguish a run
+    that relaxed 77,451 egress rewrites from one on a workload that never had
+    a VLAN stage -- and the second reads as a passing guard. This is exactly
+    what §5.4 hit on `wl_cloud`, which declares no LPM table. The APKeep
+    adapter now counts, in BOTH arms and scoped to the HSA in./mid./out.
+    stages, the VLAN rewrite rules and admission rules the faithful path would
+    model, logs one line, and `cell_run.py` parses it into the cell as
+    `vlan_rewrite_rules` / `vlan_admission_rules` / `vlan_stage_tables`.
+    The counters are read by NO build: a counter the build consults is a
+    counter that can change what is measured.
+
+WHY BOTH ARMS ARE RE-RUN
+------------------------
+The faithful cells already exist (`results_v5_20261002/wl_{i2,stanford}_ndd`:
+11/72 and 75/240). They are NOT reused as the comparison arm, for the reason
+the re-measurement protocol gives: a cell must be produced by ONE build, not
+two. Those predate the counters, so they carry no denominator, and a guardrail
+whose two arms came from different builds is not a controlled comparison. Both
+arms are therefore re-run here, ~35 s in total.
+
+The phase A cells are not overwritten and not withdrawn.
+
+PREDICTIONS (§7; scored afterwards, never edited)
+-------------------------------------------------
+V1  POSITIVE CONTROL -- `wl_i2 x ndd --no-vlan` reports **0 violations of 72**
+    against the faithful arm's 11. The plain model relaxes the VLAN
+    constraint, and `APKEEP_BACKEND.md` records plain i2 reaching all 72.
+    So this workload's check set CAN see VLAN, by exactly the 11 pairs.
+    FALSIFIED BY: any count other than 0.
+
+V2  THE FINDING -- `wl_stanford x ndd --no-vlan` reports **75 of 240,
+    UNCHANGED** from its faithful arm. `APKEEP_BACKEND.md` (2026-09-24)
+    records wl_stanford pair-identical to NetPlumber "faithful *and* plain",
+    165/165, EXTRA=0, MISSING=0. If that holds here, **wl_stanford's check set
+    cannot see the VLAN dimension at all** -- the same shape as G2's LPM
+    finding on wl_i2, and a limit on what the suite's largest HSA workload can
+    be cited for.
+    FALSIFIED BY: any count other than 75.
+
+V3  THE DENOMINATOR IS NON-ZERO AND ARM-INDEPENDENT. On both workloads, and
+    in both arms, `vlan_rewrite_rules` and `vlan_admission_rules` are > 0 and
+    the four numbers per workload agree across its two arms. Point prediction,
+    `wl_i2`: **vlan_rewrite_rules = 77,451**, the out-stage egress rewrite
+    count ad6's faithful encoding reports as `out_rw_rewrites`.
+    FALSIFIED BY: a zero, a disagreement between arms, or an i2 rewrite count
+    other than 77,451. (A disagreement between arms would mean the counter is
+    gated on the flag, which would make the relaxed arm's denominator
+    unreadable -- the defect this was built to remove.)
+
+V4  THE REFUSAL HOLDS END TO END. A `dev` cell
+    `wl_ifi --backend netplumber --engine-options "--no-vlan"` does NOT
+    produce a verdict: the aggregator refuses at `build_engine` and the cell
+    records a failure rather than an unchanged verdict. This is a `dev` cell
+    and is NEVER reportable; it exists to show the refusal survives the whole
+    path (cell_run -> aggregator -> build_engine), which a unit test on
+    `build_engine` alone does not.
+    FALSIFIED BY: the cell reporting 27/299, i.e. a verdict produced while the
+    flag was ignored.
+
+V5  READING RULE, not a prediction: an unchanged verdict in V2 is a statement
+    about wl_stanford's CHECK SET, not about APKeep, and not about whether the
+    faithful model matters. The faithful model demonstrably changes wl_i2's
+    answer by 11 pairs on the same engine and the same build. A guardrail that
+    is read as "VLAN modelling is unnecessary" has been read backwards.
+
+HOW IT IS RUN
+-------------
+    cd fave
+    export PATH="$(cd .. && pwd)/net_plumber/build:$PATH"
+    D=bench/campaigns/results_v5_vlan_guardrail_20261008
+    PY=../.venv/bin/python3      # NOT a bare `python3` -- the interpreter
+                                 # guard refuses that now, but the cell used to
+                                 # record a failure instead of refusing one
+
+    for W in wl_i2 wl_stanford; do
+      $PY bench/cell_run.py $W --backend apkeep --apkeep-engine ndd \
+          --limit-class v5 --limit-wall 86400 --limit-rss 32768 \
+          --memory-floor 2000 --status-every 60 --out $D/${W}_ndd_faithful.json
+      $PY bench/cell_run.py $W --backend apkeep --apkeep-engine ndd \
+          --engine-options "--no-vlan" \
+          --limit-class v5 --limit-wall 86400 --limit-rss 32768 \
+          --memory-floor 2000 --status-every 60 --out $D/${W}_ndd_novlan.json
+    done
+
+    $PY bench/cell_run.py wl_ifi --backend netplumber \
+        --engine-options "--no-vlan" \
+        --limit-class dev --limit-wall 300 --memory-floor 2000 \
+        --out $D/wl_ifi_np_novlan_REFUSED.json
+
+Serialised, one cell at a time, on an idle box -- the verdicts are what matter
+here rather than the wall-clock, but a guardrail comparison with two arms
+sharing a machine is not one either.

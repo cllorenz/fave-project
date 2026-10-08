@@ -96,6 +96,13 @@ _REPORT = re.compile(r'completed task report in ([0-9.e+-]+) seconds')
 _LOAD = re.compile(r'completed task switch_command in ([0-9.e+-]+) seconds')
 _DONE = re.compile(r'completed task ([a-z_]+)')
 _LOOP = re.compile(r'Loop Detected')
+#: APKeep's VLAN guardrail denominator, logged in BOTH arms. Without it
+#: `faithful_vlan: false` cannot say whether the run relaxed 77,451 egress
+#: rewrites or a workload that never had a VLAN stage -- and the second
+#: would read as a passing guard.
+_VLAN_DENOM = re.compile(
+    r'VLAN guardrail denominator: (\d+) rewrite rule\(s\), '
+    r'(\d+) admission rule\(s\), across (\d+) HSA stage table\(s\)')
 _BLACKHOLE = re.compile(r'Blackhole Detected')
 
 #: Third-party modules a cell's CHILDREN import. `build_command` pins every
@@ -486,10 +493,22 @@ def read_verdict(workload, out_dir, stem, gc_log):
         loads = [float(t) for t in _LOAD.findall(text)]
         found['switch_command_s'] = sum(loads) if loads else None
         found['switch_commands'] = len(loads)
+        # The VLAN guardrail's denominator, recorded rather than left to be
+        # grepped. `None` means the backend logged none (every backend but
+        # APKeep, which is the only one with the flag); 0 means it counted and
+        # found nothing to relax, which is what makes an unchanged verdict
+        # under `--no-vlan` readable instead of merely true.
+        denom = _VLAN_DENOM.search(text)
+        found['vlan_rewrite_rules'] = int(denom.group(1)) if denom else None
+        found['vlan_admission_rules'] = int(denom.group(2)) if denom else None
+        found['vlan_stage_tables'] = int(denom.group(3)) if denom else None
     else:
         found['check_compliance_s'] = []
         found['report_task_s'] = []
         found['switch_command_s'] = None
+        found['vlan_rewrite_rules'] = None
+        found['vlan_admission_rules'] = None
+        found['vlan_stage_tables'] = None
 
     # The invariant events, COUNTED INTO THE CELL and not only copied beside
     # it, so a table can carry the number without re-reading a log. A count of

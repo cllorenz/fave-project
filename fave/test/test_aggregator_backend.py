@@ -282,6 +282,41 @@ class TestTheLpmGuardrailIsNotSilentlyIgnored(unittest.TestCase):
             ['np_invert_lpm'])
 
 
+class TestTheNoVlanGuardrailIsRefusedWhereItWouldDoNothing(unittest.TestCase):
+    """ `--no-vlan` is the VLAN arm of the same guardrail, and it has the
+    same failure mode as `--invert-lpm`: it relaxes a dimension, and
+    relaxing can only ADD reachability, so an unchanged verdict is read as
+    'this check set cannot see VLAN'. Only APKeep models VLAN behind a
+    flag -- NetPlumber and VeriFlow-FR translate the model's rules
+    literally, and ad6's semantic path (the one `faithful_vlan`
+    configured) was deleted (`AD6_PLAN.md` §9.25). On any of those the arm
+    would relax nothing, the verdict could not move, and the guardrail
+    would manufacture its own conclusion.
+
+    It was accepted-and-ignored until 2026-10-08, in the same function as
+    the comment explaining why the LPM flag must not be. """
+
+    def test_the_backends_without_the_flag_REFUSE_it(self):
+        for backend in (BACKEND_NETPLUMBER, BACKEND_VERIFLOW, BACKEND_AD6):
+            with self.subTest(backend=backend):
+                with self.assertRaises(ValueError) as caught:
+                    build_engine(backend, _LOG, faithful_vlan=False)
+                self.assertIn('--no-vlan', str(caught.exception))
+                self.assertIn(backend, str(caught.exception))
+
+    def test_they_are_still_BUILDABLE_faithfully(self):
+        # The refusal is about the flag, not the backend: the default arm
+        # goes on working, which is every other cell in the campaign.
+        for backend in (BACKEND_NETPLUMBER, BACKEND_VERIFLOW, BACKEND_AD6):
+            with self.subTest(backend=backend):
+                self.assertIsNotNone(build_engine(backend, _LOG))
+
+    def test_the_default_is_faithful_so_nothing_has_to_ask(self):
+        # `faithful_vlan=True` is the signature default; a caller that
+        # never mentions VLAN must not trip a guardrail it did not invoke.
+        self.assertIsNotNone(build_engine(BACKEND_NETPLUMBER, _LOG,
+                                          faithful_vlan=True))
+
 class TestVeriFlowDefaults(unittest.TestCase):
     """ VeriFlow-FR's measurement-affecting choices (VERIFLOW_PLAN.md §8):
     the defaults are the decided ones -- D6's 4+10 fields, Q4's state revisit,

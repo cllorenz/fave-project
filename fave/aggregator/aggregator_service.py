@@ -152,6 +152,29 @@ def build_engine(
             "or veriflow, which order a declared-LPM table themselves."
             % backend)
 
+    # The SECOND option that must not be silently ignored, and for the same
+    # reason. `--no-vlan` is MEASUREMENT_RUN_PLAN.md's VLAN guardrail arm: it
+    # relaxes the VLAN dimension, and relaxing can only ADD reachability, so
+    # an unchanged verdict reads as 'this check set cannot see VLAN at all'.
+    # Only APKeep has the flag -- NetPlumber and VeriFlow-FR translate the
+    # model's rules literally, and ad6's semantic path (the one
+    # `faithful_vlan` configured) was deleted, `AD6_PLAN.md` §9.25 -- so on
+    # any other backend the arm would relax NOTHING and the verdict would be
+    # unchanged for a reason that has nothing to do with the check set. That
+    # manufactures the guardrail's own conclusion, in the direction that
+    # retires it.
+    #
+    # It was accepted-and-ignored here until 2026-10-08, twenty lines below
+    # the comment explaining why `--invert-lpm` must not be.
+    if not faithful_vlan and backend != BACKEND_APKEEP:
+        raise ValueError(
+            "--no-vlan is not implemented for %s: only APKeep models VLAN "
+            "behind a flag. It is the VLAN guardrail arm, and a run that "
+            "quietly ignored it would report an unchanged verdict -- which "
+            "that guardrail reads as 'this check set is blind to VLAN'. The "
+            "other backends carry VLAN unconditionally and have no plain arm "
+            "to compare against." % backend)
+
     if backend == BACKEND_NETPLUMBER:
         return NetPlumberAdapter(
             list(socks or []), logger,

@@ -732,6 +732,19 @@ class APKeepAdapter(AbstractVerificationEngine):
         # against the set of the port it actually arrives on. Keying the gate by
         # device admits any VLAN any port admits -- see _build_i2_faithful.
         self._in_port_vlans: Dict[Tuple[str, Optional[str]], set] = {}
+        # THE GUARDRAIL'S DENOMINATOR, counted in BOTH modes and read by
+        # neither build. `--no-vlan` relaxes the VLAN dimension, so an
+        # unchanged verdict reads as 'this check set cannot see VLAN' --
+        # but only if something was there to relax. `faithful_vlan: false`
+        # alone cannot tell 'relaxed 77,451 egress rewrites' from 'this
+        # workload has no VLAN stage at all' (wl_up, wl_tum, wl_ifi), and
+        # the second would otherwise read as a passing guard. Kept separate
+        # from the capture dicts above, which ARE gated on `_faithful_vlan`:
+        # a counter the build consults is a counter that can change what is
+        # measured.
+        self._vlan_rewrite_rules = 0
+        self._vlan_admission_rules = 0
+        self._vlan_stage_devices: Set[str] = set()
         # in.X -> set of physical ingress ports with an admission rule (None once
         # an in-port-agnostic rule is seen => the device admits every port). Traffic
         # entering an in-stage port ABSENT from this set is admitted by no rule, so
@@ -1075,6 +1088,7 @@ class APKeepAdapter(AbstractVerificationEngine):
                     self._translate_fib_rule(model.node, rule)
                     self._translate_fwd_rule(model.node, rule)
                     self._capture_vlan_port(rule)
+                    self._count_vlan_facts(model.node, rule)
                     if self._faithful_vlan and model.node.split('.', 1)[0] == 'mid':
                         self._capture_mid_rewrite(model.node, rule)
                     if self._faithful_vlan and model.node.split('.', 1)[0] == 'out':
@@ -1658,6 +1672,54 @@ class APKeepAdapter(AbstractVerificationEngine):
                 dst = str(field.value)
         self._out_rw.setdefault(node, []).append((dst, ports[0], vlan_m))
 
+    def _count_vlan_facts(self, node: str, rule: Any) -> None:
+        """ Tally what the faithful VLAN path WOULD model, in either mode.
+
+        Scoped to the HSA `in.`/`mid.`/`out.` stages, because that is
+        exactly where `faithful_vlan` changes the model: elsewhere a VLAN
+        match is carried by the first-match table whatever the flag says,
+        and counting it would inflate a denominator that is supposed to
+        mean 'what this run relaxed'.
+
+        Reads the rule and writes only to counters. Nothing in the build
+        may consult these -- see where they are declared. """
+        stage = node.split('.', 1)[0]
+        if stage not in ('in', 'mid', 'out'):
+            return
+        rewrites = any(
+            field.name == _VLAN
+            for action in rule.actions if isinstance(action, Rewrite)
+            for field in action.rewrite)
+        admits = (
+            stage == 'in'
+            and any(isinstance(a, Forward) and a.ports for a in rule.actions)
+            and any(field.name == _VLAN for field in (rule.match or [])))
+        if rewrites:
+            self._vlan_rewrite_rules += 1
+        if admits:
+            self._vlan_admission_rules += 1
+        if rewrites or admits:
+            self._vlan_stage_devices.add(node)
+
+    def _log_vlan_denominator(self) -> None:
+        """ One line, in BOTH modes, so an unchanged verdict has a denominator.
+
+        `MEASUREMENT_RUN_PLAN.md` §5.4's LPM guardrail learned this the
+        hard way: `wl_cloud` declares no LPM table, so its unchanged
+        verdict under inversion said nothing about its check set, and only
+        the per-table rule count made that visible. The VLAN arm had no
+        equivalent until 2026-10-08. `cell_run.py` parses this line into
+        the cell, so the denominator is a recorded field and not something
+        to grep for afterwards. """
+        self.logger.info(
+            "apkeep: VLAN guardrail denominator: %d rewrite rule(s), %d "
+            "admission rule(s), across %d HSA stage table(s); "
+            "faithful_vlan=%s (%s)",
+            self._vlan_rewrite_rules, self._vlan_admission_rules,
+            len(self._vlan_stage_devices), self._faithful_vlan,
+            "modelled" if self._faithful_vlan
+            else "RELAXED -- not a faithful run")
+
     def _declare_faithful_admission(self) -> None:
         """ The faithful VLAN paths model per-port admission as real ACLs.
 
@@ -1871,6 +1933,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         edges = self._gate_dead_ingress(edges)
         if self._faithful_vlan and (self._stanford or self._i2_faithful):
             self._declare_faithful_admission()
+        # Unconditional: the arm that RELAXES the dimension is the one
+        # whose denominator a reader needs most.
+        self._log_vlan_denominator()
         # Phase (b): express what one ForwardElement cannot, by using more than
         # one. After this every element is ingress-uniform, so the contract
         # below passes because there is nothing left to account for.
