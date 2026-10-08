@@ -85,6 +85,82 @@ class TestTheNewestCellWins(unittest.TestCase):
         self.assertEqual(cells['wl_cloud_np'][0]['violations'], 57)
 
 
+class TestACellIsFiledByItsStampsNotItsFilename(unittest.TestCase):
+    """ `--out` is an operator's choice; the stamps are evidence.
+
+    The ad6 x wl_i2 cell re-measured under the flow grounding on
+    2026-10-08 was written as `wl_i2_ad6_flow.json`, because a cell
+    measured under a declared non-default encoding is worth naming for
+    what it is. Keyed on the filename it would have matched no row and
+    fallen silently out of the table, leaving the matrix showing the 24 h
+    did-not-finish it supersedes.
+
+    Item 31's rule is that provenance is STAMPED rather than typed, "so a
+    table cannot mislabel a row". A filename is typed. """
+
+    def test_each_backend_is_filed_under_its_own_column(self):
+        for stamps, expected in (
+                ({'backend': 'netplumber', 'engine': 'netplumber'},
+                 'wl_i2_np'),
+                ({'backend': 'apkeep', 'engine': 'ndd'}, 'wl_i2_ndd'),
+                ({'backend': 'apkeep', 'engine': 'bdd'}, 'wl_i2_bdd'),
+                ({'backend': 'ad6', 'engine': 'ad6'}, 'wl_i2_ad6'),
+        ):
+            with self.subTest(**stamps):
+                cell = dict(workload='wl_i2', **stamps)
+                self.assertEqual(
+                    cell_table.cell_key(cell, 'whatever_the_file_is'),
+                    expected)
+
+    def test_the_veriflow_ablation_is_its_own_column(self):
+        # Both cells stamp `engine: veriflow`; `vf_fields` is the only
+        # thing that separates the ablation from the measured arm, so a
+        # key that ignored it would collapse two columns into one and the
+        # NEWER would silently win.
+        base = {'workload': 'wl_ifi', 'backend': 'veriflow',
+                'engine': 'veriflow'}
+        self.assertEqual(
+            cell_table.cell_key(dict(base, vf_fields='4+10'), 'x'),
+            'wl_ifi_vf')
+        self.assertEqual(
+            cell_table.cell_key(dict(base, vf_fields='plain'), 'x'),
+            'wl_ifi_vfplain')
+
+    def test_a_differently_named_cell_overrides_the_one_it_supersedes(self):
+        # The case that motivated this: same workload, same engine, a
+        # later `when`, a different filename.
+        base = tempfile.mkdtemp(prefix='base_')
+        later = tempfile.mkdtemp(prefix='later_')
+        _cell(os.path.join(base, 'wl_i2_ad6.json'), workload='wl_i2',
+              backend='ad6', engine='ad6', checks=72,
+              when='2026-10-03T00:00:00+00:00', outcome='did_not_finish',
+              violations=None)
+        _cell(os.path.join(later, 'wl_i2_ad6_flow.json'), workload='wl_i2',
+              backend='ad6', engine='ad6', checks=72, violations=11,
+              when='2026-10-08T00:00:00+00:00')
+        cells = cell_table.load([base, later])
+        self.assertEqual(sorted(cells), ['wl_i2_ad6'])
+        cell, came_from, filed_as = cells['wl_i2_ad6']
+        self.assertEqual(cell['violations'], 11)
+        self.assertEqual(came_from, later)
+        # The filename is kept, because the sibling artefacts
+        # (`<stem>.report.md`) are found by it.
+        self.assertEqual(filed_as, 'wl_i2_ad6_flow')
+
+    def test_an_unknown_backend_falls_back_rather_than_guessing(self):
+        # A cell this table does not understand must not be filed under
+        # whichever column happens to sort first. An unmatched key shows
+        # up as a missing row, which is visible.
+        for cell in ({'workload': 'wl_i2', 'backend': 'something_new'},
+                     {'workload': 'wl_i2', 'backend': 'apkeep',
+                      'engine': 'zdd'},
+                     {'backend': 'ad6'},
+                     {}):
+            with self.subTest(cell=cell):
+                self.assertEqual(cell_table.cell_key(cell, 'the_stem'),
+                                 'the_stem')
+
+
 class TestADuplicatedViolationLineIsFlagged(unittest.TestCase):
     """ `cell_metrics.violations` counts report LINES. NetPlumber emits one per
     witnessing header space, and HSA's union-of-wildcards is not canonical, so

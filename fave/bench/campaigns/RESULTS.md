@@ -13,7 +13,8 @@ row came to say "refuses (structural)" for a cell that answered.
 ```
 python3 bench/campaigns/cell_table.py results_v5_20261002 \
     --over results_v5_o1afix --over results_v5_f3fix \
-    --over results_v5_remeasure_20261006
+    --over results_v5_remeasure_20261006 \
+    --over results_v5_i2_ad6_flow_20261008
 ```
 
 | workload | NetPlumber | NDD-APKeep | BDD-APKeep | ad6 | VeriFlow-FR | VF-plain |
@@ -25,10 +26,22 @@ python3 bench/campaigns/cell_table.py results_v5_20261002 \
 | wl_airtel1 | 0/256 | 0/256 | 0/256 | 0/256 | 0/256 | 0/256 |
 | wl_airtel2 | 0/256 | 0/256 | 0/256 | 0/256 | 0/256 | 0/256 |
 | wl_stanford | 75/240 | 75/240 | **DNF** (wall, 24 h) | 75/240 | 75/240 | 75/240 |
-| wl_i2 | 11/72 | 11/72 | **DNF** (wall, 24 h) | **DNF** (wall, 24 h) | 11/72 | 11/72 |
+| wl_i2 | 11/72 | 11/72 | **DNF** (wall, 24 h) | 11/72 § | 11/72 | 11/72 |
 | wl_up | 0/18811 | 0/18811 | 0/18811 | 0/18811 | 0/18811 | not run |
 
 **Every engine agrees with every other, on every workload that finished.**
+
+**§ `ad6 × wl_i2` is FLOW-grounded**; every other ad6 cell here is rank. They
+may not be read down the same wall-clock column (`AD6_PLAN.md` §9.33.3) — the
+sign of the effect depends on the query count, so neither grounding is "faster"
+in general. Phase A ran this cell as `rank + lite_acyclic` and it tripped the
+24 h limit at 23,667 MB with no verdict; §9.33.2, written two weeks *before*
+that queue shipped, had already established that rank cannot carry i2 since the
+plain model was deleted. Re-measured 2026-10-08 under
+`--grounding flow --solver cadical195`: **63.3 min, 10,497 MB, 11 of 72**, set-
+identical to the other three engines. The DNF is not withdrawn — it is a result
+about rank — but it was never a statement about ad6 on this workload. Full
+scoring in [`results_v5_i2_ad6_flow_20261008/FINDINGS.md`](results_v5_i2_ad6_flow_20261008/FINDINGS.md).
 
 **‡ is not a disagreement.** NetPlumber's 58 is 57 distinct violations plus one
 line printed twice — the same (source, probe) pair witnessed by two
@@ -52,7 +65,7 @@ declared ablation and was deferred, never run.
 | wl_airtel1 | 5.2 s / 218 MB | 3.6 s / 2058 MB | 4.4 s / 878 MB | 34.8 s / 1527 MB | 4.2 s / 194 MB | 4.2 s / 194 MB |
 | wl_airtel2 | 5.3 s / 367 MB | 3.7 s / 2072 MB | 4.4 s / 892 MB | 33.7 s / 1542 MB | 4.1 s / 198 MB | 4.2 s / 197 MB |
 | wl_stanford | 5.0 s / 840 MB | 3.2 s / 2152 MB | 24 h / 3135 MB | 808.5 s / 8222 MB | 152.9 s / 1017 MB | 428.9 s / 1979 MB |
-| wl_i2 | 62.2 s / 1868 MB | 32.1 s / 2570 MB | 24 h / 2883 MB | 24 h / 23667 MB | 116.5 s / 374 MB | 113.5 s / 399 MB |
+| wl_i2 | 62.2 s / 1868 MB | 32.1 s / 2570 MB | 24 h / 2883 MB | 3800.6 s / 10497 MB § | 116.5 s / 374 MB | 113.5 s / 399 MB |
 | wl_up | 22.8 s / 3872 MB | 9.5 s / 2254 MB | 380.3 s / 1792 MB | 433.1 s / 13996 MB | 402.0 s / 610 MB | — |
 
 Peak RSS is the whole session, so the JVM backends carry a ~1.4–2 GB floor that
@@ -119,6 +132,7 @@ Declared before each run and never edited; scored in the directory that ran them
 | G0–G5 (LPM guardrail) | `results_v5_lpm_guardrail_20261006/FINDINGS.md` | **G0, G2 falsified** |
 | N1–N7, A1 (NetPlumber × berkeley) | `results_v5_berkeley_np_20261007/FINDINGS.md` | N1–N6 held, N7's number missed; **A1 falsified** |
 | B5–B7 (BDD k=1) | this file, §4 | B5, B6 held; **B7 falsified** |
+| F1–F5 (ad6 × wl_i2, flow) | `results_v5_i2_ad6_flow_20261008/FINDINGS.md` | **F1–F4 all held**; F5 is a reading rule |
 
 **Falsified predictions are the campaign's most useful output.** P10 and §5.4's
 `wl_cloud` case were both scored against claims the project had *already
@@ -130,8 +144,27 @@ stopped a 10× speed-up being credited to the author's own change.
 
 * **One sample per cell.** The only variance figure in the campaign is the 1.1%
   spread between two identical NetPlumber runs at k=30.
-* **No faithful-VLAN variant cells** — §6 defines phase A as including them and
-  the shipped queue never had them. Still open.
+* **The faithful-VLAN axis is narrower than it reads.** §6 defines phase A as
+  including "faithful variants", and §5.1 calls them "separate cells, not the
+  same workload" — but that sentence predates 2026-09-18, when the faithful
+  model became the APKeep default. Checked against the artifacts (2026-10-08):
+  every APKeep cell stamps `faithful_vlan: true`, the `wl_stanford` and `wl_i2`
+  aggregator logs record per-port faithful VLAN admission, and the verdicts are
+  the faithful ones (165 reachable on stanford, 61 on i2). **The matrix cells
+  ARE the faithful cells** wherever the flag does anything, which is those two
+  workloads. Only APKeep has the axis at all: NetPlumber and VeriFlow-FR
+  translate the model's rules literally, and ad6's semantic path is deleted.
+  What is genuinely absent is the **faithful-vs-plain contrast as declared
+  cells** — two APKeep arms under `--no-vlan`, a reducing variant. The numbers
+  exist outside V5: i2 plain reaches 72/72 against faithful's 61, while
+  stanford is 165 either way, i.e. **its check set cannot see the VLAN
+  dimension at all** — the same shape as G2's LPM finding. Owner's call.
+* **`bdd × wl_stanford` and `bdd × wl_i2` are the faithful cells**, and both are
+  24 h did-not-finishes. That is the expected result, not a surprise:
+  `APKEEP_BACKEND.md` records that the APKeep engine default moved to NDD
+  *because* faithful-on-BDD completes on neither. The matrix prints them as
+  bare DNFs, which reads as "BDD is slow" rather than "BDD cannot carry the
+  faithful VLAN model at this size".
 * **The incremental axis** (item 31): every cell is a build-from-zero.
 * **`reachable.json` is not an oracle.** A cell is `measured`, not `correct`,
   wherever no expectation was declared. The only external oracle in the suite is

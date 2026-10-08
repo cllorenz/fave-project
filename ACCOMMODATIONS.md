@@ -87,7 +87,8 @@ by the aggregator (`configuration_stamp`) and by the adapter at build
 
 | entry | kind | status |
 |---|---|---|
-| `--lite-acyclic` mandatory on `wl_i2` (TODO item 0a) | adapter encoding | seed |
+| **The grounding is the accommodation on `wl_i2`, and `--lite-acyclic` is a rank-era statement of it** (TODO item 0a) | adapter encoding | *verified* (measured, 2026-10-08). `faithful_vlan` is inert under the literal translation (`AD6_PLAN.md` §9.16.1) and the semantic path is deleted (§9.25), so **there is no plain i2 model left** and every i2 run is the faithful-scale problem. Rank does not carry it even with `--lite-acyclic`: the phase A cell tripped 24 h at 23,667 MB with no verdict. **Flow answers in 63.3 min at 10,497 MB**, 11 of 72, set-identical to NetPlumber, NDD-APKeep and VeriFlow-FR (`bench/campaigns/results_v5_i2_ad6_flow_20261008/`). Under flow `lite_acyclic_applies` is False BY CONSTRUCTION — it builds no rank constraints — so passing the flag would stamp a result with an option never applied, and the stamp says `lite_acyclic: false`. |
+| Flow and rank may not share a wall-clock column (`AD6_PLAN.md` §9.33.3) | reporting rule | *verified* (code). The sign of the effect depends on the query count: flow is 3.65x faster on `wl_stanford` (240 queries) and >31.4x slower on `wl_up` (11,902, did not finish). `cell_table.py` keys a cell by its own stamps rather than its filename and prints the `engine_options` behind every overriding row, so the grounding reaches the table without being typed. |
 
 ## Retired — `-o` in a filter chain (TODO item 13a), CLOSED 2026-10-06
 

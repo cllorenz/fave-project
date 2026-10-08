@@ -62,8 +62,42 @@ WORKLOADS = ('wl_example', 'wl_ifi', 'wl_cloud', 'wl_tum', 'wl_airtel1',
              'wl_airtel2', 'wl_stanford', 'wl_i2', 'wl_up')
 
 
+#: How a cell's own stamps name the column it belongs in. The FILENAME
+#: does not: `--out` is an operator's choice, and a cell measured under a
+#: declared non-default encoding is worth naming for what it is
+#: (`wl_i2_ad6_flow.json`) without thereby falling out of the table. Item
+#: 31's rule is that provenance is STAMPED rather than typed, "so a table
+#: cannot mislabel a row" -- and a table keyed on the filename is keyed on
+#: a typed field.
+def cell_key(cell, stem):
+    """ The `<workload>_<engine>` key this cell belongs under, from its stamps.
+
+    Falls back to the filename stem when the stamps cannot answer -- a
+    result predating them, or a backend this table does not know. An
+    unrecognised key simply matches no row, which is visible; filing a
+    cell under the wrong column is not. """
+    workload, backend = cell.get('workload'), cell.get('backend')
+    if not workload or not backend:
+        return stem
+    if backend == 'netplumber':
+        engine = 'np'
+    elif backend == 'apkeep':
+        engine = cell.get('engine')
+    elif backend == 'ad6':
+        engine = 'ad6'
+    elif backend == 'veriflow':
+        # The ablation is its own column, and `vf_fields` is the only thing
+        # that separates them: both stamp `engine: veriflow`.
+        engine = 'vf' if cell.get('vf_fields') == '4+10' else 'vfplain'
+    else:
+        return stem
+    if engine not in ENGINES:
+        return stem
+    return '%s_%s' % (workload, engine)
+
+
 def load(directories):
-    """ stem -> (cell, directory it came from). **The NEWEST cell wins, by its
+    """ key -> (cell, directory, filename stem). **The NEWEST cell wins, by its
     own `when` stamp** -- not by the order the directories were named.
 
     This was argument order once, and the first real table it produced was
@@ -86,10 +120,11 @@ def load(directories):
             with open(os.path.join(directory, name)) as handle:
                 cell = json.load(handle)
             stem = name[:-5]
+            key = cell_key(cell, stem)
             when = cell.get('when') or ''
-            if stem in found and (found[stem][0].get('when') or '') > when:
+            if key in found and (found[key][0].get('when') or '') > when:
                 continue
-            found[stem] = (cell, directory)
+            found[key] = (cell, directory, stem)
     return found
 
 
@@ -148,7 +183,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     cells = load([args.base] + args.over)
-    overridden = {stem for stem, (_c, d) in cells.items() if d != args.base}
+    overridden = {key for key, (_c, d, _s) in cells.items() if d != args.base}
     duplicated = set()
 
     print('| workload | ' + ' | '.join(ENGINE_LABEL[e] for e in ENGINES) + ' |')
@@ -160,7 +195,7 @@ def main(argv=None):
             if stem not in cells:
                 row.append('—')
                 continue
-            cell, came_from = cells[stem]
+            cell, came_from, filed_as = cells[stem]
             if args.timing:
                 text = '%.1f s / %s MB' % (cell.get('wall_s') or 0,
                                            cell.get('peak_rss_mb'))
@@ -170,7 +205,7 @@ def main(argv=None):
                 # prints more LINES than it names distinct checks. Changing the
                 # metric would move recorded numbers across the campaign and is
                 # the owner's call; hiding the discrepancy is not.
-                n = distinct_violations(came_from, stem)
+                n = distinct_violations(came_from, filed_as)
                 if n is not None and cell.get('violations') not in (None, n):
                     text += ' ‡%d' % n
                     duplicated.add(stem)
@@ -188,10 +223,16 @@ def main(argv=None):
 
     if overridden:
         print()
-        print('† re-measured after a fix; the cell comes from %s, not %s.'
-              % (', '.join(args.over), args.base))
+        print('† the cell comes from a later directory than %s: re-measured '
+              'after a fix, or measured under a declared encoding the base '
+              'cell did not use. Each is named with the options that '
+              'produced it.' % args.base)
         for stem in sorted(overridden):
-            print('  - %s (%s)' % (stem, cells[stem][1]))
+            cell, came_from, filed_as = cells[stem]
+            options = cell.get('engine_options') or ''
+            print('  - %s (%s/%s.json%s)'
+                  % (stem, came_from, filed_as,
+                     ', `%s`' % options if options else ''))
     return 0
 
 

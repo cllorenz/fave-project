@@ -1,0 +1,95 @@
+{
+  "workload": "wl_i2",
+  "backend": "ad6",
+  "engine": "ad6",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-08T10:25:25.992120+00:00",
+  "git_head": "314263ea3d8f1975f6751db72ef552830d6ac759",
+  "engine_commit": "f038b62cf4e1bbef8784008d51702d7f032cf67c 2026-09-22",
+  "engine_options": "--grounding flow --solver cadical195",
+  "driver": "bench/wl_i2/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 3800.577,
+  "memory_stop": null,
+  "peak_rss_mb": 10497,
+  "peak_rss_by_process_mb": {
+    "python3": 10105,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 391,
+    "sleep": 1
+  },
+  "least_available_mb": 51930,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_i2_ad6_flow.status.jsonl",
+  "check_compliance_s": [
+    3795.173441886902
+  ],
+  "report_task_s": [
+    0.005311727523803711
+  ],
+  "switch_command_s": 1.5764527320861816,
+  "switch_commands": 18,
+  "loop_reports": null,
+  "blackhole_reports": null,
+  "gc": null,
+  "report": true,
+  "violations": 11,
+  "violation_lines": [
+    "- `source.chic` does not reach `probe.hous`",
+    "- `source.atla` does not reach `probe.kans`",
+    "- `source.chic` does not reach `probe.kans`",
+    "- `source.newy32aoa` does not reach `probe.kans`",
+    "- `source.wash` does not reach `probe.kans`",
+    "- `source.chic` does not reach `probe.losa`",
+    "- `source.chic` does not reach `probe.salt`",
+    "- `source.atla` does not reach `probe.seat`",
+    "- `source.chic` does not reach `probe.seat`",
+    "- `source.newy32aoa` does not reach `probe.seat`"
+  ],
+  "checks": 72,
+  "verdict_valid": true,
+  "apkeep_jar": "e9269099a59c40da8f05e94eaff1b18cc2d201e0c48eaeec2bb3e926a3163c44",
+  "ndd_jar": "5a0365f410528d160b4e5d432d909f51212a6d1f8ba6f04b1e929c36b1c124c3",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "first-party",
+    "translation": "literal",
+    "grounding": "flow",
+    "solver": "cadical195",
+    "lite_acyclic": false
+  },
+  "impl": "first-party",
+  "upstream": null,
+  "expected_violations": null,
+  "outcome": "measured"
+}
