@@ -1,0 +1,103 @@
+ad6 x wl_i2 RE-MEASURED UNDER THE FLOW GROUNDING
+================================================
+declared 2026-10-08, BEFORE the run, per MEASUREMENT_RUN_PLAN.md §7.
+one cell. limit_class=v5 (24 h wall, 32 GB summed RSS), the same class as
+every other cell in the matrix.
+
+WHY THIS CELL EXISTS
+--------------------
+Phase A ran `wl_i2 x ad6` as
+
+    --grounding rank --solver cadical195 --lite-acyclic
+
+(`v5_phase_a.json`), and it recorded a reportable did-not-finish: 24 h wall,
+23,667 MB peak, `limit_tripped: wall`, `verdict_valid: false`. That is one of
+the campaign's three headline DNFs.
+
+AD6_PLAN.md §9.33.2 -- written 2026-09-17, two weeks BEFORE the queue shipped
+-- had already ruled that configuration out, in these words:
+
+    there is no plain i2 model on this tree any more. Every i2 run through ad6
+    is now the faithful-scale problem, which is exactly the one rank cannot
+    carry here [...] for i2, flow is not merely *cheaper* than rank: it is the
+    only grounding that fits the machine.
+
+Two established facts, put together there for the first time: §9.16.1,
+`faithful_vlan` is INERT under the literal translation (i2's rules carry VLAN
+whatever a flag says); and §9.25, the semantic path -- which is what "plain"
+was -- is deleted. So the rank+lite number that justified the queue's options
+(§5.5's "rank + lite ... 3.56 h / 13.4 GB") measured a model this tree can no
+longer build.
+
+The phase A cell is therefore a measurement of a configuration, not of the
+engine. This cell measures the configuration AD6_PLAN.md names as the only one
+that fits.
+
+WHAT IS NOT CHANGED, AND WHY
+----------------------------
+* `results_v5_20261002/wl_i2_ad6.json` is NOT overwritten and NOT withdrawn.
+  rank+lite on the faithful i2 model genuinely does not finish inside 24 h on
+  this machine, and that is a reportable result about rank. It stands, with its
+  grounding named.
+* No code is touched. `--grounding flow --solver cadical195` is passed through
+  `--engine-options`, which `cell_run.py` appends to FAVE_ENGINE_OPTIONS
+  verbatim and stamps. The tree stays read-only for the duration of the run.
+* No `--expect-violations`. 11 is a cross-engine consensus, not an oracle --
+  `bench/wl_i2/reachable.json` is the same all-reachable policy mesh as
+  wl_stanford's and cannot adjudicate (§9.28.6). The honest outcome is
+  `measured`, exactly as for the other wl_i2 cells.
+
+PREDICTIONS (§7; scored afterwards, never edited)
+-------------------------------------------------
+F1  The cell COMPLETES inside the 24 h limit: `status: completed`,
+    `limit_tripped: none`, `verdict_valid: true`.
+    FALSIFIED BY: any limit trip, or a verdict the witness cannot validate.
+
+F2  11 violations of 72, and the SET is the one the other four engines report:
+      chic -> hous, kans, losa, salt, seat
+      atla -> kans, seat
+      newy32aoa -> kans, seat
+      wash -> kans, seat
+    FALSIFIED BY: any other count, or the same count over a different set.
+    (The set is checked, not just the count -- §9.33 checked it by set
+    difference, empty both ways, and a matching count over a different set
+    would be a worse result than a mismatching one.)
+
+F3  Wall-clock under 2 h (7,200 s), point estimate 3,500-4,500 s.
+    Basis: §9.33's live-aggregator flow run spent 4,023.6 s in
+    `check_compliance` on a shared box; this box is idle, has 16 cores and
+    62.5 GB available. ad6's solve is essentially single-threaded, so the core
+    count buys little -- hence a point estimate near the archived number rather
+    than well below it.
+    FALSIFIED BY: >= 7,200 s. (A point estimate is not falsifiable; the bound
+    is.)
+
+F4  Peak RSS between 8,000 and 16,000 MB, i.e. comfortably inside the 32 GB
+    limit and BELOW the rank cell's 23,667 MB.
+    Basis: §9.33 records 9,983 MB peak bridge RSS for this configuration and
+    ~10.0 GB in the adapter's own docstring. `cell_run.py` measures summed RSS
+    across the process group, which is a larger denominator than "bridge RSS",
+    so the prediction is given as a band rather than a point.
+    FALSIFIED BY: outside that band.
+
+F5  Flow is not a free win, and this cell may not be put in a wall-clock column
+    beside the rank-grounded ad6 cells. This is a READING RULE, not a
+    prediction: §9.33.3 is explicit, and §7.5's 21.7x -- flow at its best
+    against rank at its worst -- is the cautionary case. RESULTS.md §2 must
+    name the grounding on this row.
+
+HOW IT IS RUN
+-------------
+    cd fave
+    export PATH="$(cd .. && pwd)/net_plumber/build:$PATH"
+    setsid nohup python3 bench/cell_run.py wl_i2 \
+        --backend ad6 \
+        --engine-options "--grounding flow --solver cadical195" \
+        --limit-class v5 --limit-wall 86400 --limit-rss 32768 \
+        --memory-floor 2000 --status-every 60 \
+        --out bench/campaigns/results_v5_i2_ad6_flow_20261008/wl_i2_ad6_flow.json
+
+No `--lite-acyclic`: it is a rank-encoding option. Under the flow grounding
+`lite_acyclic_applies` is False by construction (flow builds no rank
+constraints at all), so passing it would stamp the result with an option that
+was never applied -- the mistake §9.16.1 caught for `faithful_vlan`.
