@@ -26,8 +26,10 @@ so that the suite-wide runner measures with the same code instead of a second
 copy. **The extraction is only safe if it is behaviour-preserving**, so the
 first test here re-derives every GC summary and violation count stored in the
 committed result directories and requires them to come out identical. That is
-34 figures across five campaigns, including the ones `CLOUD_BENCH_PLAN.md`
-§2.15 quotes -- if the extraction had changed a parser, this fails.
+~190 figures across BOTH result trees -- `bench/deltanet/eval/` and, since
+2026-10-08, `bench/campaigns/` -- including the ones `CLOUD_BENCH_PLAN.md`
+§2.15 quotes and the V5 campaign's own. If the extraction had changed a parser,
+this fails.
 
 The rest pin `outcome()`, which is where the stopping-rule discipline lives: a
 run the environment killed must NOT be readable as a run that did not finish.
@@ -42,41 +44,68 @@ from bench import cell_metrics
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _FAVE = os.path.abspath(os.path.join(_HERE, '..'))
-_RESULTS = os.path.join(_FAVE, 'bench', 'deltanet', 'eval')
+#: Both trees of committed result directories. The campaign tree was NOT
+#: covered until 2026-10-08: the glob named deltanet/eval only, so the V5
+#: campaign's own GC summaries -- including the two 24 h BDD cells, whose GC
+#: logs are the evidence that BDD could not carry the model rather than merely
+#: being slow -- re-derived nowhere. It is the larger of the two trees.
+_RESULTS = (
+    os.path.join(_FAVE, 'bench', 'deltanet', 'eval'),
+    os.path.join(_FAVE, 'bench', 'campaigns'),
+)
+
+#: Per-tree floors, deliberately not one total. A single total lets one tree
+#: go to zero while the other covers for it -- which is the exact failure the
+#: floor exists to catch.
+_FLOOR = {'eval': 20, 'campaigns': 80}
 
 
 class TestTheExtractionChangedNothing(unittest.TestCase):
     """ Every stored figure re-derives from the extracted code. """
 
     def test_stored_gc_and_violations_re_derive(self):
-        checked = 0
-        for path in sorted(glob.glob(os.path.join(_RESULTS, 'results_*',
-                                                  '*.json'))):
-            stem = os.path.splitext(path)[0]
-            with open(path) as handle:
-                stored = json.load(handle)
+        checked = {}
+        for root in _RESULTS:
+            tree = os.path.basename(root)
+            checked.setdefault(tree, 0)
+            for path in sorted(glob.glob(os.path.join(root, 'results_*',
+                                                      '*.json'))):
+                stem = os.path.splitext(path)[0]
+                with open(path) as handle:
+                    stored = json.load(handle)
 
-            gc_log = stem + '.gc.log'
-            if stored.get('gc') and os.path.exists(gc_log):
-                with self.subTest(file=os.path.basename(path), what='gc'):
-                    self.assertEqual(cell_metrics.gc_summary(gc_log),
-                                     stored['gc'])
-                checked += 1
+                # A queue file is a list of cells to run, not a cell's result.
+                if not isinstance(stored, dict):
+                    continue
 
-            report = stem + '.report.md'
-            if os.path.exists(report) and stored.get('violations') is not None:
-                with open(report) as handle:
-                    text = handle.read()
-                with self.subTest(file=os.path.basename(path), what='report'):
-                    self.assertEqual(len(cell_metrics.violations(text)),
-                                     stored['violations'])
-                checked += 1
+                gc_log = stem + '.gc.log'
+                if stored.get('gc') and os.path.exists(gc_log):
+                    with self.subTest(tree=tree,
+                                      file=os.path.basename(path), what='gc'):
+                        self.assertEqual(cell_metrics.gc_summary(gc_log),
+                                         stored['gc'])
+                    checked[tree] += 1
 
-        # Guard against the whole test passing because the glob found nothing
-        # -- the failure mode that makes a regression test worthless.
-        self.assertGreater(checked, 20,
-                           "only %d stored figures were re-derived; the glob "
-                           "has probably gone stale" % checked)
+                report = stem + '.report.md'
+                if (os.path.exists(report)
+                        and stored.get('violations') is not None):
+                    with open(report) as handle:
+                        text = handle.read()
+                    with self.subTest(tree=tree,
+                                      file=os.path.basename(path),
+                                      what='report'):
+                        self.assertEqual(len(cell_metrics.violations(text)),
+                                         stored['violations'])
+                    checked[tree] += 1
+
+        # Guard against the whole test passing because a glob found nothing
+        # -- the failure mode that makes a regression test worthless. Checked
+        # per tree: a single total would let one tree go stale unnoticed.
+        for tree, floor in _FLOOR.items():
+            self.assertGreater(
+                checked.get(tree, 0), floor,
+                "only %d stored figures were re-derived under %s; its glob "
+                "has probably gone stale" % (checked.get(tree, 0), tree))
 
 
 class TestTheMachineIsStamped(unittest.TestCase):
