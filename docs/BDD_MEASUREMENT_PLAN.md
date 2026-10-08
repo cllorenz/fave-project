@@ -182,7 +182,7 @@ corrupt, and it is suggestive rather than conclusive.
   element, and `Element.forwardAPs` then intersects them away silently). Found by
   dumping the engine-neutral rule IR and replaying it on device subsets, which
   took a 2.8 h build down to a **70-rule, 0.4 s** repro; that harness is now
-  `fave/bench/apkeep_ir_replay.py`. Fixed by `Network.refreshRewriteTables()`,
+  `fave/bench/analysis/apkeep_ir_replay.py`. Fixed by `Network.refreshRewriteTables()`,
   pinned by `fave/test/test_apkeep_nat_rewrite.py`. `CLOUD_BENCH_PLAN.md` §1.7.3,
   TODO item 29.
 

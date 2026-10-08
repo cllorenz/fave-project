@@ -41,7 +41,7 @@ survey) and ingress-port expansion (Q16, rules per FaVe rule).
 Usage, from fave/ with PYTHONPATH=. and the venv active, after the workloads'
 test/gen_*_inputs.sh and veriflow_fr/python/build_libveriflow_fr.sh:
 
-    python3 bench/veriflow_ec_census.py [--json out.json]
+    python3 bench/analysis/veriflow_ec_census.py [--json out.json]
 """
 
 import argparse

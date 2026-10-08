@@ -57,7 +57,7 @@ writes it from the engine's own id tables using the same construction --
 including `id_to_rule`'s `key >> 12`, which is how a rule id maps to its table.
 
 Usage (from fave/, PYTHONPATH=., venv active):
-  python3 bench/np_i2_flow_dump.py --out-dir /path/to/dump
+  python3 bench/analysis/np_i2_flow_dump.py --out-dir /path/to/dump
 """
 
 import argparse
@@ -70,8 +70,9 @@ import time
 
 sys.setrecursionlimit(10 ** 6)
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_FAVE = os.path.dirname(_HERE)
+_HERE = os.path.dirname(os.path.abspath(__file__))  # .../bench/analysis
+_BENCH = os.path.dirname(_HERE)
+_FAVE = os.path.dirname(_BENCH)
 _I2_PREFIX = os.path.join("bench", "wl_i2", "i2-json")
 
 

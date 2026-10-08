@@ -4,7 +4,7 @@
 two views of the same gap.
 
 > **Read sec. 3 first.** The oracle step 0 asked for was built
-> (`bench/apkeep_out_stage_oracle.py`) and it established that **no source->probe
+> (`bench/analysis/apkeep_out_stage_oracle.py`) and it established that **no source->probe
 > reachability question can observe this gap, in the REFERENCE model**: deleting
 > all 16 out-stage deny rules from wl_stanford changes NetPlumber's own answer by
 > nothing. The cause is that a high-priority match-all shadows the whole out-stage
@@ -157,7 +157,7 @@ gate. Both halves are below, because the second is the result.
 
 ### 3.1 What was built
 
-`bench/apkeep_out_stage_oracle.py`. It drives wl_stanford through both backends
+`bench/analysis/apkeep_out_stage_oracle.py`. It drives wl_stanford through both backends
 in the PRODUCTION configuration (APKeep faithful + NDD, the aggregator default)
 and diffs the pair sets for a question narrowed two ways:
 
@@ -179,7 +179,7 @@ the out in-ports carrying `ip_proto=6 + vlan=68 -> DROP`.
 ### 3.2 The result: the reference model cannot see its own denies
 
 ```
-$ python bench/apkeep_out_stage_oracle.py --drop-out-denies \
+$ python bench/analysis/apkeep_out_stage_oracle.py --drop-out-denies \
       --seed none \
       --seed 'ipv4_dst=172.24.68.0/23+ip_proto=6' \
       --seed 'ipv4_dst=171.64.158.0/23+ipv4_src=217.78.63.15/32'
@@ -696,7 +696,7 @@ The out-stage collapse means APKeep is not charged. Measured, wl_stanford:
 | `out` | 2,683 | 2,683 | **0** | 1,576 |
 | total to the engine | 8,792 | 8,792 | 7,328 (+60 ACL) | 5,472 |
 
-So `bench/apkeep_vs_netplumber.py` reports a from-zero comparison in which one
+So `bench/analysis/apkeep_vs_netplumber.py` reports a from-zero comparison in which one
 backend was handed 2,683 rules the other declined. Whatever that difference is
 worth, it is currently attributed to engine speed.
 

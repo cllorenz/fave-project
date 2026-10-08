@@ -42,11 +42,11 @@ full-model NDD matrix; `--engine ndd` costs about a second at any size.
 Usage, from fave/ with PYTHONPATH=. and the venv active:
 
     # 1. dump the IR once (the adapter's own translation, engine-neutral)
-    python3 bench/apkeep_ir_replay.py dump --bench wl_cloud --out ir.json
+    python3 bench/analysis/apkeep_ir_replay.py dump --bench wl_cloud --out ir.json
 
     # 2. replay it, whole or pruned, on either engine
-    python3 bench/apkeep_ir_replay.py replay --ir ir.json --engine ndd
-    python3 bench/apkeep_ir_replay.py replay --ir ir.json --engine bdd \
+    python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine ndd
+    python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine bdd \
         --keep dc0 --out dc0-bdd.json
 
 `--keep` takes comma-separated substrings; a device is kept if it contains one

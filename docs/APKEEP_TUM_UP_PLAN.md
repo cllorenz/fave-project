@@ -127,7 +127,7 @@ gap. This re-scopes tasks #3/#4 (recorded there).
 - **Phase 0 — diagnostic probe. DONE** (above). Task #1.
 - **Phase 1 — wl_tum APKeep-vs-NP differential + gated test. DONE (2026-08-13).**
   wl_tum ships an empty oracle, so NP is the reference.
-  - `fave/bench/apkeep_tum_diff.py` — the differential harness (sibling of
+  - `fave/bench/analysis/apkeep_tum_diff.py` — the differential harness (sibling of
     `apkeep_convergence.py`; subprocess-per-backend). Compares by **full node
     name** with no same-base self-reach exclusion — wl_tum's only pair
     `source.tum → probe.tum` shares the base `tum`, which the stanford harness's

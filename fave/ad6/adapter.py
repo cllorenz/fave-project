@@ -27,7 +27,7 @@ tree (rooted at the top-level `ad6/` directory, a sibling of `fave/`, with
 its own PYTHONPATH assumptions), which we deliberately do not import into
 FaVe's process (avoiding any risk of `src`-namespace collisions and mirroring
 this project's existing isolation discipline for cross-backend contamination,
-e.g. bench/apkeep_tum_diff.py's subprocess-per-backend workers). Instead this
+e.g. bench/analysis/apkeep_tum_diff.py's subprocess-per-backend workers). Instead this
 adapter BUFFERS the FaVe model exactly like APKeepAdapter does, then at
 check_compliance() translates it to ad6's config XML and drives
 `ad6/fave_bridge.py` as a subprocess to build the ad6 model and answer the

@@ -26,7 +26,7 @@ The real wl_i2 in-stage admits a DIFFERENT VLAN set on each physical ingress
 port (in.kans port 400029 admits {11,20,21,30,31,32,40,60,70} while ports
 400007/400019/400022/400025/400026 admit 10), and a transit packet is checked
 against the set of the port it actually arrives on. Both properties are load-
-bearing: `bench/i2_structural_oracle.py` re-run with either one relaxed reports
+bearing: `bench/analysis/i2_structural_oracle.py` re-run with either one relaxed reports
 72 of 72 reachable pairs instead of the true 61, which is exactly the answer
 APKeep gave.
 

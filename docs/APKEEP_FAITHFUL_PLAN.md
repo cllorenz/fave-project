@@ -90,7 +90,7 @@ what it does, via one of:
 The 0b harness gave a far better reproducer than options (a)/(b) anticipated — the
 2-router `{bbra_rtr,rozb_rtr}` subset with `bbra→rozb` as the *sole* divergence, driven
 through NP-lib (no TRACE segfault, no hand-built C++ needed). Using egress-tap bisection
-(`bench/np_egress_trace.py`) + NP's core code, the mechanism is **priority-subtraction**:
+(`bench/analysis/np_egress_trace.py`) + NP's core code, the mechanism is **priority-subtraction**:
 NetPlumber resolves rule priority by **rule index / position** (lower index = higher
 priority; `net_plumber.cc:396`, `rule_node.cc process_src_flow` diffs higher-priority
 overlapping rules), and the Stanford mid-stage's match-all `/0` default sits at position 0

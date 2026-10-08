@@ -26,7 +26,7 @@ PolicyTranslator produce the reachability matrix. wl_cloud did not: its checks
 were built by hand from the six oracle queries, so the workload exercised FaVe's
 ENGINE and skipped its POLICY layer entirely, and produced none of the
 `reachable.json`/`cchecks.json` that `bench/apkeep_convergence.py` and
-`bench/i2_structural_oracle.py` consume.
+`bench/analysis/i2_structural_oracle.py` consume.
 
 **What changed the shape of C7.** §1.9.4 assumed the inventory would have to be
 FABRICATED -- a role per endpoint host, a service per port -- and measured the

@@ -145,7 +145,7 @@ the `/12` drop, not the `/0` default. The FaVe model even maps `172.28.0.0/14 �
 assigns each rule's index = its **file position** in the `.tf` (`tf_to_json.py cnt++`), and
 NP treats lower index as higher priority. The `/0` default lands at a lower index than the
 `/14`, so NP forwards `172.28/14` out the **default** egress — the `bbra→rozb` block.
-Proven with `bench/np_egress_trace.py` (source.bbra restricted to `dst=172.28.0.0/14`
+Proven with `bench/analysis/np_egress_trace.py` (source.bbra restricted to `dst=172.28.0.0/14`
 leaves bbra via the `/0` default `110004`, never the `/14` `110001`).
 
 **3. Fixing the priority to LPM makes NP agree with the real FIB.** Re-prioritising every

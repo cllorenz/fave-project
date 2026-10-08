@@ -23,7 +23,7 @@
 
 wl_tum is a single stateful IPv4 firewall (fw.tum, ~3.8k rules) and ships an
 *empty* oracle, so NetPlumber is the reference. This test is the CI face of the
-bench/apkeep_tum_diff.py differential.
+bench/analysis/apkeep_tum_diff.py differential.
 
 CONVERGENCE GATE (Phase 2/4). The APKeepAdapter models fw.tum's forward_filter
 via a FilterElement (multi-field first-match forward-to-out_port / drop), so
@@ -64,7 +64,7 @@ class TestAPKeepTumDifferential(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import apkeep_tum_diff as diff
+        from bench.analysis import apkeep_tum_diff as diff
         cls.diff = diff
         cls.apkeep = diff._pairs(diff.compute_matrix("apkeep"))  # in-process
         with tempfile.TemporaryDirectory(prefix="tum_np_") as tmp:

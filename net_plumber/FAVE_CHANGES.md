@@ -275,6 +275,6 @@ table):
   logging-only loop callback with a per-instance counter, `loop_reports()`. This
   changes no behaviour, since the flow is stopped whether or not a callback is set.
   A count of zero proves the table rule truncated nothing on a workload
-  (`fave/bench/netplumber_loop_census.py`).
+  (`fave/bench/analysis/netplumber_loop_census.py`).
 - **Removed:** upstream `list.h` and `map.h`; code no longer used (`b18bddb7`, `31268590`,
   `c26bdf04`).

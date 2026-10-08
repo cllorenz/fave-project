@@ -914,7 +914,7 @@ FaVe emits this model's rules as `fwd` (1 200), `acl` (0), `nat` (25), `filter`
 reflection: all five of the gateway DNAT's `rewrite_table` entries point at BDD
 ids absent from the partition.
 
-**Localised in minutes, not hours.** `bench/apkeep_ir_replay.py` dumps the
+**Localised in minutes, not hours.** `bench/analysis/apkeep_ir_replay.py` dumps the
 engine-neutral rule IR (`all_rules` + `edges`, which both engines receive
 **identically**, so the dump settles "translation or engine?" outright) and
 replays it on a device subset. Replaying the unpruned IR on NDD returns 59/64,
@@ -1018,10 +1018,10 @@ the two references on the full model; `natfix_endpoint_prune_{ndd,before,after}
 minutes:
 
 ```
-PYTHONPATH=. python3 bench/apkeep_ir_replay.py dump --bench wl_cloud --out ir.json
+PYTHONPATH=. python3 bench/analysis/apkeep_ir_replay.py dump --bench wl_cloud --out ir.json
 KEEP=core.,source.,probe.,dc0_leaf1,dc1_leaf0,dc1_leaf5,dc1_leaf6,dc2_leaf7,dc4_leaf3
-PYTHONPATH=. python3 bench/apkeep_ir_replay.py replay --ir ir.json --engine ndd --keep $KEEP
-PYTHONPATH=. python3 bench/apkeep_ir_replay.py replay --ir ir.json --engine bdd --keep $KEEP
+PYTHONPATH=. python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine ndd --keep $KEEP
+PYTHONPATH=. python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine bdd --keep $KEEP
 ```
 
 ---
@@ -1220,7 +1220,7 @@ counterpart, which is odd, but is a fair price.
 
 It also plugs wl_cloud into machinery it currently cannot reach: `reachable.json`
 and `cchecks.json` are what `bench/apkeep_convergence.py`,
-`bench/apkeep_tum_diff.py` and `bench/i2_structural_oracle.py` consume, and this
+`bench/analysis/apkeep_tum_diff.py` and `bench/analysis/i2_structural_oracle.py` consume, and this
 workload produces neither. §1.7.3's APKeep disagreement had to be reported by
 hand for exactly that reason.
 

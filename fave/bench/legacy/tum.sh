@@ -36,27 +36,27 @@ FFFUU6_UP_RS=../thy/Iptables_Semantics/Examples/UP/ip6tables-save-up
 #bash scripts/convert-ruleset-to-iptables-save.sh $FAVE_UP_RS $FFFUU_UP_RS
 
 echo "run fffuu6 on up workload..."
-bash bench/run_fffuu_benchmarks.sh $RES_UP $FFFUU6_UP_RS -6
+bash bench/legacy/run_fffuu_benchmarks.sh $RES_UP $FFFUU6_UP_RS -6
 
 echo "evaluate fffuu6 on up workload..."
-bash bench/eval_fffuu_benchmarks.sh $RES_UP -6
+bash bench/legacy/eval_fffuu_benchmarks.sh $RES_UP -6
 
 echo "run fave on up workload..."
-bash bench/run_fave_benchmarks.sh $RES_UP bench/wl_tum/benchmark.py $FAVE_UP_RS -6
+bash bench/legacy/run_fave_benchmarks.sh $RES_UP bench/wl_tum/benchmark.py $FAVE_UP_RS -6
 
 echo "evaluate fave and np for up workload..."
-bash bench/eval_fave_benchmarks.sh $RES_UP
-bash bench/eval_fave_aggr_benchmarks.sh $RES_UP
+bash bench/legacy/eval_fave_benchmarks.sh $RES_UP
+bash bench/legacy/eval_fave_aggr_benchmarks.sh $RES_UP
 
 echo "run fffuu on tum workload..."
-bash bench/run_fffuu_benchmarks.sh $RES_TUM $FFFUU_TUM_RS
+bash bench/legacy/run_fffuu_benchmarks.sh $RES_TUM $FFFUU_TUM_RS
 
 echo "evaluate fffuu on tum workload"
-bash bench/eval_fffuu_benchmarks.sh $RES_TUM
+bash bench/legacy/eval_fffuu_benchmarks.sh $RES_TUM
 
 echo "run fave on tum workload..."
-bash bench/run_fave_benchmarks.sh $RES_TUM bench/wl_tum/benchmark.py $FAVE_TUM_RS -4
+bash bench/legacy/run_fave_benchmarks.sh $RES_TUM bench/wl_tum/benchmark.py $FAVE_TUM_RS -4
 
 echo "evaluate fave and np on tum workload"
-bash bench/eval_fave_benchmarks.sh $RES_TUM
-bash bench/eval_fave_aggr_benchmarks.sh $RES_TUM
+bash bench/legacy/eval_fave_benchmarks.sh $RES_TUM
+bash bench/legacy/eval_fave_aggr_benchmarks.sh $RES_TUM

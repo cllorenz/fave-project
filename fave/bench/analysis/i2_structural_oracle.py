@@ -83,7 +83,8 @@ DEVICE_BY_DIGIT = {
     '6': 'newy32aoa', '7': 'salt', '8': 'seat', '9': 'wash',
 }
 
-DEFAULT_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'wl_i2', 'i2-json')
+_BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_DATA = os.path.join(_BENCH, 'wl_i2', 'i2-json')
 
 
 def ip2int(text):

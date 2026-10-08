@@ -24,11 +24,11 @@ function stats {
   INIT=$2
   REACH=$3
 
-  MEAN_INIT=`awk -f bench/mean.awk < $INIT`
-  STDDEV_INIT=`awk -f bench/stddev.awk -vMEAN=$MEAN_INIT < $INIT`
+  MEAN_INIT=`awk -f bench/legacy/mean.awk < $INIT`
+  STDDEV_INIT=`awk -f bench/legacy/stddev.awk -vMEAN=$MEAN_INIT < $INIT`
 
-  MEAN_REACH=`awk -f bench/mean.awk < $REACH`
-  STDDEV_REACH=`awk -f bench/stddev.awk -vMEAN=$MEAN_REACH < $REACH`
+  MEAN_REACH=`awk -f bench/legacy/mean.awk < $REACH`
+  STDDEV_REACH=`awk -f bench/legacy/stddev.awk -vMEAN=$MEAN_REACH < $REACH`
 
   echo "$TOOL $MEAN_INIT $MEAN_REACH NaN $STDDEV_INIT $STDDEV_REACH NaN" >> $RESULTS
 }

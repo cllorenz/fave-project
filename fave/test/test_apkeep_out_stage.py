@@ -37,7 +37,7 @@ of one 2,683 rules smaller -- see `_cost_metrics`.
 
 These are pure logic over a hand-built adapter state: no JVM, and no wl_stanford
 generation. The end-to-end evidence (165/165 vs NetPlumber, unchanged) lives in
-`bench/apkeep_out_stage_oracle.py` and the integration tier.
+`bench/analysis/apkeep_out_stage_oracle.py` and the integration tier.
 """
 
 import logging

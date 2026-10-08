@@ -46,7 +46,7 @@ Veriflow-RI, which "may ... be faster than Veriflow" (DN §5).
 Usage, from fave/ with PYTHONPATH=. and the venv active, after
 test/gen_deltanet_inputs.sh and veriflow_fr/python/build_libveriflow_fr.sh:
 
-    python3 bench/veriflow_calibration.py [--json out.json]
+    python3 bench/analysis/veriflow_calibration.py [--json out.json]
 """
 
 import argparse

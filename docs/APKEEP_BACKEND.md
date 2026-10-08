@@ -285,7 +285,7 @@ coverage map by what we use, prioritized Phase-0 test roadmap, ratchet) lives in
   structural) with source-IP-seeded reachability.
 - **P5 — Differential gate + benchmark. DONE.** `test_backend_differential`
   (integration): APKeep and NetPlumber compute identical wl_ifi reachability and
-  both match `reachable.json`. `bench/apkeep_vs_netplumber.py`: from-zero
+  both match `reachable.json`. `bench/analysis/apkeep_vs_netplumber.py`: from-zero
   comparison (in-process, §6 warm-up handling).
   - **wl_ifi (18 devices):** steady-state ~49 ms (NetPlumber) vs ~140 ms
     (APKeep) -- at small scale NetPlumber's low constant overhead wins.
@@ -377,7 +377,7 @@ build — see the gap below), not the faithful VLAN one.
 
 Those 11 are **set-identical** to ad6's archived faithful result under both solvers
 (`bench/wl_i2/eval/ad6_i2_flowpath_faithful_{cadical195,minisat22}_72pairs_sandbox.json`),
-and to `bench/i2_structural_oracle.py`. So the 61 has four independent witnesses
+and to `bench/analysis/i2_structural_oracle.py`. So the 61 has four independent witnesses
 (NetPlumber, ad6, the structural oracle, and now a second NetPlumber run through the
 benchmark driver) and APKeep is alone at 72.
 
@@ -430,7 +430,7 @@ selectable, `FAVE_BACKEND=apkeep bench/wl_i2/benchmark.py` builds the full dst �
 model on the NDD engine (41.9 s of `check_compliance`) and **still reports 0 violations
 of 72**. The over-approximation therefore survives the faithful model and the
 VLAN-blind alibi is gone: both APKeep models, on both engines, say 72 where NetPlumber,
-ad6 and `bench/i2_structural_oracle.py` say 61.
+ad6 and `bench/analysis/i2_structural_oracle.py` say 61.
 
 ##### ROOT CAUSE (2026-09-18): the VLAN admission gate was keyed by device, and never applied to transit
 
@@ -457,7 +457,7 @@ the single `in.X → mid.X` internal edge and gated there, which catches transit
 That is why only wl_i2 was affected. It did share defect 1, and that is now fixed too —
 see "wl_stanford shared defect 1" below.
 
-**How this was established.** `bench/i2_structural_oracle.py` re-run with one property
+**How this was established.** `bench/analysis/i2_structural_oracle.py` re-run with one property
 relaxed at a time (the model semantics substituted, everything else identical):
 
 | oracle variant | reachable pairs |
@@ -1336,7 +1336,7 @@ denies inert. The `vlan=68` denies and the 12 `ipv4_src` anti-spoofing denies ar
 expressible today.
 
 **RESULT 2026-09-24 — step 0 of that plan closed the question, negatively.**
-`bench/apkeep_out_stage_oracle.py --drop-out-denies` deletes the 16 out-stage
+`bench/analysis/apkeep_out_stage_oracle.py --drop-out-denies` deletes the 16 out-stage
 deny rules and asks NetPlumber whether its own answer moves. It does not:
 **165/165 unconditioned, 30/30 under a generator seed aimed at the vlan-68 TCP
 deny, 39/39 under one aimed at the goza/gozb anti-spoofing deny.** The seeded
@@ -1399,7 +1399,7 @@ sec. 7, revised). A shadowed rule still costs a verification tool, and the
 measured asymmetry is stark: for wl_stanford's 8,792 model rules NetPlumber is
 handed all of them, while APKeep faithful receives `in`=52, `mid`=7,216,
 `out`=**0** (+60 ACL) and APKeep plain 5,472. So the from-zero comparison in
-`bench/apkeep_vs_netplumber.py` is not over the same workload, and the difference
+`bench/analysis/apkeep_vs_netplumber.py` is not over the same workload, and the difference
 is currently attributed to engine speed. Two caveats keep that from proving too
 much: the `in` 2,265 -> 52 figure is a legitimate re-encoding (per-port VLAN
 admission as 60 set-matching ACL rules), not a discard; and eliding dead rules is
@@ -1619,7 +1619,7 @@ correctness. Work on (1) starts next.
   Uniform ⇒ structural ⇒ vacuous. Singular ⇒ carries information.
 
   Three artifacts written at different times already encoded this: `reachable.json` is
-  72 = 9×8 and 240 = 16×15 with no self-pair in either, and `bench/i2_structural_oracle.py`
+  72 = 9×8 and 240 = 16×15 with no self-pair in either, and `bench/analysis/i2_structural_oracle.py`
   — written independently to reproduce the paper's experiment — computes
   `len(sources) × (len(sources) - 1)` and labels its delivery sets "from some **other**
   source".

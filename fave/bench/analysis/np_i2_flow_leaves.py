@@ -44,8 +44,8 @@ dying branch, and "868 branches die here, 1 reaches the probe" was exactly the
 signal that localized wl_stanford.
 
 Usage (from fave/, PYTHONPATH=., venv active):
-  python3 bench/np_i2_flow_leaves.py --dump-dir /path/to/dump
-  python3 bench/np_i2_flow_leaves.py --dump-dir /path/to/dump --source source.chic
+  python3 bench/analysis/np_i2_flow_leaves.py --dump-dir /path/to/dump
+  python3 bench/analysis/np_i2_flow_leaves.py --dump-dir /path/to/dump --source source.chic
 """
 
 import argparse

@@ -57,7 +57,7 @@ class TestEcCensus(unittest.TestCase):
     def _census(self, prefix, files=None):
         if not _present(prefix):
             raise unittest.SkipTest("%s inputs not generated" % prefix)
-        from bench.veriflow_ec_census import census
+        from bench.analysis.veriflow_ec_census import census
         return census(prefix, files)
 
     def test_airtel_reproduces_apkeep_table3(self):

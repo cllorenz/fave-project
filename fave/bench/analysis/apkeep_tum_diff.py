@@ -42,9 +42,9 @@ traverse fw.tum's forward filter to the accept point?).
 
 Usage:
   # full differential (both backends, over-approx + soundness):
-  python bench/apkeep_tum_diff.py
+  python bench/analysis/apkeep_tum_diff.py
   # one backend's matrix only (worker mode; used internally by the driver + test):
-  python bench/apkeep_tum_diff.py --emit apkeep --out /tmp/m.json
+  python bench/analysis/apkeep_tum_diff.py --emit apkeep --out /tmp/m.json
 
 Exit code: 0 iff soundness holds (under-approximation == 0). Non-zero if APKeep
 under-approximates NetPlumber (a real path dropped) or a worker fails.
@@ -61,9 +61,10 @@ import sys
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-FAVE = os.path.dirname(HERE)                       # .../fave
-MODEL_DIR = os.path.join(HERE, "wl_tum")
+HERE = os.path.dirname(os.path.abspath(__file__))  # .../bench/analysis
+BENCH = os.path.dirname(HERE)                      # .../bench
+FAVE = os.path.dirname(BENCH)                      # .../fave
+MODEL_DIR = os.path.join(BENCH, "wl_tum")
 
 Pair = Tuple[str, str]
 Matrix = Dict[str, List[str]]   # probe full name -> sorted source full names that reach it

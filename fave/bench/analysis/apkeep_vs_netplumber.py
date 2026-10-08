@@ -35,7 +35,7 @@ and report the steady-state (median of post-warm-up runs) AND the cold single
 shot, separately and labelled. The compliance workload is the full all-pairs
 source->probe reachability matrix (cond-free), identical for both backends.
 
-Usage:  PYTHONPATH=. python3 bench/apkeep_vs_netplumber.py [workload] [iterations] [warmup]
+Usage:  PYTHONPATH=. python3 bench/analysis/apkeep_vs_netplumber.py [workload] [iterations] [warmup]
         workload in {wl_ifi, wl_i2, wl_stanford}  (default wl_ifi)
 Manual/nightly only (needs the APKeep jar + libnetplumber .so built).
 """

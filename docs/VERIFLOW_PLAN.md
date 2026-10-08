@@ -527,7 +527,7 @@ traces, which are out of scope (`CLOUD_BENCH_PLAN.md` §2.14).
 
 **Result, 2026-09-29: the gate passes, at about 2.2× Veriflow-RI.**
 
-- **Harness:** `fave/bench/veriflow_calibration.py`, commit `0e297ef6`, clean tree.
+- **Harness:** `fave/bench/analysis/veriflow_calibration.py`, commit `0e297ef6`, clean tree.
 - **The model matches Delta-net's graph exactly:** Delta-net's graph over FaVe's
   wl_airtel1 model (`veriflow.translate.node_edges`) has **68 nodes and 158 edges**, the
   paper's node and query counts. That confirms the snapshot identification (Q10) from
@@ -957,7 +957,7 @@ unit tests and seeing them fail, and its exit begins with those tests green.
     saturating at 2^128), V2's share of L10 (black holes behind a multi-field ACL,
     overlaps across fields). The oracle now also checks count = built on every random
     network. 28 C++ tests.
-  - **The EC census** (`fave/bench/veriflow_ec_census.py`, pinned by
+  - **The EC census** (`fave/bench/analysis/veriflow_ec_census.py`, pinned by
     `fave/test/test_veriflow_census.py`) reproduces APKeep's Table 3 exactly where the
     data is the same. On one field, VeriFlow's whole-space range ECs are Delta-net's
     atoms.

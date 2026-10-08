@@ -37,7 +37,7 @@ true at every probe, which would have produced a confident wrong answer.
 
 import unittest
 
-from bench.np_i2_flow_leaves import (
+from bench.analysis.np_i2_flow_leaves import (
     leaf_ids, resolve_node, classify_leaves, load_inverse_maps
 )
 

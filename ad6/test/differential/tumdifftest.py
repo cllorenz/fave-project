@@ -35,7 +35,7 @@ class TumDifferentialTest(unittest.TestCase):
     oracle by running, from the fave/ directory with PYTHONPATH=. and
     libnetplumber built (net_plumber/python/build_libnetplumber.sh):
 
-        python3 bench/apkeep_tum_diff.py --emit netplumber --out /tmp/np_tum.json
+        python3 bench/analysis/apkeep_tum_diff.py --emit netplumber --out /tmp/np_tum.json
 
     which printed {"probe.tum": ["source.tum"]} -- NetPlumber says the pair
     IS reachable. Re-derive and update this constant if tum-ruleset changes.

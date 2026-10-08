@@ -2923,7 +2923,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         over its ports) and spliced only onto source->in.X edges, so a transit
         VLAN was never checked at all. Either mistake alone turns wl_i2's true
         61 reachable pairs into 72 -- confirmed by re-running
-        `bench/i2_structural_oracle.py` with one relaxed at a time, and it is
+        `bench/analysis/i2_structural_oracle.py` with one relaxed at a time, and it is
         precisely the over-approximation APKEEP_BACKEND.md Sec. 9 recorded.
         wl_stanford funnels all ingress through one in.X -> mid.X edge and gates
         there (_build_stanford_faithful), which is why only wl_i2 was affected.

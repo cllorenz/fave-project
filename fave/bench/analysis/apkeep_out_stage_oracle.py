@@ -54,14 +54,14 @@ kept to reproduce the divergence.
 
 Usage:
   # the negative result: the reference model cannot see its own denies
-  python bench/apkeep_out_stage_oracle.py --drop-out-denies \
+  python bench/analysis/apkeep_out_stage_oracle.py --drop-out-denies \
       --seed none --seed 'ipv4_dst=172.24.68.0/23+ip_proto=6'
   # backend differential, asked by SEEDING the generators (trustworthy)
-  python bench/apkeep_out_stage_oracle.py --seed 'ipv4_dst=172.24.68.0/23+ip_proto=6'
+  python bench/analysis/apkeep_out_stage_oracle.py --seed 'ipv4_dst=172.24.68.0/23+ip_proto=6'
   # backend differential, asked by CONDITIONING the check (reproduces item 26)
-  python bench/apkeep_out_stage_oracle.py --cond dst:172.24.68.0/23
+  python bench/analysis/apkeep_out_stage_oracle.py --cond dst:172.24.68.0/23
   # restrict to an induced subnetwork (see apkeep_convergence on its semantics)
-  python bench/apkeep_out_stage_oracle.py --routers yoza_rtr,bbra_rtr --cond dst:172.24.68.0/23
+  python bench/analysis/apkeep_out_stage_oracle.py --routers yoza_rtr,bbra_rtr --cond dst:172.24.68.0/23
 
 Exit code: 0 iff every question agrees between the two backends (or, under
 --drop-out-denies, iff dropping the denies changed nothing).
@@ -79,8 +79,9 @@ import tempfile
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-FAVE = os.path.dirname(HERE)
+HERE = os.path.dirname(os.path.abspath(__file__))  # .../bench/analysis
+BENCH = os.path.dirname(HERE)
+FAVE = os.path.dirname(BENCH)
 sys.path.insert(0, FAVE)
 
 from bench.apkeep_convergence import (      # noqa: E402  (path set above)

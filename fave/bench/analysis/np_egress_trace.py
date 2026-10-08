@@ -35,7 +35,7 @@ DEFAULT egress (mid.bbra_rtr.110004), never the specific rozb egress
 (mid.bbra_rtr.110001): NP resolves priority by rule index, not longest prefix.
 
 Usage:
-  PYTHONPATH=. python bench/np_egress_trace.py \
+  PYTHONPATH=. python bench/analysis/np_egress_trace.py \
       --routers bbra_rtr,rozb_rtr \
       --tap mid.bbra_rtr.110001 --tap mid.bbra_rtr.110004 \
       --src source.bbra_rtr --src-dst 172.28.0.0/14
@@ -52,7 +52,7 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)             # bench/ for apkeep_convergence
+sys.path.insert(0, os.path.dirname(HERE))   # bench/ for apkeep_convergence
 import apkeep_convergence as C       # noqa: E402
 
 

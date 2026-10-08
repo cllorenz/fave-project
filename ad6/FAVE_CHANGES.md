@@ -84,7 +84,7 @@ FORWARD chain's ACCEPT exit (`fw.tum.forward_filter_accept -> probe.tum`), bypas
 interface admission entirely; the exact same shape holds in ad6 (`tum_fw_forward_r0`, the
 first FORWARD rule, as the sole init; reachability of the synthesized `tum_fw_accept_r0`).
 **Result: ad6 says reachable=True, matching NetPlumber exactly** (oracle obtained via
-`fave/bench/apkeep_tum_diff.py --emit netplumber`, see the test's docstring for exact
+`fave/bench/analysis/apkeep_tum_diff.py --emit netplumber`, see the test's docstring for exact
 repro). `bench/tum/tum.xml`'s bundled topology is unused by this query on either side —
 not a gap after all (§4.1's original note was premature; corrected here). Runtime ~30s
 (dominated by CNF instantiation over the 3794-rule model), so this lives in its own suite

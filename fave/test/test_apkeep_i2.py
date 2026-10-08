@@ -59,7 +59,7 @@ Exactness is gated where it belongs: on the FAITHFUL model, in
 where equality with the oracle is a real, falsifiable assertion.
 
 This is the correctness companion to the from-zero scale comparison in
-bench/apkeep_vs_netplumber.py (where APKeep is ~24x faster than NetPlumber here).
+bench/analysis/apkeep_vs_netplumber.py (where APKeep is ~24x faster than NetPlumber here).
 The model JSON are gitignored generated artifacts; test/gen_wl_i2_inputs.sh
 produces them from tracked inputs before this runs (no live backend). Heavier
 than the wl_ifi test (~15 s) -- a deterministic scale gate, not a fast check.

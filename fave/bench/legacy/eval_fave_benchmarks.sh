@@ -25,7 +25,7 @@ function stats {
   echo -n $TOOL >> $RESULTS
 
   for DATA in ${@:2}; do
-      MEAN=`awk -f bench/mean.awk < $DATA`
+      MEAN=`awk -f bench/legacy/mean.awk < $DATA`
       if [ "$MEAN" == "0" ]; then
           echo -n " NaN" >> $RESULTS
       else
@@ -34,8 +34,8 @@ function stats {
   done
 
   for DATA in ${@:2}; do
-      MEAN=`awk -f bench/mean.awk < $DATA`
-      STDDEV=`awk -f bench/stddev.awk -vMEAN=$MEAN < $DATA`
+      MEAN=`awk -f bench/legacy/mean.awk < $DATA`
+      STDDEV=`awk -f bench/legacy/stddev.awk -vMEAN=$MEAN < $DATA`
       if [ "$STDDEV" == "0" ]; then
           echo -n " NaN" >> $RESULTS
       else

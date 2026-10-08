@@ -537,7 +537,7 @@ corrected directly — see §4.4.)
   (wired into `test/test.py` via `differentialsuite.py`): built the model from
   `bench/tum/tum-ruleset` + `bench/tum/tum.xml` exactly as ad6 ships them, init at
   `tum_fw_forward_r0`, query reachability of `tum_fw_accept_r0`. **ad6 says reachable=True,
-  NetPlumber (oracle, via `fave/bench/apkeep_tum_diff.py --emit netplumber`) also says
+  NetPlumber (oracle, via `fave/bench/analysis/apkeep_tum_diff.py --emit netplumber`) also says
   True — exact match, single-pair.** ~30s (dominated by CNF instantiation over 3794 rules;
   a fresh `sys.setrecursionlimit` is needed — `main.py` already does this, a bare script
   driving `Instantiator` directly must do it too, or `_GetOutputsRecurse`'s ~3800-deep
@@ -2267,9 +2267,9 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   TWO EARLIER CONCLUSIONS OF MINE. NetPlumber is RIGHT on the Chicago pairs; ad6
   over-approximates through a specific, fixable defect.**
 
-  Tooling: `bench/np_i2_flow_dump.py` (drives i2 through `NetPlumberLibAdapter`, writes
+  Tooling: `bench/analysis/np_i2_flow_dump.py` (drives i2 through `NetPlumberLibAdapter`, writes
   `fave.json` from the engine's id tables since `InProcessFaVe` runs no aggregator, dumps
-  reduced flow trees) and `bench/np_i2_flow_leaves.py` (resolves leaves to FaVe
+  reduced flow trees) and `bench/analysis/np_i2_flow_leaves.py` (resolves leaves to FaVe
   identities, splits delivered from dead-end). Build 576 s, peak 1,838 MB, dump 2.1 s, 9
   flow trees / 24 MB. 18 tests.
 
@@ -2628,7 +2628,7 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   **ANSWERED 2026-09-11 -- `eastern -> seat` IS THE SAME CHICAGO CROSSING. There was
   never a second mechanism, and all 11 pairs now have ONE cause.** Established with a
   third witness, independent in implementation and method (see the epistemic note below for
-  what that does and does not buy): `bench/i2_structural_oracle.py` computes the reachability
+  what that does and does not buy): `bench/analysis/i2_structural_oracle.py` computes the reachability
   matrix straight from the shipped JSON, sharing no code with ad6 or NetPlumber. **It
   reproduces the 11 pairs EXACTLY**, so the agreement is now three-way.
 
@@ -2652,7 +2652,7 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
      query seeding, the `/0` CIDR and IPv6 canonicalisation bugs, the grounding gap
      itself), and at least one decisive one on the FaVe/NetPlumber side (`_reprioritise_fib_lpm`
      reading the declared `fib_table_types`, which moved exactly the three disputed pairs).
-  2. **A third witness by a different METHOD** — `bench/i2_structural_oracle.py`, direct
+  2. **A third witness by a different METHOD** — `bench/analysis/i2_structural_oracle.py`, direct
      structural simulation from the shipped JSON, exhaustive over IPv4 via prefix atoms,
      sharing no code with either engine. Independent in implementation and technique, but
      **written after the fact by the same project, not a pre-registered prediction**: its
@@ -2732,7 +2732,7 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   all. Only the 2 stragglers on vlan 20/30 get through. **One misconfigured link explains
   all 11 unreachable pairs.**
 
-  Artifacts: `bench/i2_structural_oracle.py` (with `--explain SRC DST`),
+  Artifacts: `bench/analysis/i2_structural_oracle.py` (with `--explain SRC DST`),
   `bench/wl_i2/eval/i2_structural_oracle_atoms.json`.
 
   **THE FIX, DESIGNED 2026-09-11 (owner review rejected my first design; the data proved
@@ -4256,7 +4256,7 @@ wl_tum ships zero checks in both files and `wl_tum/benchmark.py` never reference
 wl_state_snapshots are not reachability benchmarks (shadow is anomaly detection;
 state_snapshots is stateful-snapshot work). **The matrix itself comes from NetPlumber's
 own flow-tree dump** (owner's method: roots and leaves of the dumped trees), for which
-`bench/np_i2_flow_dump.py` + `bench/np_i2_flow_leaves.py` are the existing, only lightly
+`bench/analysis/np_i2_flow_dump.py` + `bench/analysis/np_i2_flow_leaves.py` are the existing, only lightly
 i2-specific machinery. The property any generalization must preserve is the one that tool
 already states: NetPlumber emits a leaf for any node with no onward flow, so **a leaf is
 either a probe arrival or a dropped branch and only the node id says which** --
@@ -4332,7 +4332,7 @@ compares the FULL wl_ifi matrix against `reachable.json`), and the archived
 prompt to adjudicate, never by itself a regression: the IR being pinned is the one §9
 exists to REPLACE, so a difference may equally well be the rewrite CORRECTING an existing
 bug. Each difference is adjudicated against NetPlumber's own matrix (§9.4) and, on wl_i2,
-`bench/i2_structural_oracle.py`. Re-recording happens in the SAME commit as the change
+`bench/analysis/i2_structural_oracle.py`. Re-recording happens in the SAME commit as the change
 that moved it, so the diff shows both halves together; re-recording separately, or before
 adjudicating, destroys the only thing the tripwire provides. **This rule is written where
 someone hitting a failure will actually read it** -- the tool's module docstring and the
@@ -5133,7 +5133,7 @@ it is supposed to test has been established.
 
 **The 11 are EXACTLY the archived set** -- `chic`->{hous,kans,losa,salt,seat} and
 `atla`/`newy32aoa`/`wash`->{kans,seat} -- the pairs corroborated three independent ways in
-§5.5: ad6 via SAT, FaVe+NetPlumber via HSA, and `bench/i2_structural_oracle.py` by a third
+§5.5: ad6 via SAT, FaVe+NetPlumber via HSA, and `bench/analysis/i2_structural_oracle.py` by a third
 method over the raw JSON. Set equality checked, not eyeballed.
 
 **This is the differential FAILING and that being the right outcome.** Everywhere else a
@@ -6410,7 +6410,7 @@ ways, on the same tree.
 **The 11 are set-equal to the archived answer**, not merely equal in count:
 `chic`->{hous, kans, losa, salt, seat} and `atla`/`newy32aoa`/`wash`->{kans, seat} -- the
 set §5.5 corroborated three independent ways (ad6 via SAT, FaVe+NetPlumber via HSA, and
-`bench/i2_structural_oracle.py` over the raw JSON). Checked by set difference, empty both
+`bench/analysis/i2_structural_oracle.py` over the raw JSON). Checked by set difference, empty both
 directions.
 
 #### 9.31.1 The error is one-directional, and that matters for reading old results
@@ -6439,7 +6439,7 @@ over-constraint biting specific longer paths first, the same signature as wl_sta
 **The benchmark path was never the source of §5.5's FaVe+NetPlumber "11".** It could not
 have been: run through the benchmark under the defect it yields 31. So that cross-check
 came from one of the non-benchmark routes (a libnetplumber worker, or the
-`bench/np_i2_flow_dump.py`/`np_i2_flow_leaves.py` tooling), which never pre-sized the
+`bench/analysis/np_i2_flow_dump.py`/`np_i2_flow_leaves.py` tooling), which never pre-sized the
 engine and so was never affected. The three-way corroboration in §5.5 stands untouched.
 
 What does NOT stand is any wl_i2 or wl_stanford number taken from `benchmark.py` on the

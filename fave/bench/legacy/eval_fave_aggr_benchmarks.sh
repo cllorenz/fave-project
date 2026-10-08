@@ -23,12 +23,12 @@ function stats {
   TOOL=$1
   DATA=$2
 
-  MEAN=`awk -f bench/mean.awk < $DATA`
-  MEDIAN=`awk -f bench/median.awk < $DATA`
-  MIN=`awk -f bench/min.awk < $DATA`
-  MAX=`awk -f bench/max.awk < $DATA`
-  VAR=`awk -f bench/var.awk -vMEAN=$MEAN < $DATA`
-  STDDEV=`awk -f bench/stddev.awk -vMEAN=$MEAN < $DATA`
+  MEAN=`awk -f bench/legacy/mean.awk < $DATA`
+  MEDIAN=`awk -f bench/legacy/median.awk < $DATA`
+  MIN=`awk -f bench/legacy/min.awk < $DATA`
+  MAX=`awk -f bench/legacy/max.awk < $DATA`
+  VAR=`awk -f bench/legacy/var.awk -vMEAN=$MEAN < $DATA`
+  STDDEV=`awk -f bench/legacy/stddev.awk -vMEAN=$MEAN < $DATA`
 
   echo "$TOOL $MEAN $MEDIAN $MIN $MAX $VAR $STDDEV" >> $RESULTS
 }

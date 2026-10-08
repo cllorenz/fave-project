@@ -137,7 +137,7 @@ currently refuses, and after step 1 it is safe to answer. Add VLAN and flags to
 `_COND_SLOTS` and drop the corresponding refusal.
 
 *Gate:* a conditioned-vs-seeded differential for the new fields, the way
-`bench/apkeep_out_stage_oracle.py` does for dst — and it must **fail** before
+`bench/analysis/apkeep_out_stage_oracle.py` does for dst — and it must **fail** before
 step 1, or it is not testing anything.
 
 *Note:* `test_apkeep_first_match.py::test_a_field_neither_engine_carries_is_refused`
