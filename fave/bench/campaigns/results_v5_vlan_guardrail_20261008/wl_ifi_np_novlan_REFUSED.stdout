@@ -1,0 +1,61 @@
+deleting old logs and measurements...
+deleted old logs and measurements.
+generate policy matrix...
+generated policy matrix.
+generate inventory...
+generated inventory.
+convert policy matrix to checks...
+converted policy matrix.
+generate topology, routes, and probes...
+generated topology, routes, and probes.
+starting netplumber...
+started netplumber.
+starting aggregator (backend: netplumber --no-vlan)...
+backend configuration error: --no-vlan is not implemented for netplumber: only APKeep models VLAN behind a flag. It is the VLAN guardrail arm, and a run that quietly ignored it would report an unchanged verdict -- which that guardrail reads as 'this check set is blind to VLAN'. The other backends carry VLAN unconditionally and have no plain arm to compare against.
+start_aggr: aggregator exited before it registered at /dev/shm/np/aggregator.owner
+started aggregator.
+wait for fave
+initialize topology...
+stopping fave and netplumber...
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/util/aggregator_utils.py", line 60, in connect_to_fave
+    sock.getpeername()
+OSError: [Errno 107] Transport endpoint is not connected
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/stop.py", line 54, in <module>
+    _AGGR = connect_to_fave(
+            ^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/util/aggregator_utils.py", line 63, in connect_to_fave
+    raise Exception("could not connect to fave: %s" % server_str)
+Exception: could not connect to fave: /dev/shm/np_aggregator.socket
+stop_fave: aggregator unreachable (rc=1); stopping net_plumber directly
+stop_fave: killed net_plumber 1396480
+teardown FAILED (exit 1): bash scripts/stop_fave.sh -u -- no net_plumber is running, so nothing is orphaned and the next run is safe. `ps -C net_plumber` nevertheless lists 60 ZOMBIE entries: an exit status nobody collected, holding no socket and contending for nothing -- harmless, and not what to kill.
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/util/aggregator_utils.py", line 60, in connect_to_fave
+    sock.getpeername()
+OSError: [Errno 107] Transport endpoint is not connected
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/wl_ifi/benchmark.py", line 50, in <module>
+    ).run()
+      ^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/generic_benchmark.py", line 602, in run
+    self._initialization()
+  File "/home/ubuntu/fave-project/fave/bench/generic_benchmark.py", line 443, in _initialization
+    create_topology(
+  File "/home/ubuntu/fave-project/fave/util/bench_utils.py", line 171, in create_topology
+    _DEVICES[dtype](*device, use_unix=use_unix, interweave=interweave)
+  File "/home/ubuntu/fave-project/fave/util/bench_utils.py", line 83, in _add_router
+    topo.main(["-a", "-t", "router", "-n", name, "-p", ','.join([str(p) for p in range(1, ports+1)]), "-r", acls] + (["-u"] if use_unix else []))
+  File "/home/ubuntu/fave-project/fave/topology/topology.py", line 513, in main
+    fave = connect_to_fave(
+           ^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/util/aggregator_utils.py", line 63, in connect_to_fave
+    raise Exception("could not connect to fave: %s" % server_str)
+Exception: could not connect to fave: /dev/shm/np_aggregator.socket

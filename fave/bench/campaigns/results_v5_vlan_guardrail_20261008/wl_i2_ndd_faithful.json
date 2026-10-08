@@ -1,0 +1,104 @@
+{
+  "workload": "wl_i2",
+  "backend": "apkeep",
+  "engine": "ndd",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-08T11:06:27.727389+00:00",
+  "git_head": "6084dec0c42baf514e6f0a925a842d948c4b09af",
+  "engine_commit": "a7eb8ad29a565d476067d88a62ea89e8421f8105 2026-10-01",
+  "apkeep_engine": "ndd",
+  "engine_options": "--apkeep-engine ndd",
+  "driver": "bench/wl_i2/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "4db81ef34047"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 33.741,
+  "memory_stop": null,
+  "peak_rss_mb": 2673,
+  "peak_rss_by_process_mb": {
+    "python3": 158,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 2593,
+    "sleep": 1
+  },
+  "least_available_mb": 59858,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_i2_ndd_faithful.status.jsonl",
+  "check_compliance_s": [
+    27.696077346801758
+  ],
+  "report_task_s": [
+    0.0007600784301757812
+  ],
+  "switch_command_s": 2.6128385066986084,
+  "switch_commands": 18,
+  "vlan_rewrite_rules": 77451,
+  "vlan_admission_rules": 390,
+  "vlan_stage_tables": 18,
+  "loop_reports": null,
+  "blackhole_reports": null,
+  "gc": {
+    "pauses": 16,
+    "full_pauses": 3,
+    "pause_s": 0.052,
+    "max_heap_after_gc_mb": 1791,
+    "max_heap_committed_mb": 3120
+  },
+  "report": true,
+  "violations": 11,
+  "violation_lines": [
+    "- `source.chic` does not reach `probe.hous`",
+    "- `source.atla` does not reach `probe.kans`",
+    "- `source.chic` does not reach `probe.kans`",
+    "- `source.newy32aoa` does not reach `probe.kans`",
+    "- `source.wash` does not reach `probe.kans`",
+    "- `source.chic` does not reach `probe.losa`",
+    "- `source.chic` does not reach `probe.salt`",
+    "- `source.atla` does not reach `probe.seat`",
+    "- `source.chic` does not reach `probe.seat`",
+    "- `source.newy32aoa` does not reach `probe.seat`"
+  ],
+  "checks": 72,
+  "verdict_valid": true,
+  "apkeep_jar": "b39b5b87fc9c4f94826e93dce7420b782e7e77d632d5d84ffc1e3441100f0178",
+  "ndd_jar": "89378affca069b2ffec628d5dcd96bb330d3713293d372f1b4802a2f5aefac84",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+    "engine": "ndd",
+    "faithful_vlan": true
+  },
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+  "expected_violations": null,
+  "outcome": "measured"
+}

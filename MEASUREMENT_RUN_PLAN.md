@@ -812,16 +812,29 @@ completed phase A would still have left both open.
 **The LPM half is closed as of 2026-10-06** — `--invert-lpm` was built, the 12
 cells were run, and §5.4 carries the result.
 
-**The faithful-VLAN half was MISREAD, and is narrower than it looked
-(2026-10-08).** The variant cells are not absent: the faithful model is the
-APKeep default and the matrix cells build it (§5.1's dated correction). What is
-absent is the faithful-vs-plain CONTRAST as two declared arms — runnable today
-on APKeep alone, via `--engine-options "--no-vlan"`, a reducing variant in the
-registry. Its discriminating power is already known and asymmetric: `wl_i2`
-plain reaches 72/72 against faithful's 61, while `wl_stanford` is 165 either
-way, so **that workload's check set cannot see the VLAN dimension at all** —
-the same shape as G2's LPM finding, and the same reason a guardrail arm is
-worth running. Two cells, ~35 s. Owner's call, not started.
+**The faithful-VLAN half is CLOSED as of 2026-10-08.** Both halves of §6's
+phase A definition are now discharged.
+
+It was MISREAD first: the variant cells were never absent, because the faithful
+model is the APKeep default and the matrix cells build it (§5.1's dated
+correction). What WAS absent is the faithful-vs-plain CONTRAST as two declared
+arms — and it could not simply be run, because `--no-vlan` had neither
+guardrail §5.4's LPM arm already had. `build_engine` accepted-and-IGNORED it on
+netplumber, veriflow and ad6 (where it relaxes nothing, so the verdict could
+not move for a reason having nothing to do with the check set), and nothing
+recorded how much the arm relaxed, so an unchanged verdict on a VLAN-free
+workload would have read as a passing guard. Both were built, then both
+workloads were run in both arms on one build:
+
+| workload | faithful | `--no-vlan` | relaxed | reading |
+|---|---|---|---|---|
+| `wl_i2` | 11/72 | **0/72** | 77,451 rewrites | the check set SEES VLAN, by 11 pairs |
+| `wl_stanford` | 75/240 | **75/240** | 3,417 rewrites + 2,063 admissions | it does NOT, at all |
+
+`wl_stanford` is the same shape as G2's LPM finding and comparable in
+magnitude. An unchanged verdict there says nothing about whether VLAN modelling
+matters — the same engine, build and flag move `wl_i2` by 11. Full scoring:
+[`bench/campaigns/results_v5_vlan_guardrail_20261008/FINDINGS.md`](fave/bench/campaigns/results_v5_vlan_guardrail_20261008/FINDINGS.md).
 
 **And one cell in the matrix was measured in a configuration the tree had
 already ruled out.** `ad6 × wl_i2` ran as `rank + lite_acyclic`; `AD6_PLAN.md`

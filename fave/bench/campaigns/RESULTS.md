@@ -133,6 +133,7 @@ Declared before each run and never edited; scored in the directory that ran them
 | N1–N7, A1 (NetPlumber × berkeley) | `results_v5_berkeley_np_20261007/FINDINGS.md` | N1–N6 held, N7's number missed; **A1 falsified** |
 | B5–B7 (BDD k=1) | this file, §4 | B5, B6 held; **B7 falsified** |
 | F1–F5 (ad6 × wl_i2, flow) | `results_v5_i2_ad6_flow_20261008/FINDINGS.md` | **F1–F4 all held**; F5 is a reading rule |
+| V1–V5 (the VLAN guardrail) | `results_v5_vlan_guardrail_20261008/FINDINGS.md` | **V1–V4 all held**; V5 is a reading rule |
 
 **Falsified predictions are the campaign's most useful output.** P10 and §5.4's
 `wl_cloud` case were both scored against claims the project had *already
@@ -154,11 +155,16 @@ stopped a 10× speed-up being credited to the author's own change.
   ARE the faithful cells** wherever the flag does anything, which is those two
   workloads. Only APKeep has the axis at all: NetPlumber and VeriFlow-FR
   translate the model's rules literally, and ad6's semantic path is deleted.
-  What is genuinely absent is the **faithful-vs-plain contrast as declared
-  cells** — two APKeep arms under `--no-vlan`, a reducing variant. The numbers
-  exist outside V5: i2 plain reaches 72/72 against faithful's 61, while
-  stanford is 165 either way, i.e. **its check set cannot see the VLAN
-  dimension at all** — the same shape as G2's LPM finding. Owner's call.
+  The faithful-vs-plain contrast **was missing and is now RUN** (2026-10-08,
+  `results_v5_vlan_guardrail_20261008/`): both arms of both workloads on one
+  build, after `--no-vlan` was given the refusal and the denominator §5.4's LPM
+  arm already had. **`wl_i2` 11/72 → 0/72** over 77,451 relaxed rewrites, so
+  that check set sees VLAN by exactly 11 pairs; **`wl_stanford` 75/240 →
+  75/240 unchanged** over 3,417 rewrites and 2,063 admission rules, so **its
+  check set cannot see the VLAN dimension at all** — the same shape as G2's LPM
+  finding, and comparable in magnitude. An unchanged verdict there says nothing
+  about whether VLAN modelling matters: the same engine, build and flag move
+  `wl_i2` by 11.
 * **`bdd × wl_stanford` and `bdd × wl_i2` are the faithful cells**, and both are
   24 h did-not-finishes. That is the expected result, not a surprise:
   `APKEEP_BACKEND.md` records that the APKeep engine default moved to NDD

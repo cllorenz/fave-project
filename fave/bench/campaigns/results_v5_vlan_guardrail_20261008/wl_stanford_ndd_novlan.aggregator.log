@@ -1,0 +1,164 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)', 'engine': 'ndd', 'faithful_vlan': False}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.0001456737518310547 seconds.
+worker: completed task switch in 4.601478576660156e-05 seconds.
+worker: completed task switch in 5.054473876953125e-05 seconds.
+worker: completed task switch in 2.0742416381835938e-05 seconds.
+worker: completed task switch in 2.4080276489257812e-05 seconds.
+worker: completed task switch in 2.5033950805664062e-05 seconds.
+worker: completed task switch in 2.574920654296875e-05 seconds.
+worker: completed task switch in 2.6702880859375e-05 seconds.
+worker: completed task switch in 3.528594970703125e-05 seconds.
+worker: completed task switch in 2.288818359375e-05 seconds.
+worker: completed task switch in 2.4557113647460938e-05 seconds.
+worker: completed task switch in 4.2438507080078125e-05 seconds.
+worker: completed task switch in 1.5020370483398438e-05 seconds.
+worker: completed task switch in 1.6450881958007812e-05 seconds.
+worker: completed task switch in 1.8596649169921875e-05 seconds.
+worker: completed task switch in 1.1682510375976562e-05 seconds.
+worker: completed task switch in 1.8358230590820312e-05 seconds.
+worker: completed task switch in 1.9073486328125e-05 seconds.
+worker: completed task switch in 2.3603439331054688e-05 seconds.
+worker: completed task switch in 2.3126602172851562e-05 seconds.
+worker: completed task switch in 3.3855438232421875e-05 seconds.
+worker: completed task switch in 2.2172927856445312e-05 seconds.
+worker: completed task switch in 2.3365020751953125e-05 seconds.
+worker: completed task switch in 4.0531158447265625e-05 seconds.
+worker: completed task switch in 2.3126602172851562e-05 seconds.
+worker: completed task switch in 2.3603439331054688e-05 seconds.
+worker: completed task switch in 3.361701965332031e-05 seconds.
+worker: completed task switch in 2.2411346435546875e-05 seconds.
+worker: completed task switch in 2.86102294921875e-05 seconds.
+worker: completed task switch in 3.361701965332031e-05 seconds.
+worker: completed task switch in 2.288818359375e-05 seconds.
+worker: completed task switch in 2.3126602172851562e-05 seconds.
+worker: completed task switch in 3.4332275390625e-05 seconds.
+worker: completed task switch in 2.3603439331054688e-05 seconds.
+worker: completed task switch in 2.3365020751953125e-05 seconds.
+worker: completed task switch in 3.2901763916015625e-05 seconds.
+worker: completed task switch in 1.430511474609375e-05 seconds.
+worker: completed task switch in 1.3113021850585938e-05 seconds.
+worker: completed task switch in 1.621246337890625e-05 seconds.
+worker: completed task switch in 1.430511474609375e-05 seconds.
+worker: completed task switch in 1.239776611328125e-05 seconds.
+worker: completed task switch in 2.2411346435546875e-05 seconds.
+worker: completed task switch in 2.2649765014648438e-05 seconds.
+worker: completed task switch in 2.86102294921875e-05 seconds.
+worker: completed task switch in 3.2901763916015625e-05 seconds.
+worker: completed task switch in 1.33514404296875e-05 seconds.
+worker: completed task switch in 3.0994415283203125e-05 seconds.
+worker: completed task switch in 1.621246337890625e-05 seconds.
+worker: completed task links in 0.0019741058349609375 seconds.
+worker: completed task switch_command in 0.0007646083831787109 seconds.
+worker: completed task switch_command in 0.01449728012084961 seconds.
+worker: completed task switch_command in 0.0008304119110107422 seconds.
+worker: completed task switch_command in 0.000278472900390625 seconds.
+worker: completed task switch_command in 0.013063907623291016 seconds.
+worker: completed task switch_command in 0.0004994869232177734 seconds.
+worker: completed task switch_command in 0.0015673637390136719 seconds.
+worker: completed task switch_command in 0.0028960704803466797 seconds.
+worker: completed task switch_command in 0.0006341934204101562 seconds.
+worker: completed task switch_command in 0.0012700557708740234 seconds.
+worker: completed task switch_command in 0.0030031204223632812 seconds.
+worker: completed task switch_command in 0.0006101131439208984 seconds.
+worker: completed task switch_command in 0.004007577896118164 seconds.
+worker: completed task switch_command in 0.002828836441040039 seconds.
+worker: completed task switch_command in 0.00019884109497070312 seconds.
+worker: completed task switch_command in 0.004282712936401367 seconds.
+worker: completed task switch_command in 0.002177715301513672 seconds.
+worker: completed task switch_command in 0.00017309188842773438 seconds.
+worker: completed task switch_command in 0.0019538402557373047 seconds.
+worker: completed task switch_command in 0.0025479793548583984 seconds.
+worker: completed task switch_command in 0.0008687973022460938 seconds.
+worker: completed task switch_command in 0.002354145050048828 seconds.
+worker: completed task switch_command in 0.0023140907287597656 seconds.
+worker: completed task switch_command in 0.0008814334869384766 seconds.
+worker: completed task switch_command in 0.0014400482177734375 seconds.
+worker: completed task switch_command in 0.0022742748260498047 seconds.
+worker: completed task switch_command in 0.0005795955657958984 seconds.
+worker: completed task switch_command in 0.0014257431030273438 seconds.
+worker: completed task switch_command in 0.0017480850219726562 seconds.
+worker: completed task switch_command in 0.0006017684936523438 seconds.
+worker: completed task switch_command in 0.0009546279907226562 seconds.
+worker: completed task switch_command in 0.0015807151794433594 seconds.
+worker: completed task switch_command in 0.0006663799285888672 seconds.
+worker: completed task switch_command in 0.001196146011352539 seconds.
+worker: completed task switch_command in 0.001461029052734375 seconds.
+worker: completed task switch_command in 0.0006246566772460938 seconds.
+worker: completed task switch_command in 0.006343364715576172 seconds.
+worker: completed task switch_command in 0.0035827159881591797 seconds.
+worker: completed task switch_command in 0.00019073486328125 seconds.
+worker: completed task switch_command in 0.003777027130126953 seconds.
+worker: completed task switch_command in 0.0024394989013671875 seconds.
+worker: completed task switch_command in 0.0001900196075439453 seconds.
+worker: completed task switch_command in 0.0024046897888183594 seconds.
+worker: completed task switch_command in 0.013988256454467773 seconds.
+worker: completed task switch_command in 0.027027606964111328 seconds.
+worker: completed task switch_command in 0.00096893310546875 seconds.
+worker: completed task switch_command in 0.0017306804656982422 seconds.
+worker: completed task switch_command in 0.005259513854980469 seconds.
+worker: completed task probe in 0.000110626220703125 seconds.
+worker: completed task probe in 2.193450927734375e-05 seconds.
+worker: completed task probe in 1.621246337890625e-05 seconds.
+worker: completed task probe in 1.4066696166992188e-05 seconds.
+worker: completed task probe in 1.430511474609375e-05 seconds.
+worker: completed task probe in 1.4066696166992188e-05 seconds.
+worker: completed task probe in 1.3828277587890625e-05 seconds.
+worker: completed task probe in 1.3828277587890625e-05 seconds.
+worker: completed task probe in 1.33514404296875e-05 seconds.
+worker: completed task probe in 1.33514404296875e-05 seconds.
+worker: completed task probe in 1.3828277587890625e-05 seconds.
+worker: completed task probe in 1.33514404296875e-05 seconds.
+worker: completed task probe in 1.3113021850585938e-05 seconds.
+worker: completed task probe in 1.3113021850585938e-05 seconds.
+worker: completed task probe in 1.1920928955078125e-05 seconds.
+worker: completed task probe in 1.239776611328125e-05 seconds.
+worker: completed task links in 0.0016787052154541016 seconds.
+worker: completed task generators in 0.0001862049102783203 seconds.
+worker: completed task links in 4.935264587402344e-05 seconds.
+apkeep: VLAN guardrail denominator: 3417 rewrite rule(s), 2063 admission rule(s), across 41 HSA stage table(s); faithful_vlan=False (RELAXED -- not a faithful run)
+apkeep: in.coza_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.coza_rtr@500001, in.coza_rtr@500012
+apkeep: in.cozb_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.cozb_rtr@600001, in.cozb_rtr@600010
+apkeep: in.goza_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.goza_rtr@700001, in.goza_rtr@700007
+apkeep: in.gozb_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.gozb_rtr@800001, in.gozb_rtr@800007
+apkeep: in.soza_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.soza_rtr@1300001, in.soza_rtr@1300010
+apkeep: in.sozb_rtr discriminates among its ingress ports; demultiplexed into 2 element(s): in.sozb_rtr@1400001, in.sozb_rtr@1400010
+apkeep: out.bbra_rtr discriminates among its ingress ports; demultiplexed into 48 element(s): out.bbra_rtr@130001, out.bbra_rtr@130002, out.bbra_rtr@130003, out.bbra_rtr@130004, out.bbra_rtr@130005, out.bbra_rtr@130006, out.bbra_rtr@130007, out.bbra_rtr@130008, out.bbra_rtr@130009, out.bbra_rtr@130010, out.bbra_rtr@130011, out.bbra_rtr@130012, out.bbra_rtr@130013, out.bbra_rtr@130014, out.bbra_rtr@130015, out.bbra_rtr@130016, out.bbra_rtr@130017, out.bbra_rtr@130018, out.bbra_rtr@130019, out.bbra_rtr@130020, out.bbra_rtr@130021, out.bbra_rtr@130022, out.bbra_rtr@130023, out.bbra_rtr@130024, out.bbra_rtr@130025, out.bbra_rtr@130026, out.bbra_rtr@130027, out.bbra_rtr@130028, out.bbra_rtr@130029, out.bbra_rtr@130030, out.bbra_rtr@130031, out.bbra_rtr@130032, out.bbra_rtr@130033, out.bbra_rtr@130034, out.bbra_rtr@130035, out.bbra_rtr@130036, out.bbra_rtr@130037, out.bbra_rtr@130038, out.bbra_rtr@130039, out.bbra_rtr@130040, out.bbra_rtr@130041, out.bbra_rtr@130042, out.bbra_rtr@130043, out.bbra_rtr@130044, out.bbra_rtr@130045, out.bbra_rtr@130046, out.bbra_rtr@130047, out.bbra_rtr@130048
+apkeep: out.bbrb_rtr discriminates among its ingress ports; demultiplexed into 25 element(s): out.bbrb_rtr@230001, out.bbrb_rtr@230002, out.bbrb_rtr@230003, out.bbrb_rtr@230004, out.bbrb_rtr@230005, out.bbrb_rtr@230006, out.bbrb_rtr@230007, out.bbrb_rtr@230008, out.bbrb_rtr@230009, out.bbrb_rtr@230010, out.bbrb_rtr@230011, out.bbrb_rtr@230012, out.bbrb_rtr@230013, out.bbrb_rtr@230014, out.bbrb_rtr@230015, out.bbrb_rtr@230016, out.bbrb_rtr@230017, out.bbrb_rtr@230018, out.bbrb_rtr@230019, out.bbrb_rtr@230020, out.bbrb_rtr@230021, out.bbrb_rtr@230022, out.bbrb_rtr@230023, out.bbrb_rtr@230024, out.bbrb_rtr@230025
+apkeep: out.boza_rtr discriminates among its ingress ports; demultiplexed into 61 element(s): out.boza_rtr@330001, out.boza_rtr@330002, out.boza_rtr@330003, out.boza_rtr@330004, out.boza_rtr@330005, out.boza_rtr@330006, out.boza_rtr@330007, out.boza_rtr@330008, out.boza_rtr@330009, out.boza_rtr@330010, out.boza_rtr@330011, out.boza_rtr@330012, out.boza_rtr@330013, out.boza_rtr@330014, out.boza_rtr@330015, out.boza_rtr@330016, out.boza_rtr@330017, out.boza_rtr@330018, out.boza_rtr@330019, out.boza_rtr@330020, out.boza_rtr@330021, out.boza_rtr@330022, out.boza_rtr@330023, out.boza_rtr@330024, out.boza_rtr@330025, out.boza_rtr@330026, out.boza_rtr@330027, out.boza_rtr@330028, out.boza_rtr@330029, out.boza_rtr@330030, out.boza_rtr@330031, out.boza_rtr@330032, out.boza_rtr@330033, out.boza_rtr@330034, out.boza_rtr@330035, out.boza_rtr@330036, out.boza_rtr@330037, out.boza_rtr@330038, out.boza_rtr@330039, out.boza_rtr@330040, out.boza_rtr@330041, out.boza_rtr@330042, out.boza_rtr@330043, out.boza_rtr@330044, out.boza_rtr@330045, out.boza_rtr@330046, out.boza_rtr@330047, out.boza_rtr@330048, out.boza_rtr@330049, out.boza_rtr@330050, out.boza_rtr@330051, out.boza_rtr@330052, out.boza_rtr@330053, out.boza_rtr@330054, out.boza_rtr@330055, out.boza_rtr@330056, out.boza_rtr@330057, out.boza_rtr@330058, out.boza_rtr@330059, out.boza_rtr@330060, out.boza_rtr@330061
+apkeep: out.bozb_rtr discriminates among its ingress ports; demultiplexed into 62 element(s): out.bozb_rtr@430001, out.bozb_rtr@430002, out.bozb_rtr@430003, out.bozb_rtr@430004, out.bozb_rtr@430005, out.bozb_rtr@430006, out.bozb_rtr@430007, out.bozb_rtr@430008, out.bozb_rtr@430009, out.bozb_rtr@430010, out.bozb_rtr@430011, out.bozb_rtr@430012, out.bozb_rtr@430013, out.bozb_rtr@430014, out.bozb_rtr@430015, out.bozb_rtr@430016, out.bozb_rtr@430017, out.bozb_rtr@430018, out.bozb_rtr@430019, out.bozb_rtr@430020, out.bozb_rtr@430021, out.bozb_rtr@430022, out.bozb_rtr@430023, out.bozb_rtr@430024, out.bozb_rtr@430025, out.bozb_rtr@430026, out.bozb_rtr@430027, out.bozb_rtr@430028, out.bozb_rtr@430029, out.bozb_rtr@430030, out.bozb_rtr@430031, out.bozb_rtr@430032, out.bozb_rtr@430033, out.bozb_rtr@430034, out.bozb_rtr@430035, out.bozb_rtr@430036, out.bozb_rtr@430037, out.bozb_rtr@430038, out.bozb_rtr@430039, out.bozb_rtr@430040, out.bozb_rtr@430041, out.bozb_rtr@430042, out.bozb_rtr@430043, out.bozb_rtr@430044, out.bozb_rtr@430045, out.bozb_rtr@430046, out.bozb_rtr@430047, out.bozb_rtr@430048, out.bozb_rtr@430049, out.bozb_rtr@430050, out.bozb_rtr@430051, out.bozb_rtr@430052, out.bozb_rtr@430053, out.bozb_rtr@430054, out.bozb_rtr@430055, out.bozb_rtr@430056, out.bozb_rtr@430057, out.bozb_rtr@430058, out.bozb_rtr@430059, out.bozb_rtr@430060, out.bozb_rtr@430061, out.bozb_rtr@430062
+apkeep: out.coza_rtr discriminates among its ingress ports; demultiplexed into 13 element(s): out.coza_rtr@530001, out.coza_rtr@530002, out.coza_rtr@530003, out.coza_rtr@530004, out.coza_rtr@530005, out.coza_rtr@530006, out.coza_rtr@530007, out.coza_rtr@530008, out.coza_rtr@530009, out.coza_rtr@530010, out.coza_rtr@530011, out.coza_rtr@530012, out.coza_rtr@530013
+apkeep: out.cozb_rtr discriminates among its ingress ports; demultiplexed into 11 element(s): out.cozb_rtr@630001, out.cozb_rtr@630002, out.cozb_rtr@630003, out.cozb_rtr@630004, out.cozb_rtr@630005, out.cozb_rtr@630006, out.cozb_rtr@630007, out.cozb_rtr@630008, out.cozb_rtr@630009, out.cozb_rtr@630010, out.cozb_rtr@630011
+apkeep: out.goza_rtr discriminates among its ingress ports; demultiplexed into 60 element(s): out.goza_rtr@730001, out.goza_rtr@730002, out.goza_rtr@730003, out.goza_rtr@730004, out.goza_rtr@730005, out.goza_rtr@730006, out.goza_rtr@730007, out.goza_rtr@730008, out.goza_rtr@730009, out.goza_rtr@730010, out.goza_rtr@730011, out.goza_rtr@730012, out.goza_rtr@730013, out.goza_rtr@730014, out.goza_rtr@730015, out.goza_rtr@730016, out.goza_rtr@730017, out.goza_rtr@730018, out.goza_rtr@730019, out.goza_rtr@730020, out.goza_rtr@730021, out.goza_rtr@730022, out.goza_rtr@730023, out.goza_rtr@730024, out.goza_rtr@730025, out.goza_rtr@730026, out.goza_rtr@730027, out.goza_rtr@730028, out.goza_rtr@730029, out.goza_rtr@730030, out.goza_rtr@730031, out.goza_rtr@730032, out.goza_rtr@730033, out.goza_rtr@730034, out.goza_rtr@730035, out.goza_rtr@730036, out.goza_rtr@730037, out.goza_rtr@730038, out.goza_rtr@730039, out.goza_rtr@730040, out.goza_rtr@730041, out.goza_rtr@730042, out.goza_rtr@730043, out.goza_rtr@730044, out.goza_rtr@730045, out.goza_rtr@730046, out.goza_rtr@730047, out.goza_rtr@730048, out.goza_rtr@730049, out.goza_rtr@730050, out.goza_rtr@730051, out.goza_rtr@730052, out.goza_rtr@730053, out.goza_rtr@730054, out.goza_rtr@730055, out.goza_rtr@730056, out.goza_rtr@730057, out.goza_rtr@730058, out.goza_rtr@730059, out.goza_rtr@730060
+apkeep: out.gozb_rtr discriminates among its ingress ports; demultiplexed into 61 element(s): out.gozb_rtr@830001, out.gozb_rtr@830002, out.gozb_rtr@830003, out.gozb_rtr@830004, out.gozb_rtr@830005, out.gozb_rtr@830006, out.gozb_rtr@830007, out.gozb_rtr@830008, out.gozb_rtr@830009, out.gozb_rtr@830010, out.gozb_rtr@830011, out.gozb_rtr@830012, out.gozb_rtr@830013, out.gozb_rtr@830014, out.gozb_rtr@830015, out.gozb_rtr@830016, out.gozb_rtr@830017, out.gozb_rtr@830018, out.gozb_rtr@830019, out.gozb_rtr@830020, out.gozb_rtr@830021, out.gozb_rtr@830022, out.gozb_rtr@830023, out.gozb_rtr@830024, out.gozb_rtr@830025, out.gozb_rtr@830026, out.gozb_rtr@830027, out.gozb_rtr@830028, out.gozb_rtr@830029, out.gozb_rtr@830030, out.gozb_rtr@830031, out.gozb_rtr@830032, out.gozb_rtr@830033, out.gozb_rtr@830034, out.gozb_rtr@830035, out.gozb_rtr@830036, out.gozb_rtr@830037, out.gozb_rtr@830038, out.gozb_rtr@830039, out.gozb_rtr@830040, out.gozb_rtr@830041, out.gozb_rtr@830042, out.gozb_rtr@830043, out.gozb_rtr@830044, out.gozb_rtr@830045, out.gozb_rtr@830046, out.gozb_rtr@830047, out.gozb_rtr@830048, out.gozb_rtr@830049, out.gozb_rtr@830050, out.gozb_rtr@830051, out.gozb_rtr@830052, out.gozb_rtr@830053, out.gozb_rtr@830054, out.gozb_rtr@830055, out.gozb_rtr@830056, out.gozb_rtr@830057, out.gozb_rtr@830058, out.gozb_rtr@830059, out.gozb_rtr@830060, out.gozb_rtr@830061
+apkeep: out.poza_rtr discriminates among its ingress ports; demultiplexed into 61 element(s): out.poza_rtr@930001, out.poza_rtr@930002, out.poza_rtr@930003, out.poza_rtr@930004, out.poza_rtr@930005, out.poza_rtr@930006, out.poza_rtr@930007, out.poza_rtr@930008, out.poza_rtr@930009, out.poza_rtr@930010, out.poza_rtr@930011, out.poza_rtr@930012, out.poza_rtr@930013, out.poza_rtr@930014, out.poza_rtr@930015, out.poza_rtr@930016, out.poza_rtr@930017, out.poza_rtr@930018, out.poza_rtr@930019, out.poza_rtr@930020, out.poza_rtr@930021, out.poza_rtr@930022, out.poza_rtr@930023, out.poza_rtr@930024, out.poza_rtr@930025, out.poza_rtr@930026, out.poza_rtr@930027, out.poza_rtr@930028, out.poza_rtr@930029, out.poza_rtr@930030, out.poza_rtr@930031, out.poza_rtr@930032, out.poza_rtr@930033, out.poza_rtr@930034, out.poza_rtr@930035, out.poza_rtr@930036, out.poza_rtr@930037, out.poza_rtr@930038, out.poza_rtr@930039, out.poza_rtr@930040, out.poza_rtr@930041, out.poza_rtr@930042, out.poza_rtr@930043, out.poza_rtr@930044, out.poza_rtr@930045, out.poza_rtr@930046, out.poza_rtr@930047, out.poza_rtr@930048, out.poza_rtr@930049, out.poza_rtr@930050, out.poza_rtr@930051, out.poza_rtr@930052, out.poza_rtr@930053, out.poza_rtr@930054, out.poza_rtr@930055, out.poza_rtr@930056, out.poza_rtr@930057, out.poza_rtr@930058, out.poza_rtr@930059, out.poza_rtr@930060, out.poza_rtr@930061
+apkeep: out.pozb_rtr discriminates among its ingress ports; demultiplexed into 62 element(s): out.pozb_rtr@1030001, out.pozb_rtr@1030002, out.pozb_rtr@1030003, out.pozb_rtr@1030004, out.pozb_rtr@1030005, out.pozb_rtr@1030006, out.pozb_rtr@1030007, out.pozb_rtr@1030008, out.pozb_rtr@1030009, out.pozb_rtr@1030010, out.pozb_rtr@1030011, out.pozb_rtr@1030012, out.pozb_rtr@1030013, out.pozb_rtr@1030014, out.pozb_rtr@1030015, out.pozb_rtr@1030016, out.pozb_rtr@1030017, out.pozb_rtr@1030018, out.pozb_rtr@1030019, out.pozb_rtr@1030020, out.pozb_rtr@1030021, out.pozb_rtr@1030022, out.pozb_rtr@1030023, out.pozb_rtr@1030024, out.pozb_rtr@1030025, out.pozb_rtr@1030026, out.pozb_rtr@1030027, out.pozb_rtr@1030028, out.pozb_rtr@1030029, out.pozb_rtr@1030030, out.pozb_rtr@1030031, out.pozb_rtr@1030032, out.pozb_rtr@1030033, out.pozb_rtr@1030034, out.pozb_rtr@1030035, out.pozb_rtr@1030036, out.pozb_rtr@1030037, out.pozb_rtr@1030038, out.pozb_rtr@1030039, out.pozb_rtr@1030040, out.pozb_rtr@1030041, out.pozb_rtr@1030042, out.pozb_rtr@1030043, out.pozb_rtr@1030044, out.pozb_rtr@1030045, out.pozb_rtr@1030046, out.pozb_rtr@1030047, out.pozb_rtr@1030048, out.pozb_rtr@1030049, out.pozb_rtr@1030050, out.pozb_rtr@1030051, out.pozb_rtr@1030052, out.pozb_rtr@1030053, out.pozb_rtr@1030054, out.pozb_rtr@1030055, out.pozb_rtr@1030056, out.pozb_rtr@1030057, out.pozb_rtr@1030058, out.pozb_rtr@1030059, out.pozb_rtr@1030060, out.pozb_rtr@1030061, out.pozb_rtr@1030062
+apkeep: out.roza_rtr discriminates among its ingress ports; demultiplexed into 60 element(s): out.roza_rtr@1130001, out.roza_rtr@1130002, out.roza_rtr@1130003, out.roza_rtr@1130004, out.roza_rtr@1130005, out.roza_rtr@1130006, out.roza_rtr@1130007, out.roza_rtr@1130008, out.roza_rtr@1130009, out.roza_rtr@1130010, out.roza_rtr@1130011, out.roza_rtr@1130012, out.roza_rtr@1130013, out.roza_rtr@1130014, out.roza_rtr@1130015, out.roza_rtr@1130016, out.roza_rtr@1130017, out.roza_rtr@1130018, out.roza_rtr@1130019, out.roza_rtr@1130020, out.roza_rtr@1130021, out.roza_rtr@1130022, out.roza_rtr@1130023, out.roza_rtr@1130024, out.roza_rtr@1130025, out.roza_rtr@1130026, out.roza_rtr@1130027, out.roza_rtr@1130028, out.roza_rtr@1130029, out.roza_rtr@1130030, out.roza_rtr@1130031, out.roza_rtr@1130032, out.roza_rtr@1130033, out.roza_rtr@1130034, out.roza_rtr@1130035, out.roza_rtr@1130036, out.roza_rtr@1130037, out.roza_rtr@1130038, out.roza_rtr@1130039, out.roza_rtr@1130040, out.roza_rtr@1130041, out.roza_rtr@1130042, out.roza_rtr@1130043, out.roza_rtr@1130044, out.roza_rtr@1130045, out.roza_rtr@1130046, out.roza_rtr@1130047, out.roza_rtr@1130048, out.roza_rtr@1130049, out.roza_rtr@1130050, out.roza_rtr@1130051, out.roza_rtr@1130052, out.roza_rtr@1130053, out.roza_rtr@1130054, out.roza_rtr@1130055, out.roza_rtr@1130056, out.roza_rtr@1130057, out.roza_rtr@1130058, out.roza_rtr@1130059, out.roza_rtr@1130060
+apkeep: out.rozb_rtr discriminates among its ingress ports; demultiplexed into 62 element(s): out.rozb_rtr@1230001, out.rozb_rtr@1230002, out.rozb_rtr@1230003, out.rozb_rtr@1230004, out.rozb_rtr@1230005, out.rozb_rtr@1230006, out.rozb_rtr@1230007, out.rozb_rtr@1230008, out.rozb_rtr@1230009, out.rozb_rtr@1230010, out.rozb_rtr@1230011, out.rozb_rtr@1230012, out.rozb_rtr@1230013, out.rozb_rtr@1230014, out.rozb_rtr@1230015, out.rozb_rtr@1230016, out.rozb_rtr@1230017, out.rozb_rtr@1230018, out.rozb_rtr@1230019, out.rozb_rtr@1230020, out.rozb_rtr@1230021, out.rozb_rtr@1230022, out.rozb_rtr@1230023, out.rozb_rtr@1230024, out.rozb_rtr@1230025, out.rozb_rtr@1230026, out.rozb_rtr@1230027, out.rozb_rtr@1230028, out.rozb_rtr@1230029, out.rozb_rtr@1230030, out.rozb_rtr@1230031, out.rozb_rtr@1230032, out.rozb_rtr@1230033, out.rozb_rtr@1230034, out.rozb_rtr@1230035, out.rozb_rtr@1230036, out.rozb_rtr@1230037, out.rozb_rtr@1230038, out.rozb_rtr@1230039, out.rozb_rtr@1230040, out.rozb_rtr@1230041, out.rozb_rtr@1230042, out.rozb_rtr@1230043, out.rozb_rtr@1230044, out.rozb_rtr@1230045, out.rozb_rtr@1230046, out.rozb_rtr@1230047, out.rozb_rtr@1230048, out.rozb_rtr@1230049, out.rozb_rtr@1230050, out.rozb_rtr@1230051, out.rozb_rtr@1230052, out.rozb_rtr@1230053, out.rozb_rtr@1230054, out.rozb_rtr@1230055, out.rozb_rtr@1230056, out.rozb_rtr@1230057, out.rozb_rtr@1230058, out.rozb_rtr@1230059, out.rozb_rtr@1230060, out.rozb_rtr@1230061, out.rozb_rtr@1230062
+apkeep: out.soza_rtr discriminates among its ingress ports; demultiplexed into 12 element(s): out.soza_rtr@1330001, out.soza_rtr@1330002, out.soza_rtr@1330003, out.soza_rtr@1330004, out.soza_rtr@1330005, out.soza_rtr@1330006, out.soza_rtr@1330007, out.soza_rtr@1330008, out.soza_rtr@1330009, out.soza_rtr@1330010, out.soza_rtr@1330011, out.soza_rtr@1330012
+apkeep: out.sozb_rtr discriminates among its ingress ports; demultiplexed into 12 element(s): out.sozb_rtr@1430001, out.sozb_rtr@1430002, out.sozb_rtr@1430003, out.sozb_rtr@1430004, out.sozb_rtr@1430005, out.sozb_rtr@1430006, out.sozb_rtr@1430007, out.sozb_rtr@1430008, out.sozb_rtr@1430009, out.sozb_rtr@1430010, out.sozb_rtr@1430011, out.sozb_rtr@1430012
+apkeep: out.yoza_rtr discriminates among its ingress ports; demultiplexed into 60 element(s): out.yoza_rtr@1530001, out.yoza_rtr@1530002, out.yoza_rtr@1530003, out.yoza_rtr@1530004, out.yoza_rtr@1530005, out.yoza_rtr@1530006, out.yoza_rtr@1530007, out.yoza_rtr@1530008, out.yoza_rtr@1530009, out.yoza_rtr@1530010, out.yoza_rtr@1530011, out.yoza_rtr@1530012, out.yoza_rtr@1530013, out.yoza_rtr@1530014, out.yoza_rtr@1530015, out.yoza_rtr@1530016, out.yoza_rtr@1530017, out.yoza_rtr@1530018, out.yoza_rtr@1530019, out.yoza_rtr@1530020, out.yoza_rtr@1530021, out.yoza_rtr@1530022, out.yoza_rtr@1530023, out.yoza_rtr@1530024, out.yoza_rtr@1530025, out.yoza_rtr@1530026, out.yoza_rtr@1530027, out.yoza_rtr@1530028, out.yoza_rtr@1530029, out.yoza_rtr@1530030, out.yoza_rtr@1530031, out.yoza_rtr@1530032, out.yoza_rtr@1530033, out.yoza_rtr@1530034, out.yoza_rtr@1530035, out.yoza_rtr@1530036, out.yoza_rtr@1530037, out.yoza_rtr@1530038, out.yoza_rtr@1530039, out.yoza_rtr@1530040, out.yoza_rtr@1530041, out.yoza_rtr@1530042, out.yoza_rtr@1530043, out.yoza_rtr@1530044, out.yoza_rtr@1530045, out.yoza_rtr@1530046, out.yoza_rtr@1530047, out.yoza_rtr@1530048, out.yoza_rtr@1530049, out.yoza_rtr@1530050, out.yoza_rtr@1530051, out.yoza_rtr@1530052, out.yoza_rtr@1530053, out.yoza_rtr@1530054, out.yoza_rtr@1530055, out.yoza_rtr@1530056, out.yoza_rtr@1530057, out.yoza_rtr@1530058, out.yoza_rtr@1530059, out.yoza_rtr@1530060
+apkeep: out.yozb_rtr discriminates among its ingress ports; demultiplexed into 11 element(s): out.yozb_rtr@1630001, out.yozb_rtr@1630002, out.yozb_rtr@1630003, out.yozb_rtr@1630004, out.yozb_rtr@1630005, out.yozb_rtr@1630006, out.yozb_rtr@1630007, out.yozb_rtr@1630008, out.yozb_rtr@1630009, out.yozb_rtr@1630010, out.yozb_rtr@1630011
+apkeep: ingress demultiplexing split 22 device(s) into 693 element(s) -- a representational cost of the AP model, not a change to the FaVe model
+apkeep: in.bbra_rtr has 8 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.bbrb_rtr has 7 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.boza_rtr has 76 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.bozb_rtr has 75 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.poza_rtr has 68 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.pozb_rtr has 119 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.roza_rtr has 38 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.rozb_rtr has 38 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.yoza_rtr has 94 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.yozb_rtr has 65 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+worker: completed task check_compliance in 0.4933140277862549 seconds.
+worker: completed task report in 0.0007879734039306641 seconds.
+worker: initiate stopping
+worker: completed task stop in 9.059906005859375e-05 seconds.
+worker: stop handler after 1.474046230316162 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

@@ -1,0 +1,72 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)', 'engine': 'ndd', 'faithful_vlan': False}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task switch in 0.0001270771026611328 seconds.
+worker: completed task switch in 4.172325134277344e-05 seconds.
+worker: completed task switch in 2.956390380859375e-05 seconds.
+worker: completed task switch in 2.9325485229492188e-05 seconds.
+worker: completed task switch in 2.193450927734375e-05 seconds.
+worker: completed task switch in 1.8835067749023438e-05 seconds.
+worker: completed task switch in 1.8835067749023438e-05 seconds.
+worker: completed task switch in 1.9550323486328125e-05 seconds.
+worker: completed task switch in 1.7881393432617188e-05 seconds.
+worker: completed task switch in 1.8358230590820312e-05 seconds.
+worker: completed task switch in 1.71661376953125e-05 seconds.
+worker: completed task switch in 1.9311904907226562e-05 seconds.
+worker: completed task switch in 2.2649765014648438e-05 seconds.
+worker: completed task switch in 2.6941299438476562e-05 seconds.
+worker: completed task switch in 1.4066696166992188e-05 seconds.
+worker: completed task switch in 1.6689300537109375e-05 seconds.
+worker: completed task switch in 2.0503997802734375e-05 seconds.
+worker: completed task switch in 2.0265579223632812e-05 seconds.
+worker: completed task links in 0.000286102294921875 seconds.
+worker: completed task switch_command in 0.0005452632904052734 seconds.
+worker: completed task switch_command in 0.17009687423706055 seconds.
+worker: completed task switch_command in 0.008930444717407227 seconds.
+worker: completed task switch_command in 0.1820075511932373 seconds.
+worker: completed task switch_command in 0.007666349411010742 seconds.
+worker: completed task switch_command in 0.2090132236480713 seconds.
+worker: completed task switch_command in 0.00920867919921875 seconds.
+worker: completed task switch_command in 0.24609065055847168 seconds.
+worker: completed task switch_command in 0.008859872817993164 seconds.
+worker: completed task switch_command in 0.4340670108795166 seconds.
+worker: completed task switch_command in 0.010879039764404297 seconds.
+worker: completed task switch_command in 0.5115151405334473 seconds.
+worker: completed task switch_command in 0.01270914077758789 seconds.
+worker: completed task switch_command in 0.16175079345703125 seconds.
+worker: completed task switch_command in 0.009639978408813477 seconds.
+worker: completed task switch_command in 0.5990240573883057 seconds.
+worker: completed task switch_command in 0.011177539825439453 seconds.
+worker: completed task switch_command in 0.43633055686950684 seconds.
+worker: completed task probe in 0.009929656982421875 seconds.
+worker: completed task probe in 2.6941299438476562e-05 seconds.
+worker: completed task probe in 1.4781951904296875e-05 seconds.
+worker: completed task probe in 1.239776611328125e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task probe in 1.0251998901367188e-05 seconds.
+worker: completed task probe in 1.4066696166992188e-05 seconds.
+worker: completed task probe in 8.821487426757812e-06 seconds.
+worker: completed task links in 0.0010602474212646484 seconds.
+worker: completed task generators in 0.00017023086547851562 seconds.
+worker: completed task links in 4.4345855712890625e-05 seconds.
+apkeep: VLAN guardrail denominator: 77451 rewrite rule(s), 390 admission rule(s), across 18 HSA stage table(s); faithful_vlan=False (RELAXED -- not a faithful run)
+apkeep: in.atla has 4 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.chic has 4 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.kans has 12 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.losa has 4 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.newy32aoa has 10 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.salt has 1 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.seat has 4 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+apkeep: in.wash has 17 ingress-restricted forwarding rule(s); _gate_dead_ingress (dead interfaces only; per-port VLAN admission is the known P7b/P7c over-approximation) accounts for them only APPROXIMATELY -- this run over-approximates here
+worker: completed task check_compliance in 0.7184667587280273 seconds.
+worker: completed task report in 0.0007963180541992188 seconds.
+worker: initiate stopping
+worker: completed task stop in 8.940696716308594e-05 seconds.
+worker: stop handler after 5.077367782592773 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter
