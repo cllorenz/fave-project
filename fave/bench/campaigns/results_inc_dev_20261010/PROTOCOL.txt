@@ -1,0 +1,47 @@
+PROTOCOL -- incremental axis, INDICATIVE calibration (dev)
+Declared 2026-10-10, BEFORE any cell of this run. Not edited afterwards.
+INCREMENTAL_PLAN.md §7, O3-O5; the owner's scope of 2026-10-09: runs on this
+branch are indicative -- limit_class dev, one repetition, the machine as the
+memory cap -- and the complete campaign is run separately.
+
+WHO AND UNDER WHAT MANDATE
+  Executed unattended by a Claude session while the owner is away ("execute
+  the plan autonomously"). Nothing here is reportable; it calibrates the grid
+  and the predictions of the campaign (O4.5) and exercises the harness end to
+  end on all three incremental engines.
+
+WHAT IS BEING RUN  (run.sh in this directory)
+  Engines   netplumber (lib), veriflow (VeriFlow-FR), apkeep (BDD-APKeep).
+  Workloads wl_example, wl_ifi, wl_airtel1.
+  Streams   S1, S2 (fraction 0.2, seed 1), S3 -- each its FIRST 200 updates
+            (--limit-updates 200; S1 on wl_example and S3 on all three are
+            shorter than that and run whole). Batch 1.
+  Timed cells: 27 (3 x 3 x 3), no oracle in them (O3.1).
+  Oracle runs: S2 on wl_ifi and wl_airtel1, each engine, --oracle-sample 50
+            --oracle-every 50 (O3.3): 6 runs, untimed.
+  Cross-engine: incremental_compare over the three engines, per stream (O3.2).
+
+STOPPING RULES (incremental_cell.py defaults, the indicative ones)
+  limit_class dev; limit_wall 86400 s; limit_rss = the machine's memory;
+  memory_floor 1024 MB; per-update limit 3600 s; one repetition.
+
+PREDICTIONS -- declared now, checked in FINDINGS.md afterwards
+  P1  Every stream without refusals AGREES across the engines that ran it
+      (same changed checks per update). A disagreement is a defect.
+  P2  Every oracle run PASSES (sample, full and from-zero halves).
+  P3  APKeep refuses nothing on wl_ifi and wl_airtel1; on wl_example S1 it
+      refuses 2 updates (pgf's last route and its re-insertion, tier C).
+  P4  Precision (changed / re-checked): NetPlumber > VeriFlow-FR and
+      NetPlumber > APKeep on every stream that changes a verdict -- its
+      (source, probe) pairs are finer than source-level walk footprints and
+      element-level APKeep footprints (wl_ifi development runs: 780 vs ~8,600
+      re-checks for the same 732 changes).
+  P5  Median t_total on wl_airtel1 S2: NetPlumber and APKeep (FIB path) both
+      below 50 ms; VeriFlow-FR below 2 s (its full re-check is ~1.1 s and it
+      re-checks per affected source).
+  P6  APKeep's median t_update on wl_ifi and wl_example stays below 50 ms
+      (full re-translation there costs 1-5 ms).
+
+WHAT WOULD MAKE THIS RUN WORTHLESS
+  A harness crash or an `error` outcome on a cell: recorded, not hidden, and
+  the cell re-run once after the cause is understood.
