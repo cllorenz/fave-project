@@ -30,9 +30,9 @@ public class CheckerNDDAP {
             for (String device : net.edge_ports.keySet()) {
                 for (String port : net.edge_ports.get(device)) {
                     HashMap<PositionTuple, AtomizedNDD> subMap = new HashMap<PositionTuple, AtomizedNDD>();
-                    subMap.put(new PositionTuple(device, port), AtomizedNDD.getTrue());
+                    subMap.put(new PositionTuple(device, port), AtomizedNDD.getAtomizedTrue());
                     reach.put(new PositionTuple(device, port), subMap);
-                    queue.add(new TranverseNodeAP(new PositionTuple(device, port), AtomizedNDD.getTrue()));
+                    queue.add(new TranverseNodeAP(new PositionTuple(device, port), AtomizedNDD.getAtomizedTrue()));
                 }
             }
         } else {
@@ -50,7 +50,7 @@ public class CheckerNDDAP {
             for (String port : net.edge_ports.get(device)) {
                 // Molecule.Cache.clear();
                 Long t = 0L;
-                queue.add(new TranverseNodeAP(new PositionTuple(device, port), AtomizedNDD.getTrue()));
+                queue.add(new TranverseNodeAP(new PositionTuple(device, port), AtomizedNDD.getAtomizedTrue()));
                 Long t0 = System.nanoTime();
                 Long ret = PropertyCheck();
                 Long t1 = System.nanoTime();
@@ -90,7 +90,7 @@ public class CheckerNDDAP {
                         AtomizedNDD subReach = reach.get(curr_node.source)
                                 .get(new PositionTuple(curr_node.curr.getDeviceName(), out_port));
                         if (subReach == null) {
-                            subReach = AtomizedNDD.getFalse();
+                            subReach = AtomizedNDD.getAtomizedFalse();
                         }
                         AtomizedNDD t = subReach;
                         AtomizedNDD new_reach = AtomizedNDD.ref(AtomizedNDD.or(subReach, next_AP));

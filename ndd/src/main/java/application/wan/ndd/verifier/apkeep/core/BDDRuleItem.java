@@ -4,8 +4,8 @@ import org.ants.jndd.diagram.NDD;
 
 public class BDDRuleItem<T> {
 	public T rule; // the OpenFlow rule
-	public NDD rule_bdd; // the BDD encoding of rule
-	public NDD matches; // the matched packets
+	public int rule_bdd; // the BDD encoding of rule
+	public int matches; // the matched packets
 
 	public BDDRuleItem() {
 		rule = null;
@@ -13,13 +13,13 @@ public class BDDRuleItem<T> {
 		matches = NDD.getFalse();
 	}
 
-	public BDDRuleItem(T r, NDD bdd) {
+	public BDDRuleItem(T r, int bdd) {
 		rule = r;
 		rule_bdd = bdd;
 		matches = NDD.getFalse();
 	}
 
-	public BDDRuleItem(T r, NDD bdd, NDD m) {
+	public BDDRuleItem(T r, int bdd, int m) {
 		rule = r;
 		rule_bdd = bdd;
 		matches = m;

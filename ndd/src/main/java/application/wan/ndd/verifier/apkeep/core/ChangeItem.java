@@ -5,9 +5,9 @@ import org.ants.jndd.diagram.NDD;
 public class ChangeItem {
 	public String from_port;
 	public String to_port;
-	public NDD delta;
+	public int delta;
 
-	public ChangeItem(String port1, String port2, NDD packets) {
+	public ChangeItem(String port1, String port2, int packets) {
 		from_port = port1;
 		to_port = port2;
 		delta = packets;
@@ -27,7 +27,7 @@ public class ChangeItem {
 				return false;
 			if (!another.to_port.equals(to_port))
 				return false;
-			if (!another.delta.equals(delta))
+			if (another.delta != delta)
 				return false;
 			return true;
 		}
@@ -36,6 +36,6 @@ public class ChangeItem {
 
 	@Override
 	public int hashCode() {
-		return from_port.hashCode() + to_port.hashCode() + delta.hashCode();
+		return from_port.hashCode() + to_port.hashCode() + Integer.hashCode(delta);
 	}
 }

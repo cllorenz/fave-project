@@ -16,7 +16,7 @@ import application.wan.ndd.verifier.common.ACLRule;
 import application.wan.ndd.verifier.common.BDDACLWrapper;
 import application.wan.ndd.verifier.common.ForwardingRule;
 import application.wan.ndd.verifier.common.RewriteRule;
-import javafx.util.*;
+import org.ants.jndd.diagram.NDD.Pair;
 import jdd.bdd.BDD;
 import org.ants.jndd.diagram.NDD;
 
@@ -33,7 +33,7 @@ public class FieldNode {
     public LinkedList<BDDRuleItem<RewriteRule>> rewrite_rules;// rewrite
     public HashMap<String, HashSet<RewriteRule>> rule_map;
     public HashSet<String> ports;
-    public HashMap<String, NDD> ports_pred;
+    public HashMap<String, Integer> ports_pred;
 
     public FieldNode() {
     }
@@ -42,7 +42,7 @@ public class FieldNode {
         this.name = ename;
         this.type = type;
         ports = new HashSet<String>();
-        ports_pred = new HashMap<String, NDD>();
+        ports_pred = new HashMap<String, Integer>();
         if (type == 0) {
             if (NetworkNDDAP.encodeWithNDD) {
                 trie = new TrieTree();
@@ -203,21 +203,21 @@ public class FieldNode {
             // * }
             // * }
             // */
-            NDD rule_ndd = bdd.GetPrefixNDD(destip, prefixlen);
+            int rule_ndd = bdd.GetPrefixNDD(destip, prefixlen);
             ArrayList<PrefixItem> affected_rules = GetAffectedRules(node);
-            NDD residual = NDD.ref(rule_ndd);
-            NDD residual2 = NDD.getFalse();
+            int residual = NDD.ref(rule_ndd);
+            int residual2 = NDD.getFalse();
             boolean inserted = false;
             int last_priority = 65535;
-            NDD last_sum = NDD.getFalse();
+            int last_sum = NDD.getFalse();
             Iterator<PrefixItem> it = affected_rules.iterator();
             while (it.hasNext()) {
                 PrefixItem item = it.next();
                 if (item.priority > priority) {
-                    NDD t = residual;
+                    int t = residual;
                     residual = NDD.ref(NDD.diff(residual, item.rule_bdd));
                     NDD.deref(t);
-                    if (residual.isFalse()) {
+                    if (NDD.isFalse(residual)) {
                         break;
                     }
                 }
@@ -233,28 +233,28 @@ public class FieldNode {
                         last_priority = item.priority;
                     }
                     if (last_priority != item.priority) {
-                        NDD t = residual2;
+                        int t = residual2;
                         residual2 = NDD.ref(NDD.diff(residual2, last_sum));
                         NDD.deref(t);
                         last_sum = NDD.getFalse();
                         last_priority = item.priority;
                     }
-                    if (residual2.isFalse()) {
+                    if (NDD.isFalse(residual2)) {
                         break;
                     }
-                    NDD delta = NDD.ref(NDD.and(item.matches, residual2));
-                    if (delta.isFalse()) {
+                    int delta = NDD.ref(NDD.and(item.matches, residual2));
+                    if (NDD.isFalse(delta)) {
                         continue;
                     }
-                    NDD t1 = item.matches;
-                    NDD t2 = last_sum;
+                    int t1 = item.matches;
+                    int t2 = last_sum;
                     item.matches = NDD.ref(NDD.diff(item.matches, delta));
                     last_sum = NDD.ref(NDD.or(last_sum, delta));
                     NDD.deref(t1);
                     NDD.deref(t2);
                     HashSet<String> ports = new HashSet<String>();
                     ports.add(item.outinterface);
-                    HashSet<NDD> delta_set = new HashSet<NDD>();
+                    HashSet<Integer> delta_set = new HashSet<Integer>();
                     delta_set.add(delta);
                     ChangeTuple ct = new ChangeTuple(ports, to_ports, delta_set);
                     if (!ct.from_ports.equals(ct.to_ports)) {
@@ -269,7 +269,7 @@ public class FieldNode {
              * System.out.println("not overriding any low-priority rule"); System.exit(0); }
              */
 
-            NDD hit_bdd = residual;
+            int hit_bdd = residual;
             for (String port : to_ports) {
                 NDD.ref(rule_ndd);
                 NDD.ref(hit_bdd);
@@ -292,20 +292,20 @@ public class FieldNode {
             ArrayList<PrefixItem> node_rules = node.GetPrefixItems();
             ArrayList<PrefixItem> insert_items = new ArrayList<PrefixItem>();
             ArrayList<PrefixItem> delete_items = new ArrayList<PrefixItem>();
-            NDD rule_ndd = NDD.getFalse();
-            NDD hit_bdd = NDD.getFalse();
+            int rule_ndd = NDD.getFalse();
+            int hit_bdd = NDD.getFalse();
             if (!node_rules.isEmpty()) {
                 rule_ndd = node_rules.get(0).rule_bdd;
                 hit_bdd = node_rules.get(0).matches;
                 if (node_rules.size() == 1 && node_rules.get(0).priority == -1) {
                     // we hit the default rule
                     String outinterface = "default";
-                    NDD delta = node_rules.get(0).matches;
+                    int delta = node_rules.get(0).matches;
                     node_rules.get(0).matches = NDD.getFalse();
                     // bdd.getBDD().deref(delta);
                     HashSet<String> ports = new HashSet<String>();
                     ports.add(outinterface);
-                    HashSet<NDD> delta_set = new HashSet<NDD>();
+                    HashSet<Integer> delta_set = new HashSet<Integer>();
                     delta_set.add(delta);
                     ChangeTuple ct = new ChangeTuple(ports, to_ports, delta_set);
                     if (!ct.from_ports.equals(ct.to_ports)) {
@@ -319,7 +319,7 @@ public class FieldNode {
                         String outinterface = node_rules.get(1).outinterface;
                         HashSet<String> ports = new HashSet<String>();
                         ports.add(outinterface);
-                        HashSet<NDD> delta_set = new HashSet<NDD>();
+                        HashSet<Integer> delta_set = new HashSet<Integer>();
                         delta_set.add(hit_bdd);
                         ChangeTuple ct = new ChangeTuple(ports, to_ports, delta_set);
                         if (!ct.from_ports.containsAll(ct.to_ports)) {
@@ -333,7 +333,7 @@ public class FieldNode {
                         String outinterface = node_rules.get(0).outinterface;
                         HashSet<String> ports = new HashSet<String>();
                         ports.add(outinterface);
-                        HashSet<NDD> delta_set = new HashSet<NDD>();
+                        HashSet<Integer> delta_set = new HashSet<Integer>();
                         delta_set.add(hit_bdd);
                         ChangeTuple ct = new ChangeTuple(ports, to_ports, delta_set);
                         if (!ct.from_ports.containsAll(ct.to_ports)) {
@@ -369,12 +369,12 @@ public class FieldNode {
 
             if (node.IsInValid()) {
                 ArrayList<PrefixItem> affected_rules = GetAffectedRules(node);
-                NDD residual = NDD.ref(hit_bdd);
+                int residual = NDD.ref(hit_bdd);
                 int last_priority = 65535;
-                NDD last_sum = NDD.getFalse();
+                int last_sum = NDD.getFalse();
                 boolean inserted = false;
                 Iterator<PrefixItem> it = affected_rules.iterator();
-                while (it.hasNext() && !residual.isFalse()) {
+                while (it.hasNext() && !NDD.isFalse(residual)) {
                     PrefixItem item = it.next();
                     if (item.priority > priority) {
                         continue;
@@ -385,28 +385,28 @@ public class FieldNode {
                             inserted = true;
                         }
                         if (last_priority != item.priority) {
-                            NDD t = residual;
+                            int t = residual;
                             residual = NDD.ref(NDD.diff(residual, last_sum));
                             NDD.deref(t);
                             last_sum = NDD.getFalse();
                             last_priority = item.priority;
                         }
-                        if (residual.isFalse()) {
+                        if (NDD.isFalse(residual)) {
                             break;
                         }
-                        NDD delta = NDD.ref(NDD.and(residual, item.rule_bdd));
-                        if (delta.isFalse()) {
+                        int delta = NDD.ref(NDD.and(residual, item.rule_bdd));
+                        if (NDD.isFalse(delta)) {
                             continue;
                         }
-                        NDD t1 = item.matches;
-                        NDD t2 = last_sum;
+                        int t1 = item.matches;
+                        int t2 = last_sum;
                         item.matches = NDD.ref(NDD.or(item.matches, delta));
                         last_sum = NDD.ref(NDD.or(last_sum, delta));
                         NDD.deref(t1);
                         NDD.deref(t2);
                         HashSet<String> ports = new HashSet<String>();
                         ports.add(item.outinterface);
-                        HashSet<NDD> delta_set = new HashSet<NDD>();
+                        HashSet<Integer> delta_set = new HashSet<Integer>();
                         delta_set.add(delta);
                         ChangeTuple ct = new ChangeTuple(from_ports, ports, delta_set);
                         if (!ct.from_ports.equals(ct.to_ports)) {
@@ -416,13 +416,13 @@ public class FieldNode {
                         NDD.deref(delta);
                     }
                 }
-                if (!last_sum.isFalse()) {
-                    NDD t = residual;
+                if (!NDD.isFalse(last_sum)) {
+                    int t = residual;
                     residual = NDD.ref(NDD.diff(residual, last_sum));
                     NDD.deref(t);
                     last_sum = NDD.getFalse();
                 }
-                if (!residual.isFalse()) {
+                if (!NDD.isFalse(residual)) {
                     System.err.println("not fully deleted");
                     System.exit(1);
                 }
@@ -432,10 +432,10 @@ public class FieldNode {
                 // we hit the default rule
                 String outinterface = "default";
                 node_rules.get(0).matches = NDD.ref(hit_bdd);
-                NDD delta = node_rules.get(0).matches;
+                int delta = node_rules.get(0).matches;
                 HashSet<String> ports = new HashSet<String>();
                 ports.add(outinterface);
-                HashSet<NDD> delta_set = new HashSet<NDD>();
+                HashSet<Integer> delta_set = new HashSet<Integer>();
                 delta_set.add(delta);
                 ChangeTuple ct = new ChangeTuple(from_ports, ports, delta_set);
                 if (!ct.from_ports.equals(ct.to_ports)) {
@@ -449,13 +449,13 @@ public class FieldNode {
                 } else if (to_ports.isEmpty()) {
                     // only delete
                     HashSet<String> ports = new HashSet<String>();
-                    HashSet<NDD> delta_set = new HashSet<NDD>();
+                    HashSet<Integer> delta_set = new HashSet<Integer>();
                     NDD.ref(hit_bdd);
                     delta_set.add(hit_bdd);
                     ChangeTuple ct = new ChangeTuple(from_ports, ports, delta_set);
                     remove.add(ct);
                 } else {
-                    HashSet<NDD> delta_set = new HashSet<NDD>();
+                    HashSet<Integer> delta_set = new HashSet<Integer>();
                     delta_set.add(hit_bdd);
                     ChangeTuple ct = new ChangeTuple(from_ports, to_ports, delta_set);
                     if (!ct.from_ports.equals(ct.to_ports)) {
@@ -782,23 +782,23 @@ public class FieldNode {
 
         ArrayList<ChangeItem> changeset = new ArrayList<ChangeItem>();
 
-        NDD rule_bdd = bdd.ConvertACLRuleNDD(rule);
+        int rule_bdd = bdd.ConvertACLRuleNDD(rule);
         int priority = rule.getPriority();
-        NDD residual = rule_bdd;
+        int residual = rule_bdd;
         NDD.ref(residual);
-        NDD residual2 = NDD.getFalse();
+        int residual2 = NDD.getFalse();
         int cur_position = 0;
         boolean inserted = false;
 
         BDDRuleItem<ACLRule> default_item = acl_rule.getLast();
 
         Iterator<BDDRuleItem<ACLRule>> it = acl_rule.iterator();
-        while (it.hasNext() && !residual.isFalse()) {
+        while (it.hasNext() && !NDD.isFalse(residual)) {
             BDDRuleItem<ACLRule> item = it.next();
             // TODO: fast check whether the rule is not affected by any rule
             if (item.rule.getPriority() >= priority) {
-                if (!residual.isFalse() && !NDD.and(residual, item.rule_bdd).isFalse()) {
-                    NDD t = residual;
+                if (!NDD.isFalse(residual) && !NDD.isFalse(NDD.and(residual, item.rule_bdd))) {
+                    int t = residual;
                     residual = NDD.ref(NDD.diff(residual, item.rule_bdd));
                     NDD.deref(t);
                 }
@@ -806,9 +806,9 @@ public class FieldNode {
             } else {
                 if (!inserted) {
                     // fast check whether the default rule is the only rule affected
-                    NDD temp = NDD.diff(residual, default_item.matches);
-                    if (temp.isFalse()) {
-                        NDD t = default_item.matches;
+                    int temp = NDD.diff(residual, default_item.matches);
+                    if (NDD.isFalse(temp)) {
+                        int t = default_item.matches;
                         default_item.matches = NDD.ref(NDD.diff(default_item.matches, residual));
                         NDD.deref(t);
                         if (!default_item.rule.permitDeny.equals(rule.get_type())) {
@@ -824,14 +824,14 @@ public class FieldNode {
                     inserted = true;
                 }
 
-                if (residual2.isFalse()) {
+                if (NDD.isFalse(residual2)) {
                     break;
                 }
 
-                NDD delta = NDD.ref(NDD.and(item.matches, residual2));
-                if (!delta.isFalse()) {
-                    NDD t1 = item.matches;
-                    NDD t2 = residual2;
+                int delta = NDD.ref(NDD.and(item.matches, residual2));
+                if (!NDD.isFalse(delta)) {
+                    int t1 = item.matches;
+                    int t2 = residual2;
                     item.matches = NDD.ref(NDD.diff(item.matches, delta));
                     residual2 = NDD.ref(NDD.diff(residual2, delta));
                     NDD.deref(t1);
@@ -964,9 +964,9 @@ public class FieldNode {
         for (ChangeItem item : change_set) {
             String from_port = item.from_port;
             String to_port = item.to_port;
-            NDD delta = item.delta;
-            NDD t1 = ports_pred.get(from_port);
-            NDD t2 = ports_pred.get(to_port);
+            int delta = item.delta;
+            int t1 = ports_pred.get(from_port);
+            int t2 = ports_pred.get(to_port);
             ports_pred.put(from_port, NDD.ref(NDD.diff(t1, delta)));
             ports_pred.put(to_port, NDD.ref(NDD.or(t2, delta)));
             NDD.deref(t1);
@@ -980,13 +980,13 @@ public class FieldNode {
             return;
         }
 
-        HashMap<Pair<HashSet<String>, HashSet<String>>, HashSet<NDD>> simplified = new HashMap<Pair<HashSet<String>, HashSet<String>>, HashSet<NDD>>();
+        HashMap<Pair<HashSet<String>, HashSet<String>>, HashSet<Integer>> simplified = new HashMap<Pair<HashSet<String>, HashSet<String>>, HashSet<Integer>>();
         for (ChangeTuple ct : change_set) {
             Pair<HashSet<String>, HashSet<String>> key = new Pair<HashSet<String>, HashSet<String>>(ct.from_ports,
                     ct.to_ports);
             if (simplified.containsKey(key)) {
-                HashSet<NDD> set = simplified.get(key);
-                for (NDD n : ct.delta_set) {
+                HashSet<Integer> set = simplified.get(key);
+                for (int n : ct.delta_set) {
                     if (!set.contains(n)) {
                         set.add(n);
                     } else {
@@ -1006,8 +1006,8 @@ public class FieldNode {
             Pair<HashSet<String>, HashSet<String>> key = new Pair<HashSet<String>, HashSet<String>>(ct.from_ports,
                     ct.to_ports);
             if (simplified.containsKey(key)) {
-                HashSet<NDD> set = simplified.get(key);
-                for (NDD n : ct.delta_set) {
+                HashSet<Integer> set = simplified.get(key);
+                for (int n : ct.delta_set) {
                     if (!set.contains(n)) {
                         set.add(n);
                     } else {
@@ -1024,35 +1024,35 @@ public class FieldNode {
         }
 
         for (ChangeTuple item : change_set) {
-            NDD delta = NDD.getFalse();
-            for (NDD abdd : item.delta_set) {
-                NDD t = delta;
+            int delta = NDD.getFalse();
+            for (int abdd : item.delta_set) {
+                int t = delta;
                 delta = NDD.ref(NDD.or(delta, abdd));
                 NDD.deref(t);
                 NDD.deref(abdd);
             }
             for (String from_port : item.from_ports) {
-                NDD t = ports_pred.get(from_port);
+                int t = ports_pred.get(from_port);
                 ports_pred.put(from_port, NDD.ref(NDD.diff(t, delta)));
                 NDD.deref(t);
             }
             for (String to_port : item.to_ports) {
-                NDD t = ports_pred.get(to_port);
+                int t = ports_pred.get(to_port);
                 ports_pred.put(to_port, NDD.ref(NDD.or(t, delta)));
                 NDD.deref(t);
             }
             NDD.deref(delta);
         }
         for (ChangeTuple item : copyto_set) {
-            NDD delta = NDD.getFalse();
-            for (NDD abdd : item.delta_set) {
-                NDD t = delta;
+            int delta = NDD.getFalse();
+            for (int abdd : item.delta_set) {
+                int t = delta;
                 delta = NDD.ref(NDD.or(delta, abdd));
                 NDD.deref(t);
                 NDD.deref(abdd);
             }
             for (String to_port : item.to_ports) {
-                NDD t = ports_pred.get(to_port);
+                int t = ports_pred.get(to_port);
                 ports_pred.put(to_port, NDD.ref(NDD.or(t, delta)));
                 NDD.deref(t);
             }

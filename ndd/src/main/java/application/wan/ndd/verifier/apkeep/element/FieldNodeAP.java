@@ -6,7 +6,7 @@ import application.wan.ndd.exp.EvalDataplaneVerifierNDDAP;
 import application.wan.ndd.verifier.DPVerifierNDDAPIncre;
 import application.wan.ndd.verifier.apkeep.core.*;
 import application.wan.ndd.verifier.common.ACLRule;
-import javafx.util.*;
+import org.ants.jndd.diagram.NDD.Pair;
 import org.ants.jndd.diagram.AtomizedNDD;
 import org.ants.jndd.diagram.NDD;
 
@@ -22,13 +22,13 @@ public class FieldNodeAP extends FieldNode {
         super(ename, net, type);
         ports_aps = new HashMap<>();
         if (type == 0) {
-            ports_aps.put("default", AtomizedNDD.getTrue());
+            ports_aps.put("default", AtomizedNDD.getAtomizedTrue());
         } else if (type == 1) {
-            ports_aps.put("permit", AtomizedNDD.getTrue());
+            ports_aps.put("permit", AtomizedNDD.getAtomizedTrue());
         } else if (type == -1) {
-            ports_aps.put("deny", AtomizedNDD.getTrue());
+            ports_aps.put("deny", AtomizedNDD.getAtomizedTrue());
         } else if (type == 2) {
-            ports_aps.put("default", AtomizedNDD.getTrue());
+            ports_aps.put("default", AtomizedNDD.getAtomizedTrue());
         }
     }
 
@@ -37,7 +37,7 @@ public class FieldNodeAP extends FieldNode {
             HashMap<String, ArrayList<ChangeTuple>> remove_set) {
         for (String port : to_ports) {
             if (!ports.contains(port)) {
-                ports_aps.put(port, AtomizedNDD.getFalse());
+                ports_aps.put(port, AtomizedNDD.getAtomizedFalse());
             }
         }
         super.updateFWRuleBatch(ip, to_ports, from_ports, change_set, copyto_set, remove_set);
@@ -49,7 +49,7 @@ public class FieldNodeAP extends FieldNode {
             HashMap<String, ArrayList<ChangeTupleBDD>> remove_set) {
         for (String port : to_ports) {
             if (!ports.contains(port)) {
-                ports_aps.put(port, AtomizedNDD.getFalse());
+                ports_aps.put(port, AtomizedNDD.getAtomizedFalse());
             }
         }
         super.updateFWRuleBatchBDD(ip, to_ports, from_ports, change_set, copyto_set, remove_set);
@@ -58,7 +58,7 @@ public class FieldNodeAP extends FieldNode {
     public ArrayList<ChangeItem> InsertACLRule(ACLRule rule) {
         String iname = rule.get_type();
         if (!ports.contains(iname)) {
-            ports_aps.put(iname, AtomizedNDD.getFalse());
+            ports_aps.put(iname, AtomizedNDD.getAtomizedFalse());
         }
         ArrayList<ChangeItem> ret = super.InsertACLRule(rule);
         return ret;
@@ -67,25 +67,25 @@ public class FieldNodeAP extends FieldNode {
     public ArrayList<ChangeItemBDD> InsertACLRuleBDD(ACLRule rule) {
         String iname = rule.get_type();
         if (!ports.contains(iname)) {
-            ports_aps.put(iname, AtomizedNDD.getFalse());
+            ports_aps.put(iname, AtomizedNDD.getAtomizedFalse());
         }
         ArrayList<ChangeItemBDD> ret = super.InsertACLRuleBDD(rule);
         return ret;
     }
 
-    // pure NDD
+    // pure int
     public void update_FW(ArrayList<ChangeTuple> change_set, ArrayList<ChangeTuple> copyto_set) {
         if (change_set.size() == 0) {
             return;
         }
 
-        HashMap<Pair<HashSet<String>, HashSet<String>>, HashSet<NDD>> simplified = new HashMap<Pair<HashSet<String>, HashSet<String>>, HashSet<NDD>>();
+        HashMap<Pair<HashSet<String>, HashSet<String>>, HashSet<Integer>> simplified = new HashMap<Pair<HashSet<String>, HashSet<String>>, HashSet<Integer>>();
         for (ChangeTuple ct : change_set) {
             Pair<HashSet<String>, HashSet<String>> key = new Pair<HashSet<String>, HashSet<String>>(ct.from_ports,
                     ct.to_ports);
             if (simplified.containsKey(key)) {
-                HashSet<NDD> set = simplified.get(key);
-                for (NDD n : ct.delta_set) {
+                HashSet<Integer> set = simplified.get(key);
+                for (int n : ct.delta_set) {
                     if (!set.contains(n)) {
                         set.add(n);
                     } else {
@@ -97,7 +97,7 @@ public class FieldNodeAP extends FieldNode {
             }
         }
         change_set.clear();
-        for (Map.Entry<Pair<HashSet<String>, HashSet<String>>, HashSet<NDD>> entry : simplified.entrySet()) {
+        for (Map.Entry<Pair<HashSet<String>, HashSet<String>>, HashSet<Integer>> entry : simplified.entrySet()) {
             change_set.add(new ChangeTuple(entry.getKey().getKey(), entry.getKey().getValue(), entry.getValue()));
         }
         simplified.clear();
@@ -105,8 +105,8 @@ public class FieldNodeAP extends FieldNode {
             Pair<HashSet<String>, HashSet<String>> key = new Pair<HashSet<String>, HashSet<String>>(ct.from_ports,
                     ct.to_ports);
             if (simplified.containsKey(key)) {
-                HashSet<NDD> set = simplified.get(key);
-                for (NDD n : ct.delta_set) {
+                HashSet<Integer> set = simplified.get(key);
+                for (int n : ct.delta_set) {
                     if (!set.contains(n)) {
                         set.add(n);
                     } else {
@@ -118,27 +118,27 @@ public class FieldNodeAP extends FieldNode {
             }
         }
         copyto_set.clear();
-        for (Map.Entry<Pair<HashSet<String>, HashSet<String>>, HashSet<NDD>> entry : simplified.entrySet()) {
+        for (Map.Entry<Pair<HashSet<String>, HashSet<String>>, HashSet<Integer>> entry : simplified.entrySet()) {
             copyto_set.add(new ChangeTuple(entry.getKey().getKey(), entry.getKey().getValue(), entry.getValue()));
         }
 
-        // can be inplemented into NDD library
-        NDD delta;
+        // can be inplemented into int library
+        int delta;
         for (ChangeTuple item : change_set) {
             delta = NDD.getFalse();
-            for (NDD abdd : item.delta_set) {
-                NDD t = delta;
+            for (int abdd : item.delta_set) {
+                int t = delta;
                 delta = NDD.ref(NDD.or(delta, abdd));
                 NDD.deref(t);
                 NDD.deref(abdd);
             }
             for (String from_port : item.from_ports) {
-                NDD t = ports_pred.get(from_port);
+                int t = ports_pred.get(from_port);
                 ports_pred.put(from_port, NDD.ref(NDD.diff(t, delta)));
                 NDD.deref(t);
             }
             for (String to_port : item.to_ports) {
-                NDD t = ports_pred.get(to_port);
+                int t = ports_pred.get(to_port);
                 ports_pred.put(to_port, NDD.ref(NDD.or(t, delta)));
                 NDD.deref(t);
             }
@@ -146,12 +146,13 @@ public class FieldNodeAP extends FieldNode {
             HashSet<Integer> delta_aps = new HashSet<>();
             HashMap<Integer, HashSet<Integer>> split_ap = new HashMap<>();
             int d = 0;
-            if (delta.isTrue()) {
+            if (NDD.isTrue(delta)) {
                 d = 1;
-            } else if (delta.isFalse()) {
+            } else if (NDD.isFalse(delta)) {
                 d = 0;
             } else {
-                for (int pred : delta.getEdges().values()) {
+                for (int edge = 0; edge < NDD.getEdgeCount(delta); edge++) {
+                    int pred = NDD.getEdgeLabel(delta, edge);
                     d = pred;
                 }
             }
@@ -163,14 +164,14 @@ public class FieldNodeAP extends FieldNode {
                 break;
             }
 
-            AtomizedNDD moved_aps = AtomizedNDD.getFalse();
+            AtomizedNDD moved_aps = AtomizedNDD.getAtomizedFalse();
             if (delta_aps.size() == AtomizedNDD.getAllAtoms(bdd.DST_IP_FIELD).size()) {
-                moved_aps = AtomizedNDD.getTrue();
+                moved_aps = AtomizedNDD.getAtomizedTrue();
             } else if (delta_aps.size() == 0) {
-                moved_aps = AtomizedNDD.getFalse();
+                moved_aps = AtomizedNDD.getAtomizedFalse();
             } else {
                 HashMap<AtomizedNDD, HashSet<Integer>> tempMap = new HashMap<>();
-                tempMap.put(AtomizedNDD.getTrue(), delta_aps);
+                tempMap.put(AtomizedNDD.getAtomizedTrue(), delta_aps);
                 moved_aps = AtomizedNDD.mkAtomized(1, tempMap);
                 AtomizedNDD.ref(moved_aps);
             }
@@ -195,7 +196,7 @@ public class FieldNodeAP extends FieldNode {
             for (String to_port : item.to_ports) {
                 AtomizedNDD old_to_aps = ports_aps.get(to_port);
                 if (old_to_aps == null) {
-                    old_to_aps = AtomizedNDD.getFalse();
+                    old_to_aps = AtomizedNDD.getAtomizedFalse();
                 }
                 AtomizedNDD new_to_aps = AtomizedNDD.ref(AtomizedNDD.or(old_to_aps, moved_aps));
                 HashSet<Integer> toRemove = new HashSet<>();
@@ -217,14 +218,14 @@ public class FieldNodeAP extends FieldNode {
         }
         for (ChangeTuple item : copyto_set) {
             delta = NDD.getFalse();
-            for (NDD abdd : item.delta_set) {
-                NDD t = delta;
+            for (int abdd : item.delta_set) {
+                int t = delta;
                 delta = NDD.ref(NDD.or(delta, abdd));
                 NDD.deref(t);
                 NDD.deref(abdd);
             }
             for (String to_port : item.to_ports) {
-                NDD t = ports_pred.get(to_port);
+                int t = ports_pred.get(to_port);
                 ports_pred.put(to_port, NDD.ref(NDD.or(t, delta)));
                 NDD.deref(t);
             }
@@ -232,35 +233,36 @@ public class FieldNodeAP extends FieldNode {
             HashSet<Integer> delta_aps = new HashSet<>();
             HashMap<Integer, HashSet<Integer>> split_ap = new HashMap<>();
             int d = 0;
-            if (delta.isTrue()) {
+            if (NDD.isTrue(delta)) {
                 d = 1;
-            } else if (delta.isFalse()) {
+            } else if (NDD.isFalse(delta)) {
                 d = 0;
             } else {
-                for (int pred : delta.getEdges().values()) {
+                for (int edge = 0; edge < NDD.getEdgeCount(delta); edge++) {
+                    int pred = NDD.getEdgeLabel(delta, edge);
                     d = pred;
                 }
             }
-            AtomizedNDD from_aps = AtomizedNDD.getTrue();
+            AtomizedNDD from_aps = AtomizedNDD.getAtomizedTrue();
             AtomizedNDD.getAtomsToSplitSingleField(from_aps, d, delta_aps, split_ap, 1);
             network.split_ap_one_field(split_ap, 1);// !!!!!!!!!!!!!!!!!!!!!!!!!!! map
 
             HashSet<Integer> apSet = new HashSet<>(delta_aps);
-            AtomizedNDD moved_aps = AtomizedNDD.getFalse();
+            AtomizedNDD moved_aps = AtomizedNDD.getAtomizedFalse();
             if (delta_aps.size() == AtomizedNDD.getAllAtoms(bdd.DST_IP_FIELD).size()) {
-                moved_aps = AtomizedNDD.getTrue();
+                moved_aps = AtomizedNDD.getAtomizedTrue();
             } else if (delta_aps.size() == 0) {
-                moved_aps = AtomizedNDD.getFalse();
+                moved_aps = AtomizedNDD.getAtomizedFalse();
             } else {
                 HashMap<AtomizedNDD, HashSet<Integer>> tempMap = new HashMap<>();
-                tempMap.put(AtomizedNDD.getTrue(), delta_aps);
+                tempMap.put(AtomizedNDD.getAtomizedTrue(), delta_aps);
                 moved_aps = AtomizedNDD.mkAtomized(1, tempMap);
                 AtomizedNDD.ref(moved_aps);
             }
             for (String to_port : item.to_ports) {
                 AtomizedNDD old_to_aps = ports_aps.get(to_port);
                 if (old_to_aps == null) {
-                    old_to_aps = AtomizedNDD.getFalse();
+                    old_to_aps = AtomizedNDD.getAtomizedFalse();
                 }
                 AtomizedNDD new_to_aps = AtomizedNDD.ref(AtomizedNDD.or(old_to_aps, moved_aps));// map!!!!!!!
                 AtomizedNDD.deref(old_to_aps);
@@ -276,7 +278,7 @@ public class FieldNodeAP extends FieldNode {
         }
     }
 
-    // BDD->NDD
+    // BDD->int
     public void update_FW_BDD(ArrayList<ChangeTupleBDD> change_set, ArrayList<ChangeTupleBDD> copyto_set) {
         if (change_set.size() == 0) {
             return;
@@ -325,7 +327,7 @@ public class FieldNodeAP extends FieldNode {
             copyto_set.add(new ChangeTupleBDD(entry.getKey().getKey(), entry.getKey().getValue(), entry.getValue()));
         }
 
-        NDD delta;
+        int delta;
         int deltaBDD;
         for (ChangeTupleBDD item : change_set) {
             deltaBDD = 0;
@@ -338,12 +340,12 @@ public class FieldNodeAP extends FieldNode {
             delta = NDD.ref(NDD.toNDD(deltaBDD, 1));
 
             for (String from_port : item.from_ports) {
-                NDD t = ports_pred.get(from_port);
+                int t = ports_pred.get(from_port);
                 ports_pred.put(from_port, NDD.ref(NDD.diff(t, delta)));
                 NDD.deref(t);
             }
             for (String to_port : item.to_ports) {
-                NDD t = ports_pred.get(to_port);
+                int t = ports_pred.get(to_port);
                 ports_pred.put(to_port, NDD.ref(NDD.or(t, delta)));
                 NDD.deref(t);
             }
@@ -351,12 +353,13 @@ public class FieldNodeAP extends FieldNode {
             HashSet<Integer> delta_aps = new HashSet<>();
             HashMap<Integer, HashSet<Integer>> split_ap = new HashMap<>();
             int d = 0;
-            if (delta.isTrue()) {
+            if (NDD.isTrue(delta)) {
                 d = 1;
-            } else if (delta.isFalse()) {
+            } else if (NDD.isFalse(delta)) {
                 d = 0;
             } else {
-                for (int pred : delta.getEdges().values()) {
+                for (int edge = 0; edge < NDD.getEdgeCount(delta); edge++) {
+                    int pred = NDD.getEdgeLabel(delta, edge);
                     d = pred;
                 }
             }
@@ -368,14 +371,14 @@ public class FieldNodeAP extends FieldNode {
                 break;
             }
 
-            AtomizedNDD moved_aps = AtomizedNDD.getFalse();
+            AtomizedNDD moved_aps = AtomizedNDD.getAtomizedFalse();
             if (delta_aps.size() == AtomizedNDD.getAllAtoms(bdd.DST_IP_FIELD).size()) {
-                moved_aps = AtomizedNDD.getTrue();
+                moved_aps = AtomizedNDD.getAtomizedTrue();
             } else if (delta_aps.size() == 0) {
-                moved_aps = AtomizedNDD.getFalse();
+                moved_aps = AtomizedNDD.getAtomizedFalse();
             } else {
                 HashMap<AtomizedNDD, HashSet<Integer>> tempMap = new HashMap<>();
-                tempMap.put(AtomizedNDD.getTrue(), delta_aps);
+                tempMap.put(AtomizedNDD.getAtomizedTrue(), delta_aps);
                 moved_aps = AtomizedNDD.mkAtomized(1, tempMap);
                 AtomizedNDD.ref(moved_aps);
             }
@@ -400,7 +403,7 @@ public class FieldNodeAP extends FieldNode {
             for (String to_port : item.to_ports) {
                 AtomizedNDD old_to_aps = ports_aps.get(to_port);
                 if (old_to_aps == null) {
-                    old_to_aps = AtomizedNDD.getFalse();
+                    old_to_aps = AtomizedNDD.getAtomizedFalse();
                 }
                 AtomizedNDD new_to_aps = AtomizedNDD.ref(AtomizedNDD.or(old_to_aps, moved_aps));
                 HashSet<Integer> toRemove = new HashSet<>();
@@ -431,7 +434,7 @@ public class FieldNodeAP extends FieldNode {
             delta = NDD.ref(NDD.toNDD(deltaBDD, 1));
 
             for (String to_port : item.to_ports) {
-                NDD t = ports_pred.get(to_port);
+                int t = ports_pred.get(to_port);
                 ports_pred.put(to_port, NDD.ref(NDD.or(t, delta)));
                 NDD.deref(t);
             }
@@ -439,35 +442,36 @@ public class FieldNodeAP extends FieldNode {
             HashSet<Integer> delta_aps = new HashSet<>();
             HashMap<Integer, HashSet<Integer>> split_ap = new HashMap<>();
             int d = 0;
-            if (delta.isTrue()) {
+            if (NDD.isTrue(delta)) {
                 d = 1;
-            } else if (delta.isFalse()) {
+            } else if (NDD.isFalse(delta)) {
                 d = 0;
             } else {
-                for (int pred : delta.getEdges().values()) {
+                for (int edge = 0; edge < NDD.getEdgeCount(delta); edge++) {
+                    int pred = NDD.getEdgeLabel(delta, edge);
                     d = pred;
                 }
             }
-            AtomizedNDD from_aps = AtomizedNDD.getTrue();
+            AtomizedNDD from_aps = AtomizedNDD.getAtomizedTrue();
             AtomizedNDD.getAtomsToSplitSingleField(from_aps, d, delta_aps, split_ap, 1);
             network.split_ap_one_field(split_ap, 1);// !!!!!!!!!!!!!!!!!!!!!!!!!!! map
 
             HashSet<Integer> apSet = new HashSet<>(delta_aps);
-            AtomizedNDD moved_aps = AtomizedNDD.getFalse();
+            AtomizedNDD moved_aps = AtomizedNDD.getAtomizedFalse();
             if (delta_aps.size() == AtomizedNDD.getAllAtoms(bdd.DST_IP_FIELD).size()) {
-                moved_aps = AtomizedNDD.getTrue();
+                moved_aps = AtomizedNDD.getAtomizedTrue();
             } else if (delta_aps.size() == 0) {
-                moved_aps = AtomizedNDD.getFalse();
+                moved_aps = AtomizedNDD.getAtomizedFalse();
             } else {
                 HashMap<AtomizedNDD, HashSet<Integer>> tempMap = new HashMap<>();
-                tempMap.put(AtomizedNDD.getTrue(), delta_aps);
+                tempMap.put(AtomizedNDD.getAtomizedTrue(), delta_aps);
                 moved_aps = AtomizedNDD.mkAtomized(1, tempMap);
                 AtomizedNDD.ref(moved_aps);
             }
             for (String to_port : item.to_ports) {
                 AtomizedNDD old_to_aps = ports_aps.get(to_port);
                 if (old_to_aps == null) {
-                    old_to_aps = AtomizedNDD.getFalse();
+                    old_to_aps = AtomizedNDD.getAtomizedFalse();
                 }
                 AtomizedNDD new_to_aps = AtomizedNDD.ref(AtomizedNDD.or(old_to_aps, moved_aps));// map!!!!!!!
                 AtomizedNDD.deref(old_to_aps);
@@ -495,11 +499,11 @@ public class FieldNodeAP extends FieldNode {
         for (ChangeItem item : change_set) {
             String from_port = item.from_port;
             String to_port = item.to_port;
-            NDD delta = item.delta;
+            int delta = item.delta;
 
             // update pred
-            NDD t1 = ports_pred.get(from_port);
-            NDD t2 = ports_pred.get(to_port);
+            int t1 = ports_pred.get(from_port);
+            int t2 = ports_pred.get(to_port);
             ports_pred.put(from_port, NDD.ref(NDD.diff(t1, delta)));
             ports_pred.put(to_port, NDD.ref(NDD.or(t2, delta)));
             NDD.deref(t1);
@@ -528,7 +532,7 @@ public class FieldNodeAP extends FieldNode {
                 // split
                 network.split_ap_multi_field(split_ap);
                 // transfer
-                AtomizedNDD moved_aps = AtomizedNDD.getTrue();
+                AtomizedNDD moved_aps = AtomizedNDD.getAtomizedTrue();
                 for (int curr_field = AtomizedNDD.getFieldNum(); curr_field >= 0; curr_field--) {
                     HashMap<AtomizedNDD, HashSet<Integer>> tempMap = new HashMap<>();
                     tempMap.put(moved_aps, delta_aps.get(curr_field));
@@ -593,11 +597,11 @@ public class FieldNodeAP extends FieldNode {
         for (ChangeItemBDD item : change_set) {
             String from_port = item.from_port;
             String to_port = item.to_port;
-            NDD delta = NDD.ref(NDD.toNDD(item.delta));
+            int delta = NDD.ref(NDD.toNDD(item.delta));
 
             // update pred
-            NDD t1 = ports_pred.get(from_port);
-            NDD t2 = ports_pred.get(to_port);
+            int t1 = ports_pred.get(from_port);
+            int t2 = ports_pred.get(to_port);
             ports_pred.put(from_port, NDD.ref(NDD.diff(t1, delta)));
             ports_pred.put(to_port, NDD.ref(NDD.or(t2, delta)));
             NDD.deref(t1);
@@ -620,7 +624,7 @@ public class FieldNodeAP extends FieldNode {
                 network.split_ap_multi_field(split_ap);
 
                 // transfer
-                AtomizedNDD moved_aps = AtomizedNDD.getTrue();
+                AtomizedNDD moved_aps = AtomizedNDD.getAtomizedTrue();
                 for (int curr_field = AtomizedNDD.getFieldNum(); curr_field >= 0; curr_field--) {
                     if (delta_aps.get(curr_field).size() == AtomizedNDD.getAllAtoms(curr_field).size()) {
                         continue;

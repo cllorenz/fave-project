@@ -7,13 +7,13 @@ import java.util.HashSet;
 public class ChangeTuple {
 	public HashSet<String> from_ports;
 	public HashSet<String> to_ports;
-	public HashSet<NDD> delta_set;
+	public HashSet<Integer> delta_set;
 
-	public ChangeTuple(HashSet<String> ports1, HashSet<String> ports2, HashSet<NDD> set) {
+	public ChangeTuple(HashSet<String> ports1, HashSet<String> ports2, HashSet<Integer> set) {
 		// TODO Auto-generated constructor stub
 		from_ports = new HashSet<String>(ports1);
 		to_ports = new HashSet<String>(ports2);
-		delta_set = new HashSet<NDD>(set);
+		delta_set = new HashSet<Integer>(set);
 	}
 
 	@Override

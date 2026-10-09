@@ -492,6 +492,38 @@ public class NDD {
     /** @return The BDD handle of the offset-th edge of a node. */
     public static int getEdgeLabel(int nodeId, int offset) { return nodeTable.getEdgeLabel(nodeId, offset); }
 
+    /**
+     * FaVe (ndd/FAVE_CHANGES.md): the label vectors of an NDD -- one
+     * {@code int[getFieldNum() + 1]} per path from the root to TRUE, each entry
+     * the edge label taken at that field, or the field's universe label where
+     * the path skips it. The reference verifier's {@code FieldNodeAP} turns a
+     * change into per-field atoms with it; the int-core refactor dropped it.
+     * Labels are not referenced: they are valid while {@code ndd} is.
+     */
+    public static ArrayList<int[]> toArray(int ndd) {
+        ArrayList<int[]> out = new ArrayList<>();
+        if (isFalse(ndd)) return out;
+        int[] vec = new int[fieldNum + 1];
+        for (int field = 0; field <= fieldNum; field++) vec[field] = getFieldUniverseLabel(field);
+        toArray(ndd, vec, out);
+        return out;
+    }
+
+    private static void toArray(int node, int[] vec, ArrayList<int[]> out) {
+        if (isTrue(node)) {
+            out.add(vec.clone());
+            return;
+        }
+        if (isFalse(node)) return;
+        int field = getField(node);
+        int saved = vec[field];
+        for (int k = 0; k < getEdgeCount(node); k++) {
+            vec[field] = getEdgeLabel(node, k);
+            toArray(getEdgeTarget(node, k), vec, out);
+        }
+        vec[field] = saved;
+    }
+
     /** @return NDD node id for positive literal at (field, index). */
     public static int getVar(int field, int index) { return nddVarsPerField.get(field)[index]; }
     /** @return NDD node id for negative literal at (field, index). */

@@ -47,7 +47,7 @@ import java.io.Serializable;
 import java.util.*;
 
 import application.wan.ndd.exp.EvalDataplaneVerifierNDDAP;
-import javafx.util.Pair;
+import org.ants.jndd.diagram.NDD.Pair;
 import jdd.bdd.*;
 import org.ants.jndd.diagram.AtomizedNDD;
 import org.ants.jndd.diagram.NDD;
@@ -70,7 +70,7 @@ public class BDDACLWrapper implements Serializable {
 
 	BDD aclBDD;
 	HashMap<String, Integer> PrefixBDDMap;
-	HashMap<String, NDD> PrefixNDDMap;
+	HashMap<String, Integer> PrefixNDDMap;
 
 	public final int SRC_IP_FIELD = 0;
 	public final int DST_IP_FIELD = 1;
@@ -82,13 +82,13 @@ public class BDDACLWrapper implements Serializable {
 	 * the arrays store BDD variables.
 	 */
 	public final static int protocolBits = 8;
-	public NDD[] protocol; // protocol[0] is the lowest bits
+	public int[] protocol; // protocol[0] is the lowest bits
 	public final static int portBits = 16;
-	public NDD[] srcPort;
-	public NDD[] dstPort;
+	public int[] srcPort;
+	public int[] dstPort;
 	public final static int ipBits = 32;
-	public NDD[] srcIP;
-	public NDD[] dstIP;
+	public int[] srcIP;
+	public int[] dstIP;
 
 	public int total_bits;
 
@@ -101,11 +101,11 @@ public class BDDACLWrapper implements Serializable {
 		// aclBDD = new BDD(10000000, 10000000);
 		// aclBDD = new BDD(Parameters.BDD_TABLE_SIZE, Parameters.BDD_TABLE_SIZE);
 
-		protocol = new NDD[protocolBits];
-		srcPort = new NDD[portBits];
-		dstPort = new NDD[portBits];
-		srcIP = new NDD[ipBits];
-		dstIP = new NDD[ipBits];
+		protocol = new int[protocolBits];
+		srcPort = new int[portBits];
+		dstPort = new int[portBits];
+		srcIP = new int[ipBits];
+		dstIP = new int[ipBits];
 
 		/**
 		 * will try more orders of variables
@@ -125,7 +125,7 @@ public class BDDACLWrapper implements Serializable {
 		return aclBDD;
 	}
 
-	private void DeclareVars(NDD[] vars, int bits, int field) {
+	private void DeclareVars(int[] vars, int bits, int field) {
 		AtomizedNDD.declareField(bits);
 		for (int i = bits - 1; i >= 0; i--) {
 			vars[i] = NDD.getVar(field, i);
@@ -387,23 +387,23 @@ public class BDDACLWrapper implements Serializable {
 	// return fwdbdds;
 	// }
 
-	public NDD encodeSrcIPPrefixNDD(long ipaddr, int prefixlen) {
+	public int encodeSrcIPPrefixNDD(long ipaddr, int prefixlen) {
 		int[] ipbin = Utility.CalBinRep(ipaddr, ipBits);
 		int[] ipbinprefix = new int[prefixlen];
 		for (int k = 0; k < prefixlen; k++) {
 			ipbinprefix[prefixlen - k - 1] = ipbin[k + ipBits - prefixlen];
 		}
-		NDD entrybdd = NDD.encodePrefix(ipbinprefix, SRC_IP_FIELD);
+		int entrybdd = NDD.encodePrefix(ipbinprefix, SRC_IP_FIELD);
 		return entrybdd;
 	}
 
-	public NDD encodeDstIPPrefixNDD(long ipaddr, int prefixlen) {
+	public int encodeDstIPPrefixNDD(long ipaddr, int prefixlen) {
 		int[] ipbin = Utility.CalBinRep(ipaddr, ipBits);
 		int[] ipbinprefix = new int[prefixlen];
 		for (int k = 0; k < prefixlen; k++) {
 			ipbinprefix[prefixlen - k - 1] = ipbin[k + ipBits - prefixlen];
 		}
-		NDD entrybdd = NDD.encodePrefix(ipbinprefix, DST_IP_FIELD);
+		int entrybdd = NDD.encodePrefix(ipbinprefix, DST_IP_FIELD);
 		return entrybdd;
 	}
 
@@ -427,9 +427,9 @@ public class BDDACLWrapper implements Serializable {
 		return entrybdd;
 	}
 
-	public NDD GetPrefixNDD(long destip, int prefixlen) {
+	public int GetPrefixNDD(long destip, int prefixlen) {
 		String prefix = destip + " " + prefixlen;
-		NDD prefixndd = NDD.getFalse();
+		int prefixndd = NDD.getFalse();
 		if (PrefixNDDMap.containsKey(prefix)) {
 			prefixndd = PrefixNDDMap.get(prefix);
 			NDD.ref(prefixndd);
@@ -568,7 +568,7 @@ public class BDDACLWrapper implements Serializable {
 	// return res;
 	// }
 
-	public NDD encodeDstIPPrefixs(ArrayList<Subnet> subs) {
+	public int encodeDstIPPrefixs(ArrayList<Subnet> subs) {
 		ArrayList<int[]> prefixsBinary = new ArrayList<>();
 		for (Subnet subnet : subs) {
 			int[] ipbin = Utility.CalBinRep(subnet.getipaddr(), ipBits);
@@ -581,7 +581,7 @@ public class BDDACLWrapper implements Serializable {
 		return NDD.encodePrefixs(prefixsBinary, DST_IP_FIELD);
 	}
 
-	public NDD encodeSrcIPPrefixs(ArrayList<Subnet> subs) {
+	public int encodeSrcIPPrefixs(ArrayList<Subnet> subs) {
 		ArrayList<int[]> prefixsBinary = new ArrayList<>();
 		for (Subnet subnet : subs) {
 			int[] ipbin = Utility.CalBinRep(subnet.getipaddr(), ipBits);
@@ -671,7 +671,7 @@ public class BDDACLWrapper implements Serializable {
 	 *             - number of bits in the representation
 	 * @return the corresponding bdd node
 	 */
-	private int ConvertRange(Range r, NDD[] vars, int bits, int field) {
+	private int ConvertRange(Range r, int[] vars, int bits, int field) {
 
 		LinkedList<int[]> prefix = Utility.DecomposeInterval(r, bits);
 		// System.out.println(vars.length);
@@ -883,7 +883,7 @@ public class BDDACLWrapper implements Serializable {
 		return tempnode;
 	}
 
-	public NDD ConvertACLRuleNDD(ACLRule aclr) {
+	public int ConvertACLRuleNDD(ACLRule aclr) {
 		ArrayList<Pair<Integer, Integer>> perFieldBDD = new ArrayList<>();
 		/**
 		 * src IP
@@ -939,7 +939,7 @@ public class BDDACLWrapper implements Serializable {
 		return NDD.ref(NDD.encodeACL(perFieldBDD));
 	}
 
-	public NDD encodeNAT(String src, String dst) {
+	public int encodeNAT(String src, String dst) {
 		ArrayList<Pair<Integer, Integer>> perFieldBDD = new ArrayList<>();
 		int srcBDD;
 		if (src.equals("any")) {

@@ -15,7 +15,7 @@ import application.wan.ndd.verifier.common.BDDACLWrapper;
 import application.wan.ndd.verifier.common.PositionTuple;
 import org.ants.jndd.diagram.NDD;
 
-import javafx.util.Pair;
+import org.ants.jndd.diagram.NDD.Pair;
 
 public class NetworkNDDPred {
 
@@ -310,7 +310,7 @@ public class NetworkNDDPred {
 		// FieldNode device = FieldNodes.get(name);
 		// for(String port : device.ports_pred.keySet())
 		// {
-		// NDD pred = device.ports_pred.get(port);
+		// int pred = device.ports_pred.get(port);
 		// if(pred.edges != null && pred.edges.size()>1)
 		// {
 		// System.out.println(name+" "+port+" "+pred.edges.size());

@@ -9,11 +9,11 @@ public class RewriteRule {
 	public String name;
 
 	public ArrayList<Integer> fields;
-	public NDD new_src;
-	public NDD new_dst;
-	public NDD old_pkt_bdd;
+	public int new_src;
+	public int new_dst;
+	public int old_pkt_bdd;
 
-	public RewriteRule(NDD old_val, ArrayList<Integer> f, NDD new_src, NDD new_dst, String rname) {
+	public RewriteRule(int old_val, ArrayList<Integer> f, int new_src, int new_dst, String rname) {
 		old_pkt_bdd = old_val;
 		fields = f;
 		this.new_src = new_src;

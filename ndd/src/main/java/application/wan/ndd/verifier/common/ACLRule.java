@@ -91,9 +91,9 @@ public class ACLRule implements Serializable {
 
 	public int priority;
 
-	NDD val_bdd;
-	NDD permit_bdd;
-	NDD deny_bdd;
+	int val_bdd;
+	int permit_bdd;
+	int deny_bdd;
 	boolean visible;
 
 	public void set_visible(boolean visible) {
@@ -104,13 +104,13 @@ public class ACLRule implements Serializable {
 		return visible;
 	}
 
-	public void insert_vals(NDD val_bdd, NDD permit_bdd, NDD deny_bdd) {
+	public void insert_vals(int val_bdd, int permit_bdd, int deny_bdd) {
 		this.val_bdd = val_bdd;
 		this.permit_bdd = permit_bdd;
 		this.deny_bdd = deny_bdd;
 	}
 
-	public NDD get_val_bdd() {
+	public int get_val_bdd() {
 		return val_bdd;
 	}
 
@@ -121,16 +121,16 @@ public class ACLRule implements Serializable {
 	 * @param new_deny
 	 * @param bdd
 	 */
-	public void update_bdds(NDD new_permit, NDD new_deny, BDD bdd) {
+	public void update_bdds(int new_permit, int new_deny, BDD bdd) {
 		this.permit_bdd = new_permit;
 		this.deny_bdd = new_deny;
 	}
 
-	public NDD get_permit() {
+	public int get_permit() {
 		return permit_bdd;
 	}
 
-	public NDD get_deny() {
+	public int get_deny() {
 		return deny_bdd;
 	}
 

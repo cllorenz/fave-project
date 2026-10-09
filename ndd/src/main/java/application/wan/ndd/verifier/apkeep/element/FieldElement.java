@@ -3,7 +3,7 @@ package application.wan.ndd.verifier.apkeep.element;
 import java.util.HashMap;
 import java.util.HashSet;
 
-import javafx.util.*;
+import org.ants.jndd.diagram.NDD.Pair;
 
 public class FieldElement {
     public int field;

@@ -7,13 +7,13 @@ import java.util.Map;
 import application.wan.ndd.verifier.apkeep.core.NetworkNDDPred;
 import application.wan.ndd.verifier.apkeep.utils.UtilityTools;
 import application.wan.ndd.verifier.common.PositionTuple;
-import javafx.util.*;
+import org.ants.jndd.diagram.NDD.Pair;
 import org.ants.jndd.diagram.NDD;
 
 public class TranverseNode {
     public PositionTuple source;
     public PositionTuple curr;
-    public NDD APs;
+    public int APs;
     HashSet<String> visited;
     public static NetworkNDDPred net;
 
@@ -21,7 +21,7 @@ public class TranverseNode {
 
     }
 
-    public TranverseNode(PositionTuple source, NDD APs) {
+    public TranverseNode(PositionTuple source, int APs) {
         this.source = source;
         this.curr = source;
         this.APs = APs;
@@ -31,7 +31,7 @@ public class TranverseNode {
         }
     }
 
-    public TranverseNode(PositionTuple source, PositionTuple curr, NDD APs, HashSet<String> visited) {
+    public TranverseNode(PositionTuple source, PositionTuple curr, int APs, HashSet<String> visited) {
         this.source = source;
         this.curr = curr;
         this.APs = APs;

@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-import javafx.util.*;
+import org.ants.jndd.diagram.NDD.Pair;
 import org.ants.jndd.diagram.AtomizedNDD;
 import org.ants.jndd.diagram.NDD;
 

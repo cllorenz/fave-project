@@ -16,7 +16,7 @@ import application.wan.ndd.verifier.apkeep.checker.TranverseNodeAP;
 import application.wan.ndd.verifier.apkeep.element.FieldNodeAP;
 import application.wan.ndd.verifier.apkeep.utils.UtilityTools;
 import application.wan.ndd.verifier.common.ACLRule;
-import javafx.util.*;
+import org.ants.jndd.diagram.NDD.Pair;
 import org.ants.jndd.diagram.AtomizedNDD;
 import org.ants.jndd.diagram.NDD;
 
@@ -258,15 +258,15 @@ public class NetworkNDDAP extends NetworkNDDPred {
     }
 
     public void UpdateFieldAP() {
-        HashSet<NDD> preds = new HashSet<>();
+        HashSet<Integer> preds = new HashSet<>();
         for (FieldNodeAP device : FieldNodes.values()) {
-            for (NDD pred : device.ports_pred.values()) {
+            for (int pred : device.ports_pred.values()) {
                 preds.add(pred);
             }
         }
 
-        HashMap<NDD, HashSet<Integer>[]> ndd_aps = new HashMap<>();
-        HashMap<NDD, AtomizedNDD> ndd_mol = AtomizedNDD.atomization(preds, ndd_aps);
+        HashMap<Integer, HashSet<Integer>[]> ndd_aps = new HashMap<>();
+        HashMap<Integer, AtomizedNDD> ndd_mol = AtomizedNDD.atomization(preds, ndd_aps);
 
         splitMap.clear();
         HashMap<Integer, HashSet<Pair<String, String>>>[] ap_ports = splitMap.ap_ports;
@@ -274,7 +274,7 @@ public class NetworkNDDAP extends NetworkNDDPred {
         for (FieldNodeAP device : FieldNodes.values()) {
             String dName = device.name;
             HashSet<AtomizedNDD> oldSet = new HashSet<>(device.ports_aps.values());
-            for (Map.Entry<String, NDD> entry : device.ports_pred.entrySet()) {
+            for (Map.Entry<String, Integer> entry : device.ports_pred.entrySet()) {
                 String pName = entry.getKey();
                 device.ports_aps.put(entry.getKey(), AtomizedNDD.ref(ndd_mol.get(entry.getValue())));
                 HashSet<Integer>[] apSet = ndd_aps.get(entry.getValue());

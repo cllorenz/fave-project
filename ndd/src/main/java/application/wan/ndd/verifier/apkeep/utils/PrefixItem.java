@@ -4,8 +4,8 @@ import org.ants.jndd.diagram.NDD;
 
 public class PrefixItem {
 
-	public NDD rule_bdd;
-	public NDD matches;
+	public int rule_bdd;
+	public int matches;
 	public int priority;
 	public String outinterface;
 
@@ -16,14 +16,14 @@ public class PrefixItem {
 		matches = NDD.getFalse();
 	}
 
-	public PrefixItem(int p, String iname, NDD bdd1) {
+	public PrefixItem(int p, String iname, int bdd1) {
 		priority = p;
 		outinterface = iname;
 		rule_bdd = bdd1;
 		matches = NDD.getFalse();
 	}
 
-	public PrefixItem(int p, String iname, NDD bdd1, NDD bdd2) {
+	public PrefixItem(int p, String iname, int bdd1, int bdd2) {
 		priority = p;
 		outinterface = iname;
 		rule_bdd = bdd1;

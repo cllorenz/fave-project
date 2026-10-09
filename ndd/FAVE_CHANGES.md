@@ -207,3 +207,31 @@ BDD-APKeep does not finish in 28 min. Exact vs the residual on the smaller FIBs
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration
 roadmap) lives in `../APKEEP_NDD_PLAN.md` and `../APKEEP_NDD_EVAL.md`.*
+
+## 9. The reference verifiers build again, on the int-node core  **[FIX]** / **[NEW]**
+
+2026-10-10, `APKEEP_INCREMENTAL_SCOPE.md` step 4 (NDD-APKeep). The authors'
+`application/wan/ndd/**` -- `NetworkNDDAP` is the paper's APKeep(NDD) -- and
+`application/wan/bdd/**` were excluded from the build because the upstream
+int-node refactor left them on the object-form `NDD` (§2). They compile again
+and are back in the jar.
+
+**A representation port, not a redesign** -- every change is one of:
+- `NDD x` -> `int x`, `HashSet<NDD>`/`HashMap<.., NDD>` -> `Integer`, `new NDD[]`
+  -> `new int[]`; `x.isFalse()` on an NDD -> `NDD.isFalse(x)` (rewritten where the
+  compiler reported an int receiver; `AtomizedNDD` keeps its instance methods);
+- `AtomizedNDD.getTrue()/getFalse()`, which now resolved to the inherited int
+  constants, -> `getAtomizedTrue()/getAtomizedFalse()`;
+- `delta.getEdges().values()` (the labels of a node's edges) -> a loop over
+  `NDD.getEdgeCount`/`getEdgeLabel`;
+- `ChangeItem.equals`/`hashCode` on the int delta;
+- `javafx.util.Pair` -> `NDD.Pair` (already the core's).
+
+**[NEW] in the core:** `NDD.toArray(int)` -- the label vectors of an NDD, one per
+path to TRUE (a skipped field takes its universe label) -- which the reference's
+`FieldNodeAP.update_FW`/`update_ACL` call and the refactor dropped.
+
+Compiled, not yet run: the reference reads its own dataset layout
+(`layer1Topology`, `edgePorts`, `dpv/*/change_base`, ACL JSON) and no such dataset
+is in the tree. Its known gaps are unchanged (`APKEEP_INCREMENTAL_SCOPE.md` §1:
+no ACL delete, forwarding deletes computed but not applied, no links, NAT unwired).
