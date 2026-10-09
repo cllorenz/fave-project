@@ -179,6 +179,7 @@ int typed_main(int argc, char* argv[]) {
       printf("\t --dump <path> : dump the dependency graph to json files in the <path>.\n");
       printf("\t --policy <file> : loads the source and probe nodes from a json policy <file>.\n");
       printf("\t --filter <filter-wc> : cluster based on <wc-filter>.\n");
+      printf("\t --features : print the compile-time features of this binary and exit.\n");
 
       printf("  settings:\n");
       printf("\t --log4j-config <config file> : path to <log4j config> file.\n");
@@ -210,6 +211,19 @@ int typed_main(int argc, char* argv[]) {
     }
     if ( strncmp(argv[i], "--test", 6) == 0 ) {
       do_run_test = true;
+    }
+    // A compile-time choice that changes what the binary does must be
+    // queryable from the binary, not asserted by whoever runs it: the e2e
+    // `test_rpc` probe tests run iff LEGACY_CHECKS is compiled in
+    // (`source_probe_node.cc`, the LEGACY_CHECKS note). One `NAME 0|1` line per
+    // feature.
+    if ( strcmp(argv[i], "--features") == 0 ) {
+#ifdef LEGACY_CHECKS
+      printf("LEGACY_CHECKS 1\n");
+#else
+      printf("LEGACY_CHECKS 0\n");
+#endif
+      return 0;
     }
 
     if ( strncmp(argv[i], "--policy", 8) == 0)  {
