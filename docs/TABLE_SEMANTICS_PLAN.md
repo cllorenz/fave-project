@@ -406,6 +406,24 @@ disagreement is a **refusal**, not a silent choice. That is the
 (CLOUD_BENCH_PLAN.md §2.7) applied one level earlier, and it is what would have
 caught the wl_i2 shadowing at the time rather than years later.
 
+**Done for APKeep's plain forwarding tables, 2026-10-09 (owner).** The APKeep
+adapter was the one backend still inferring: an UNDECLARED table whose rules
+matched only a destination became a `ForwardElement` with LPM priorities. Now
+the declaration decides (`apkeep/adapter._first_match_devices`): declared ⇒ a
+trie, refused if the shape cannot be one; undeclared ⇒ first-match, whatever
+its shape. Measured before the change, on every table it moved — `wl_ifi`'s 16
+switches (32 rules) and `wl_cloud`'s 40 leaf-egress tables (1,200 rules) — no
+pair of rules is ordered differently by the two semantics, so no verdict could
+move, and the APKeep/NDD gates confirm none did. The cost of those cells can
+move (FilterElement instead of trie); V5's APKeep numbers for them were taken
+with the old translation and are stamped with its commit.
+**Still inferred:** the HSA stages (`in.`/`mid.`/`out.`, `wl_stanford`,
+`wl_i2`), which the stage paths claim by device prefix; 32 of `wl_stanford`'s
+and 9 of `wl_i2`'s stage tables are undeclared, and 22 of `wl_stanford`'s
+in-stage tables hold rule pairs the two orders would resolve differently. That
+exemption is a translation change of its own (`_first_match_devices`'
+docstring), not part of this one.
+
 ---
 
 ## 7. Open questions -- ANSWERED 2026-09-24 by experiment

@@ -383,9 +383,27 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
   the stamps. Re-checked checks follow from the affected pairs and the stamped
   check set, so they are not stored twice. Quantiles, ratios and tables are
   generated from these files, never typed and never the only record.
-- **O6. Equal-priority ties in APKeep** (§6.3). *Recommendation:* break ties in
-  the translated priority, so incremental and from-zero builds agree by
-  construction, and test it.
+- **O6. Ties and identity in APKeep — DECIDED 2026-10-09.**
+  * A FaVe rule's group of APKeep rules (one per out-port, per ingress class…) is
+    inserted and deleted as ONE update with one re-check after it; within a
+    group, ties need no breaking — APKeep resolves equal priority as "last
+    inserted wins" (`Element.java:73–91`), which leaves only the intermediate
+    state of a group delete wrong, and FaVe never observes it. Emission order
+    within a group must be deterministic.
+  * Ties ACROSS FaVe rules are broken where matches can overlap: today NAT,
+    where every rewrite rule sits at 65535 (`NATElement.java:125`).
+  * Each APKeep rule string carries a reference count (the adapter merges
+    identical strings, `_dedup`); it is removed only with its last FaVe owner.
+  * NAT rule identity is fixed in the fork (`Rule.equals` = priority + port,
+    `NATElement.rule_map` keyed by port).
+  * The APKeep adapter refuses multi-port rules: FaVe means "to all ports"
+    (NetPlumber does that), APKeep would keep only the last. None exist in the
+    six workloads counted (`wl_stanford`, `wl_i2`, `wl_berkeley` not counted).
+  * **Tables are first-match unless DECLARED LPM** (owner): FaVe's contract,
+    held by NetPlumber and VeriFlow-FR, and since 2026-10-09 by the APKeep
+    adapter's plain forwarding tables too (`TABLE_SEMANTICS_PLAN.md` §6.3). A
+    last-match source is converted by its producer. The HSA stage tables are
+    still claimed by device prefix.
 
 ## 10. Order of work
 
