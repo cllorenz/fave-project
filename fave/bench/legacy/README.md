@@ -25,6 +25,13 @@ The two kinds are mixed, so check before you run something:
   `iptables/parser.py` is a Bison parser and why `setup.sh` builds
   `pybison==0.6.4` from source.
 
+- **`wl_state_snapshots/`** — the 2021 state-snapshot microbenchmark: random
+  connection-state insertions into one firewall at a fixed rate, timed only in
+  total. Retired 2026-10-09 rather than repaired, because it measures runtime
+  state tracking, which TNSM'21 replaced with a static model of all states; the
+  incremental axis (TODO item 31) measures rule and link updates instead. Its
+  `benchmark.py` docstring has the details. Not run, not gated.
+
 To retire something else here, move it and leave a note at the top of the file
 saying when, what it measured, and what stopped it working. A retired file with
 no such note is indistinguishable from one that was simply abandoned.

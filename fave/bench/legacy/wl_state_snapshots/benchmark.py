@@ -1,6 +1,27 @@
 #!/usr/bin/env python3
 
 """ This module benchmarks FaVe using an generic workload.
+
+RETIRED 2026-10-09 to bench/legacy/ (owner). Kept for what it records, not
+because it runs as a measurement.
+
+WHAT IT MEASURED (written 2021-08-07..13): one `snapshot_packet_filter` (fw0,
+built from `ruleset.ipt`) receiving `StateCommand('add_state')` insertions --
+one random TCP connection per request -- at `--frequency` Hz for `--duration`
+seconds. It timed only the total wait after `stop_fave`, never a single update,
+and it sent no compliance check, deletion or modification.
+
+WHY IT IS RETIRED, not repaired: it measures the RUNTIME STATE-TRACKING design,
+where FaVe followed connection-tracking state as it changed. The TNSM'21 paper
+(Lorenz et al., Sec. I and IV-C) replaced that design with a static model of
+all states (state shell interweaving), so live state changes are no longer a
+FaVe update at all -- and the incremental axis (TODO item 31) measures rule and
+link updates instead. Repairing it would have meant measuring a design FaVe no
+longer has. It was also not reproducible (`random` without a seed), hard-coded
+`use_unix=True`, and passed `[[]]` to the dumper on the TCP path.
+
+The model-side support it exercised -- `devices/snapshot_packet_filter.py` and
+the aggregator's `state_command` -- is NOT retired with it.
 """
 
 import random
@@ -84,7 +105,7 @@ if __name__ == '__main__':
     os.system("rm -rf /dev/shm/np/*")
     os.system("rm -f /dev/shm/*.socket")
 
-    os.system("bash scripts/start_np.sh -l bench/wl_state_snapshots/np.conf %s" % (
+    os.system("bash scripts/start_np.sh -l bench/legacy/wl_state_snapshots/np.conf %s" % (
         "-u /dev/shm/np1.socket" if use_unix else "-s 127.0.0.1 -p 44001")
     )
     os.system("bash scripts/start_aggr.sh -d -S %s %s" % (
@@ -99,7 +120,7 @@ if __name__ == '__main__':
             "snapshot_packet_filter",
             ["eth0", "eth1"],
             "2001:db8::1",
-            "bench/wl_state_snapshots/ruleset.ipt"
+            "bench/legacy/wl_state_snapshots/ruleset.ipt"
         )
     ]
 

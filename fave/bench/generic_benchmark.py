@@ -95,7 +95,7 @@ def _unpack(topo):
 # bare "python3".
 #
 # Imported by the workload benchmarks too (wl_ifi/wl_tum/wl_shadow/wl_expand/
-# wl_state_snapshots), which spawn their own sub-steps the same way.
+# and the retired legacy/wl_state_snapshots), which spawn their own sub-steps the same way.
 #
 # Every sub-step below is spawned through os.system(), so a bare "python3" is
 # whatever PATH resolves first, which in a container whose venv is not activated
