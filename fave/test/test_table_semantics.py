@@ -558,21 +558,74 @@ class TestNetPlumberHonoursTheDeclaration(unittest.TestCase):
             NetPlumberAdapter(['SOCK'], log, invert_lpm=True)
             .configuration_stamp()['np_invert_lpm'], True)
 
-    def test_a_second_batch_for_a_declared_table_is_REFUSED(self):
-        """ Indices are dense (1..n), so a later batch has no free index below
-        an existing one and a longer prefix arriving late would silently lose.
-        §9.1's incremental-insert question, turned into a refusal. """
+    def test_a_later_batch_gets_the_index_a_first_batch_would(self):
+        """ O1 (INCREMENTAL_PLAN.md): a declared-LPM index is banded by prefix
+        length over all 32 bits and keyed by the rule's own index, so a route
+        that arrives LATE -- a second batch, an incremental insert -- lands
+        where a build would have put it, and nothing is renumbered. Until O1
+        the indices were dense and a second batch was refused. """
         from unittest import mock
-        with mock.patch('netplumber.adapter.jsonrpc'):
-            from netplumber.adapter import NetPlumberAdapter, LpmOrderingError
+        with mock.patch('netplumber.adapter.jsonrpc') as rpc:
+            from netplumber.adapter import NetPlumberAdapter
             log = logging.getLogger("s3a_second")
             log.setLevel(logging.ERROR)
-            adapter = NetPlumberAdapter(['SOCK'], log)
             model = _mid_models_and_rules(True)[0]
-            adapter.add_tables(model)
-            adapter.add_rules(model)
+            table = next(t for t in model.tables if model.tables[t])
+
+            def sent(calls):
+                return sorted((r[2], str(r[5])) for c in calls for r in c.args[1])
+
+            whole = NetPlumberAdapter(['SOCK'], log)
+            whole.add_tables(model)
+            whole.add_rules_batch(*whole._lpm_ordered_batch(
+                table, model.tables[table]))
+            at_once = sent(rpc.add_rules_batch.call_args_list)
+            rpc.reset_mock()
+
+            split = NetPlumberAdapter(['SOCK'], log)
+            split.add_tables(model)
+            rules = model.tables[table]
+            for part in (rules[1::2], rules[0::2]):     # the longer half late
+                split.add_rules_batch(*split._lpm_ordered_batch(table, part))
+            in_two = sent(rpc.add_rules_batch.call_args_list)
+
+        self.assertGreater(len(at_once), 1)
+        self.assertEqual(in_two, at_once)
+        self.assertTrue(all(0 < index < 2**32 for index, _m in at_once))
+
+    def test_the_index_band_orders_by_prefix_length_then_index(self):
+        from netplumber.adapter import _lpm_index, LpmOrderingError, _LPM_IDX_MAX
+        self.assertLess(_lpm_index(32, 900), _lpm_index(24, 0))
+        self.assertLess(_lpm_index(24, 0), _lpm_index(24, 1))
+        self.assertLess(_lpm_index(0, 5), _lpm_index(-1, 0), "default route last")
+        self.assertLess(_lpm_index(128, _LPM_IDX_MAX), _lpm_index(127, 0))
+        self.assertLess(_lpm_index(-1, _LPM_IDX_MAX), 2**32)
+        self.assertGreater(_lpm_index(128, 0), 0)
+        self.assertLess(_lpm_index(-1, 0, invert=True), _lpm_index(32, 0, invert=True))
+        with self.assertRaises(LpmOrderingError):
+            _lpm_index(24, _LPM_IDX_MAX + 1)
+
+    def test_a_negated_route_in_a_declared_table_is_refused(self):
+        """ An LPM index leaves no negation slots, so a rule that would expand
+        into several must not reach one -- the validator refuses it first
+        (`validate_lpm_rules`), and the adapter refuses it again. """
+        from unittest import mock
+        from rule.rule_model import Rule, Match, RuleField
+        from devices.abstract_device import validate_lpm_rules, TableSemanticsError
+        negated = Rule('d', 'd.1', 3, match=Match([RuleField(
+            'packet.ipv4.destination', '10.0.0.0/8', negated=True)]),
+                       actions=[])
+        with self.assertRaises(TableSemanticsError):
+            validate_lpm_rules('d', 'd.1', [negated])
+        with mock.patch('netplumber.adapter.jsonrpc'):
+            from netplumber.adapter import NetPlumberAdapter, LpmOrderingError
+            log = logging.getLogger("s3a_neg")
+            log.setLevel(logging.ERROR)
+            adapter = NetPlumberAdapter(['SOCK'], log)
+            adapter.tables['d.1'] = 1
+            adapter._lpm_tables.add('d.1')
             with self.assertRaises(LpmOrderingError):
-                adapter.add_rules(model)
+                adapter.add_rules_batch(*adapter._lpm_ordered_batch('d.1', [negated]))
 
 
 def _ad6_target(port):

@@ -40,7 +40,7 @@ import unittest
 
 from aggregator.abstract_engine import UpdateRefused
 from test.backend_gate import require_or_skip
-from test.incremental_oracle import inputs_present, run, s1, s2_and_s3
+from test.incremental_oracle import inputs_present, moved_routes, run, s1, s2_and_s3
 from veriflow.adapter import VeriFlowAdapter, available
 from util import incremental as inc
 
@@ -76,6 +76,21 @@ class TestIncrementalVeriFlow(unittest.TestCase):
     def test_wl_cloud_s2(self):
         run(self, _make, self._workload('bench/wl_cloud'),
             lambda rules, _links: inc.stream_s2(rules, 0.05, seed=1), every=25)
+
+
+@require_or_skip(available(), "libveriflow_fr is not built")
+class TestLpmRoom(unittest.TestCase):
+    """ O1, as on NetPlumber: a late route takes its prefix length's band. """
+
+    def test_a_route_moved_to_a_new_index_keeps_every_verdict(self):
+        # wl_stanford, as on NetPlumber, but only the checks from bbra_rtr:
+        # VeriFlow-FR's full check of all 240 takes ~150 s.
+        # wl_airtel1 cannot show it: its checks touch none of its 60 nested
+        # route pairs whose actions differ.
+        moved_routes(self, _make, 'bench/wl_stanford/stanford-json',
+                     'bench/wl_stanford/checks.json',
+                     {'topology': 'device_topology.json', 'policies': 'probes.json'},
+                     source='source.bbra_rtr', table='mid.bbra_rtr.1', pairs=40)
 
 
 @require_or_skip(available(), "libveriflow_fr is not built")

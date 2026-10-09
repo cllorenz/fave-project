@@ -289,9 +289,24 @@ def stream_s3(links: List[Tuple[str, str]]) -> Iterator[Update]:
 
 
 def apply(engine: Any, update: Update, deleted: Set[RuleKey],
-          down: Set[Tuple[str, str]]) -> None:
+          down: Set[Tuple[str, str]],
+          refused: Optional[List[Tuple[Update, str]]] = None) -> bool:
     """ Apply one update to a built engine, and keep `deleted`/`down` -- the
-    oracle's view of the current model -- in step with it. """
+    oracle's view of the current model -- in step with it.
+
+    An engine REFUSES an update it cannot take in place, before changing
+    anything (APKeep: a new element, an untranslatable model). With `refused`
+    given, the refusal is recorded there with its reason and the stream goes
+    on -- the model then keeps the rule or link, for the engine and the oracle
+    alike; without it, the refusal propagates. Returns whether it applied. """
+    if refused is not None:
+        from aggregator.abstract_engine import UpdateRefused
+        try:
+            apply(engine, update, deleted, down)
+        except UpdateRefused as err:
+            refused.append((update, str(err)))
+            return False
+        return True
     op, what, rule = update
     if op == 'delete':
         engine.delete_rule(*what)
@@ -307,3 +322,4 @@ def apply(engine: Any, update: Update, deleted: Set[RuleKey],
         down.discard(what)
     else:
         raise ValueError("unknown update %r" % (op,))
+    return True

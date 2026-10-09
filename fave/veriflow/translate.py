@@ -78,6 +78,9 @@ from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from devices.abstract_device import LPM, lpm_prefix_len
+
+#: one priority band per destination prefix length in a declared-LPM table
+_LPM_BAND = 2**40
 from netplumber.mapping import FIELD_SIZES
 from rule.rule_model import Forward, Miss, Rewrite
 from util.ip6np_util import field_value_to_bitvector
@@ -213,8 +216,7 @@ class Translator:
         self._probes: List[Any] = []
         #: (FaVe table, FaVe rule index) -> the engine priority the last
         #: translation gave the rule. A rule deleted and re-inserted returns to
-        #: exactly this slot (INCREMENTAL_PLAN.md S1/S2); in a declared-LPM
-        #: table a NEW route has none, which is open question O1.
+        #: exactly this slot (INCREMENTAL_PLAN.md S1/S2).
         self.prio_of: Dict[Tuple[str, int], int] = {}
         #: the tables the model declares longest-prefix-match
         self.lpm_declared: Set[str] = set()
@@ -403,15 +405,27 @@ class Translator:
             bits = met
         return bits
 
+    def lpm_priority(self, rule: Any) -> int:
+        """ A route's priority in a declared-LPM table: `plen * 2^40 - idx`
+        (higher wins here, the reverse of NetPlumber). Orders exactly as
+        longest prefix first, ties by index -- the old dense assignment --
+        but is a function of the rule alone, so a route that arrives late
+        gets the slot a build would have given it (INCREMENTAL_PLAN.md O1).
+        `invert_lpm` is §5.4's guardrail: shortest first, ties as before. """
+        plen = lpm_prefix_len(rule)
+        if not 0 <= rule.idx < _LPM_BAND:
+            raise Unsupported("declared-LPM rule index %s outside 0..2^40" % rule.idx)
+        return (-plen if self.invert_lpm else plen) * _LPM_BAND - rule.idx
+
     def _translate_table(self, ir: Ir, model: Any, tname: str, rules: List[Any]) -> None:
         tid = ir.tables[tname]
         if model.table_semantics.get(tname) == LPM:
             self.lpm_declared.add(tname)
             # NetPlumberAdapter._lpm_ordered_batch: longest prefix first, ties
-            # by the index the model gave the rule.
-            sign = 1 if self.invert_lpm else -1
-            order = sorted(rules, key=lambda r: (sign * lpm_prefix_len(r), r.idx))
-            prio = {id(r): -(pos + 1) for pos, r in enumerate(order)}
+            # by the index the model gave the rule -- as a band per prefix
+            # length (`lpm_priority`), so a late route has its slot (O1).
+            order = rules
+            prio = {id(r): self.lpm_priority(r) for r in rules}
             # The denominator for §5.4's guardrail, as NetPlumberAdapter logs
             # it: an unchanged verdict is evidence about the check set only if
             # a table was in fact REORDERED. An empty declared table is not

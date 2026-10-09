@@ -860,6 +860,15 @@ would silently lose. `LpmOrderingError` instead. Measured: every declared table
 in wl_stanford and wl_i2 arrives in **exactly one batch** today (16 of 16, 9 of
 9), so this refuses nothing now and guards the continuous-verification path.
 
+*Superseded 2026-10-10 by `INCREMENTAL_PLAN.md` O1:* a declared table's index
+spans NetPlumber's whole 32-bit index, one band per prefix length (-1..128),
+longest first, and the rule's own index within its band (`_lpm_index`).
+The order is the same as `(-prefix length, idx)`, but each index is a function
+of the rule alone, so a second batch or an inserted route gets the index a
+first batch would have given it, and nothing is refused. VeriFlow-FR does the
+same with `plen·2^40 − idx` (`Translator.lpm_priority`). `validate_lpm_rules`
+now also refuses a negated destination, which the bands leave no room for.
+
 #### ad6 is NOT done, and S3b is blocked on it
 
 `ad6/translate.py::table_to_ad6` already sorts rules by ascending `idx`, and its

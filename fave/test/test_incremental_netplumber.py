@@ -44,12 +44,13 @@ re-propagation, node.cc) until 2026-10-09.
 """
 
 import logging
+import os
 import unittest
 
 from aggregator.abstract_engine import UpdateRefused
 from netplumber import lib_adapter
 from test.backend_gate import require_or_skip
-from test.incremental_oracle import inputs_present, run, s1, s2_and_s3
+from test.incremental_oracle import moved_routes, inputs_present, run, s1, s2_and_s3
 from util import incremental as inc
 
 
@@ -128,18 +129,19 @@ class TestRefusals(unittest.TestCase):
                     return
         self.skipTest("wl_ifi has no pre/post-routing table")
 
-    def test_a_new_route_in_a_declared_lpm_table_is_refused(self):
-        # O1: priorities there are dense; only a rule's own slot is known.
-        import copy
-        for tid in sorted(self.engine._lpm_tables):
-            node = tid.rsplit('.', 1)[0]
-            rule = copy.copy(self.models[node].tables[tid][0])
-            rule.idx = 10**5
-            with self.assertRaises(UpdateRefused) as ctx:
-                self.engine.insert_rule(rule)
-            self.assertIn('O1', str(ctx.exception))
-            return
-        self.skipTest("wl_ifi declares no LPM table")
+
+
+@require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
+class TestLpmRoom(unittest.TestCase):
+    """ O1: a declared-LPM table places a route by prefix-length band and its
+    own index, so a route arriving under an index the build never saw still
+    wins exactly where its prefix says. Dense priorities refused this. """
+
+    def test_a_route_moved_to_a_new_index_keeps_every_verdict(self):
+        moved_routes(self, _make, 'bench/wl_stanford/stanford-json',
+                     'bench/wl_stanford/checks.json',
+                     {'topology': 'device_topology.json', 'policies': 'probes.json'},
+                     source='source.bbra_rtr', table='mid.bbra_rtr.1', pairs=40)
 
 
 if __name__ == '__main__':

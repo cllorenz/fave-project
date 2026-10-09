@@ -125,13 +125,14 @@ def validate_lpm_rules(
 ) -> None:
     """ Check that a table DECLARED longest-prefix-match can mean it.
 
-    Two backend-neutral properties, both of the rules alone:
+    Three backend-neutral properties, all of the rules alone:
 
     * **declarability** -- every rule matches a destination prefix and nothing
       else. A rule that also matches a source, a protocol or a port is not
       resolved by longest prefix under any backend, so the declaration is false.
       Rewrites are NOT checked: they change what a rule does, never which rule
       wins.
+    * **no negation** -- a negated destination is not a prefix.
     * **ambiguity** -- no two rules share a prefix and differ in action. If two
       do, the table's meaning depends on their ORDER, which is precisely what
       declaring it LPM says it does not.
@@ -151,6 +152,17 @@ def validate_lpm_rules(
     """
     index = seen if seen is not None else {}
     for rule in rules:
+        negated = [f.name for f in (rule.match or [])
+                   if f.name in _DST_FIELDS and getattr(f, 'negated', False)]
+        if negated:
+            # A negated prefix is not a prefix: "everything but 10/8" is not
+            # resolved by prefix length under any backend, and NetPlumber's
+            # LPM index has no room for the rules its expansion would make
+            # (INCREMENTAL_PLAN.md O1).
+            raise TableSemanticsError(
+                "%s.%s is declared %s, but rule %s matches a NEGATED destination "
+                "-- a longest-prefix-match table matches prefixes, not their "
+                "complements." % (node, table, LPM, getattr(rule, 'idx', '?')))
         prefix, others = _lpm_key(rule)
         if others:
             raise TableSemanticsError(

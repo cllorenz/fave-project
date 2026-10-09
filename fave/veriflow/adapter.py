@@ -350,14 +350,14 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         if rule.tid not in ir.tables:
             raise UpdateRefused("VeriFlowAdapter: insert_rule%s into a table the "
                                 "model does not have" % (key,))
-        priority = self.prio_of.get((rule.tid, rule.idx))
-        if priority is None:
-            if rule.tid in self.lpm_declared:
-                raise UpdateRefused(
-                    "VeriFlowAdapter: insert_rule%s into a declared LPM table: "
-                    "its priorities were assigned densely, so a new route has "
-                    "no slot (INCREMENTAL_PLAN.md O1)" % (key,))
-            priority = -rule.idx
+        if rule.tid in self.lpm_declared:
+            try:
+                priority = self.lpm_priority(rule)     # its band (O1)
+            except Unsupported as err:
+                raise UpdateRefused("VeriFlowAdapter: insert_rule%s: %s"
+                                    % (key, err)) from err
+        else:
+            priority = self.prio_of.get((rule.tid, rule.idx), -rule.idx)
         try:
             translated = self.translate_rule(ir, rule.tid, rule, priority, self._next_rid)
         except (KeyError, Unsupported) as err:

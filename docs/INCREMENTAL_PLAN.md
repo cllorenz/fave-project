@@ -1,10 +1,10 @@
 # Incremental reverification — a plan
 
-**Status: M1 IN PROGRESS (2026-10-09). Nothing measured yet.** Decisions D1–D9
-are the owner's, taken in discussion on 2026-10-09 (§4). Of questions O1–O6, O1 and O2 are
-decided; the rest carry a recommendation, not a decision (§9). §10 records what is
-built: NetPlumber and VeriFlow-FR take updates and re-verify selectively, held
-to the oracle; what remains of M1 waits on O1/O2 or on a protocol.
+**Status: M1 IN PROGRESS (2026-10-10). Nothing measured yet.** Decisions D1–D9
+are the owner's, taken in discussion on 2026-10-09 (§4), as are O1–O6 (§9).
+§10 records what is built: NetPlumber and VeriFlow-FR take updates, LPM routes
+included, and re-verify selectively, held to the oracle; the harness is done;
+APKeep is in progress, and every measurement waits on a protocol.
 **Owner:** Claas Lorenz. **Branch:** `updates`. **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -56,7 +56,7 @@ Evidence-backed; file:line references are as of commit `79fd4825`.
 engine is live; its `delete_rules` cannot run (`adapter.py:972`: indexes `Rule`
 objects as tuples, passes a table name as an index, removes only the first
 negation expansion) and is unreachable. A second batch for a declared-LPM table
-is refused (`LpmOrderingError`). APKeep builds once and, since `973736fb`,
+is refused (`LpmOrderingError`; lifted by O1, §10). APKeep builds once and, since `973736fb`,
 refuses every change after the build; ad6 refuses the two it got wrong
 (`29fdadd9`). VeriFlow-FR rebuilds from scratch on any change, and its
 deletions raise.
@@ -322,6 +322,11 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
   within a band never matters). The validator must refuse a negated destination
   so that premise is enforced. VeriFlow-FR the same. No 64-bit widening. Latent
   bug found on the way: `_RULE_IDX_MAX` is `2^24−1` but must be `2^20−1`.
+  *Built 2026-10-10:* within a band a route takes the slot of its own model
+  index rather than "any free slot" — every slot is then a function of the
+  rule alone, build and update agree by construction, and ties keep the order
+  the old dense scheme gave them. A band holds ~33M slots; what binds first is
+  the model index itself (≤ `_RULE_IDX_MAX`, part of the adapter's local key).
 - **O2. APKeep scope — DECIDED 2026-10-09.** NDD-APKeep is the NDD paper's
   system (APKeep's core, atom layer replaced by NDD); BDD-APKeep and NDD-APKeep
   work alike, incrementally. FaVe's `NddReachabilityEngine` is not that system
@@ -420,7 +425,8 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
 | 2. NetPlumber | **done** — `take_affected` at the three probe hooks; adapter `insert_rule`/`delete_rule`/`set_link`; LPM tables take a rule back into its own slot only (O1) | `1ad4fe9a`, `240aa881`, `bff573f7` |
 | 3. FaVe side | **done** — `VerdictCache`, selective re-verification, the from-zero oracle (a fresh engine behind a wrapper that withholds deleted rules and downed links) | `bff573f7` |
 | 4. VeriFlow-FR | **done** — per-rule translation, walk footprints, LPM as on NetPlumber | `518e75cb`, `0430d036` |
-| 5. NetPlumber LPM, APKeep | **waits on O1, O2** | — |
+| 5a. NetPlumber and VeriFlow-FR LPM (O1) | **done** — 32-bit bands (NetPlumber `_lpm_index`, VeriFlow-FR `plen·2^40 − idx`), a late route lands where a build puts it; the validator refuses a negated destination; `_RULE_IDX_MAX` = 2^20−1. Tested by moving every declared route of `wl_stanford` to an index the build never saw: verdicts unchanged, and an insert path that forgets the band fails it on both engines | this branch |
+| 5b. APKeep | **in progress** — `APKEEP_INCREMENTAL_SCOPE.md` steps 1–3 (BDD) | — |
 | 6. harness | **done but the protocol** — raw per-batch records (`incremental_run.py`), a cell under stamped wall/RSS/per-update limits with repetitions (`incremental_cell.py`, the per-update limit as a stall guard in `cell_run.run_cell`), statistics only from the records (`incremental_report.py`), the cross-engine check (`incremental_compare.py`), the oracle run (`--oracle-sample k --oracle-every N`) | `5a518599`, this branch |
 
 Held to the oracle in `test_incremental_{netplumber,veriflow}.py` on

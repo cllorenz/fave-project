@@ -60,8 +60,44 @@ def _calc_port(tab: int, model: Any, port: str) -> int:
         return (tab<<16)+1
 
 _TABLE_IDX_MAX = 2**32-1
-_RULE_IDX_MAX = 2**24-1
+# The index NetPlumber receives is 32 bits (`uint32_t index`), and the rule
+# index sits above 12 negation bits in it -- so 20 bits, not 24. With 24, a
+# rule index of 2^20 or more would wrap the engine's index and, in the local
+# key, run into the table bits (INCREMENTAL_PLAN.md O1).
+_RULE_IDX_MAX = 2**20-1
 _NEG_IDX_MAX = 2**12-1
+
+# A declared-LPM table uses the WHOLE 32-bit index instead (O1, owner,
+# 2026-10-09): LPM routes need no negation slots, so the index is banded by
+# prefix length -- one band per length -1 (no destination: the default route)
+# to 128, longest first -- and within a band a route takes the slot of its own
+# model index. Equal-length prefixes in a declared table are disjoint or carry
+# the same action (`validate_lpm_rules`), so order within a band never decides
+# a packet; using the model index keeps build and update identical anyway, and
+# makes every rule's slot free whenever it arrives. A band has ~33M slots; what
+# binds first is the model index itself, at most `_RULE_IDX_MAX` in every table
+# because it is also part of the adapter's local rule key.
+_LPM_LENGTHS = 130                       # -1 .. 128
+_LPM_BAND = 2**32 // _LPM_LENGTHS
+_LPM_IDX_MAX = _LPM_BAND - 2
+
+
+def _lpm_index(prefix_len: int, idx: int, invert: bool = False) -> int:
+    """ The NetPlumber index of a route in a declared-LPM table: its prefix
+    length's band, then its model index. Lower wins in NetPlumber, so band 0
+    holds /128 -- or, under the §5.4 guardrail `invert`, the default route. """
+    assert -1 <= prefix_len <= 128, prefix_len
+    if not 0 <= idx <= _LPM_IDX_MAX:
+        raise LpmOrderingError(
+            "a declared-LPM rule index %d is outside 0..%d, the room its prefix "
+            "length's band has in NetPlumber's 32-bit index" % (idx, _LPM_IDX_MAX))
+    band = (prefix_len + 1) if invert else (128 - prefix_len)
+    return band * _LPM_BAND + 1 + idx
+
+class LpmOrderingError(Exception):
+    """ Raised when a table declared longest-prefix-match cannot be given a
+    correct NetPlumber priority -- see `_lpm_index`. """
+
 
 def _calc_rule_index(r_idx: int, t_idx: int = 0, n_idx: int = 0) -> int:
     """ Calculates the rule index within a table
@@ -143,11 +179,6 @@ def _meet_all(left: List[Vector], right: List[Vector]) -> List[Vector]:
 
 
 
-class LpmOrderingError(Exception):
-    """ Raised when a table declared longest-prefix-match cannot be given a
-    correct NetPlumber priority -- see `_lpm_ordered_batch`. """
-
-
 class NetPlumberAdapter(AbstractVerificationEngine):
     """ Class that maps and translates a FaVe model to a NetPlumber model.
     """
@@ -188,14 +219,6 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         # (TABLE_SEMANTICS_PLAN.md S3b), so this is now the ONLY thing that
         # orders a declared FIB for NetPlumber.
         self._lpm_tables: Set[str] = set()
-        # Declared tables already ordered, so a SECOND batch is refused rather
-        # than silently mis-ordered (§9.1's open incremental question).
-        self._lpm_ordered: Set[str] = set()
-        # The priority each rule of an ordered LPM table was given, by
-        # (tid, idx). A rule deleted and re-inserted returns to exactly its
-        # slot (INCREMENTAL_PLAN.md S1/S2); a route never seen here has no
-        # correct slot without renumbering, which is open question O1.
-        self._lpm_prio: Dict[Tuple[str, int], int] = {}
         self.links: Dict[Any, List[Any]] = {}
         self.fresh_table_index = 1
         self.ports: Dict[str, int] = {}
@@ -764,6 +787,14 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             ] else f for f in rule.match
         ]))
 
+        if priority is not None and len(matches) > 1:
+            # A declared-LPM index spans all 32 bits and leaves no negation
+            # slots; `validate_lpm_rules` refuses the negated destination that
+            # would need them, so this is a contract break, not a workload.
+            raise LpmOrderingError(
+                "%s rule %s in a declared-LPM table expands into %d negation "
+                "rules; an LPM route must not be negated" % (
+                    rule.tid, rid, len(matches)))
         res = []
         for nid, match in enumerate(matches):
             np_rid = _calc_rule_index(rid, t_idx=tid, n_idx=nid)
@@ -771,7 +802,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             res.append((
                 np_rid,
                 tid,
-                _calc_rule_index(prio, n_idx=nid),
+                prio if priority is not None else _calc_rule_index(prio, n_idx=nid),
                 in_ports,
                 out_ports,
                 match.vector if match else None,
@@ -863,54 +894,27 @@ class NetPlumberAdapter(AbstractVerificationEngine):
 
     def _lpm_ordered_batch(self, table: str,
                            rules: List[Any]) -> Tuple[List[Any], Optional[List[int]]]:
-        """ (rules, priorities) for one table, honouring a declared LPM table.
+        """ (rules, NetPlumber indices) for one table, honouring a declared LPM
+        table: each rule's index is `_lpm_index` -- its prefix length's band,
+        then its model index -- so longest prefix wins, ties keep the order the
+        table was written, exactly the assignment the generation-time repair
+        made (S3a proved the two equal while both ran; S3b deleted the repair).
 
-        NetPlumber resolves priority by rule index (lower wins), so a table
-        DECLARED longest-prefix-match is given indices 1..n assigned
-        longest-prefix-first -- a **stable** sort, so rules of equal prefix
-        length keep the order the model gave them. That is deliberately the same
-        assignment the deleted generation-time repair made (`enumerate(order,
-        start=1)` over a stable sort by descending prefix length). Keeping the
-        two identical is what let S3a prove this ordering correct while both
-        ran, and it is why wl_stanford still computes its 165 reachable pairs
-        with the repair gone.
-
-        Refuses a SECOND batch for a table it has already ordered. Rule indices
-        here are dense (1..n), so a later batch has no free index below an
-        existing one and a longer prefix arriving late would silently lose --
-        §9.1's incremental-insert question, which this turns into a refusal
-        rather than a wrong answer. Measured: every declared table in wl_stanford
-        and wl_i2 arrives in exactly one batch today (16 of 16, 9 of 9).
+        A later batch, or a single inserted route, gets the same index it
+        would have had in the first batch: every slot is a function of the
+        rule alone, so nothing is renumbered (INCREMENTAL_PLAN.md O1). Until
+        O1 the indices were dense, 1..n, and a second batch was refused.
         """
         if table not in self._lpm_tables or not rules:
             return rules, None
 
-        if table in self._lpm_ordered:
-            raise LpmOrderingError(
-                "%s is declared %s and has already been ordered, but a second "
-                "batch of %d rule(s) arrived. Longest-prefix-match is assigned "
-                "over a whole table here, and the indices already used are "
-                "dense, so this batch cannot be given a correct priority "
-                "without renumbering the table." % (table, LPM, len(rules))
-            )
-        self._lpm_ordered.add(table)
-
-        # Key (-prefix length, idx), not a stable sort on the list order.
-        # Relying on stability was correct only while the generation-time
-        # repair rewrote `idx` IN PLACE and left the list in file order. That
-        # repair is deleted (S3b), so `idx` is the file position again and this
-        # key gives longest prefix first, ties in the order the table was
-        # written -- the same assignment the repair used to make.
-        # `sign` is §5.4's guardrail and is -1 in every faithful run; see
+        # `invert` is §5.4's guardrail and False in every faithful run; see
         # `invert_lpm`. Ties break on the model's own index either way, so the
         # inverted arm differs from the faithful one in ONE respect only.
-        sign = 1 if self.invert_lpm else -1
-        order = sorted(range(len(rules)),
-                       key=lambda i: (sign * lpm_prefix_len(rules[i]),
-                                      getattr(rules[i], 'idx', i)))
-        ordered = [rules[i] for i in order]
-        for priority, rule in enumerate(ordered, start=1):
-            self._lpm_prio[(table, rule.idx)] = priority
+        indices = [_lpm_index(lpm_prefix_len(rule), getattr(rule, 'idx', i),
+                              self.invert_lpm)
+                   for i, rule in enumerate(rules)]
+        order = sorted(range(len(rules)), key=lambda i: indices[i])
         # THE DENOMINATOR for §5.4's guardrail, in the run's own record.
         # "The verdict did not change under inversion" is only evidence about
         # the check set if something WAS inverted; on a workload that declares
@@ -919,10 +923,10 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         # can be read without trusting that the flag reached anything.
         self.logger.info(
             "worker: lpm ordering: %s, %d rules, %s" % (
-                table, len(ordered),
+                table, len(rules),
                 "SHORTEST-first (MEASUREMENT_RUN_PLAN.md §5.4 guardrail)"
                 if self.invert_lpm else "longest-first"))
-        return ordered, list(range(1, len(ordered) + 1))
+        return [rules[i] for i in order], [indices[i] for i in order]
 
 
     def add_rules_batch(self, rules: List[Any],
@@ -932,8 +936,9 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         rules -- a list of rules
         priorities -- optional per-rule NetPlumber index, aligned with `rules`;
                       used for a table the model declares longest-prefix-match,
-                      where the index IS the priority. `None` keeps each rule's
-                      own `idx`, which is every other table.
+                      where the index IS the priority and spans all 32 bits
+                      (`_lpm_index`). `None` keeps each rule's own `idx`,
+                      above the negation bits, which is every other table.
         """
 
         if self.logger.isEnabledFor(logging.DEBUG):
@@ -995,9 +1000,9 @@ class NetPlumberAdapter(AbstractVerificationEngine):
     def insert_rule(self, rule: Any) -> None:
         """ Insert one FaVe rule into a table of the built model.
 
-        A declared-LPM table takes a rule only back into the slot it had
-        (`_lpm_prio`); any other insert there is refused (O1). Elsewhere the
-        model's own `idx` is the priority, as at build.
+        A declared-LPM table places it by `_lpm_index`, exactly where a build
+        would have (O1). Elsewhere the model's own `idx` is the priority, as at
+        build.
         """
         self._refuse_special_table('insert_rule', rule.tid)
         if _calc_rule_index(rule.idx, t_idx=self.tables[rule.tid]) in self.rule_ids:
@@ -1005,17 +1010,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 "NetPlumberAdapter: insert_rule(%s, %s, %s): the rule is "
                 "already present; a modify is a delete followed by an insert."
                 % (rule.node, rule.tid, rule.idx))
-        priorities = None
-        if rule.tid in self._lpm_tables:
-            slot = self._lpm_prio.get((rule.tid, rule.idx))
-            if slot is None:
-                raise UpdateRefused(
-                    "NetPlumberAdapter: insert_rule(%s, %s, %s) into a declared "
-                    "%s table: its priorities were assigned densely at build, so "
-                    "a new route has no free slot (INCREMENTAL_PLAN.md O1)."
-                    % (rule.node, rule.tid, rule.idx, LPM))
-            priorities = [slot]
-        self.add_rules_batch([rule], priorities)
+        self.add_rules_batch(*self._lpm_ordered_batch(rule.tid, [rule]))
 
     def delete_rule(self, node: str, tid: str, idx: int) -> None:
         """ Delete one FaVe rule, with every engine rule its negations
