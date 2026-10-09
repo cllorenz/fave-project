@@ -436,6 +436,15 @@ re-verification; at checkpoints, full equals from-zero. Both engines see the sam
 verdict changes on every stream. Disabling one probe hook (NetPlumber) or the
 footprint states (VeriFlow-FR) fails every stream test.
 
+**Indicative calibration (2026-10-10, dev):**
+[`results_inc_dev_20261010/FINDINGS.md`](../fave/bench/campaigns/results_inc_dev_20261010/FINDINGS.md)
+— three engines × `wl_example`/`wl_ifi`/`wl_airtel1` × S1–S3, 200 updates each,
+protocol first. All six oracle runs pass; 7 of 9 streams agree across engines on
+every update. The other two expose a **translation difference updates reach**:
+`-o` in `pgf`'s FORWARD chain, evaluated before routing by NetPlumber and
+VeriFlow-FR (FaVe's packet filter model) and after it by APKeep (netfilter);
+the shipped model masks it. **Open for the owner.**
+
 **Found on the way, fixed:** a NetPlumber flow created by re-propagation left
 `processed_hs` uninitialised, and a later deletion crashed on it
 (`0b7f9b32`; `wl_cloud`, the 130th deletion of S2). No V5 cell deleted anything.
