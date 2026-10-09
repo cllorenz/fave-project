@@ -279,7 +279,7 @@ united, and one selective re-verification follows. The curve shows where
 batching starts to pay for each engine. Batches are counted in updates; the
 synthetic streams carry no time.
 
-**Reported:** distributions, never means alone — median, p90, p99, maximum —
+**Reported:** generated from the raw per-update records (§9, after O5), distributions, never means alone — median, p90, p99, maximum —
 split by operation (insert, delete, link down, link up), with `affected` and
 `precision` beside them; repetitions to be fixed by O4. Predictions are
 declared in a `PROTOCOL.txt` before any run and never edited afterwards, as in
@@ -364,9 +364,25 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
      on S2 only. A dev-stamped **calibration** (the first ~200 updates of each
      stream) precedes the protocol, so its grid and predictions rest on data.
   RSS is recorded after every batch, so a reference-count leak shows as growth.
-- **O5. `precision` as a headline.** It is where the engines' by-products
-  differ (NetPlumber per (source, probe); VeriFlow-FR per walk footprint;
-  NDD per device). *Recommendation:* report it beside every `t_total`.
+- **O5. Precision and selectivity — DECIDED 2026-10-09.** Two ratios, from the
+  timed run itself (O3): **selectivity** = checks re-checked / all checks (the work
+  saved against a full re-check) and **precision** = checks whose verdict changed /
+  checks re-checked (how much of the re-check was needed). Aggregated as the
+  ratio of the stream's sums, with the per-update distribution of re-checked
+  counts beside it (the ratio is dominated by large updates). The unit is the
+  check, not the (source, probe) pair; a changed witness under an unchanged
+  verdict is not a change. **Void, not caveated,** when the stream fails its
+  cross-engine comparison or its oracle run. Reported beside `t_total` in every
+  row, not as a separate headline.
+- **Raw data is kept (owner, 2026-10-09).** Every statistic here is derived, so a
+  different one can be computed later without a re-run. A cell keeps, per update
+  and gzip'd JSON lines: its position, op and the rule key or link; its batch;
+  `t_update`, `t_recheck`; the affected (source, probe) pairs as the engine
+  reported them; the changed checks with old and new verdict; RSS after the
+  batch; a monotonic timestamp. Plus the stream itself, the initial verdicts and
+  the stamps. Re-checked checks follow from the affected pairs and the stamped
+  check set, so they are not stored twice. Quantiles, ratios and tables are
+  generated from these files, never typed and never the only record.
 - **O6. Equal-priority ties in APKeep** (§6.3). *Recommendation:* break ties in
   the translated priority, so incremental and from-zero builds agree by
   construction, and test it.
