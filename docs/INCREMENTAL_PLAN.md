@@ -1,9 +1,10 @@
 # Incremental reverification — a plan
 
-**Status: PLAN (2026-10-09). Nothing measured yet.** Decisions D1–D9 are the
-owner's, taken in discussion on 2026-10-09 (§4). Questions O1–O6 are still open
-and carry a recommendation, not a decision (§9). Milestone 1 work that no open
-question blocks has started (§10).
+**Status: M1 IN PROGRESS (2026-10-09). Nothing measured yet.** Decisions D1–D9
+are the owner's, taken in discussion on 2026-10-09 (§4). Questions O1–O6 are
+still open and carry a recommendation, not a decision (§9). §10 records what is
+built: NetPlumber and VeriFlow-FR take updates and re-verify selectively, held
+to the oracle; what remains of M1 waits on O1/O2 or on a protocol.
 **Owner:** Claas Lorenz. **Branch:** `updates`. **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -338,7 +339,35 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
 
 ## 10. Order of work
 
-Milestone 1, starting with what no open question blocks:
+**Progress (2026-10-09, branch `updates`):**
+
+| step | state | commits |
+|---|---|---|
+| 1. replay seam, S1–S3, seeds | **done** — simpler than §6.1: `InProcessFaVe` builds each engine through the aggregator; the rules come from its stored models (`util/incremental.py`) | `bff573f7` |
+| 2. NetPlumber | **done** — `take_affected` at the three probe hooks; adapter `insert_rule`/`delete_rule`/`set_link`; LPM tables take a rule back into its own slot only (O1) | `1ad4fe9a`, `240aa881`, `bff573f7` |
+| 3. FaVe side | **done** — `VerdictCache`, selective re-verification, the from-zero oracle (a fresh engine behind a wrapper that withholds deleted rules and downed links) | `bff573f7` |
+| 4. VeriFlow-FR | **done** — per-rule translation, walk footprints, LPM as on NetPlumber | `518e75cb`, `0430d036` |
+| 5. NetPlumber LPM, APKeep | **waits on O1, O2** | — |
+| 6. harness | **driver done**, `bench/incremental_run.py`, `dev`-stamped; limits (O4) and a protocol still to come | `5a518599` |
+
+Held to the oracle in `test_incremental_{netplumber,veriflow}.py` on
+`wl_example`, `wl_ifi` and `wl_cloud`: after every update, selective equals full
+re-verification; at checkpoints, full equals from-zero. Both engines see the same
+verdict changes on every stream. Disabling one probe hook (NetPlumber) or the
+footprint states (VeriFlow-FR) fails every stream test.
+
+**Found on the way, fixed:** a NetPlumber flow created by re-propagation left
+`processed_hs` uninitialised, and a later deletion crashed on it
+(`0b7f9b32`; `wl_cloud`, the 130th deletion of S2). No V5 cell deleted anything.
+NetPlumber's makefile tracks no header dependencies: `make clean` after a header
+change, or the binary is inconsistent.
+
+**First observation for O5 (development runs, one sample each, not results):**
+NetPlumber's (source, probe) pairs are far more precise than VeriFlow-FR's
+source-granular footprints -- on `wl_ifi` S2+S3, 780 against 8,605 checks
+re-asked for the same 732 verdict changes.
+
+The original order, kept for reference:
 
 1. The recording engine and replay driver (§6.1), with S1–S3 generators and
    stamped seeds.
