@@ -75,7 +75,7 @@ import tempfile
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from aggregator.abstract_engine import AbstractVerificationEngine
+from aggregator.abstract_engine import AbstractVerificationEngine, UpdateRefused
 from aggregator.aggregator_abstract import TraceLogger
 
 _SRC = 'packet.ipv4.source'
@@ -339,6 +339,18 @@ class Ad6Adapter(AbstractVerificationEngine):
         device_tables = self._tables.setdefault(model.node, {})
         semantics_of = getattr(model, 'semantics_of', None)
         for table_name, table_rules in model.tables.items():
+            # A second batch for a table that already holds rules is refused.
+            # Assigning it would REPLACE the table, and the aggregator hands an
+            # engine only the rules being added (`_sync_diff`), so every rule
+            # recorded earlier would silently leave the model. Every check
+            # rebuilds from these buffers, so this is the one way an update
+            # after a check goes wrong here -- the rest are picked up.
+            if device_tables.get(table_name):
+                raise UpdateRefused(
+                    "Ad6Adapter: add_rules(%s) for table %s, which already holds "
+                    "%d rules. A further batch would replace them rather than "
+                    "add to them." % (model.node, table_name,
+                                      len(device_tables[table_name])))
             device_tables[table_name] = list(table_rules)
             if semantics_of is not None:
                 declared = semantics_of(table_name)
@@ -554,8 +566,14 @@ class Ad6Adapter(AbstractVerificationEngine):
         pass
 
     def remove_link(self, sport: Any, dport: Any) -> None:
-        if sport in self.links and dport in self.links[sport]:
-            self.links[sport].remove(dport)
+        # This used to edit `self.links`, the aggregator's adjacency
+        # bookkeeping; the model is built from `self._raw_edges`, which it never
+        # touched -- so the link stayed in the model and the removal changed no
+        # answer. Refused until it is implemented.
+        raise UpdateRefused(
+            "Ad6Adapter: remove_link(%s, %s) is not implemented. The model is "
+            "built from the recorded topology, which a removal never reached, "
+            "so accepting it would leave the link in place." % (sport, dport))
 
     def delete_generator(self, node: str) -> None:
         self._generators.pop(node, None)
