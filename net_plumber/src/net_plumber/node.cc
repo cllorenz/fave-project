@@ -804,6 +804,13 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
       next_flow->pipe = next;
       next_flow->p_flow = s_flow;
       next_flow->n_flows = nullptr;
+      // The two other sites that create a flow set this; this one did not.
+      // A flow that RuleNode::process_src_flow finds looped returns before
+      // assigning processed_hs, so it kept malloc's garbage -- and the next
+      // deletion that hands influence back to that rule called hs_destroy on
+      // it (wl_cloud, the 130th deletion of a seeded S2 stream;
+      // INCREMENTAL_PLAN.md §6.3).
+      next_flow->processed_hs = nullptr;
       // request next node to process this flow
       (*next->r_pipeline)->node->process_src_flow(next_flow);
     } else {
