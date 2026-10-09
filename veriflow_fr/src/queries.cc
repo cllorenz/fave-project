@@ -174,6 +174,8 @@ struct Slicer {
   std::vector<bool> scan;
   // STATE under V3b: the packet set is a primary box minus excluded boxes.
   std::set<std::tuple<uint32_t, int64_t, Box, std::vector<Box>>> visited46;
+  // INCREMENTAL_PLAN.md §6.3: where to record what this walk depended on.
+  Footprint *fp = nullptr;
 
   struct Abort {};
 
@@ -257,6 +259,7 @@ struct Slicer {
       // VERIFLOW_PLAN.md): never leave by the port the packet arrived on.
       for (uint64_t p : r.out_ports) {
         if (arrival != ANY_PORT && (int64_t)p == arrival) continue;
+        if (fp) fp->ports.insert(p);
         for (uint64_t to : net.links_from(p))
           walk46(net.port_table(to), (int64_t)to, set.first, set.second, path, out);
       }
@@ -272,6 +275,7 @@ struct Slicer {
     } else if (!visited46.insert({table, arrival, box, excl}).second) {
       return;
     }
+    if (fp) fp->states[table].insert({arrival, box});
 
     std::vector<uint64_t> cand;
     for (uint64_t id : net.table_candidates(table, box)) {
@@ -364,6 +368,7 @@ struct Slicer {
       return;
     }
     if (on_state) on_state(table, box);
+    if (fp) fp->states[table].insert({arrival, box});
 
     // The rules that apply here (IN_PORT is a matched field, Q7) and overlap
     // the set; best first.
@@ -436,6 +441,7 @@ struct Slicer {
         // VERIFLOW_PLAN.md): never leave by the port the packet arrived on.
         for (uint64_t p : best->out_ports) {
           if (arrival != ANY_PORT && (int64_t)p == arrival) continue;
+          if (fp) fp->ports.insert(p);
           for (uint64_t to : net.links_from(p))
             walk(net.port_table(to), (int64_t)to, next, path, out);
         }
@@ -467,7 +473,8 @@ Box box_of(const Network &net, const std::string &range) {
 LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
                              uint64_t budget, Revisit revisit,
-                             const std::vector<bool> &scan) {
+                             const std::vector<bool> &scan,
+                             bool record_footprint) {
   LocalResult res;
   res.delivered.resize(starts.size());
   const Box box = box_of(net, range);
@@ -489,6 +496,7 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
     }
   }
   Slicer s{net, budget, res, nullptr, revisit, {}, v3b ? scan : std::vector<bool>(), {}};
+  if (record_footprint) s.fp = &res.footprint;
   try {
     for (size_t i = 0; i < starts.size(); ++i) {
       s.visited.clear();
@@ -503,6 +511,20 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
   } catch (const Slicer::Abort &) {
   }
   return res;
+}
+
+bool footprint_hits_rule(const Network &net, const Footprint &fp, uint32_t table,
+                         int64_t in_port, const std::string &match) {
+  auto it = fp.states.find(table);
+  if (it == fp.states.end()) return false;
+  const Box rule = box_of(net, match);
+  for (const auto &state : it->second) {
+    const int64_t arrival = state.first;
+    // the walk's own candidate test: IN_PORT is a matched field (Q7)
+    if (in_port != ANY_PORT && (arrival == ANY_PORT || in_port != arrival)) continue;
+    if (Slicer::meets(rule, state.second)) return true;
+  }
+  return false;
 }
 
 bool may_carry(const Network &net, const std::string &range,

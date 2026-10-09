@@ -110,6 +110,20 @@ enum class Revisit {
   STATE,
 };
 
+// What a bulk walk depended on (INCREMENTAL_PLAN.md §6.3): every (table,
+// arrival, packet set) state it reached -- the set AFTER any rewrite, i.e. the
+// header actually arriving there; under V3b the primary box, a superset -- and
+// every port it emitted on, whether or not a link was attached. The walk is
+// deterministic, so a rule update at table T can change it only if the rule
+// is a candidate at a recorded state at T (it applies at that arrival and its
+// match meets the set), and a link update on port p only if the walk emitted
+// on p. A deletion is tested against the footprint from BEFORE the update.
+struct Footprint {
+  std::map<uint32_t, std::set<std::pair<int64_t, Box>>> states;
+  std::set<uint64_t> ports;
+  bool hits_port(uint64_t port) const { return ports.count(port) > 0; }
+};
+
 struct LocalResult {
   std::vector<std::set<uint32_t>> delivered;  // per start: where packets arrive
   bool finished = true;       // false: the budget was exceeded (did not finish)
@@ -119,6 +133,7 @@ struct LocalResult {
   uint64_t local_ecs = 0;     // local ECs sliced in total
   uint64_t hops = 0;          // (table, arrival, set) states expanded
   std::map<uint32_t, uint64_t> per_table;  // local ECs sliced, per table
+  Footprint footprint;        // filled only when asked for (record_footprint)
 };
 
 // Bulk checks the thesis's way: device by device. At each table a packet set
@@ -145,7 +160,13 @@ struct LocalResult {
 LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
                              uint64_t budget = 0, Revisit revisit = Revisit::PATH,
-                             const std::vector<bool> &scan = {});
+                             const std::vector<bool> &scan = {},
+                             bool record_footprint = false);
+
+// Whether a rule (table, in_port, match) could be a candidate at any state of
+// `fp` -- i.e. whether inserting or deleting it can change that walk.
+bool footprint_hits_rule(const Network &net, const Footprint &fp, uint32_t table,
+                         int64_t in_port, const std::string &match);
 
 // T §4.5, VLAN isolation: can a packet of `range` from `start`, on some path,
 // come to carry `to_value` in `field` (e.g. a VLAN it must not leak into)? The

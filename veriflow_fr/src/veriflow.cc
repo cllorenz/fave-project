@@ -251,6 +251,13 @@ std::vector<EC> Network::remove_rule(uint64_t id) {
   // Q5: the ECs the rule affects, computed while it is still in place, the same
   // partition its insertion produced.
   std::vector<EC> ecs = affected_ecs(it->second.match);
+  unload_rule(id);
+  return ecs;
+}
+
+void Network::unload_rule(uint64_t id) {
+  auto it = rules_.find(id);
+  if (it == rules_.end()) throw std::invalid_argument("unknown rule id");
   if (!it->second.rewrites.empty()) --rewriting_;
   trie_.remove(id, it->second.match);
   table_tries_.at(it->second.table).remove(id, it->second.match);
@@ -259,7 +266,6 @@ std::vector<EC> Network::remove_rule(uint64_t id) {
   intervals_.erase(id);
   seq_.erase(id);
   rules_.erase(it);
-  return ecs;
 }
 
 std::vector<uint64_t> Network::overlapping_rules(const std::string &range) const {

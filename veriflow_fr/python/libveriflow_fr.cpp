@@ -93,19 +93,34 @@ class PyNetwork {
   // `state`: Q4's revisit rule -- the thesis's visited states, or NetPlumber's
   // path rule.
   // `scan`: V3b's per-field scan flags (empty: plain slicing).
+  // `footprint` (INCREMENTAL_PLAN.md §6.3): also return what the walk
+  // depended on, as a ninth element.
   py::tuple local_deliveries(const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
                              uint64_t budget, bool state,
-                             const std::vector<bool> &scan) const {
+                             const std::vector<bool> &scan,
+                             bool footprint) const {
     LocalResult r;
     {
       py::gil_scoped_release release;
       r = vf::local_deliveries(net_, range, starts, budget,
-                               state ? Revisit::STATE : Revisit::PATH, scan);
+                               state ? Revisit::STATE : Revisit::PATH, scan,
+                               footprint);
     }
+    if (footprint)
+      return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
+                            r.single_table, r.local_ecs, r.hops, r.per_table,
+                            r.footprint);
     return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
                           r.single_table, r.local_ecs, r.hops, r.per_table);
   }
+
+  bool footprint_hits_rule(const Footprint &fp, uint32_t table, int64_t in_port,
+                           const std::string &match) const {
+    return vf::footprint_hits_rule(net_, fp, table, in_port, match);
+  }
+
+  void unload_rule(uint64_t id) { net_.unload_rule(id); }
 
   size_t remove_rule(uint64_t id) { return net_.remove_rule(id).size(); }
 
@@ -166,6 +181,14 @@ class PyNetwork {
 PYBIND11_MODULE(libveriflow_fr, m) {
   m.doc() = "VeriFlow-FR: an independent VeriFlow, from the literature alone";
   m.attr("ANY_PORT") = ANY_PORT;
+  py::class_<Footprint>(m, "Footprint")
+      .def("hits_port", &Footprint::hits_port)
+      .def("states", [](const Footprint &fp) {
+        size_t n = 0;
+        for (const auto &t : fp.states) n += t.second.size();
+        return n;
+      });
+
   py::class_<PyNetwork>(m, "Network")
       .def(py::init<const std::vector<std::pair<std::string, unsigned>> &>())
       .def("add_table", &PyNetwork::add_table)
@@ -178,8 +201,10 @@ PYBIND11_MODULE(libveriflow_fr, m) {
            py::arg("consume"), py::arg("rewrites") = std::vector<std::pair<size_t, std::string>>())
       .def("local_deliveries", &PyNetwork::local_deliveries, py::arg("range"),
            py::arg("starts"), py::arg("budget"), py::arg("state"),
-           py::arg("scan") = std::vector<bool>())
+           py::arg("scan") = std::vector<bool>(), py::arg("footprint") = false)
       .def("remove_rule", &PyNetwork::remove_rule)
+      .def("unload_rule", &PyNetwork::unload_rule)
+      .def("footprint_hits_rule", &PyNetwork::footprint_hits_rule)
       .def("affected_ecs", &PyNetwork::affected_ecs)
       .def("decide_point", &PyNetwork::decide_point)
       .def("deliveries", &PyNetwork::deliveries)

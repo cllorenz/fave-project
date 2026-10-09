@@ -198,6 +198,11 @@ class Network {
   void load_rule(const Rule &rule);
   // Remove a rule (Q5); returns the ECs it affected.
   std::vector<EC> remove_rule(uint64_t id);
+  // Remove a rule WITHOUT computing its ECs -- the counterpart of load_rule,
+  // for updates whose effect is judged some other way (a walk footprint,
+  // INCREMENTAL_PLAN.md §6.3). Enumerating the ECs of a short prefix can cost
+  // more than re-checking. Throws std::invalid_argument on an unknown id.
+  void unload_rule(uint64_t id);
 
   // GetAffectedEquivalenceClasses over a header set (T §3.2.3): the rules
   // overlapping it network-wide (Q1) split it, per field, into disjoint ranges
