@@ -191,23 +191,27 @@ public class APKeeper {
 		}
 	}
 	
+	/* FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §2): every caller OWNS one
+	 * reference to the BDD returned, and the cache keeps one of its own.
+	 * Upstream handed out the cached node unreferenced, and ForwardElement
+	 * dereferenced it when ONE trie node ran out of rules -- while every other
+	 * element with a route to the same prefix, and every NAT keyed on it, still
+	 * used it. A build never deletes, so this only bit once updates did. */
 	public int encodePrefixBDD(long destip, int prefixlen) {
 		String prefix = destip + " " + prefixlen;
-		if (cachePrefixBDD.containsKey(prefix)) {
-			return cachePrefixBDD.get(prefix);
+		Integer cached = cachePrefixBDD.get(prefix);
+		if (cached == null) {
+			cached = bddengine.encodeDstIPPrefix(destip, prefixlen);   // the cache's reference
+			cachePrefixBDD.put(prefix, cached);
 		}
-		else {
-			int prefixbdd = bddengine.encodeDstIPPrefix(destip, prefixlen);
-			cachePrefixBDD.put(prefix, prefixbdd);
-			return prefixbdd;
-		}
+		return bddengine.ref(cached);                                   // the caller's
 	}
 	
+	/* FaVe fork: a no-op. The cache's own reference keeps the node alive for
+	 * every later caller; dropping the entry while holders remain is what made
+	 * the shared node collectable (above). Bounded by the distinct prefixes
+	 * ever seen. */
 	public void removePrefixBDD(long destip, int prefixlen) {
-		String prefix = destip + " " + prefixlen;
-		if (cachePrefixBDD.containsKey(prefix)) {
-			cachePrefixBDD.remove(prefix);
-		}
 	}
 	
 	public int encodeACLBDD(ACLRule rule) {

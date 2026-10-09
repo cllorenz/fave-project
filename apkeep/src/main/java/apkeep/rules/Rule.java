@@ -44,14 +44,26 @@ public abstract class Rule implements Comparable<Rule>{
 		return port;
 	}
 	
+	/* FaVe fork (INCREMENTAL_PLAN.md O6): identity is priority, port AND
+	 * match. Upstream compared priority and port only, so a removal could find
+	 * and remove a DIFFERENT rule with the same action -- every NAT rule sits at
+	 * one priority, and a first-match table can hold two rules with the same
+	 * egress. Comparing the match BDD is exact: BDD nodes are canonical, so equal
+	 * functions are equal ids while both are referenced. */
 	@Override
 	public boolean equals(Object o) {
 		if(o instanceof Rule) {
 			Rule another = (Rule) o;
 			return another.priority == priority 
-					&& another.port.equals(port);
+					&& another.port.equals(port)
+					&& another.match_bdd == match_bdd;
 		}
 		return false;
+	}
+
+	@Override
+	public int hashCode() {
+		return 31 * (31 * priority + port.hashCode()) + match_bdd;
 	}
 	
 	@Override

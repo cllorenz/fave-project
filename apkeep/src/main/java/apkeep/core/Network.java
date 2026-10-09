@@ -13,6 +13,7 @@ import java.util.Set;
 
 import apkeep.checker.Checker;
 import apkeep.checker.ForwardingGraph;
+import apkeep.checker.ReachabilityChecker;
 import apkeep.elements.ACLElement;
 import apkeep.elements.Element;
 import apkeep.elements.ForwardElement;
@@ -431,7 +432,19 @@ public class Network {
 		eva.endExp(getAPNum());
 	}
 	
+	/** FaVe fork: point the static BDD engine references -- Element.bdd and
+	 *  APKeeper.bddengine, set by whichever Network or APKeeper was constructed
+	 *  LAST -- at this network's own engine. Upstream ran one network per
+	 *  process; FaVe's from-zero oracle builds a second one beside the live
+	 *  network in the same JVM, and without this the live network would
+	 *  continue on the oracle's BDD table. Called on every entry point. */
+	public void activate() {
+		Element.setBDDWrapper(bdd_engine);
+		APKeeper.bddengine = bdd_engine;
+	}
+
 	public void updateRule(Evaluator eva, String rule) throws Exception {
+		activate();
 		apkeep.utils.BuildProfiler.rulesApplied++;   // Phase C: build-progress denominator
 		Logger.logDebugInfo(rule);
 		String[] tokens = rule.split(" ");
@@ -505,6 +518,20 @@ public class Network {
 		}
 		apkeep.utils.BuildProfiler.insertNanos += System.nanoTime() - _pt;
 
+		// FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §4): keep APKeep's change tuples
+		// -- (element, from, to, delta) -- as BDDs, captured BEFORE the PPM update
+		// and any merge, because AP ids are re-numbered by both. Upstream
+		// computed them and discarded them.
+		if (tracking) {
+			for (ChangeItem item : change_set) {
+				changed_elements.add(element_name);
+				changed_deltas.add(bdd_engine.ref(item.getDelta()));
+			}
+		}
+		// The rule a "-" encodes is only a probe to find the stored rule with;
+		// its match holds a reference of its own (APKeeper.encodePrefixBDD).
+		if (op.equals("-")) bdd_engine.deref(r.getMatch_bdd());
+
 		/*
 		 * Step 3. Updating predicates
 		 */
@@ -545,6 +572,175 @@ public class Network {
 		apkeep.utils.BuildProfiler.mergeNanos += System.nanoTime() - _pt;
 	}
 	
+	// ---- FaVe fork: updates after the build, and the checks they affect -----
+	// INCREMENTAL_PLAN.md §6.2/§6.3, APKEEP_INCREMENTAL_SCOPE.md §4.
+
+	/** What one reachability query depended on: per element, the union of the
+	 *  forwarding and of the ACL atomic predicates that ARRIVED there, as BDDs
+	 *  (AP ids do not survive later splits and merges), and the ports it left
+	 *  by. A change (e, delta) can alter the query's answer only if delta meets
+	 *  what arrived at e; a link change only if the query left by its port. */
+	private static final class Footprint {
+		final Map<String, int[]> elements = new HashMap<>();
+		final Set<PositionTuple> ports = new HashSet<>();
+	}
+
+	private Evaluator inc_eva = null;
+	private boolean tracking = false;
+	private final List<String> changed_elements = new ArrayList<>();
+	private final List<Integer> changed_deltas = new ArrayList<>();
+	private final Set<PositionTuple> changed_ports = new HashSet<>();
+	private final Map<String, Footprint> footprints = new HashMap<>();
+	private final Map<String, Set<String>> element_keys = new HashMap<>();
+	private final Map<PositionTuple, Set<String>> port_keys = new HashMap<>();
+
+	/** Apply rule updates ("+ ..." / "- ...") to the built network, one by one,
+	 *  with APKeep's own per-update work -- change computation, PPM update, its
+	 *  loop check (D1), the soft merge -- and none of its experiment harness
+	 *  (Evaluator.quiet). */
+	public void applyUpdates(List<String> rules) throws Exception {
+		activate();
+		if (inc_eva == null) inc_eva = Evaluator.quiet(name);
+		for (String rule : rules) updateRule(inc_eva, rule.trim());
+	}
+
+	/** Loops APKeep's default check found in updates since the build. */
+	public long loopsFound() {
+		return inc_eva == null ? 0 : inc_eva.loops_found;
+	}
+
+	/** Take a directed link "d1 p1 -> d2 p2" up or down. Topology only: no
+	 *  predicate changes, as in APKeep. A NAT inlined on d1.p1 owns that port's
+	 *  downstream (addNATs), so the link hangs off the NAT's outport. */
+	public void setLink(String d1, String p1, String d2, String p2, boolean up) {
+		String nat = d1 + "_" + p1;
+		PositionTuple from = nat_element_names.contains(nat)
+				? new PositionTuple(nat, "outport") : new PositionTuple(d1, p1);
+		PositionTuple to = new PositionTuple(d2, p2);
+		if (up) {
+			topology.computeIfAbsent(from, k -> new HashSet<>()).add(to);
+		} else {
+			HashSet<PositionTuple> downstream = topology.get(from);
+			if (downstream == null || !downstream.remove(to)) {
+				throw new IllegalArgumentException("no link " + from + " -> " + to);
+			}
+			if (downstream.isEmpty()) topology.remove(from);
+		}
+		if (tracking) changed_ports.add(from);
+	}
+
+	public void setTracking(boolean on) {
+		activate();
+		tracking = on;
+		if (!on) {
+			for (int d : changed_deltas) bdd_engine.deref(d);
+			changed_elements.clear();
+			changed_deltas.clear();
+			changed_ports.clear();
+			for (String key : new ArrayList<>(footprints.keySet())) dropFootprint(key);
+		}
+	}
+
+	public boolean isTracking() {
+		return tracking;
+	}
+
+	private int union(Set<Integer> aps) {
+		int u = BDDACLWrapper.BDDFalse;
+		if (aps == null) return u;
+		for (int ap : aps) {
+			if (ap == BDDACLWrapper.BDDTrue) {
+				bdd_engine.deref(u);
+				return BDDACLWrapper.BDDTrue;
+			}
+			int next = bdd_engine.or(u, ap);
+			bdd_engine.deref(u);
+			u = next;
+		}
+		return u;
+	}
+
+	/** Add what `checker`'s last query depended on to `key`'s footprint. A key
+	 *  is one (source, probe) pair; several queries on it accumulate, and its
+	 *  footprint is dropped when an update reports it (takeAffected), because
+	 *  the caller then asks it again. */
+	public void recordFootprint(String key, ReachabilityChecker checker) {
+		if (!tracking || checker.fpFwd == null) return;
+		activate();
+		Footprint fp = footprints.computeIfAbsent(key, k -> new Footprint());
+		Set<String> names = new HashSet<>(checker.fpFwd.keySet());
+		names.addAll(checker.fpAcl.keySet());
+		for (String e : names) {
+			int f = union(checker.fpFwd.get(e));
+			int a = union(checker.fpAcl.get(e));
+			int[] old = fp.elements.get(e);
+			if (old != null) {
+				int f2 = bdd_engine.or(old[0], f), a2 = bdd_engine.or(old[1], a);
+				bdd_engine.deref(old[0]); bdd_engine.deref(old[1]);
+				bdd_engine.deref(f); bdd_engine.deref(a);
+				f = f2; a = a2;
+			}
+			fp.elements.put(e, new int[] {f, a});
+			element_keys.computeIfAbsent(e, k -> new HashSet<>()).add(key);
+		}
+		for (PositionTuple pt : checker.fpPorts) {
+			fp.ports.add(pt);
+			port_keys.computeIfAbsent(pt, k -> new HashSet<>()).add(key);
+		}
+	}
+
+	private void dropFootprint(String key) {
+		Footprint fp = footprints.remove(key);
+		if (fp == null) return;
+		for (Map.Entry<String, int[]> entry : fp.elements.entrySet()) {
+			bdd_engine.deref(entry.getValue()[0]);
+			bdd_engine.deref(entry.getValue()[1]);
+			Set<String> keys = element_keys.get(entry.getKey());
+			if (keys != null) keys.remove(key);
+		}
+		for (PositionTuple pt : fp.ports) {
+			Set<String> keys = port_keys.get(pt);
+			if (keys != null) keys.remove(key);
+		}
+	}
+
+	private boolean meets(int a, int b) {
+		int both = bdd_engine.and(a, b);
+		boolean hit = both != BDDACLWrapper.BDDFalse;
+		bdd_engine.deref(both);
+		return hit;
+	}
+
+	/** The keys whose footprint a change since the last call meets -- a sound
+	 *  superset of the queries whose answer can have changed. Their footprints
+	 *  are dropped: the caller asks them again, which records new ones. */
+	public Set<String> takeAffected() {
+		activate();
+		Set<String> out = new HashSet<>();
+		for (int i = 0; i < changed_deltas.size(); i++) {
+			String e = changed_elements.get(i);
+			int delta = changed_deltas.get(i);
+			Set<String> keys = element_keys.get(e);
+			if (keys != null) {
+				for (String key : keys) {
+					if (out.contains(key)) continue;
+					int[] fp = footprints.get(key).elements.get(e);
+					if (meets(delta, fp[0]) || meets(delta, fp[1])) out.add(key);
+				}
+			}
+			bdd_engine.deref(delta);
+		}
+		for (PositionTuple pt : changed_ports) {
+			Set<String> keys = port_keys.get(pt);
+			if (keys != null) out.addAll(keys);
+		}
+		changed_elements.clear();
+		changed_deltas.clear();
+		changed_ports.clear();
+		for (String key : out) dropFootprint(key);
+		return out;
+	}
+
 	/* answer "what if" questions for each possible link failure
 	 * for each link, and for each 
 	 */

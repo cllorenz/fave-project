@@ -121,8 +121,13 @@ public class NATElement extends Element {
 			int vlan_id = Integer.valueOf(tokens[7]);
 			int match_bdd = apk.encodePrefixBDD(dst_prefix, dst_prefixlen);
 			int new_bdd = apkeep.core.APKeeper.bddengine.ConvertVLAN(vlan_id);
+			// FaVe fork (INCREMENTAL_PLAN.md O6): the priority is the prefix
+			// length -- the route's own LPM rank -- not 65535 for every rule.
+			// With all rules tied, which of two overlapping rewrites won was
+			// decided by insertion order ("last inserted wins"), and a removal
+			// and a build without the rule disagreed.
 			return new RewriteRule(match_bdd, match_bdd, new_bdd,
-					common.Fields.vlan, "vlan" + vlan_id, 65535);
+					common.Fields.vlan, "vlan" + vlan_id, dst_prefixlen);
 		}
 		// FaVe fork: an ADDRESS rewrite carrying the match it is keyed on --
 		// "+ nat <dev> <natid> match <src|dst> <newIP> <newlen> <ACLRule body>".
@@ -151,8 +156,14 @@ public class NATElement extends Element {
 			int rewrite_bdd = is_src
 					? bdd.encodeSrcIPPrefix(rewrite_prefix, rewrite_prefixlen)
 					: apk.encodePrefixBDD(rewrite_prefix, rewrite_prefixlen);
+			// FaVe fork (INCREMENTAL_PLAN.md O6): the priority is the one the
+			// matched rule carries in its own body -- its first-match rank in the
+			// table it rewrites for -- so of two overlapping rewrites on one port
+			// the rule that wins the table wins here too. It used to be 65535 for
+			// every rule, which made the LATER rule's rewrite win an overlap.
 			return new RewriteRule(match_bdd, match_bdd, rewrite_bdd, field,
-					(is_src ? "src" : "dst") + tokens[6] + "/" + tokens[7], 65535);
+					(is_src ? "src" : "dst") + tokens[6] + "/" + tokens[7],
+					keyed_on.priority);
 		}
 		long old_prefix = Utility.IPStringToLong(tokens[4]);
 		int old_prefixlen = Integer.valueOf(tokens[5]);

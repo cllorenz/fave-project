@@ -51,6 +51,24 @@ public class Evaluator {
 		output_file = outputFile;
 		loops = new HashSet<>();
 	}
+
+	/* FaVe fork (INCREMENTAL_PLAN.md §6.3): the evaluator for updates applied
+	 * AFTER a build. APKeep's own evaluator is an experiment harness: it writes
+	 * a line per update to a file (closed once the build ends), hard-merges every
+	 * AP on the first deletion (the boundary of its insert-then-delete
+	 * experiment), and forces two full JVM collections every GC_INTERVAL updates
+	 * INSIDE the timed update. None of that is APKeep's update algorithm, so
+	 * FaVe times updates without it. The loop check itself still runs and is
+	 * charged to the update (D1); only its result is not kept beyond a count. */
+	public boolean quiet = false;
+	public long loops_found = 0;
+
+	public static Evaluator quiet(String net) {
+		Evaluator eva = new Evaluator(net, null);
+		eva.quiet = true;
+		eva.insert_finish = true;
+		return eva;
+	}
 	
 	public boolean isInsertFinish() {
 		return insert_finish;
@@ -65,6 +83,7 @@ public class Evaluator {
 	}
 	
 	public void addLoops(Set<Loop> loops) {
+		if (quiet) { loops_found += loops.size(); return; }
 		this.loops.addAll(loops);
 	}
 	
@@ -84,6 +103,7 @@ public class Evaluator {
 		ppm_time += mid_time - start_time;
 		veri_time += end_time - mid_time;
 		if (update_time/1000000.0 < Parameters.FAST_UPDATE_THRESHOLD) fast_update ++;
+		if (quiet) return;
 		/*
 		 * Periodical garbage collection for BDD and JVM
 		 */
@@ -134,6 +154,7 @@ public class Evaluator {
 	}
 	
 	public void printUpdateResults(int ap_num) {
+		if (quiet) return;
 		if (update_num % Parameters.PRINT_RESULT_INTERVAL == 0) {
 			System.out.println(update_num + " " + ap_num + " " + update_time/1000);
 		}

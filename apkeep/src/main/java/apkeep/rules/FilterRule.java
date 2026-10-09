@@ -49,14 +49,18 @@ public class FilterRule extends Rule {
 		this.destinationPortUpper = rule.destinationPortUpper;		
 	}
 	
+	/* FaVe fork (INCREMENTAL_PLAN.md O6): Rule's identity -- priority, port and
+	 * match BDD. Upstream compared toString(), which omits the VLAN and
+	 * connection-state slots FaVe added to the match, so two rules differing
+	 * only there were "equal" and a removal could take the wrong one. */
 	@Override
 	public boolean equals(Object o) {
-		if(o instanceof FilterRule) {
-			FilterRule another = (FilterRule) o;
-			if(this.toString().equals(another.toString()))
-				return true;
-		}
-		return false;
+		return o instanceof FilterRule && super.equals(o);
+	}
+
+	@Override
+	public int hashCode() {
+		return super.hashCode();
 	}
 	
 	public String toString() {

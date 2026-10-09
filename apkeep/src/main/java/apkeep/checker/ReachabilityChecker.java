@@ -1,8 +1,10 @@
 package apkeep.checker;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import apkeep.core.APKeeper;
@@ -94,11 +96,33 @@ public class ReachabilityChecker {
     // the exact hop sequence and the surviving forwarding APs, so we can compare
     // APKeep's over-approximating path against NetPlumber hop by hop. Public so a
     // JPype caller can read them after isReachable(...) returns true.
+    /* FaVe fork (INCREMENTAL_PLAN.md §6.3): what the last query depended on,
+     * when the network tracks it -- per element the AP ids that ARRIVED there,
+     * forwarding and ACL universe apart, and the ports the walk left by. Turned
+     * into BDDs by Network.recordFootprint. An early exit on a witness records
+     * only the explored part, which is sound: a reachable answer can only be
+     * lost through a change on the explored part, which holds the witness. */
+    public Map<String, Set<Integer>> fpFwd = null;
+    public Map<String, Set<Integer>> fpAcl = null;
+    public Set<PositionTuple> fpPorts = null;
+
+    private void note(Element e, Set<Integer> fwd, Set<Integer> acl) {
+        if (fpFwd == null || e == null) return;
+        fpFwd.computeIfAbsent(e.getName(), k -> new HashSet<>()).addAll(fwd);
+        fpAcl.computeIfAbsent(e.getName(), k -> new HashSet<>()).addAll(acl);
+    }
+
     public List<PositionTuple> witnessPath = null;
     public Set<Integer> witnessFwd = null;
 
     public ReachabilityChecker(Network net) {
         this.net = net;
+        net.activate();
+        if (net.isTracking()) {
+            fpFwd = new HashMap<>();
+            fpAcl = new HashMap<>();
+            fpPorts = new HashSet<>();
+        }
     }
 
     private boolean arrive(List<PositionTuple> history, PositionTuple last, Set<Integer> fwd) {
@@ -224,6 +248,7 @@ public class ReachabilityChecker {
 
         if (history.contains(cur_hop)) return false;  // simple-path pruning
         history.add(cur_hop);
+        if (fpPorts != null) fpPorts.add(cur_hop);
 
         Set<PositionTuple> connected_ports = net.getConnectedPorts(cur_hop);
         if (connected_ports == null) return false;
@@ -238,6 +263,7 @@ public class ReachabilityChecker {
                 return arrive(history, connected_pt, fwd_aps);
 
             Element e = getElement(connected_pt.getDeviceName());
+            note(e, fwd_aps, acl_aps);
 
             // A rewrite element (e.g. the Stanford mid-stage setting the egress
             // VLAN) transforms the actual packets: relabel BOTH the forwarding and

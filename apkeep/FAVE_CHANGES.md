@@ -377,3 +377,66 @@ shape. On the suite nothing changes: every VLAN match in a forwarding table sits
 in an HSA stage, and every VLAN rewrite in an HSA stage or a router's routing
 table. Confirmed by the integration tier's APKeep differentials.
 
+
+## 11. Updates after the build: change tuples, footprints, links, and the defects only deletion reaches  **[NEW]** / **[FIX]**
+
+INCREMENTAL_PLAN.md §6.3, APKEEP_INCREMENTAL_SCOPE.md step 1, 2026-10-10. Upstream
+APKeep updates rule by rule already -- a build is `updateRule` over every rule --
+but FaVe only ever built. Taking updates after a build needed:
+
+**[NEW]**
+- `Network.applyUpdates(rules)`: `updateRule` with a *quiet* `Evaluator`
+  (`Evaluator.quiet`), which keeps APKeep's per-update algorithm -- change
+  computation, PPM update, its loop check (counted, `loopsFound`), the soft
+  merge -- and drops its experiment harness: the per-update line written to a
+  file closed after the build, the hard merge of every AP on the first deletion
+  (the boundary of the paper's insert-then-delete experiment), and two forced
+  full JVM collections every `GC_INTERVAL` updates inside the timed update.
+- `Network.setLink(d1, p1, d2, p2, up)`: topology only, as in APKeep; a NAT
+  inlined on `d1.p1` owns that port's downstream, so the link hangs off its
+  `outport`.
+- Change tuples kept: while tracking, `updateRule` records each
+  `(element, delta)` as a referenced BDD before the PPM update and any merge
+  (AP ids are renumbered by both). Upstream computed them and discarded them.
+- Query footprints: a `ReachabilityChecker` built while the network tracks
+  records, per element it visited, the forwarding and ACL atomic predicates that
+  ARRIVED there, and the ports it left by; `Network.recordFootprint(key, checker)`
+  turns them into BDDs under a key. `Network.takeAffected()` returns the keys a
+  recorded change meets (`delta ∧ footprint ≠ ∅` at that element) or a changed
+  link's port touches, and drops their footprints (the caller asks them again).
+  Sound with the checker's early exit: a reachable answer can only be lost
+  through a change on the explored part, which holds the witness.
+- `Network.activate()`: `Element.bdd` and `APKeeper.bddengine` are STATIC and
+  were set by whichever network was constructed last; every entry point now
+  points them at its own network's engine, so the from-zero oracle's network
+  can live beside the one being updated in the same JVM.
+
+**[FIX]**, each reached only by a deletion, so no build was affected (the full
+APKeep suite is unchanged):
+- **Ties on removal.** Equal priority is resolved on insertion as "inserted last
+  wins" (`identifyChangesInsert`, `>`), but removal skipped every rule of equal
+  priority (`>=`) and handed the packets to a lower one. A removal and a build
+  without the rule disagreed at every tie. Removal now hands them on in
+  effective order -- the rules after the removed one in a first-match list, and
+  in a FIB the equal-priority siblings newest first, then the lower ones.
+- **Rule identity.** `Rule.equals` compared priority and port only, so a removal
+  could take another rule with the same action (every NAT rule shared a
+  priority). It now includes the match BDD, which is canonical; `FilterRule`
+  compared a `toString()` without the VLAN and connection-state slots and now
+  uses the same identity.
+- **NAT priorities.** Every rewrite rule sat at 65535, so of two overlapping
+  rewrites on one port the one inserted last won -- the LATER first-match rule,
+  the wrong one. A `match` rewrite now carries its matched rule's own priority,
+  a VLAN rewrite its prefix length (O6).
+- **A shared prefix BDD freed while in use.** `APKeeper.encodePrefixBDD` handed
+  out its cached node unreferenced, and `ForwardElement` dereferenced it when
+  one trie node emptied -- while other elements and NAT rules with the same
+  prefix still used it. Each holder now owns a reference, and the cache keeps
+  its own.
+- `ForwardElement.getAffectedRules` sorted a copy and kept the unsorted list.
+  With priority = prefix length the list was already in order, so this changed
+  nothing, but removal now relies on the order.
+
+Tests: `fave/test/test_apkeep_incremental_core.py` (each fix against a build
+without the rule, on networks of a few elements), and through the adapter
+`fave/test/test_incremental_apkeep.py`.

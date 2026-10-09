@@ -1,7 +1,7 @@
 package apkeep.elements;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -65,6 +65,7 @@ public class ForwardElement extends Element {
 		// duplicate rules
 		if (node.hasRule(rule)) {
 			Logger.logInfo("duplicate rule " + rule.toString());
+			bdd.deref(rule.getMatch_bdd());   // FaVe fork: not stored, so its reference goes
 			return new ArrayList<ChangeItem>();
 		}
 		
@@ -117,16 +118,24 @@ public class ForwardElement extends Element {
 		affected_rules.addAll(node.getDescendantRules());
 		affected_rules.addAll(node.getAncestorRules());
 		affected_rules.addAll(node.getRules());
-		Arrays.sort(affected_rules.toArray());
+		// FaVe fork: upstream sorted a COPY (Arrays.sort(list.toArray())) and
+		// kept the unsorted list. Insertion relies on priority-descending order;
+		// with priority = prefix length the concatenation above happens to be
+		// that order, so this changes nothing a build did. A stable sort keeps
+		// equal-priority rules -- one trie node -- in insertion order.
+		Collections.sort(affected_rules);
 		return affected_rules;
 	}
 	
 	private void removeRule(TrieTreeNode node, Rule rule) {
 		node.removeRule(rule);
+		// FaVe fork: every rule owns a reference to its match (see
+		// APKeeper.encodePrefixBDD), so it is released with the rule, not only
+		// with the last rule of the node.
+		bdd.deref(rule.getMatch_bdd());
 		if(node.noRules()) {
 			ForwardingRule r = (ForwardingRule) rule;
 			apk.removePrefixBDD(r.getDstIP(), r.getMaskLen());
-			bdd.deref(rule.getMatch_bdd());
         	node.delete();
 		}
 	}

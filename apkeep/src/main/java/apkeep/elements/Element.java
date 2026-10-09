@@ -169,13 +169,24 @@ public abstract class Element {
 		ArrayList<ChangeItem> change_set = new ArrayList<ChangeItem>();
 		affected_rules.remove(rule);
 		
+		// FaVe fork (INCREMENTAL_PLAN.md O6): the freed packets go to the rules
+		// that would own them had this one never been inserted -- an
+		// equal-priority rule it shadowed (insertion makes the newest of a tie
+		// win, identifyChangesInsert), newest first, then the lower ones in
+		// priority order (`affected_rules` is sorted descending). Upstream
+		// skipped every rule of EQUAL priority, so a removal and a build without
+		// the rule disagreed at every tie.
+		List<Rule> heirs = new ArrayList<>();
+		for (Rule item : affected_rules) {
+			if (item.getPriority() == rule.getPriority()) heirs.add(0, item);
+		}
+		for (Rule item : affected_rules) {
+			if (item.getPriority() < rule.getPriority()) heirs.add(item);
+		}
 		int hit_bdd = bdd.ref(rule.getHit_bdd());
-		Iterator<Rule> it2 = affected_rules.iterator();
+		Iterator<Rule> it2 = heirs.iterator();
 		while (it2.hasNext() && hit_bdd != BDDACLWrapper.BDDFalse){
 			Rule item = it2.next();
-			if (item.getPriority() >= rule.getPriority()){
-				continue;
-			}
 			int delta = bdd.and(hit_bdd, item.getMatch_bdd());
 			if (delta != BDDACLWrapper.BDDFalse) {
 				item.setHit_bdd(bdd.orTo(item.getHit_bdd(), delta));
@@ -200,12 +211,18 @@ public abstract class Element {
 		List<ChangeItem> change_set = new ArrayList<ChangeItem>();
 		int hit_bdd = bdd.ref(rule.getHit_bdd());
 		
+		// FaVe fork (INCREMENTAL_PLAN.md O6): the list is in EFFECTIVE order --
+		// priority descending, an equal-priority rule inserted later ahead of the
+		// earlier ones (identifyChangesInsert) -- so the freed packets go to the
+		// rules AFTER this one, in list order. Upstream skipped every rule of
+		// equal priority, so a removal and a build without the rule disagreed at
+		// every tie. `rule` is the stored object, hence identity.
 		Iterator<Rule> it = affected_rules.iterator();
+		while (it.hasNext()) {
+			if (it.next() == rule) break;
+		}
 		while (it.hasNext() && hit_bdd != BDDACLWrapper.BDDFalse){
 			Rule item = it.next();
-			if (item.getPriority() >= rule.getPriority()){
-				continue;
-			}
 			int delta = bdd.and(hit_bdd, item.getMatch_bdd());
 			if (delta != BDDACLWrapper.BDDFalse) {
 				item.setHit_bdd(bdd.orTo(item.getHit_bdd(), delta));
