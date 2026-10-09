@@ -30,7 +30,7 @@ has no design document of its own; the other three families each have one.
 
 | document | lines | status |
 |---|---:|---|
-| [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md) | 1,859 | **INTEGRATED.** Atomic-predicate verifier, two engines (BDD and NDD) behind one adapter. Faithful-VLAN model is the default. No open defect in §10. |
+| [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md) | 1,877 | **INTEGRATED.** Atomic-predicate verifier, two engines (BDD-APKeep and NDD-flood) behind one adapter. Faithful-VLAN model is the default. No open defect in §10. |
 | [`AD6_PLAN.md`](AD6_PLAN.md) | 7,671 | **Built.** A generic SAT/QBF model checker as a backend, first-party. The largest document here — use its section numbers, which source comments cite directly. |
 | [`VERIFLOW_PLAN.md`](VERIFLOW_PLAN.md) | 1,121 | **V1–V4 done.** VeriFlow-FR, an *independent reimplementation* — explicitly not "VeriFlow", and no result from it is reported as VeriFlow's (§9, D2). |
 
@@ -42,7 +42,7 @@ Read `APKEEP_BACKEND.md` first; these are the sub-tracks it refers to.
 |---|---:|---|
 | [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md) | 272 | The plan to preserve the BDD state and integrate NDD. Largely executed; the running record is the eval log below. |
 | [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md) | 801 | The NDD integration's running evaluation log. |
-| [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md) | 157 | **SCOPING, no code.** Making APKeep-BDD and APKeep-NDD (the NDD paper's system, not NDD-flood) incremental alike: what the reference code really does, workload tiers, design, a 7.5–12-week estimate, owner questions. |
+| [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md) | 162 | **SCOPING, no code.** Making BDD-APKeep and NDD-APKeep (the NDD paper's system, not NDD-flood) incremental alike: what the reference code really does, workload tiers, design, a 7.5–12-week estimate, owner questions. |
 | [`APKEEP_BDD_BASELINE.md`](APKEEP_BDD_BASELINE.md) | 255 | The **frozen** BDD baseline — the published comparand and the differential oracle NDD must reproduce. |
 | [`BDD_MEASUREMENT_PLAN.md`](BDD_MEASUREMENT_PLAN.md) | 215 | The 56 h BDD campaign, written after a use-after-free invalidated the BDD half of the engine comparison. |
 | [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) | 226 | The soundness track: eliminating APKeep's reachability over-approximation on `wl_stanford`. |

@@ -3,7 +3,7 @@
 `ad6` is the author's own 2014 SECRYPT'15 proof-of-concept (SAT/QBF model checking for
 IPv6 firewalls/networks) — first-party code, not a vendored fork of an external project.
 It is being revived and integrated as a fourth verification family alongside NetPlumber
-(HSA), APKeep(BDD), and APKeep(NDD); see `../docs/AD6_PLAN.md`. As with `apkeep/FAVE_CHANGES.md`
+(HSA), APKeep(BDD), and NDD-flood; see `../docs/AD6_PLAN.md`. As with `apkeep/FAVE_CHANGES.md`
 and `ndd/FAVE_CHANGES.md`, changes are stated prominently here. Kinds:
 
 - **[NEW]** — a capability ad6 did not have;
@@ -670,7 +670,7 @@ path.** Porting real state-shell interweaving into `ad6/src/parser/iptables.py` 
 re-implementing, inside a 2014 codebase that has already produced four real core bugs in
 two days, a mechanism FaVe already has working in `fave/iptables/generator.py` -- and doing
 so would undercut the "generic tool, low integration cost" thesis this evaluation exists
-to test. wl_up's correctness work moves to FaVe+NetPlumber (oracle) / FaVe+NDD-APKeep
+to test. wl_up's correctness work moves to FaVe+NetPlumber (oracle) / FaVe+NDD-flood
 (arbiter) instead of ad6. wl_tum's and wl_ifi's exact-match ad6 results stand unaffected
 (wl_tum has no stateful checks; wl_ifi's real ACLs are genuinely state-blind, confirmed by
 Claas -- item 9/10). Remaining ad6 effort redirects to Stanford/i2 (`AD6_PLAN.md` §5.2), an

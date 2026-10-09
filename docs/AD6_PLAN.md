@@ -11,7 +11,7 @@ EXACTLY MATCH their NetPlumber/reachable.json oracles.** wl_up is **NO-GO, resol
 stateful `related:1` ones — both are the same architectural gap (no state-shell
 interweaving in `IP6TablesParser`) that FaVe's own NetPlumber pipeline already avoids via
 `fave/iptables/generator.py`. wl_up's correctness work moves to FaVe+NetPlumber/
-FaVe+NDD-APKeep; remaining ad6 effort redirects to **Stanford/i2 (§5.2)**. **Stanford's
+FaVe+NDD-flood; remaining ad6 effort redirects to **Stanford/i2 (§5.2)**. **Stanford's
 faithful-VLAN spike (§5.4) is now PROVISIONAL GO (2026-08-27)**: the full 16-router
 faithful-VLAN model builds and solves completely in ~12.7 min (measured on yolobox, not
 yet bare-metal), `reachable_pairs`=165 exactly matching the NetPlumber-proven plain
@@ -53,7 +53,7 @@ Lorenz. Companions:
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](../TODO.md).
 This plans integrating **ad6** — the author's
 SAT/QBF model checker for IPv6 firewalls/networks (`ad6/`, SECRYPT'15) — as a **fourth
-verification family** alongside NetPlumber (HSA), APKeep(BDD), and APKeep(NDD), for a
+verification family** alongside NetPlumber (HSA), APKeep(BDD), and NDD-flood, for a
 *controlled* cross-family comparison.
 
 ---
@@ -6928,7 +6928,7 @@ choice has no stamp, add the stamp before quoting the number.
   the still-unfixed `related:1` bug — so there is no sound subset of wl_up left for ad6
   without porting FaVe's own state-shell interweaving into `IP6TablesParser`, judged not
   worth the investment. wl_up's correctness work moves to FaVe+NetPlumber (oracle) /
-  FaVe+NDD-APKeep (arbiter); ad6 effort redirects to Stanford/i2 (§5.2). Full writeup:
+  FaVe+NDD-flood (arbiter); ad6 effort redirects to Stanford/i2 (§5.2). Full writeup:
   §5.1's resolution, §1.4(b).
 - Stanford/i2 feasibility in ad6's encoding (IPv4 forwarding + VLAN) — go/no-go. **Scoping
   narrowed then re-widened 2026-08-21h: the 165-target plain result only needs LPM + a
@@ -7043,7 +7043,7 @@ choice has no stamp, add the stamp before quoting the number.
       `fave/iptables/generator.py`'s own interweaving, `use_interweaving=True` default).
       **RESOLVED: NO-GO on wl_up via ad6 (Claas), both stateful and plain — not worth
       porting interweaving into ad6's translator. wl_up's correctness work moves to
-      FaVe+NetPlumber/FaVe+NDD-APKeep; ad6 effort redirects to §5.2 Stanford/i2.** wl_tum
+      FaVe+NetPlumber/FaVe+NDD-flood; ad6 effort redirects to §5.2 Stanford/i2.** wl_tum
       and wl_ifi's exact-match results stand, unaffected (neither needed interweaving).**
 - [~] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2. **Now the
       primary remaining ad6 target (2026-08-21g), following wl_up's NO-GO** — orthogonal to

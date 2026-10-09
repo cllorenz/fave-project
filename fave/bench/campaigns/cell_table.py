@@ -54,7 +54,7 @@ import sys
 
 #: Column order. Engines read left to right as the plan's §5.1 matrix does.
 ENGINES = ('np', 'ndd', 'bdd', 'ad6', 'vf', 'vfplain')
-ENGINE_LABEL = {'np': 'NetPlumber', 'ndd': 'NDD-APKeep', 'bdd': 'BDD-APKeep',
+ENGINE_LABEL = {'np': 'NetPlumber', 'ndd': 'NDD-flood', 'bdd': 'BDD-APKeep',
                 'ad6': 'ad6', 'vf': 'VeriFlow-FR', 'vfplain': 'VF-plain'}
 
 #: Cheapest first, as the queue runs them.

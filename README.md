@@ -184,7 +184,7 @@ Set `FAVE_SKIP_AD6=1` to leave every ad6 test module (`fave/test/test_ad6_*.py`)
 out of every tier (`FAVE_SKIP_AD6=1 ./test.sh integration`). ad6 is the costly
 backend: its units are about half of `fast`'s runtime and its differentials
 several minutes of `integration`, and routine runs use it only as an arbiter
-when NetPlumber and NDD-APKeep disagree. The `RESULT` line says when it was
+when NetPlumber and NDD-flood disagree. The `RESULT` line says when it was
 set, so a partial run is not mistaken for a whole one; CI's gating jobs do not
 set it.
 

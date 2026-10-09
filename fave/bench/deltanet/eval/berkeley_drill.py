@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" `wl_berkeley` on APKeep-NDD alone, as far as this machine carries it
+""" `wl_berkeley` on NDD-flood alone, as far as this machine carries it
 (CLOUD_BENCH_PLAN.md §2.15; `results_berkeley_ndd_<date>/PROTOCOL.txt`).
 
 The size series (`berkeley_series.py`) ran every engine with the inputs

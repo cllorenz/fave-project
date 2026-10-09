@@ -321,7 +321,7 @@ internet is not a service.
       limit was removed 2026-09-21 (§1.7.2: ternary `<fieldmatch>` plus masked
       rewrites, 2,480/2,480 matches and 24/24 rewrites translating), and the
       V5 campaign **measured it**: ad6 answers `wl_cloud` at **57 violations of
-      71**, line-for-line identical to NDD-APKeep. APKeep also answers it now.
+      71**, line-for-line identical to NDD-flood. APKeep also answers it now.
       NetPlumber is no longer the only family that does — and on this workload
       it is the one that disagrees, reporting 58 where ad6, NDD, VeriFlow-FR
       and `vf-plain` all report 57.
@@ -2281,7 +2281,7 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       a stamp naming the wrong trace, and a generated input edited after
       stamping, each fail it, and the restored tree is green. A gate landed with
       the thing it gates is a gate nothing has tried to break.
-- [x] **D7 — DONE 2026-09-25 (§2.13). `wl_airtel2` on NetPlumber, NDD-APKeep
+- [x] **D7 — DONE 2026-09-25 (§2.13). `wl_airtel2` on NetPlumber, NDD-flood
       and ad6**, in that order
       (owner direction 2026-09-25: highest confidence first, then the fastest,
       then the slowest). **BDD-APKeep is untouched** — parallel work. Driven
@@ -2338,7 +2338,7 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       run — so "the three got the same inputs" is an observation. §2.13 has it.
 
       **The unplanned finding is in the COSTS, not the verdicts**: NetPlumber is
-      ~13× slower on airtel2, NDD-APKeep is flat, ad6 is ~11% faster. §2.3 said
+      ~13× slower on airtel2, NDD-flood is flat, ad6 is ~11% faster. §2.3 said
       the pair could only be cashed by a property that observes paths;
       compliance time turns out to be one, and it separates the engines without
       separating the answer.
@@ -3306,7 +3306,7 @@ was not run at all — concurrent work elsewhere (owner, 2026-09-25). *(Run
 | engine | violations | checks |
 |---|---:|---:|
 | **NetPlumber** (HSA) | **0** | 256 |
-| **NDD-APKeep** (per-field NDD) | **0** | 256 |
+| **NDD-flood** (per-field NDD) | **0** | 256 |
 | **ad6** (SAT, minisat22/rank) | **0** | 256 |
 
 Every run produced a `report.md` and carries `completed task check_compliance`
@@ -3367,7 +3367,7 @@ Compliance time, same machine, same day, same command, repeated:
 | engine | airtel1 | airtel2 | |
 |---|---|---|---|
 | NetPlumber | 0.0086, 0.0095 s | 0.114, 0.118, 0.124 s | airtel2 **~13× slower** |
-| NDD-APKeep | 3.40, 3.59 s | 3.41, 3.47 s | **no difference this can resolve** |
+| NDD-flood | 3.40, 3.59 s | 3.41, 3.47 s | **no difference this can resolve** |
 | ad6 | 102.6, 105.0 s | 94.4, 91.4 s | airtel2 ~11% **faster** |
 
 Three engines compute the same answer and the cost of the second trace goes
@@ -3995,7 +3995,7 @@ is now in the checkout root — both below. The rf/inet shape is still open.)*
 ### Built, and what carries it — 2026-09-29
 
 **Owner direction 2026-09-29:** "execute the plan for the Berkeley workload
-autonomously"; then, mid-series, "drill deep with NDD-APKeep only before going
+autonomously"; then, mid-series, "drill deep with NDD-flood only before going
 broad", "stay on this machine".
 
 #### What the paper says, now that it is here
@@ -4104,7 +4104,7 @@ process. The benchmark process, holding the loaded `routes.json`, added 3.5 GB
 
 #### What this settles, and what it leaves
 
-* **NDD-APKeep carries Berkeley's scale; FaVe's harness does not, on 19 GB.**
+* **NDD-flood carries Berkeley's scale; FaVe's harness does not, on 19 GB.**
   Extrapolated linearly to all 13.4M rules: ~15 min of rule load, ~20 min of
   compliance, a ~4–10 GB NDD heap — and ~25 GB of aggregator model plus ~10 GB
   in the benchmark process. The memory wall is the Python side.
@@ -4202,7 +4202,7 @@ directories.
 **Where `wl_berkeley` stands.** Built, gated, measured. Every completed run on
 every engine answers 0 of 520 (the `fib_walk` prediction); every mutated run
 (`s22 ---> s23`) exactly 1. NetPlumber is out (rule load ~size^2.2–2.6,
-deadline at 459k rules); BDD is 1.7–2.1× NDD. **NDD-APKeep is ~linear and
+deadline at 459k rules); BDD is 1.7–2.1× NDD. **NDD-flood is ~linear and
 completed up to k=10 (1,351,800 rules: load 80 s, compliance 123 s at
 `-Xmx8g`). k=3 (4,476,240 rules) has never completed on 19 GB:** four runs, all
 of which loaded every rule and then failed in the compliance check — default

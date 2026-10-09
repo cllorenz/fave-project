@@ -744,7 +744,7 @@ filters + dst FIB), so likely **more than 3×** — and our own two-universe mea
 **Field-locality risk (their §6.6):** NDD *degrades* when rules match many fields; our
 anti-spoof rules match src+dst+in/out-port — few, but the thing to measure first.
 
-**Integration reality.** Vanilla APKeep-NDD was +66/−311 JDD LOC (the −311 = they
+**Integration reality.** The authors' NDD-APKeep was +66/−311 JDD LOC (the −311 = they
 deleted APKeep's own atom-maintenance, which NDD provides natively). But **our fork
 diverged** (multi-field `FilterElement`, pipeline model, 128-bit IPv6 src+dst, Lever-B
 query seed) — NDD replaces exactly the atom-maintenance layer our fork is built on, so

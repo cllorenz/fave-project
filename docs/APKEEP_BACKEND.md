@@ -3,7 +3,7 @@
 **Status:** INTEGRATED, and in agreement with the other backends on every workload
 run so far. `APKeepAdapter` is a selectable FaVe backend (`--backend apkeep` on the
 aggregator, `FAVE_BACKEND=apkeep` on any `bench/wl_*/benchmark.py`), carries two
-engines behind one adapter (BDD and NDD), is gated in the integration tier, and has
+engines behind one adapter (BDD-APKeep and NDD-flood — see the naming note below), is gated in the integration tier, and has
 been run end to end on wl_ifi, wl_stanford, wl_i2 and wl_up through the live
 aggregator. The faithful-VLAN model is the default and selectable (`--no-vlan` opts
 out). Both correctness gaps this document named on 2026-09-18 are closed: the wl_i2
@@ -32,6 +32,14 @@ holds the motivation, the capability analysis, the architecture decisions, and
 the roadmap — the *why* behind the checkboxes.
 
 ---
+
+**Naming (2026-10-09, owner).** **BDD-APKeep** is the XJTU APKeep artifact with
+FaVe's changes (`apkeep/`). **NDD-flood** is FaVe's own engine on the authors' NDD
+library (`ndd/src/main/java/org/ants/jndd/fave/`) — per-device port predicates and
+a per-source flood, no atomic predicates, no `updateRule`; documents before this
+date call it "NDD-APKeep" or "APKeep-NDD". **NDD-APKeep** now names only the NDD
+paper's system — APKeep's core with its atom layer replaced by NDD — which FaVe
+does not have yet; `APKEEP_INCREMENTAL_SCOPE.md` scopes porting it.
 
 ## 1. Goal
 

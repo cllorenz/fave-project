@@ -46,7 +46,7 @@
 #              (~180 tests, about half its runtime) and the solver-backed
 #              differentials in `integration` (several minutes). For routine
 #              runs: the owner's standing direction is to use ad6 as an ARBITER,
-#              when NetPlumber and NDD-APKeep disagree, not as a third
+#              when NetPlumber and NDD-flood disagree, not as a third
 #              confirmation of an agreement. Measurement-affecting, so the
 #              RESULT line says so; never set it in CI's gating jobs. Tests
 #              that merely construct an Ad6Adapter or call ad6's translator

@@ -47,8 +47,8 @@ Evidence-backed; file:line references are as of commit `79fd4825`.
 | engine | incremental inside the engine | tested |
 |---|---|---|
 | NetPlumber (C++) | rule and link add/remove propagate flows along pipes (`net_plumber.cc` `_add_rule`, `remove_rule` → `~RuleNode`, `add_link`, `remove_link`) | C++ unit tests on pipes and flow statistics, not verdicts |
-| APKeep-BDD (Java) | `Network.updateRule` (`Network.java:434`): `+`/`-` for every element type, then a loop check | `test_apkeep_lib.py` replays a Stanford trace with 4,526 removals against a loop golden |
-| APKeep-NDD (Java) | **none** — from-zero `build`; `AtomForwarding` ignores the op | — |
+| BDD-APKeep (Java) | `Network.updateRule` (`Network.java:434`): `+`/`-` for every element type, then a loop check | `test_apkeep_lib.py` replays a Stanford trace with 4,526 removals against a loop golden |
+| NDD-flood (Java) | **none** — from-zero `build`; `AtomForwarding` ignores the op | — |
 | VeriFlow-FR (C++) | `Network::add_rule`/`remove_rule` return affected ECs; `remove_link` | `oracle_unit`, `rewrite_unit`; `remove_rule` only indirectly; `remove_link` untested |
 | ad6 | none — a fresh bridge subprocess per check | — |
 
@@ -321,8 +321,8 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
   within a band never matters). The validator must refuse a negated destination
   so that premise is enforced. VeriFlow-FR the same. No 64-bit widening. Latent
   bug found on the way: `_RULE_IDX_MAX` is `2^24−1` but must be `2^20−1`.
-- **O2. APKeep scope — DECIDED 2026-10-09.** APKeep-NDD is the NDD paper's
-  system (APKeep's core, atom layer replaced by NDD); APKeep-BDD and APKeep-NDD
+- **O2. APKeep scope — DECIDED 2026-10-09.** NDD-APKeep is the NDD paper's
+  system (APKeep's core, atom layer replaced by NDD); BDD-APKeep and NDD-APKeep
   work alike, incrementally. FaVe's `NddReachabilityEngine` is not that system
   and stays as a differential oracle ("NDD-flood"). Scoped in
   [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md), whose §6 holds the

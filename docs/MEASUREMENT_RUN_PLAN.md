@@ -440,7 +440,7 @@ moves, and §5.3 answers it with a 1-hour probe instead of a 24-hour re-run.
 
 ### 5.1 The cheap matrix — minutes per cell, re-run under S6
 
-Engine configurations: `np` NetPlumber · `bdd` BDD-APKeep · `ndd` NDD-APKeep ·
+Engine configurations: `np` NetPlumber · `bdd` BDD-APKeep · `ndd` NDD-flood ·
 `vf` VeriFlow-FR 4+10 (headline) and `vf-plain` (ablation) · `ad6` (rank).
 
 | workload | rules | checks | np | bdd | ndd | vf | ad6 |
@@ -912,7 +912,7 @@ actually moved was `wl_stanford` (−24%, unnamed), with `wl_up` going **up** 4%
 
 Owner, 2026-10-02. An OOM is **the cell's outcome**, recorded with its peak RSS
 and the machine's size. It is **not** retried with a smaller heap or a smaller
-workload, and it is not an environmental failure. *"NDD-APKeep does not fit
+workload, and it is not an environmental failure. *"NDD-flood does not fit
 64 GB at 13.4M rules"* is a publishable bound.
 
 **Prefer the harness's memory floor to the kernel's OOM killer.** Set

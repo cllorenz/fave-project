@@ -1,9 +1,9 @@
-# APKeep-BDD and APKeep-NDD, incremental — a scoping pass
+# BDD-APKeep and NDD-APKeep, incremental — a scoping pass
 
 **Status: SCOPING, no code (2026-10-09).** Answers `INCREMENTAL_PLAN.md` §9 O2
-after the owner's decision of 2026-10-09: *APKeep-NDD is the NSDI'25 NDD paper's
-system — APKeep's own core with its atom layer replaced by NDD — and APKeep-BDD
-and APKeep-NDD work alike, including incremental re-verification.* FaVe's
+after the owner's decision of 2026-10-09: *NDD-APKeep is the NSDI'25 NDD paper's
+system — APKeep's own core with its atom layer replaced by NDD — and BDD-APKeep
+and NDD-APKeep work alike, including incremental re-verification.* FaVe's
 `NddReachabilityEngine` is not that system (no atoms, no `updateRule`); it stays
 as a differential oracle under an honest name ("NDD-flood").
 **Owner:** Claas Lorenz. **Branch:** `updates`. Every claim below carries a
@@ -124,7 +124,7 @@ One core, two atom layers:
 - **Oracle:** as in M1 — selective == full after every update; full == from-zero
   at checkpoints; plus per-port predicates of the incremental build == from-zero
   (compared as BDD/NDD unions, since merges make the partition history-dependent).
-  APKeep-NDD's from-zero verdicts must also equal NDD-flood's and APKeep-BDD's on
+  NDD-APKeep's from-zero verdicts must also equal NDD-flood's and BDD-APKeep's on
   all six benchmarks before any update is trusted.
 
 ## 5. Estimate (not measured; a range, not a promise)
@@ -132,10 +132,10 @@ One core, two atom layers:
 | step | content | estimate |
 |---|---|---|
 | 1 | Core hardening on BDD: rule identity, reference counts, ties (O6), change list returned, Evaluator per batch, delete tests against from-zero per-port predicates | 1–1.5 weeks |
-| 2 | APKeep-BDD incremental, tier A: adapter per-rule translation + `-` emission + refusals, links, footprint and affected checks, oracle tests | 1–1.5 weeks |
+| 2 | BDD-APKeep incremental, tier A: adapter per-rule translation + `-` emission + refusals, links, footprint and affected checks, oracle tests | 1–1.5 weeks |
 | 3 | Tier B on BDD: per-device recompute-and-diff (`wl_ifi`, `wl_cloud`); NAT under delete | 1.5–2.5 weeks |
-| 4 | APKeep-NDD from zero: atom-layer interface in the fork, port of the reference insert path to the int core, per-field encoders, NAT by `exist`, parity on all six benchmarks | 2.5–4 weeks |
-| 5 | APKeep-NDD incremental: delete, merge/re-atomization, the shared footprint, oracle tests, tiers A and B | 1.5–2.5 weeks |
+| 4 | NDD-APKeep from zero: atom-layer interface in the fork, port of the reference insert path to the int core, per-field encoders, NAT by `exist`, parity on all six benchmarks | 2.5–4 weeks |
+| 5 | NDD-APKeep incremental: delete, merge/re-atomization, the shared footprint, oracle tests, tiers A and B | 1.5–2.5 weeks |
 | — | Tier C (structural updates) | deferred; refused and counted |
 
 **Total for tiers A+B on both engines: about 7.5–12 weeks.** The largest
@@ -145,13 +145,18 @@ scale — the NDD-flood engine needed `AtomForwarding` for `wl_i2`'s 77k routes,
 and whether incrementally maintained NDD atoms stay small there is exactly what
 the paper claims and nobody here has measured.
 
-## 6. Questions for the owner
+## 6. Owner decisions and open questions
 
-1. **Order:** BDD first (steps 1–3; the core and every piece of shared machinery
-   gets proven on the engine that already runs), then NDD (4–5). *Recommended.*
-2. **Scope:** tiers A and B, structural updates frozen and refused (counted),
-   tier C deferred. *Recommended.*
-3. **Labelling:** the NDD insert path is the paper's; delete, merge, links and NAT
-   on NDD are FaVe's. Reported as "APKeep-NDD (FaVe: delete/merge/links/NAT)"?
-4. **V5:** footnote the `RESULTS.md` "NDD-APKeep" columns now as NDD-flood, or
-   when the port can be measured beside it? (Asked 2026-10-09, open.)
+1. **Order — DECIDED 2026-10-09:** BDD first (steps 1–3; the core and the shared
+   machinery are proven on the engine that already runs), then NDD (4–5).
+2. **Scope — DECIDED 2026-10-09:** tiers A and B, structural updates frozen and
+   refused (counted), tier C deferred.
+3. **Naming — DECIDED 2026-10-09:** the faithful port is **NDD-APKeep** (as
+   BDD-APKeep is the authors' BDD artifact); FaVe's existing engine is
+   **NDD-flood**, in every document that called it NDD-APKeep. *Still open:* the
+   NDD-APKeep parts the reference lacks (delete, merge, links, NAT) are FaVe's
+   design, and a result should say so — e.g. in its accommodations column.
+4. **Provenance stamp — open.** NDD-flood cells are stamped `impl: authors+fave`
+   with the NDD library as upstream (`fave/apkeep/adapter.py:681`). The library is
+   the authors'; the verifier on it is FaVe's. None of the four `IMPLS` values
+   (`aggregator/abstract_engine.py:18`) says that.
