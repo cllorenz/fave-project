@@ -260,9 +260,10 @@ size series; it joins once the rest works.
 
 ## 7. Streams, batches and statistics
 
-- **S1** insert every rule of the model one by one, then delete in reverse
-  (APKeep's method; every rule is the update once, and the first half doubles
-  as a build curve).
+- **S1** delete every rule of the model in reverse order, then insert them
+  in order (APKeep's method — insert all, then delete in reverse — with the
+  halves swapped because the build is the full model; the insert half doubles
+  as a build curve from empty).
 - **S2** delete a random k% of rules, then re-add them (NetPlumber's method;
   updates against a full network).
 - **S3** take each link down, then up again, one at a time.
@@ -327,10 +328,24 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
   and stays as a differential oracle ("NDD-flood"). Scoped in
   [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md), whose §6 holds the
   questions still open.
-- **O3. Oracle cost.** From-zero builds at every update are affordable only on
-  the small workloads. *Recommendation:* every update on `wl_example`/`wl_ifi`;
-  checkpoints every N updates and at the end of a stream elsewhere, N declared
-  per workload in the protocol.
+- **O3. Oracle cost — DECIDED 2026-10-09.** Half (a) after every update costs a
+  full check per update: ~5 h on `wl_airtel1`, ~15 days on `wl_up`, ~40 days on
+  `wl_i2` (VeriFlow-FR, S2 at 20%). So:
+  1. **Timed runs carry no oracle.** `precision` is computed from the selective
+     re-check itself (verdicts that changed among those re-checked), which is the
+     true count whenever the selective re-check is sound. The full check between
+     updates (today's `--precision`) also warmed engine caches inside the timing.
+  2. **Every measured stream is checked across engines:** each update's set of
+     changed checks (distinct checks, not lines) must agree across every engine
+     that ran the stream incrementally. A disagreement is a defect and voids the
+     stream's selective numbers until explained.
+  3. **One untimed oracle run per measured cell**, same seeded stream, same
+     engine build: half (a) after every update on a seeded random sample of k
+     checks; full (a) and (b) every N updates and at the end. **Budget: the
+     cell's own limit**; k and N declared in the protocol. Checkpoints alone can
+     be masked — a missed change undone by a later update (S2 re-adds) leaves
+     a correct cache by the checkpoint — so the result is stated as a sample.
+  4. Tests keep both halves after every update on the small workloads.
 - **O4. Repetitions and limits.** *Recommendation:* 3 repetitions per stream on
   one machine, a declared per-update limit (a slow tail is a did-not-finish,
   not a hang) and a per-stream limit, stamped as in V5.
