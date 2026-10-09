@@ -156,7 +156,9 @@ the paper claims and nobody here has measured.
    **NDD-flood**, in every document that called it NDD-APKeep. *Still open:* the
    NDD-APKeep parts the reference lacks (delete, merge, links, NAT) are FaVe's
    design, and a result should say so — e.g. in its accommodations column.
-4. **Provenance stamp — open.** NDD-flood cells are stamped `impl: authors+fave`
-   with the NDD library as upstream (`fave/apkeep/adapter.py:681`). The library is
-   the authors'; the verifier on it is FaVe's. None of the four `IMPLS` values
-   (`aggregator/abstract_engine.py:18`) says that.
+4. **Provenance stamp — settled 2026-10-09 (owner): unchanged.** NDD-flood cells
+   are stamped `impl: authors+fave` with the NDD library as upstream
+   (`fave/apkeep/adapter.py:681`), and that is accurate: the authors' code is the
+   NDD library (with FaVe's changes, `ndd/FAVE_CHANGES.md`), FaVe's part is the
+   verifier on it. That the verifier is not the authors' APKeep is what the name
+   NDD-flood says; the stamp need not say it again.

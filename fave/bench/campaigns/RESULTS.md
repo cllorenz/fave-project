@@ -16,7 +16,8 @@ is reserved for a faithful port, scoped in `docs/APKEEP_INCREMENTAL_SCOPE.md` an
 not built. The verdicts stand; the times and memory are NDD-flood's. The run
 records under `results_*` (PROTOCOL, FINDINGS, INVESTIGATION) were written before
 the rename and say "NDD-APKeep" for NDD-flood; they are left as written. The cells'
-`impl` stamp still reads `authors+fave` (`INCREMENTAL_PLAN.md` §9, O2).
+`impl` stamp, `authors+fave` with the NDD library as upstream, is accurate as it
+stands: the authors' code is the library, FaVe's is the verifier on it.
 
 ## 1. The matrix — what each engine says
 
