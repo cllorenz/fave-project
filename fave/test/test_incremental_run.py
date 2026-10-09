@@ -33,6 +33,7 @@ import tempfile
 import unittest
 
 from bench import incremental_cell, incremental_compare, incremental_report
+from bench import incremental_table
 from bench import incremental_run
 from netplumber import lib_adapter
 from test.backend_gate import require_or_skip
@@ -169,6 +170,25 @@ class TestCrossEngine(_Tmp):
             [incremental_report.load_cell(c) for c in cells])
         self.assertFalse(got['comparable'])
         self.assertIn('stream_sha256', got['why'])
+
+
+class TestTable(_Tmp):
+
+    @require_or_skip(*_NP)
+    @require_or_skip(*_VF)
+    def test_cells_by_name_and_the_cross_engine_column(self):
+        for engine in ('netplumber', 'veriflow'):
+            incremental_cell.main([_PREFIX, '--engine', engine, '--stream', 's3',
+                                   '--status-every', '0', '--out',
+                                   os.path.join(self.tmp, 'wl_example_%s_s3' % engine)])
+        rows, checks = incremental_table.tables(incremental_table.collect(self.tmp))
+        self.assertEqual({(r['workload'], r['stream'], r['engine']) for r in rows},
+                         {('wl_example', 's3', 'netplumber'),
+                          ('wl_example', 's3', 'veriflow')})
+        self.assertEqual(len(checks), 1)
+        self.assertTrue(checks[0]['agree'])
+        self.assertIn('| wl_example | s3 | netplumber |',
+                      incremental_table.markdown(rows, checks))
 
 
 class TestAPKeepCell(unittest.TestCase):
