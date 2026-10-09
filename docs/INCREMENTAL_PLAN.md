@@ -421,7 +421,7 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
 | 3. FaVe side | **done** — `VerdictCache`, selective re-verification, the from-zero oracle (a fresh engine behind a wrapper that withholds deleted rules and downed links) | `bff573f7` |
 | 4. VeriFlow-FR | **done** — per-rule translation, walk footprints, LPM as on NetPlumber | `518e75cb`, `0430d036` |
 | 5. NetPlumber LPM, APKeep | **waits on O1, O2** | — |
-| 6. harness | **driver done**, `bench/incremental_run.py`, `dev`-stamped; limits (O4) and a protocol still to come | `5a518599` |
+| 6. harness | **done but the protocol** — raw per-batch records (`incremental_run.py`), a cell under stamped wall/RSS/per-update limits with repetitions (`incremental_cell.py`, the per-update limit as a stall guard in `cell_run.run_cell`), statistics only from the records (`incremental_report.py`), the cross-engine check (`incremental_compare.py`), the oracle run (`--oracle-sample k --oracle-every N`) | `5a518599`, this branch |
 
 Held to the oracle in `test_incremental_{netplumber,veriflow}.py` on
 `wl_example`, `wl_ifi` and `wl_cloud`: after every update, selective equals full

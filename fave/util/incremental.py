@@ -133,6 +133,9 @@ class VerdictCache:
         self.checks = checks
         self.verdict: Dict[str, bool] = {}   # check line -> violated
         self.asked = 0                        # checks asked, over the lifetime
+        #: (line, old, new) for each check the last `selective` changed -- the
+        #: count of verdict changes a timed run reports (INCREMENTAL_PLAN.md O3)
+        self.last_changes: List[Tuple[str, bool, bool]] = []
 
     def ask(self, checks: Iterable[Check]) -> Dict[str, bool]:
         """ Ask the engine `checks` now; return check line -> violated. """
@@ -163,7 +166,11 @@ class VerdictCache:
             todo = list(self.checks)
         else:
             todo = [c for c in self.checks if c.pair in affected]
-        self.verdict.update(self.ask(todo))
+        fresh = self.ask(todo)
+        self.last_changes = [(line, self.verdict[line], now)
+                             for line, now in fresh.items()
+                             if line in self.verdict and self.verdict[line] != now]
+        self.verdict.update(fresh)
         return todo
 
 

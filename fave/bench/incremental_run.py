@@ -19,44 +19,58 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" ONE incremental stream on one engine -- INCREMENTAL_PLAN.md §5, §7.
+""" ONE incremental stream on one engine, as raw records -- INCREMENTAL_PLAN.md
+§5, §7 and O3–O5.
 
 Builds a workload from zero through the real aggregator path, answers every
 check once, then drives an update stream (S1, S2, S3) at the adapter in batches
-of `--batch` updates. Per batch it records, separately (D2):
+of `--batch` updates, and writes what happened into `--cell-dir`:
 
-* `t_update_s`   -- the engine applying the batch's updates, including the
-                    invariant checks it runs by default (D1);
-* `t_recheck_s`  -- re-verifying the checks the engine reported affected, and
-                    merging them into the cached verdicts;
-* `affected`     -- how many (source, probe) pairs it reported (None: unknown,
-                    so every check was re-verified), and `rechecked`, the checks.
+* `head.json`      -- the arguments, stamps, the check set's hash, the initial
+                      verdict of every check, the stream's hash;
+* `stream.jsonl`   -- the stream, one update per line: position, op, rule key
+                      or link;
+* `updates.jsonl`  -- one line per batch, flushed as it completes: the
+                      positions, `t_update_s` (the engine applying the batch,
+                      including its default invariant checks, D1) and each
+                      update's share of it, `t_recheck_s` (re-verifying the
+                      checks the engine reported affected), the affected
+                      (source, probe) pairs AS REPORTED (None: unknown, so every
+                      check was re-verified), the checks whose verdict changed
+                      with old and new verdict, RSS after the batch, and a
+                      monotonic timestamp;
+* `oracle.jsonl`   -- only in an oracle run (below);
+* `end.json`       -- written when the stream ends on its own.
 
-The compared number is their sum, `t_total_s`.
+Nothing is summarised here: every statistic is generated from these files by
+`bench/incremental_report.py` (owner, 2026-10-09: keep the raw data). Lines are
+flushed per batch, so a run stopped by a limit leaves its completed prefix, and
+`updates.jsonl` doubles as the per-update stall clock of
+`bench/incremental_cell.py`, which runs this under the limits.
 
-`--precision` additionally asks EVERY check after each batch -- untimed, and
-outside both numbers -- to count the checks whose verdict actually changed, and
-to fail the run if the selective re-verification missed one. That is the
-oracle's first half (§5); the from-zero half is test/incremental_oracle.py's.
-
-THIS IS A DEVELOPMENT DRIVER. It stamps `limit_class: dev` and enforces no
-limit of its own: the per-update and per-stream limits are open question O4,
-and no number from it is reportable until a PROTOCOL.txt with predictions has
-been declared for the run (INCREMENTAL_PLAN.md §7).
+**Timed runs carry no oracle** (O3.1): `precision` comes from the selective
+re-check itself. **An oracle run** (`--oracle-sample k`, O3.3) is untimed in
+spirit -- its timings are recorded but never reported -- and after each batch
+asks a seeded random sample of k checks in full and compares them with the
+cache (half (a) on a sample); every `--oracle-every` updates and at the end it
+asks every check (half (a)) and builds the current model from zero on a fresh
+engine (half (b)). A mismatch is a defect: it is recorded and stops the stream
+with exit status 1.
 
 Usage (from fave/, venv active):
 
     python3 bench/incremental_run.py bench/wl_ifi --engine netplumber \\
-        --stream s2 --fraction 0.2 --seed 1 --batch 1 --precision \\
-        --out /tmp/wl_ifi_np_s2.json
+        --stream s2 --fraction 0.2 --seed 1 --batch 1 --cell-dir /tmp/cell
 """
 
 import argparse
 import datetime
+import hashlib
 import json
 import logging
 import os
-import statistics
+import random
+import resource
 import subprocess
 import sys
 import time
@@ -65,12 +79,16 @@ sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 
 # pylint: disable=wrong-import-position
-from bench.cell_metrics import limit_stamps
 from bench.cell_run import engine_commit
 from util import incremental as inc
 
 ENGINES = ('netplumber', 'veriflow')
 STREAMS = ('s1', 's2', 's3')
+
+#: the engine's source tree, for `engine_commit`
+_TREES = {'netplumber': 'net_plumber', 'veriflow': 'veriflow_fr'}
+
+_PAGE_MB = resource.getpagesize() / (1024.0 * 1024.0)
 
 
 def make_engine(name):
@@ -91,102 +109,171 @@ def build_stream(kind, rules, links, fraction, seed):
     return list(inc.stream_s3(links))
 
 
-def quantiles(values):
-    """ median, p90, p99, max of a list -- never a mean alone (§7). """
-    if not values:
+def rss_mb():
+    """ This process's resident set -- every engine runs in-process (the
+    NetPlumber and VeriFlow-FR libraries, the JVM through JPype). One read of
+    `/proc/self/statm`, cheap enough for every batch. """
+    with open('/proc/self/statm') as handle:
+        return round(int(handle.read().split()[1]) * _PAGE_MB, 1)
+
+
+def sha256_file(path):
+    with open(path, 'rb') as handle:
+        return hashlib.sha256(handle.read()).hexdigest()
+
+
+def parse_files(spec):
+    """ `topology=device_topology.json,policies=probes.json` -> a dict. """
+    if not spec:
         return None
-    ordered = sorted(values)
-    def at(q):
-        return ordered[min(len(ordered) - 1, int(round(q * (len(ordered) - 1))))]
-    return {'n': len(ordered), 'median': statistics.median(ordered),
-            'p90': at(0.90), 'p99': at(0.99), 'max': ordered[-1]}
+    return dict(item.split('=', 1) for item in spec.split(','))
+
+
+class _Lines:
+    """ A JSON-lines file, one flushed line per record. """
+
+    def __init__(self, path):
+        self.handle = open(path, 'w')
+
+    def write(self, record):
+        self.handle.write(json.dumps(record, separators=(',', ':'),
+                                     sort_keys=True) + '\n')
+        self.handle.flush()
+
+    def close(self):
+        self.handle.close()
+
+
+def _write_json(path, record):
+    with open(path, 'w') as handle:
+        json.dump(record, handle, indent=1, sort_keys=True)
+
+
+def _now():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _oracle_sample(cache, checks, k, rng):
+    """ Half (a) on a sample: ask `k` checks drawn now and return those whose
+    full answer differs from the cache. """
+    sample = checks if k >= len(checks) else rng.sample(checks, k)
+    full = cache.ask(sample)
+    return sorted(line for line in full if full[line] != cache.verdict[line])
 
 
 def run(args):
     make = make_engine(args.engine)
-    checks = inc.load_checks(os.path.join(args.workload, 'checks.json'))
+    files = parse_files(args.files)
+    checks_path = os.path.join(args.workload, args.checks)
+    checks = inc.load_checks(checks_path)
+    oracle = args.oracle_sample > 0
+    os.makedirs(args.cell_dir, exist_ok=True)
+    path = lambda name: os.path.join(args.cell_dir, name)
+
+    head = {
+        'what': 'incremental stream, raw records (INCREMENTAL_PLAN.md §5, §7)',
+        'workload': args.workload, 'engine': args.engine, 'files': files,
+        'stream': args.stream, 'fraction': args.fraction, 'seed': args.seed,
+        'batch': args.batch, 'limit_updates': args.limit_updates,
+        'oracle': ({'sample': args.oracle_sample, 'every': args.oracle_every,
+                    'seed': args.oracle_seed} if oracle else None),
+        'checks_file': checks_path, 'checks_sha256': sha256_file(checks_path),
+        'started': _now(),
+        'git_head': subprocess.run(['git', 'rev-parse', 'HEAD'],
+                                   capture_output=True, text=True,
+                                   check=False).stdout.strip(),
+        'engine_commit': engine_commit(_TREES[args.engine]),
+    }
     engine = make()
     from util.in_process_driver import InProcessFaVe
-
-    record = {
-        'what': 'incremental stream (INCREMENTAL_PLAN.md §5, §7)',
-        'workload': args.workload, 'engine': args.engine,
-        'stream': args.stream, 'fraction': args.fraction, 'seed': args.seed,
-        'batch': args.batch, 'precision': args.precision,
-        'started': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        'git_head': subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True,
-                                   text=True, check=False).stdout.strip(),
-        'engine_commit': engine_commit(
-            'net_plumber' if args.engine == 'netplumber' else 'veriflow_fr'),
-        **limit_stamps('dev', None, None, 'none'),
-    }
-    batches = []
     with InProcessFaVe(engine) as fave:
         t0 = time.perf_counter()
-        fave.replay(args.workload)
+        fave.replay(args.workload, files=files)
+        # On BEFORE the first answers, so an engine that records what its
+        # answers depended on (VeriFlow-FR's walk footprints) has it.
         engine.track_affected(True)
         cache = inc.VerdictCache(fave, engine, checks)
-        previous = cache.full()
-        record['build_and_first_check_s'] = time.perf_counter() - t0
-        record['configuration'] = engine.configuration_stamp()
+        cache.full()
+        head['build_and_first_check_s'] = time.perf_counter() - t0
+        head['rss_after_build_mb'] = rss_mb()
+        head['configuration'] = engine.configuration_stamp()
+        head['initial_verdicts'] = dict(cache.verdict)
         rules, links = inc.model_rules(fave), inc.model_links(fave)
         stream = build_stream(args.stream, rules, links, args.fraction, args.seed)
-        record.update({'checks': len(checks), 'rules': len(rules),
-                       'links': len(links), 'updates': len(stream)})
+        if args.limit_updates:
+            stream = stream[:args.limit_updates]
+
+        out = _Lines(path('stream.jsonl'))
+        for pos, (op, what, _rule) in enumerate(stream):
+            out.write({'pos': pos, 'op': op, 'what': list(what)})
+        out.close()
+        head.update({'checks': len(checks), 'rules': len(rules),
+                     'links': len(links), 'updates': len(stream),
+                     'stream_sha256': sha256_file(path('stream.jsonl'))})
+        _write_json(path('head.json'), head)
         engine.take_affected()
 
+        updates = _Lines(path('updates.jsonl'))
+        oracles = _Lines(path('oracle.jsonl')) if oracle else None
+        rng = random.Random(args.oracle_seed)
         deleted, down = set(), set()
-        missed = 0
-        for start in range(0, len(stream), args.batch):
+        failed = None
+        done = 0
+        for b, start in enumerate(range(0, len(stream), args.batch)):
             batch = stream[start:start + args.batch]
+            each = []
             t_a = time.perf_counter()
             for update in batch:
+                t_u = time.perf_counter()
                 inc.apply(engine, update, deleted, down)
+                each.append(time.perf_counter() - t_u)
             t_b = time.perf_counter()
             affected = engine.take_affected()
             rechecked = cache.selective(affected)
             t_c = time.perf_counter()
-            entry = {
-                'ops': sorted({u[0] for u in batch}),
-                'size': len(batch),
-                't_update_s': t_b - t_a,
+            done = start + len(batch)
+            updates.write({
+                'b': b, 'pos': start, 'n': len(batch),
+                'ops': [u[0] for u in batch],
+                't_update_s': t_b - t_a, 't_each_s': each,
                 't_recheck_s': t_c - t_b,
-                't_total_s': t_c - t_a,
-                'affected': None if affected is None else len(affected),
+                'affected': (None if affected is None
+                             else sorted([s, p] for s, p in affected)),
                 'rechecked': len(rechecked),
-            }
-            if args.precision:
-                full = cache.ask(checks)          # untimed
-                entry['changed'] = sum(1 for c in full if full[c] != previous[c])
-                entry['missed'] = sum(1 for c in full if full[c] != cache.verdict[c])
-                missed += entry['missed']
-                previous = full
-            batches.append(entry)
-            if args.limit_updates and start + len(batch) >= args.limit_updates:
-                record['truncated_at'] = start + len(batch)
+                'changed': [list(c) for c in cache.last_changes],
+                'rss_mb': rss_mb(), 'mono': time.monotonic(),
+            })
+            if not oracle:
+                continue
+            record = {'b': b, 'done': done,
+                      'sample_mismatch': _oracle_sample(
+                          cache, checks, args.oracle_sample, rng)}
+            if (args.oracle_every and done // args.oracle_every
+                    > start // args.oracle_every) or done == len(stream):
+                t_o = time.perf_counter()
+                full = cache.ask(checks)
+                zero = inc.from_zero(make, args.workload, checks, deleted, down,
+                                     files=files)
+                record.update({
+                    'full': True,
+                    'selective_vs_full': sorted(
+                        l for l in full if full[l] != cache.verdict[l]),
+                    'full_vs_zero': sorted(
+                        l for l in full if full[l] != zero.get(l)),
+                    't_full_and_zero_s': time.perf_counter() - t_o})
+            oracles.write(record)
+            if (record['sample_mismatch'] or record.get('selective_vs_full')
+                    or record.get('full_vs_zero')):
+                failed = record
                 break
+        updates.close()
+        if oracles:
+            oracles.close()
 
-    record['batches'] = batches
-    record['summary'] = {
-        't_total_s': quantiles([b['t_total_s'] for b in batches]),
-        't_update_s': quantiles([b['t_update_s'] for b in batches]),
-        't_recheck_s': quantiles([b['t_recheck_s'] for b in batches]),
-        'rechecked': sum(b['rechecked'] for b in batches),
-        'rechecked_if_full': len(batches) * len(checks),
-    }
-    if args.batch == 1:
-        record['summary']['by_op'] = {
-            op: quantiles([b['t_total_s'] for b in batches if b['ops'] == [op]])
-            for op in ('insert', 'delete', 'link_down', 'link_up')
-            if any(b['ops'] == [op] for b in batches)}
-    if args.precision:
-        changed = sum(b['changed'] for b in batches)
-        record['summary'].update({
-            'changed': changed, 'missed': missed,
-            'precision': (changed / record['summary']['rechecked']
-                          if record['summary']['rechecked'] else None)})
-    record['finished'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    return record, missed
+    _write_json(path('end.json'), {
+        'finished': _now(), 'completed_updates': done,
+        'status': 'oracle_failed' if failed else 'completed'})
+    return 1 if failed else 0
 
 
 def main(argv=None):
@@ -199,24 +286,30 @@ def main(argv=None):
     parser.add_argument('--seed', type=int, default=1, help="S2: the stated seed")
     parser.add_argument('--batch', type=int, default=1,
                         help="updates per re-verification (D4)")
-    parser.add_argument('--precision', action='store_true',
-                        help="also ask every check after each batch (untimed)")
+    parser.add_argument('--files', default=None,
+                        help="replay file overrides, e.g. "
+                             "topology=device_topology.json,policies=probes.json")
+    parser.add_argument('--checks', default='checks.json',
+                        help="the check set, relative to the workload")
     parser.add_argument('--limit-updates', type=int, default=0,
-                        help="stop after this many updates (0: the whole stream)")
-    parser.add_argument('--out', required=True)
+                        help="only the stream's first N updates (0: all)")
+    parser.add_argument('--oracle-sample', type=int, default=0,
+                        help="an oracle run: ask k sampled checks after each batch")
+    parser.add_argument('--oracle-every', type=int, default=0,
+                        help="an oracle run: full check and from-zero build "
+                             "every N updates (always at the end)")
+    parser.add_argument('--oracle-seed', type=int, default=1)
+    parser.add_argument('--cell-dir', required=True)
     args = parser.parse_args(argv)
     if args.batch < 1:
         parser.error("--batch must be at least 1")
-
-    record, missed = run(args)
-    with open(args.out, 'w') as handle:
-        json.dump(record, handle, indent=1, sort_keys=True)
-    print(json.dumps(record['summary'], indent=1, sort_keys=True))
-    if missed:
-        print("SELECTIVE RE-VERIFICATION MISSED %d CHANGED VERDICTS" % missed,
+    if args.oracle_every and not args.oracle_sample:
+        parser.error("--oracle-every needs --oracle-sample")
+    rc = run(args)
+    if rc:
+        print("THE ORACLE FAILED: see oracle.jsonl in %s" % args.cell_dir,
               file=sys.stderr)
-        return 1
-    return 0
+    return rc
 
 
 if __name__ == '__main__':
