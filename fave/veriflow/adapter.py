@@ -42,8 +42,8 @@ import time
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from aggregator.abstract_engine import AbstractVerificationEngine
-from veriflow.translate import Ir, Translator, Unsupported, scan_fields
+from aggregator.abstract_engine import AbstractVerificationEngine, UpdateRefused
+from veriflow.translate import Ir, IrRule, Translator, Unsupported, scan_fields
 
 _LIB_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "veriflow_fr", "python"))
@@ -130,6 +130,25 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self._built_for: Optional[Tuple[Any, ...]] = None
         #: seconds per phase of the last check_compliance: translate, load, query
         self.timings: Dict[str, float] = {}
+        # -- incremental updates (INCREMENTAL_PLAN.md §6.3) ---------------------
+        #: whether walks record their footprint, and the last footprint per
+        #: query set; the query sets of each (source, condition) asked
+        self._tracking = False
+        #: keyed (source, condition key, query set): one walk serves every
+        #: source sharing a set, so its footprint is recorded for each of them
+        #: -- a later walk for only SOME of them must not shrink the others'
+        self._footprints: Dict[Tuple[Tuple[str, Tuple[Any, ...]], str], Any] = {}
+        self._sets_of: Dict[Tuple[str, Tuple[Any, ...]], List[str]] = {}
+        #: sources whose checks an update since the last take_affected can affect
+        self._pending: Set[str] = set()
+        #: (node, tid, idx) -> engine rule ids, and id -> rule; built on the
+        #: first update so a build from zero does none of this work
+        self._rids: Optional[Dict[Tuple[str, str, int], List[int]]] = None
+        self._rule_by_id: Dict[int, IrRule] = {}
+        self._next_rid = 0
+        #: set by the first update: a rebuild would now retranslate the model
+        #: as it was recorded, without the updates, so it is refused
+        self._updated = False
 
     def configuration_stamp(self) -> Dict[str, Any]:
         """ The measurement-affecting choices behind this adapter's answers,
@@ -159,6 +178,19 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                len(self._probes), frozenset(extra_fields))
         if self._built_for == key:
             return
+        # A layout that already has every field asked for answers these checks
+        # as well as a fresh one would: an extra field is ANY in every rule.
+        # Without this, asking a SUBSET of the checks -- a selective
+        # re-verification -- rebuilt the network for a narrower layout.
+        if (self._built_for is not None and self.ir is not None
+                and self._built_for[:4] == key[:4]
+                and set(extra_fields) <= {name for name, _w in self.ir.fields}):
+            return
+        if self._updated:
+            raise UpdateRefused(
+                "VeriFlowAdapter: a rebuild after incremental updates would "
+                "retranslate the model as recorded, without them (the checks "
+                "need fields or the model changed: %s)" % (key,))
         t0 = time.perf_counter()
         ir = self.translate(extra_fields)
         ir.stamps["vf_slicing"] = self.slicing
@@ -181,6 +213,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                           r.out_ports, r.consume, r.rewrites)
         t2 = time.perf_counter()
         self.ir, self.net, self._built_for = ir, net, key
+        self._footprints = {}
         self.timings = {"translate": t1 - t0, "load": t2 - t1}
         if self.logger is not None:
             self.logger.info("veriflow: built %d rules, stamps %s", len(ir.rules), ir.stamps)
@@ -215,6 +248,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                 _starts, sets = ir.generators[src]
                 keys[key] = [s for base in sets
                              for s in self.condition_sets(ir, base, cond)]
+                if self._tracking:
+                    self._sets_of[key] = keys[key]
 
         by_set: Dict[str, List[Tuple[str, Tuple[Any, ...]]]] = {}
         for key, sets in keys.items():
@@ -231,9 +266,14 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             if self.slicing == "network":
                 answers = self.net.deliveries(qs, starts)
             else:
+                walked = self.net.local_deliveries(
+                    qs, starts, self.budget, self.revisit == "state", self._scan,
+                    self._tracking)
                 (answers, finished, stopped_at, predicted, single, local_ecs, hops,
-                 per_table) = self.net.local_deliveries(
-                     qs, starts, self.budget, self.revisit == "state", self._scan)
+                 per_table) = walked[:8]
+                if self._tracking:
+                    for key in owners:
+                        self._footprints[(key, qs)] = walked[8]
                 self.work.append((owners[0][0], local_ecs, hops))
                 if not finished:
                     names = {v: k for k, v in ir.tables.items()}
@@ -258,6 +298,153 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
 
     def get_compliance_results(self) -> List[Tuple[str, str, bool, Any]]:
         return list(self._results)
+
+    # -- incremental updates (INCREMENTAL_PLAN.md §6.2, §6.3) -------------------
+    #
+    # A rule or link update is applied to the BUILT engine. Which checks it can
+    # affect is decided by the walk footprints, not by affected ECs: a check's
+    # walk is deterministic, so a rule at table T can change it only if the rule
+    # is a candidate at a state the walk reached at T -- the arriving header,
+    # after every rewrite on the way -- and a link only if the walk emitted on
+    # its port. "The check's set does not meet the rule" would be unsound: a
+    # rewrite upstream can carry the set into the rule.
+
+    def _require_built(self, op: str) -> Ir:
+        if self.ir is None or self.net is None:
+            raise UpdateRefused("VeriFlowAdapter: %s before the model was built" % op)
+        if self._rids is None:
+            self._rids = {}
+            for rid, (node, tname, idx, _port) in self.ir.origin.items():
+                self._rids.setdefault((node, tname, idx), []).append(rid)
+            self._rule_by_id = {r.id: r for r in self.ir.rules}
+            self._next_rid = max(self._rule_by_id, default=0) + 1
+        return self.ir
+
+    def _affects(self, hit: Any) -> None:
+        """ Mark every source with a query set whose footprint `hit` accepts,
+        or which has no footprint yet (unknown is affected). """
+        if not self._tracking:
+            return
+        for key, sets in self._sets_of.items():
+            src = key[0]
+            if src in self._pending:
+                continue
+            for qs in sets:
+                fp = self._footprints.get((key, qs))
+                if fp is None or hit(fp):
+                    self._pending.add(src)
+                    break
+
+    def _affects_rule(self, rule: IrRule) -> None:
+        self._affects(lambda fp: self.net.footprint_hits_rule(
+            fp, rule.table, rule.in_port, rule.match))
+
+    def insert_rule(self, rule: Any) -> None:
+        ir = self._require_built('insert_rule')
+        key = (rule.node, rule.tid, rule.idx)
+        assert self._rids is not None
+        if key in self._rids:
+            raise UpdateRefused(
+                "VeriFlowAdapter: insert_rule%s: the rule is already present; "
+                "a modify is a delete followed by an insert" % (key,))
+        if rule.tid not in ir.tables:
+            raise UpdateRefused("VeriFlowAdapter: insert_rule%s into a table the "
+                                "model does not have" % (key,))
+        priority = self.prio_of.get((rule.tid, rule.idx))
+        if priority is None:
+            if rule.tid in self.lpm_declared:
+                raise UpdateRefused(
+                    "VeriFlowAdapter: insert_rule%s into a declared LPM table: "
+                    "its priorities were assigned densely, so a new route has "
+                    "no slot (INCREMENTAL_PLAN.md O1)" % (key,))
+            priority = -rule.idx
+        try:
+            translated = self.translate_rule(ir, rule.tid, rule, priority, self._next_rid)
+        except (KeyError, Unsupported) as err:
+            raise UpdateRefused(
+                "VeriFlowAdapter: insert_rule%s needs a field or port the built "
+                "layout does not have (%s); that is a rebuild, not an update"
+                % (key, err)) from err
+        for ir_rule, _port in translated:
+            for (name, width), scan in zip(ir.fields, self._scan):
+                bits = ir_rule.match[ir.offset(name):ir.offset(name) + width]
+                if scan and 'x' in bits and set(bits) != {'x'}:
+                    raise UpdateRefused(
+                        "VeriFlowAdapter: insert_rule%s is not exact-or-ANY on "
+                        "scan field %s (V3b, D6); that is a rebuild" % (key, name))
+        self._updated = True
+        self._rids[key] = []
+        for ir_rule, port in translated:
+            self._affects_rule(ir_rule)
+            self.net.load_rule(ir_rule.id, ir_rule.table, ir_rule.priority,
+                               ir_rule.in_port, ir_rule.match, ir_rule.out_ports,
+                               ir_rule.consume, ir_rule.rewrites)
+            ir.rules.append(ir_rule)
+            ir.origin[ir_rule.id] = (rule.node, rule.tid, rule.idx, port)
+            self._rule_by_id[ir_rule.id] = ir_rule
+            self._rids[key].append(ir_rule.id)
+        self._next_rid += len(translated)
+
+    def delete_rule(self, node: str, tid: str, idx: int) -> None:
+        ir = self._require_built('delete_rule')
+        assert self._rids is not None
+        rids = self._rids.pop((node, tid, idx), None)
+        if rids is None:
+            raise UpdateRefused("VeriFlowAdapter: delete_rule(%s, %s, %s): no such "
+                                "rule" % (node, tid, idx))
+        self._updated = True
+        for rid in rids:
+            # judged against the footprint from BEFORE the deletion
+            self._affects_rule(self._rule_by_id.pop(rid))
+            self.net.unload_rule(rid)
+            del ir.origin[rid]
+        gone = set(rids)
+        ir.rules = [r for r in ir.rules if r.id not in gone]
+
+    def set_link(self, sport: str, dport: str, up: bool) -> None:
+        ir = self._require_built('set_link')
+        if dport not in ir.ports:
+            raise UpdateRefused("VeriFlowAdapter: set_link to unknown port %s" % dport)
+        generator = {g.node + ".1": g.node for g in self._generators}.get(sport)
+        self._updated = True
+        if generator is not None:
+            # A link leaving a generator is not an engine link but a start (Q21).
+            start = (ir.port_table[ir.ports[dport]], ir.ports[dport])
+            starts = ir.generators[generator][0]
+            if up:
+                starts.append(start)
+            elif start in starts:
+                starts.remove(start)
+            if self._tracking:
+                self._pending.add(generator)
+            return
+        if sport not in ir.ports:
+            raise UpdateRefused("VeriFlowAdapter: set_link from unknown port %s" % sport)
+        a, b = ir.ports[sport], ir.ports[dport]
+        self._affects(lambda fp: fp.hits_port(a))
+        if up:
+            self.net.add_link(a, b)
+            ir.links.append((a, b))
+        else:
+            self.net.remove_link(a, b)
+            if (a, b) in ir.links:
+                ir.links.remove((a, b))
+
+    def track_affected(self, on: bool) -> None:
+        self._tracking = on
+        if not on:
+            self._footprints, self._sets_of, self._pending = {}, {}, set()
+
+    def take_affected(self) -> Optional[Set[Tuple[str, str]]]:
+        """ The (source, probe) pairs of every source marked since the last
+        call -- a source's walk delivers to every probe, so a change to it can
+        move any of them. None (re-verify everything) when not tracking, or
+        under network-wide slicing, which records no footprint. """
+        if not self._tracking or self.slicing != "device" or self.ir is None:
+            return None
+        self._affects(lambda _fp: False)   # sources with no footprint yet
+        pending, self._pending = self._pending, set()
+        return {(src, probe) for src in pending for probe in self.ir.probes}
 
     def clear_results(self) -> None:
         self._results = []

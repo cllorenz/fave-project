@@ -75,7 +75,7 @@ import itertools
 
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from devices.abstract_device import LPM, lpm_prefix_len
 from netplumber.mapping import FIELD_SIZES
@@ -211,6 +211,13 @@ class Translator:
         self._links: List[Tuple[str, str]] = []
         self._generators: List[Any] = []
         self._probes: List[Any] = []
+        #: (FaVe table, FaVe rule index) -> the engine priority the last
+        #: translation gave the rule. A rule deleted and re-inserted returns to
+        #: exactly this slot (INCREMENTAL_PLAN.md S1/S2); in a declared-LPM
+        #: table a NEW route has none, which is open question O1.
+        self.prio_of: Dict[Tuple[str, int], int] = {}
+        #: the tables the model declares longest-prefix-match
+        self.lpm_declared: Set[str] = set()
 
     # -- recording: the AbstractVerificationEngine calls the aggregator makes --
 
@@ -399,6 +406,7 @@ class Translator:
     def _translate_table(self, ir: Ir, model: Any, tname: str, rules: List[Any]) -> None:
         tid = ir.tables[tname]
         if model.table_semantics.get(tname) == LPM:
+            self.lpm_declared.add(tname)
             # NetPlumberAdapter._lpm_ordered_batch: longest prefix first, ties
             # by the index the model gave the rule.
             sign = 1 if self.invert_lpm else -1
@@ -420,27 +428,39 @@ class Translator:
             if rule.idx in seen:
                 raise Unsupported("%s holds two rules with index %s" % (tname, rule.idx))
             seen.add(rule.idx)
-            out: List[int] = []
-            rewrites: List[Tuple[int, str]] = []
-            for action in rule.actions:
-                if isinstance(action, Forward):
-                    out.extend(ir.ports[p] for p in action.ports)
-                elif isinstance(action, Rewrite):
-                    rewrites.extend(self._rewrite(ir, tname, rule, f) for f in action.rewrite)
-                elif isinstance(action, Miss):
-                    raise Unsupported("table miss in %s rule %s" % (tname, rule.idx))
-                else:
-                    raise Unsupported("unknown action %s in %s" % (action, tname))
-            match = self._ternary(ir, rule.match)
-            if match is None:
-                continue  # contradictory fields: the rule matches nothing
-            for in_port in (rule.in_ports or [None]):
-                rid = len(ir.rules) + 1
-                ir.rules.append(IrRule(
-                    rid, tid, prio[id(rule)],
-                    ANY_PORT if in_port is None else ir.ports[in_port],
-                    match, out, False, list(rewrites)))
-                ir.origin[rid] = (model.node, tname, rule.idx, in_port)
+            self.prio_of[(tname, rule.idx)] = prio[id(rule)]
+            for ir_rule, in_port in self.translate_rule(
+                    ir, tname, rule, prio[id(rule)], len(ir.rules) + 1):
+                ir.rules.append(ir_rule)
+                ir.origin[ir_rule.id] = (model.node, tname, rule.idx, in_port)
+
+    def translate_rule(self, ir: Ir, tname: str, rule: Any, priority: int,
+                       first_id: int) -> List[Tuple[IrRule, Optional[str]]]:
+        """ One FaVe rule as engine rules -- one per ingress port (Q16), each
+        with that port's name (None: any) -- with ids from `first_id` on,
+        against the layout and ports `ir` already has.
+        Empty if the rule's fields contradict each other (it matches nothing).
+        Shared by the build and by an incremental insert (INCREMENTAL_PLAN.md
+        §6.3), so both translate a rule identically. """
+        tid = ir.tables[tname]
+        out: List[int] = []
+        rewrites: List[Tuple[int, str]] = []
+        for action in rule.actions:
+            if isinstance(action, Forward):
+                out.extend(ir.ports[p] for p in action.ports)
+            elif isinstance(action, Rewrite):
+                rewrites.extend(self._rewrite(ir, tname, rule, f) for f in action.rewrite)
+            elif isinstance(action, Miss):
+                raise Unsupported("table miss in %s rule %s" % (tname, rule.idx))
+            else:
+                raise Unsupported("unknown action %s in %s" % (action, tname))
+        match = self._ternary(ir, rule.match)
+        if match is None:
+            return []  # contradictory fields: the rule matches nothing
+        return [(IrRule(first_id + k, tid, priority,
+                        ANY_PORT if in_port is None else ir.ports[in_port],
+                        match, out, False, list(rewrites)), in_port)
+                for k, in_port in enumerate(rule.in_ports or [None])]
 
     def _header_space(self, ir: Ir, gen: Any) -> List[str]:
         """ The product of the generator's per-field value lists, as

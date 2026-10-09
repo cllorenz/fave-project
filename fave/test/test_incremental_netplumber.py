@@ -44,12 +44,12 @@ re-propagation, node.cc) until 2026-10-09.
 """
 
 import logging
-import os
 import unittest
 
 from aggregator.abstract_engine import UpdateRefused
 from netplumber import lib_adapter
 from test.backend_gate import require_or_skip
+from test.incremental_oracle import inputs_present, run, s1, s2_and_s3
 from util import incremental as inc
 
 
@@ -63,84 +63,32 @@ def _make():
     return lib_adapter.NetPlumberLibAdapter(_logger())
 
 
-def _inputs_present(prefix):
-    return all(os.path.exists(os.path.join(prefix, name)) for name in (
-        'topology.json', 'routes.json', 'policies.json', 'sources.json',
-        'checks.json'))
-
-
-def _run(test, prefix, stream_of, every):
-    """ Drive `stream_of(rules, links)` on a NetPlumber build of `prefix`,
-    asserting the oracle as described above. Returns the run's counts. """
-    from util.in_process_driver import InProcessFaVe
-    checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
-    engine = _make()
-    stats = {'updates': 0, 'verdict_changes': 0, 'rechecked': 0}
-    with InProcessFaVe(engine) as fave:
-        fave.replay(prefix)
-        cache = inc.VerdictCache(fave, engine, checks)
-        previous = cache.full()
-        stream = list(stream_of(inc.model_rules(fave), inc.model_links(fave)))
-        test.assertTrue(stream, "an empty stream tests nothing")
-        engine.track_affected(True)
-        engine.take_affected()
-        deleted, down = set(), set()
-        for n, update in enumerate(stream, start=1):
-            inc.apply(engine, update, deleted, down)
-            stats['rechecked'] += len(cache.selective(engine.take_affected()))
-            full = cache.ask(checks)
-            test.assertEqual(
-                cache.verdict, full,
-                "%s, update %d %s: selective re-verification missed a change"
-                % (prefix, n, update[:2]))
-            stats['verdict_changes'] += sum(
-                1 for line in full if full[line] != previous[line])
-            previous = full
-            if n % every == 0 or n == len(stream):
-                test.assertEqual(
-                    full, inc.from_zero(_make, prefix, checks, deleted, down),
-                    "%s, update %d %s: the incremental engine disagrees with "
-                    "a from-zero build of the same model" % (prefix, n, update[:2]))
-        stats['updates'] = len(stream)
-    test.assertGreater(stats['verdict_changes'], 0,
-                       "no update changed a verdict: the oracle was not tested")
-    test.assertLess(stats['rechecked'], stats['updates'] * len(checks),
-                    "the selective re-check asked every check every time")
-    return stats
-
-
-def _s2_and_s3(rules, links):
-    return list(inc.stream_s2(rules, 0.2, seed=1)) + list(inc.stream_s3(links))
-
-
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
 class TestIncrementalNetPlumber(unittest.TestCase):
 
     def _workload(self, prefix):
-        if not _inputs_present(prefix):
+        if not inputs_present(prefix):
             require_or_skip(False, "%s inputs not generated" % prefix)(
                 lambda: None)()
             self.skipTest("%s inputs not generated" % prefix)
         return prefix
 
     def test_wl_example_s1_oracle_at_every_update(self):
-        _run(self, self._workload('bench/wl_example'),
-             lambda rules, _links: inc.stream_s1(rules), every=1)
+        run(self, _make, self._workload('bench/wl_example'), s1, every=1)
 
     def test_wl_example_s2_s3(self):
-        _run(self, self._workload('bench/wl_example'), _s2_and_s3, every=5)
+        run(self, _make, self._workload('bench/wl_example'), s2_and_s3(), every=5)
 
     def test_wl_ifi_s1(self):
-        _run(self, self._workload('bench/wl_ifi'),
-             lambda rules, _links: inc.stream_s1(rules), every=20)
+        run(self, _make, self._workload('bench/wl_ifi'), s1, every=20)
 
     def test_wl_ifi_s2_s3(self):
         # Includes routes deleted from and re-inserted into wl_ifi's two
         # declared-LPM tables, each back into the slot it had.
-        _run(self, self._workload('bench/wl_ifi'), _s2_and_s3, every=10)
+        run(self, _make, self._workload('bench/wl_ifi'), s2_and_s3(), every=10)
 
     def test_wl_cloud_s2_s3(self):
-        _run(self, self._workload('bench/wl_cloud'), _s2_and_s3, every=50)
+        run(self, _make, self._workload('bench/wl_cloud'), s2_and_s3(), every=50)
 
 
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
@@ -150,7 +98,7 @@ class TestRefusals(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from util.in_process_driver import InProcessFaVe
-        if not _inputs_present('bench/wl_ifi'):
+        if not inputs_present('bench/wl_ifi'):
             raise unittest.SkipTest("bench/wl_ifi inputs not generated")
         cls.engine = _make()
         cls.fave = InProcessFaVe(cls.engine)

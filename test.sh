@@ -132,6 +132,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_apkeep_adapter.py  # APKeepAdapter: FaVe model -> APKeep (P4); skips if unavailable
     test/test_apkeep_update_refused.py  # a model change after the one-time build is refused, not dropped (TODO item 31); skips if unavailable
     test/test_incremental_netplumber.py # INCREMENTAL_PLAN.md M1: update streams on NetPlumber, selective re-check == full == from-zero; skips if libnetplumber unbuilt
+    test/test_incremental_veriflow.py  # the same on VeriFlow-FR, affected checks from walk footprints; skips if libveriflow_fr unbuilt
     test/test_apkeep_wl_ifi.py   # APKeepAdapter driven by the real wl_ifi models (P4); skips if unavailable
     test/test_apkeep_i2.py       # APKeep scale validation on wl_i2 (77k dst-IP routes, P5); skips if unavailable
     test/test_apkeep_stanford.py # APKeep on wl_stanford (in/mid/out HSA, out-stage collapse, P7); skips if unavailable
