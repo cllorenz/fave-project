@@ -346,7 +346,12 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
      be masked — a missed change undone by a later update (S2 re-adds) leaves
      a correct cache by the checkpoint — so the result is stated as a sample.
   4. Tests keep both halves after every update on the small workloads.
-- **O4. Repetitions and limits — DECIDED 2026-10-09.**
+- **O4. Repetitions and limits — DECIDED 2026-10-09.** *Scope (owner, same
+  day):* measurements on this branch are **indicative**, stamped
+  `limit_class=dev`, one repetition, and capped by **the machine** (64 GB, no
+  swap) rather than V5's 32 GB, which was a portability rule for reportable
+  cells. The complete campaign, repetitions included, is run separately; the
+  settings below are for it, and the harness carries them as parameters.
   1. **Per-stream (cell) limit = V5's class:** 24 h wall, 32 GB RSS, stamped per
      cell; the O3 oracle run has the same budget.
   2. **A stream stopped by a limit reports its completed prefix** ("n of N"),
