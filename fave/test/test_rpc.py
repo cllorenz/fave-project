@@ -27,6 +27,7 @@ import unittest
 import os
 import re
 import random
+import subprocess
 
 from netplumber.jsonrpc import connect_to_netplumber, NET_PLUMBER_DEFAULT_PORT
 from netplumber.jsonrpc import init, destroy, reset_plumbing_network, expand, stop
@@ -57,6 +58,38 @@ def generate_random_rule(idx, in_ports, out_ports, length):
     rewrite = gen_wc(length)
 
     return (idx, iports, oports, match, mask, rewrite)
+
+
+def _net_plumber_has_legacy_checks():
+    """ Whether the `net_plumber` on PATH was compiled with LEGACY_CHECKS.
+
+    Asked of the binary itself (`--features`) rather than read from an
+    environment variable, so the answer cannot disagree with the build under
+    test. A binary that predates `--features` prints no such line, and neither
+    does a missing one; both read as "not compiled in".
+    """
+    try:
+        out = subprocess.run(
+            ['net_plumber', '--features'], capture_output=True, text=True,
+            timeout=10, check=False
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return 'LEGACY_CHECKS 1' in out.splitlines()
+
+
+# The probe-condition technique -- probe state transitions logged by
+# `DefaultProbeLogger` from `start_probe`/`update_check` -- is compiled out by
+# default (`source_probe_node.cc`, the LEGACY_CHECKS note). The tests asserting
+# those transitions are guarded WITH the code they test, as the 14 C++ plumbing
+# tests are: run against a default build they can only fail, and deleting them
+# would discard the technique's only e2e coverage. Every other test here
+# exercises the default build and runs unconditionally.
+requires_legacy_checks = unittest.skipUnless(
+    _net_plumber_has_legacy_checks(),
+    "probe-condition logging is compiled out; build net_plumber with "
+    "-DLEGACY_CHECKS to run this test"
+)
 
 
 def _check_probe_log_line(line, probe_id, state):
@@ -240,6 +273,7 @@ class TestRPC(unittest.TestCase):
         return nodes
 
 
+    @requires_legacy_checks
     def test_basic(self):
         """ Tests basic network with four tables, few rules, one source, and one
             probe.
@@ -304,6 +338,7 @@ class TestRPC(unittest.TestCase):
         self.assertTrue(check_probe_log(plogs))
 
 
+    @requires_legacy_checks
     def test_advanced(self):
         """ Tests an advanced network with eight tables, several rules, a
             multitude of sources, and a complex probe.
