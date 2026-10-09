@@ -42,6 +42,7 @@ Read `APKEEP_BACKEND.md` first; these are the sub-tracks it refers to.
 |---|---:|---|
 | [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md) | 272 | The plan to preserve the BDD state and integrate NDD. Largely executed; the running record is the eval log below. |
 | [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md) | 801 | The NDD integration's running evaluation log. |
+| [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md) | 157 | **SCOPING, no code.** Making APKeep-BDD and APKeep-NDD (the NDD paper's system, not NDD-flood) incremental alike: what the reference code really does, workload tiers, design, a 7.5–12-week estimate, owner questions. |
 | [`APKEEP_BDD_BASELINE.md`](APKEEP_BDD_BASELINE.md) | 255 | The **frozen** BDD baseline — the published comparand and the differential oracle NDD must reproduce. |
 | [`BDD_MEASUREMENT_PLAN.md`](BDD_MEASUREMENT_PLAN.md) | 215 | The 56 h BDD campaign, written after a use-after-free invalidated the BDD half of the engine comparison. |
 | [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) | 226 | The soundness track: eliminating APKeep's reachability over-approximation on `wl_stanford`. |

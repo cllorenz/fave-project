@@ -1,8 +1,8 @@
 # Incremental reverification — a plan
 
 **Status: M1 IN PROGRESS (2026-10-09). Nothing measured yet.** Decisions D1–D9
-are the owner's, taken in discussion on 2026-10-09 (§4). Questions O1–O6 are
-still open and carry a recommendation, not a decision (§9). §10 records what is
+are the owner's, taken in discussion on 2026-10-09 (§4). Of questions O1–O6, O1 and O2 are
+decided; the rest carry a recommendation, not a decision (§9). §10 records what is
 built: NetPlumber and VeriFlow-FR take updates and re-verify selectively, held
 to the oracle; what remains of M1 waits on O1/O2 or on a protocol.
 **Owner:** Claas Lorenz. **Branch:** `updates`. **Tracks:** TODO item 31, "the
@@ -312,17 +312,21 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
 
 ## 9. Open questions (recommendations, not decisions)
 
-- **O1. LPM priorities that leave room.** VeriFlow-FR: `plen·2^40 − idx`, no
-  budget problem. NetPlumber: the rule index is 32 bits and negation expansion
-  takes 12, so priorities must stay below 2^20; a band per prefix length leaves
-  ~16k routes per (table, length), which `wl_airtel`/`wl_i2` may exceed.
-  *Recommendation:* widen NetPlumber's index to 64 bits and decouple the node id
-  from it, rather than squeezing the negation slots. Until decided, LPM
-  workloads run on VeriFlow-FR only.
-- **O2. APKeep scope.** *Recommendation:* make **NDD** incremental (1–2 weeks,
-  the production default, per-device recompute), and record BDD as "builds
-  once" — the result ad6 already gets — unless the BDD comparison matters for
-  the write-up, in which case BDD forwarding-only (1.5–2.5 weeks) next.
+- **O1. LPM priorities that leave room — DECIDED 2026-10-09.** NetPlumber's
+  rule index is 32 bits and the `<<12` negation slots are an adapter-only
+  convention (`_calc_rule_index`); the engine ranks by the whole index
+  (`net_plumber.cc:381–411`). LPM routes need no negation, so a declared-LPM
+  table uses the **full 32-bit index, banded by prefix length**; a new route
+  takes any free slot in its band (equal-length prefixes are disjoint, so order
+  within a band never matters). The validator must refuse a negated destination
+  so that premise is enforced. VeriFlow-FR the same. No 64-bit widening. Latent
+  bug found on the way: `_RULE_IDX_MAX` is `2^24−1` but must be `2^20−1`.
+- **O2. APKeep scope — DECIDED 2026-10-09.** APKeep-NDD is the NDD paper's
+  system (APKeep's core, atom layer replaced by NDD); APKeep-BDD and APKeep-NDD
+  work alike, incrementally. FaVe's `NddReachabilityEngine` is not that system
+  and stays as a differential oracle ("NDD-flood"). Scoped in
+  [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md), whose §6 holds the
+  questions still open.
 - **O3. Oracle cost.** From-zero builds at every update are affordable only on
   the small workloads. *Recommendation:* every update on `wl_example`/`wl_ifi`;
   checkpoints every N updates and at the end of a stream elsewhere, N declared

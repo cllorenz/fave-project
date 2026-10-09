@@ -41,7 +41,7 @@ This repository is organized as follows:
 
 ## Documentation
 
-[`docs/INDEX.md`](docs/INDEX.md) maps the twenty-one reference documents: what each
+[`docs/INDEX.md`](docs/INDEX.md) maps the twenty-two reference documents: what each
 one covers, how long it is, and whether it describes work that is finished. They
 are lab notebooks rather than specifications — every one carries a dated status
 header, and several record completed tracks that are kept because results and
