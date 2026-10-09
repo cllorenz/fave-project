@@ -65,8 +65,14 @@ Zhang's *NetVerify* group, Xi'an Jiaotong University):
 - **NSDI'25 follow-up (NDD).** "NDD: A Decision Diagram for Network Verification"
   (Li Zechun et al., same group; <https://github.com/XJTU-NetVerify/NDD>,
   Apache-2.0) re-uses *this* APKeep with its BDD layer swapped for NDD (~100×
-  gains). The NDD repo ships only the diagram library, not the APKeep-on-NDD
-  verifier. So the APKeep everyone evaluates against is the XJTU artifact above.
+  gains). ~~The NDD repo ships only the diagram library, not the APKeep-on-NDD
+  verifier.~~ **Corrected 2026-10-09:** it does ship one, at
+  `ndd/src/main/java/application/wan/ndd/verifier/apkeep/` (with a BDD twin under
+  `application/wan/bdd/`), excluded from our build because it is stale against
+  the vendored int-node NDD core — `APKEEP_NDD_EVAL.md` §2.1a already said so.
+  FaVe's `NddReachabilityEngine` is NOT that verifier: it has no atoms and no
+  `updateRule` (`INCREMENTAL_PLAN.md` §9, O2). The BDD APKeep everyone evaluates
+  against is still the XJTU artifact above.
 
 **Consequence:** we do **not** reimplement APKeep. We vendor and adapt the
 official artifact (see §7).
