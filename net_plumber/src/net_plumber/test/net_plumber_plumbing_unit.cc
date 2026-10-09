@@ -205,6 +205,44 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_remove_rule() {
   this->verify_pipe_stats("test_pipeline_remove_rule", stats);
 }
 
+template<class T1, class T2>
+static size_t count_node(std::list<Node<T1, T2> *> *nodes, uint64_t id) {
+  size_t n = 0;
+  if (!nodes) return 0;
+  for (auto const &node : *nodes) if (node->node_id == id) n++;
+  return n;
+}
+
+/*
+ * Re-adding a rule at an index that is occupied replaces the rule there, and
+ * the replacement must stay removable. It did not: the old rule shares the id
+ * ((table << 32) + index) and was freed AFTER the new one was registered, which
+ * erased the new rule's id_to_node entry -- so `remove_rule` only logged a miss
+ * and the rule stayed in the network. INCREMENTAL_PLAN.md §2.
+ */
+template<class T1, class T2>
+void NetPlumberPlumbingTest<T1, T2>::test_readd_at_occupied_index_stays_removable() {
+  printf("\n");
+  const uint64_t id = node_ids[0];   // table 1, index 10, in-port 1
+  CPPUNIT_ASSERT_EQUAL((size_t)1, count_node(N->get_nodes_with_inport(1), id));
+
+  const uint64_t again = N->add_rule(1,10,
+              make_sorted_list(1,1),
+              make_sorted_list(1,2),
+#ifdef GENERIC_PS
+              new T2 ("1011xxxx"),
+#else
+              array_from_str("1011xxxx"),
+#endif
+              NULL,
+              NULL);
+  CPPUNIT_ASSERT_EQUAL(id, again);
+  CPPUNIT_ASSERT_EQUAL((size_t)1, count_node(N->get_nodes_with_inport(1), id));
+
+  N->remove_rule(id);
+  CPPUNIT_ASSERT_EQUAL((size_t)0, count_node(N->get_nodes_with_inport(1), id));
+}
+
 #ifdef USE_GROUPS
 template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_pipeline_add_group_rule() {

@@ -51,6 +51,7 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_setup);
   CPPUNIT_TEST(test_pipeline_add_rule);
   CPPUNIT_TEST(test_pipeline_remove_rule);
+  CPPUNIT_TEST(test_readd_at_occupied_index_stays_removable);
 #ifdef USE_GROUPS
   CPPUNIT_TEST(test_pipeline_add_group_rule);
   CPPUNIT_TEST(test_pipeline_add_group_rule_mix);
@@ -122,6 +123,7 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
   // Test correctness of pipeline construction
   void test_pipeline_add_rule();
   void test_pipeline_remove_rule();
+  void test_readd_at_occupied_index_stays_removable();
   void test_pipeline_add_group_rule();
   void test_pipeline_add_group_rule_mix();
   void test_pipeline_remove_group_rule();

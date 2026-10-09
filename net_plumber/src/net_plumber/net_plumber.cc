@@ -1049,12 +1049,17 @@ uint64_t NetPlumber<T1, T2>::_add_rule(const uint32_t table, const uint32_t inde
                         match, nmask, nrw);
 #endif
 
-      this->id_to_node[id] = r;
-
+      // Adding at an occupied index REPLACES the rule there. The old rule has
+      // the same id ((table << 32) + index), so it must be freed BEFORE the new
+      // one is registered: `free_rule_memory` erases `id_to_node[old->node_id]`,
+      // which used to erase the NEW rule's entry and leave it unremovable
+      // (`remove_rule` only logs a miss). Incremental updates re-add at an
+      // index; INCREMENTAL_PLAN.md §2.
       auto tmp = this->table_to_nodes[table]->find(index);
       if (tmp != this->table_to_nodes[table]->end()) {
         free_rule_memory(tmp->second, false);
       }
+      this->id_to_node[id] = r;
       (*this->table_to_nodes[table])[index] = r;
       this->last_event.type = ADD_RULE;
       this->last_event.id1 = id;
