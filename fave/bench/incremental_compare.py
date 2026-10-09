@@ -63,6 +63,17 @@ def compare(cells):
     differs = sorted(line for line in initial[0]
                      if any(v.get(line) != initial[0][line] for v in initial[1:]))
     common = min(len(c['updates']) for c in cells)
+    # A refused update leaves that engine's model behind the others', so their
+    # changes are comparable only up to the first batch the cells refused
+    # differently -- and that is said, never compared past.
+    diverged = None
+    for b in range(common):
+        refused = {tuple(pos for pos, _r in c['updates'][b].get('refused', ()))
+                   for c in cells}
+        if len(refused) != 1:
+            diverged = b
+            common = b
+            break
     disagreements = []
     for b in range(common):
         sets = [frozenset((line, new) for line, _old, new in c['updates'][b]['changed'])
@@ -76,12 +87,13 @@ def compare(cells):
         'comparable': True,
         'engines': [h['engine'] for h in heads],
         'batches_compared': common,
+        'refusals_diverge_at_batch': diverged,
         'batches_per_cell': [len(c['updates']) for c in cells],
         'initial_verdicts_differ': differs[:_SHOWN],
         'initial_verdicts_differ_count': len(differs),
         'disagreeing_batches': len(disagreements),
         'disagreements': disagreements[:_SHOWN],
-        'agree': not differs and not disagreements,
+        'agree': not differs and not disagreements and diverged is None,
     }
 
 

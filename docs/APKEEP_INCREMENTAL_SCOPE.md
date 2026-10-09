@@ -1,6 +1,7 @@
 # BDD-APKeep and NDD-APKeep, incremental — a scoping pass
 
-**Status: SCOPING, no code (2026-10-09).** Answers `INCREMENTAL_PLAN.md` §9 O2
+**Status: steps 1–3 (BDD) BUILT, 2026-10-10 — see §7; steps 4–5 (NDD) open.**
+Answers `INCREMENTAL_PLAN.md` §9 O2
 after the owner's decision of 2026-10-09: *NDD-APKeep is the NSDI'25 NDD paper's
 system — APKeep's own core with its atom layer replaced by NDD — and BDD-APKeep
 and NDD-APKeep work alike, including incremental re-verification.* FaVe's
@@ -162,3 +163,89 @@ the paper claims and nobody here has measured.
    NDD library (with FaVe's changes, `ndd/FAVE_CHANGES.md`), FaVe's part is the
    verifier on it. That the verifier is not the authors' APKeep is what the name
    NDD-flood says; the stamp need not say it again.
+
+## 7. What was built (2026-10-10): BDD-APKeep takes updates
+
+Steps 1–3 for BDD, by a different route than §3–§4 planned. **The adapter does
+not translate an update per rule.** It records every model-construction call
+(the batches as snapshots — the aggregator keeps adding to a model object it
+already handed over), and an update replays them on a *shadow* adapter with the
+one rule or link changed, translates the whole model with the build's own code
+(`_translate`, split out of `_build`), and applies the difference to the
+engine: `-`/`+` rule strings through APKeep's `updateRule`, edges through
+`setLink`. So an update can never be translated differently from a build of the
+same model, whatever whole-table decision the translation makes. The tiers of
+§3 collapse into one test: **does the update leave the element structure
+alone?** If it would need a new element or change an element's type, it is
+refused before anything changes and counted by reason (`refused_updates`); the
+harness records the refusal and goes on with the model unchanged.
+
+**Structure fixed at build when updates are expected** (`track_affected` before
+the build, `_for_updates`): an ingress-qualified device is split into one
+element **per ingress port**, not per class of ports with the same rules
+(which one update can merge or split), and that split is reused by every later
+translation; an IPv6 router stays one; pass-through filters are not elided.
+Same answers, more elements. The from-zero oracle is built the same way, from
+the live engine's choices (`prepare_twin`) — they derive from the initial model,
+not from the update path, and they can represent a model the default
+translation refuses (`wl_example`'s `office` with only its in-port-qualified
+rule left).
+
+**Two paths.** A plain declared-LPM FIB device — not staged, not a packet filter
+or an IPv6 router, one `ForwardElement` or a frozen per-port split of it — is
+updated per rule (`_fib_update`): the rule's own `+ fwd` strings, counted per
+string over the device's rules. Everything else re-translates the whole model.
+Tests check every FIB-path update against the full translation
+(`verify_fib_path`).
+
+| piece | where |
+|---|---|
+| change tuples kept, as BDDs, before PPM update and merge | `Network.updateRule` (fork) |
+| ties: removal as if never inserted; identity incl. match; NAT priorities | `Element`, `Rule`, `FilterRule`, `NATElement` (fork) |
+| the shared prefix BDD freed while in use | `APKeeper.encodePrefixBDD` (fork) |
+| updates without the experiment harness (no file, no hard merge, no forced GC) | `Network.applyUpdates`, `Evaluator.quiet` (fork) |
+| links | `Network.setLink` (fork) |
+| footprints and affected checks (§4) | `ReachabilityChecker` + `Network.takeAffected` (fork) |
+| several networks in one JVM (the from-zero oracle) | `Network.activate` (fork) |
+| record, shadow-translate, diff, tie emulation, refusals, FIB path | `APKeepAdapter` |
+
+All fork changes: `apkeep/FAVE_CHANGES.md` §11. **Ties across FaVe rules**
+(O6) are handled in the diff: an added string that ties with a live one placed
+after it in the new list makes that one be removed and re-added after it, so
+the engine ends where a build of the new list would.
+
+**Held to the oracle** (`test/test_incremental_apkeep.py`): selective == full
+after every update, full == from-zero at checkpoints, on `wl_example` (S1,
+S2+S3) and `wl_ifi` (S1, S2+S3); `wl_airtel1` S2 (0.1%, FIB path, each update
+checked against the full translation, oracle at the end). On `wl_ifi` S2+S3
+every update changes the **same verdicts as NetPlumber** (188 updates). Fork
+fixes against from-zero builds on small networks:
+`test/test_apkeep_incremental_core.py`.
+
+**Refusals measured:** none on `wl_ifi`, `wl_airtel1` (sample) and `wl_example`
+S2+S3; on `wl_example` S1, 2 of 50 — the deletion of `pgf`'s last route (a
+transit packet filter turning terminal: its pipeline's elements depend on its
+rules and links, tier C) and its re-insertion. Before the per-port split,
+`wl_example` S2+S3 refused 10 of 30 and `wl_airtel1` about 5%.
+
+**Found on the way, fixed in the translation** (no build affected, the full
+APKeep suite unchanged):
+- a router port whose VLAN no `acl_in`/`acl_out` rule names got **no** ACL
+  element and let everything through; FaVe's table drops a miss. Found because
+  deleting `wl_ifi`'s only rule for VLAN 464 made NetPlumber and APKeep
+  disagree. Every port with a known VLAN now gets its element (deny-all when
+  empty);
+- an emptied forwarding table turned its device from a first-match
+  `FilterElement` into a `ForwardElement` — the old shape inference again. An
+  undeclared table is first-match with or without rows.
+
+**Not covered.** `wl_cloud`: BDD-APKeep takes 3.24 h to *build* it (V5), so no
+stream runs there; NAT under updates is tested on small networks instead.
+Packet-filter pipelines (tier C) refuse what changes their structure. NDD
+(steps 4–5) is untouched: NDD-flood refuses updates.
+
+**Costs to state with every number:** per update on the full path, one
+whole-model translation, charged to `t_update` — 1–5 ms on `wl_example`/
+`wl_ifi`, 0.18 s on `wl_up`, 0.5–0.65 s on `wl_airtel1` (39,600 strings); on the
+FIB path a median of 6 ms on `wl_airtel1` (158 updates, engine included). The
+update-mode build has more elements than the default one.

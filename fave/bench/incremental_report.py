@@ -121,6 +121,17 @@ def _times(batches):
     }
 
 
+def _refusal_reasons(batches):
+    """ Refusals counted by their reason's first clause. """
+    counts = {}
+    for batch in batches:
+        for _pos, reason in batch.get('refused', ()):
+            text = reason.split(': ', 1)[-1]
+            key = text.split(';')[0].split(' (')[0][:80]
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
 def ended_by(cell):
     """ What ended the stream: `completed`, `oracle_failed`, a declared limit
     (`limit_wall`, `limit_stall`, `limit_rss`, `memory_floor`), `interrupted`
@@ -159,6 +170,8 @@ def summarize(cell, break_even_s=None, warmup=100):
         'completed_updates': done, 'stream_updates': head['updates'],
         'batches': len(batches),
         'rechecked': rechecked, 'changed': changed,
+        'refused': sum(len(b.get('refused', ())) for b in batches),
+        'refused_by_reason': _refusal_reasons(batches),
         'selectivity': (rechecked / (len(batches) * n_checks)
                         if batches and n_checks else None),
         'precision': changed / rechecked if rechecked else None,

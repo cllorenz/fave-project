@@ -221,7 +221,8 @@ class LibAPKeep:
                      target_vlan: Optional[int] = None,
                      src_cidr: Optional[str] = None,
                      related: Optional[int] = None,
-                     conditions: Optional[List[Tuple[str, bool]]] = None) -> bool:
+                     conditions: Optional[List[Tuple[str, bool]]] = None,
+                     footprint_key: Optional[str] = None) -> bool:
         """ Existential reachability over the current PPM: can traffic injected
         at (src_device, src_port) reach (dst_device, dst_port)? Implemented by
         apkeep.checker.ReachabilityChecker (P3); this is the query FaVe's
@@ -243,7 +244,10 @@ class LibAPKeep:
         string. Each becomes the packet space that rule describes (or its
         complement, for a negated condition) and is intersected with the arriving
         traffic. The adapter refuses any condition on a field this model rewrites
-        before it gets here; see `APKeepAdapter._query_conditions`. """
+        before it gets here; see `APKeepAdapter._query_conditions`.
+
+        `footprint_key`, while the network tracks updates (`track`), adds what
+        this query depended on to that key's footprint (`take_affected`). """
         if self._net is None:
             raise RuntimeError("init_snapshot() must be called first")
         checker = self._ReachabilityChecker(self._net)
@@ -263,6 +267,15 @@ class LibAPKeep:
             if negated:
                 node = bddengine.negate(jpype.JInt(node))
             checker.andArrivalHeader(jpype.JInt(node))
+        answer = self._ask(checker, src, dst, src_prefix, src_len, target_vlan,
+                           src_cidr)
+        if footprint_key is not None:
+            self._net.recordFootprint(footprint_key, checker)
+        return answer
+
+    def _ask(self, checker: Any, src: Any, dst: Any, src_prefix: Optional[int],
+             src_len: int, target_vlan: Optional[int],
+             src_cidr: Optional[str]) -> bool:
         # target_vlan (P7b): require the packets reaching the probe to carry this
         # VLAN (wl_stanford probes only accept vlan=0). Uses the 5-arg checker
         # overload; the source seed defaults to the full space when unconstrained.
@@ -285,6 +298,35 @@ class LibAPKeep:
         if src_cidr is not None:
             return bool(checker.isReachable(src, dst, jpype.JString(src_cidr)))
         return bool(checker.isReachable(src, dst))
+
+
+    # --- updates after the build (INCREMENTAL_PLAN.md §6.2) -----------------
+    def update(self, rules: List[str]) -> None:
+        """ Apply "+"/"-" rule strings to the BUILT network, one by one, with
+        APKeep's per-update algorithm and none of its experiment harness
+        (`Network.applyUpdates`). """
+        java_rules = self._ArrayList()
+        for rule in rules:
+            java_rules.add(str(rule).strip())
+        self._net.applyUpdates(java_rules)
+
+    def set_link(self, d1: str, p1: str, d2: str, p2: str, up: bool) -> None:
+        """ Take the directed edge "d1 p1 -> d2 p2" up or down. """
+        self._net.setLink(d1, p1, d2, p2, jpype.JBoolean(up))
+
+    def track(self, on: bool) -> None:
+        """ Record change tuples and query footprints from now on (off: drop
+        them). """
+        self._net.setTracking(jpype.JBoolean(on))
+
+    def take_affected(self) -> List[str]:
+        """ The footprint keys an update since the last call can have
+        affected (`Network.takeAffected`). """
+        return [str(key) for key in self._net.takeAffected()]
+
+    def loops_found(self) -> int:
+        """ Loops APKeep's default check found in updates since the build. """
+        return int(self._net.loopsFound())
 
     # --- Phase 7 instrumentation ------------------------------------------
     def ap_num(self) -> int:

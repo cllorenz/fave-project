@@ -215,11 +215,22 @@ class _Withholding:
 
 def from_zero(make_engine: Callable[[], Any], prefix: str, checks: List[Check],
               deleted: Set[RuleKey], down: Set[Tuple[str, str]],
-              files: Optional[Dict[str, str]] = None) -> Dict[str, bool]:
+              files: Optional[Dict[str, str]] = None,
+              like: Any = None) -> Dict[str, bool]:
     """ Verdicts of a from-zero build of the workload at `prefix` minus the
-    `deleted` rules and `down` links, on a fresh engine from `make_engine`. """
+    `deleted` rules and `down` links, on a fresh engine from `make_engine`.
+
+    Built as the engine under test was: with tracking on from the start, and,
+    given that engine as `like`, with the translation choices it fixed at its
+    own build (`prepare_twin`) -- for APKeep, the element structure decided
+    from the INITIAL model, which an update must not change and which can
+    represent a model its default translation refuses. Never an update: the
+    oracle stays independent of the path it checks. """
     from util.in_process_driver import InProcessFaVe
     engine = make_engine()
+    engine.track_affected(True)
+    if like is not None and hasattr(like, 'prepare_twin'):
+        like.prepare_twin(engine)
     with InProcessFaVe(_Withholding(engine, set(deleted), set(down))) as fave:
         fave.replay(prefix, files=files)
         return VerdictCache(fave, engine, checks).full()

@@ -85,7 +85,8 @@ def run(test, make, prefix, stream_of, every, refusals=False):
             previous = full
             if n % every == 0 or n == len(stream):
                 test.assertEqual(
-                    full, inc.from_zero(make, prefix, checks, deleted, down),
+                    full, inc.from_zero(make, prefix, checks, deleted, down,
+                                        like=engine),
                     "%s, update %d %s: the incremental engine disagrees with "
                     "a from-zero build of the same model" % (prefix, n, update[:2]))
         stats['updates'] = len(stream)

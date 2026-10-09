@@ -171,6 +171,34 @@ class TestCrossEngine(_Tmp):
         self.assertIn('stream_sha256', got['why'])
 
 
+class TestAPKeepCell(unittest.TestCase):
+    """ BDD-APKeep through the harness: it records refusals (none on this
+    stream) and changes the same verdicts as NetPlumber. """
+
+    @require_or_skip(*_NP)
+    def test_wl_ifi_agrees_with_netplumber(self):
+        from apkeep.lib_apkeep import available as apkeep_available
+        if not apkeep_available():
+            self.skipTest("JPype or the APKeep jar is unavailable")
+        if not inputs_present('bench/wl_ifi'):
+            self.skipTest("bench/wl_ifi inputs not generated")
+        tmp = tempfile.mkdtemp(prefix='inc_apkeep_')
+        self.addCleanup(shutil.rmtree, tmp, True)
+        cells = []
+        for engine in ('apkeep', 'netplumber'):
+            out = os.path.join(tmp, engine)
+            self.assertEqual(incremental_cell.main(
+                ['bench/wl_ifi', '--engine', engine, '--stream', 's2',
+                 '--fraction', '0.1', '--status-every', '0', '--out', out]), 0)
+            cells.append(os.path.join(out, 'rep01'))
+        summary = incremental_report.summarize(incremental_report.load_cell(cells[0]))
+        self.assertEqual(summary['refused'], 0)
+        self.assertGreater(summary['changed'], 0)
+        got = incremental_compare.compare(
+            [incremental_report.load_cell(c) for c in cells])
+        self.assertTrue(got['agree'], got)
+
+
 class _Blind:
     """ An engine that reports nothing as affected -- the defect the oracle
     exists to catch. """

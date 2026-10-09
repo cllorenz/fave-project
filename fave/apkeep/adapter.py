@@ -37,6 +37,8 @@ NotImplemented stubs and APKEEP_BACKEND.md.
 
 from __future__ import annotations
 
+import collections
+import copy
 import ipaddress
 import logging
 import sys
@@ -670,6 +672,71 @@ def _dedup(items: List[str]) -> List[str]:
     return out
 
 
+def _footprint_key(source: str, probe: str) -> str:
+    """ The engine's name for a (source, probe) pair's footprint. """
+    return source + '\t' + probe
+
+
+def _rule_rank(rule: str) -> Tuple[str, int, Any]:
+    """ (element, priority, tie scope) of an APKeep rule string: two rules tie
+    -- and the one inserted LAST wins, `Element.identifyChangesInsert` -- iff
+    the three are equal. In a ForwardElement only one trie node can tie, hence
+    the prefix in the scope. Token positions follow the string builders above
+    and `ACLRule` (priority is body token 13; 65535 when absent). """
+    t = rule.split()
+    kind = t[1]
+    if kind == 'fwd':
+        return (t[2], int(t[6]), (t[3], t[4]))
+    if kind in ('filter', 'acl'):
+        return (t[2], int(t[16]) if len(t) > 16 else 65535, None)
+    if kind == 'nat':
+        element = t[2] + '_' + t[3]
+        if t[4] == 'vlan':
+            return (element, int(t[6]), None)
+        if t[4] == 'match':
+            return (element, int(t[21]) if len(t) > 21 else 65535, None)
+        return (element, 65535, None)
+    raise ValueError("unknown APKeep rule string %r" % rule)
+
+
+def _element_types(t: Dict[str, Any]) -> Dict[str, str]:
+    """ Every element a translation makes `initializeNetwork` create, with its
+    type -- the structure an update must leave as it is. """
+    types: Dict[str, str] = {}
+    for dev in t['filter_devices'] or []:
+        types[dev] = 'filter'
+    for edge in t['edges']:
+        tokens = edge.split()
+        for dev in (tokens[0], tokens[2]):
+            if dev.endswith(('_in', '_out')):
+                types.setdefault(dev, 'acl-node')
+            else:
+                types.setdefault(dev, 'fwd')
+    for dev in t['fwd_devices'] or []:
+        types.setdefault(dev, 'fwd')
+    for dev, ports in (t['device_nats'] or {}).items():
+        for port in ports:
+            types[dev + '_' + port] = 'nat'
+    for dev, names in (t['device_acls'] or {}).items():
+        for name in names:
+            types[dev + '_' + name] = 'acl'
+    return types
+
+
+def _live_state(t: Dict[str, Any]) -> Dict[str, Any]:
+    """ What an engine built or updated from translation `t` holds. """
+    return {
+        'types': _element_types(t),
+        'edges': set(t['edges']),
+        'rules': list(t['rules']),
+        # Every copy of a string is inserted, and a removal takes one copy
+        # (`Element.removeOneRule`); a ForwardElement keeps one copy only
+        # (`ForwardElement.insertOneRule`), and its strings are deduplicated
+        # (`_dedup`) anyway.
+        'copies': collections.Counter(t['rules']),
+    }
+
+
 class APKeepAdapter(AbstractVerificationEngine):
     """ Drive APKeep as a FaVe verification backend (forwarding-only, P4). """
 
@@ -686,7 +753,8 @@ class APKeepAdapter(AbstractVerificationEngine):
     }
 
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
-                 faithful_vlan: bool = True, engine: str = 'ndd') -> None:
+                 faithful_vlan: bool = True, engine: str = 'ndd',
+                 _shadow: bool = False) -> None:
         self.logger = logger
         # One shared adapter, two backend ENGINES (APKEEP_NDD_PLAN §2.5e). The
         # model construction below is engine-agnostic (it emits neutral "+ filter"
@@ -698,7 +766,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         if engine not in ('bdd', 'ndd'):
             raise ValueError("engine must be 'bdd' or 'ndd', got %r" % engine)
         self._engine = engine
-        if engine == 'ndd':
+        if _shadow:
+            # Translates only (`_shadow_translation`): no engine behind it.
+            self._ndd = None
+            self._lib = None
+            self._ndd_fwd_mode = False
+        elif engine == 'ndd':
             from apkeep.lib_ndd import LibNDD
             self._ndd = LibNDD()
             self._lib = None
@@ -706,6 +779,48 @@ class APKeepAdapter(AbstractVerificationEngine):
         else:
             self._lib = LibAPKeep()
             self._ndd = None
+        # --- updates after the build (INCREMENTAL_PLAN.md §6.2, O2) ----------
+        # Every model-construction call, in order, so a SHADOW adapter can
+        # replay them with one rule or link changed and translate the result
+        # exactly as a build would; the diff against what the engine holds is
+        # the update (`_apply_translation`).
+        self._calls: List[Tuple[str, Any]] = []
+        # node -> its add_rules batches, current and as built. A device's rules
+        # can arrive in several batches, each a partial model whose tables add
+        # up (wl_example's pgf: its filter chains, then its routing table).
+        self._models: Dict[str, List[Any]] = {}
+        self._original: Dict[str, List[Any]] = {}
+        self._down: Set[Tuple[str, str]] = set()
+        self._tracking = False
+        #: what the engine holds: element types, edges, rule strings in build
+        #: order, and how many copies of each string the engine inserted
+        self._live: Optional[Dict[str, Any]] = None
+        #: updates refused, by reason -- refused, never approximated
+        self.refused_updates: Dict[str, int] = collections.Counter()
+        #: updates taken by the per-device FIB path, and by the full one
+        self.update_paths: Dict[str, int] = collections.Counter()
+        #: node -> how many of its rules translate to each "+ fwd" string, for
+        #: the FIB path (`_fib_update`); built on a node's first such update
+        self._fib_refs: Dict[str, Dict[str, int]] = {}
+        #: tests: after every FIB-path update, check it against the full
+        #: translation (`_check_fib_update`)
+        self.verify_fib_path = False
+        # A build that expects updates (`track_affected` before it) keeps the
+        # element structure independent of the rules, because APKeep creates
+        # elements only once: it splits an ingress-qualified device into one
+        # element per ingress PORT -- not per class of ports with the same
+        # rules, which a rule update can merge or split -- and every later
+        # translation reuses that split (`_frozen_split`); an IPv6 router
+        # stays one (`_frozen_ipv6`); and it does not elide pass-through
+        # filters (`_elide_passthrough_filters`), which a rule makes or
+        # unmakes. Same answers, more elements.
+        self._for_updates = False
+        self._frozen_split: Optional[Dict[str, Dict[str, Set[str]]]] = None
+        #: the IPv6 routers of the build, which stay dst-LPM FilterElements
+        #: when an update deletes their last IPv6 route
+        self._frozen_ipv6: Set[str] = set()
+        #: the split the last `_demux_ingress` made
+        self._split: Dict[str, Dict[str, Set[str]]] = {}
         # P7b: model the wl_stanford/wl_i2 VLAN semantics faithfully (VLAN rewrite
         # via NAT + admission ACLs + probe untag) instead of the forwarding-only
         # out-stage collapse (P7a, which only matches the artificial all-to-all
@@ -839,6 +954,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         # so it never reaches APKeep (which has no VLAN). acl_in/acl_out group
         # the FaVe ACL rules by their (ingress/egress) VLAN.
         self._acl_device: Optional[str] = None
+        #: which of acl_in/acl_out the router HAS -- a VLAN no rule of it
+        #: names is dropped there, not let through (`_splice_acls`)
+        self._acl_tables: Set[str] = set()
         self._acl_in: Dict[str, List[Tuple[int, bool, Optional[str], Optional[str]]]] = {}
         self._acl_out: Dict[str, List[Tuple[int, bool, Optional[str], Optional[str]]]] = {}
         self._vlan_to_eport: Dict[str, str] = {}  # egress VLAN -> router port
@@ -1061,6 +1179,7 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def add_tables(self, model: Any) -> None:
         self._refuse_after_build('add_tables', model.node)
+        self._calls.append(('add_tables', model))
         # Routers and switches all become dst-IP ForwardElements. The wl_stanford
         # out. stage is an in-port permutation (not a FIB) collapsed into the
         # topology at build -- but that is decided THERE, keyed on the mid. stage
@@ -1071,6 +1190,16 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def add_rules(self, model: Any) -> None:
         self._refuse_after_build('add_rules', model.node)
+        batches = self._original.setdefault(model.node, [])
+        self._calls.append(('add_rules', (model.node, len(batches))))
+        # A SNAPSHOT, not the object: the aggregator keeps adding later
+        # batches' rules to the model it handed over (wl_example's dmz arrives
+        # as an empty table, then as two rules -- and the first object ends up
+        # holding them too), so replaying the object would add them twice.
+        snapshot = copy.copy(model)
+        snapshot.tables = {tid: list(rows) for tid, rows in model.tables.items()}
+        batches.append(snapshot)
+        self._models[model.node] = list(batches)
         # Only the router's routing table and the switch's flat table hold real
         # dst-IP forwarding. The router's pre_routing/post_routing carry VLAN/
         # egress plumbing, and acl_in/acl_out carry ACL rules that "forward" to
@@ -1096,6 +1225,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         acl_out_t = model.node + '.acl_out'
         for table, rules in model.tables.items():
             if table in fwd_tables:
+                # The table EXISTS even when it holds no rule: an undeclared
+                # one is first-match either way (`_first_match_devices`), so a
+                # device does not change element type when its last rule is
+                # deleted -- which an update could not follow -- or before its
+                # first one arrives. Empty, both element types forward nothing.
+                self._fwd_table.setdefault(model.node, [])
                 for rule in rules:
                     # A packet_filter device's `routing` table is NOT a plain dst-IP
                     # FIB: its egress is selected by an `out_port` MATCH field (over
@@ -1121,9 +1256,11 @@ class APKeepAdapter(AbstractVerificationEngine):
                         self._capture_in_admit(model.node, rule)
             elif table == acl_in_t:
                 self._acl_device = model.node
+                self._acl_tables.add('in')
                 self._capture_acl(self._acl_in, rules)
             elif table == acl_out_t:
                 self._acl_device = model.node
+                self._acl_tables.add('out')
                 self._capture_acl(self._acl_out, rules)
             elif table == model.node + '.pre_routing':
                 self._capture_iport_vlan(rules)
@@ -1458,12 +1595,19 @@ class APKeepAdapter(AbstractVerificationEngine):
         reports for this network.
         """
         qualified = self._ingress_qualified(edges)
-        if not qualified:
+        frozen = self._frozen_split or {}
+        self._split = {}
+        if not qualified and not frozen:
             return edges, fwd_rules
 
         arriving = self._ingress_ports(edges)
         split: Dict[str, Dict[str, Set[str]]] = {}
-        for device in sorted(qualified):
+        for device in sorted(set(qualified) | set(frozen)):
+            if device in frozen:
+                # As the build split it (`_frozen_split`), whatever the rules
+                # and links now say: an update cannot create elements.
+                split[device] = frozen[device]
+                continue
             # A packet_filter is NOT split here. This pass re-keys `_fwd_rules`
             # and `_router_fib`; a filter device's behaviour also lives in
             # `_pf_rules` and `_filter_fib`, which it does not touch, so
@@ -1493,10 +1637,16 @@ class APKeepAdapter(AbstractVerificationEngine):
             classes = self._ingress_classes(
                 device, arriving.get(device, set()),
                 self._device_tokens(device, fwd_rules))
-            if len(classes) < 2:
+            if len(classes) < 2 and not self._for_updates:
                 continue                       # nothing to gain from a split
+            if self._for_updates:
+                # Per port even where the rules do not discriminate yet: one
+                # update can make them.
+                classes = {self._element_name(device, {port}): {port}
+                           for port in arriving.get(device, set())}
             split[device] = classes
 
+        self._split = split
         if not split:
             return edges, fwd_rules
 
@@ -1548,8 +1698,11 @@ class APKeepAdapter(AbstractVerificationEngine):
                         self._router_fib[name] = held
             if device in self._ipv6_fib_devices:
                 self._ipv6_fib_devices.discard(device)
+                # For updates every element of the split stays a FIB filter,
+                # also one with no route left (`_for_updates`).
                 self._ipv6_fib_devices.update(
-                    name for name in classes if name in self._router_fib)
+                    name for name in classes
+                    if name in self._router_fib or self._for_updates)
 
         for device, classes in split.items():
             self._fwd_devices.discard(device)
@@ -1831,6 +1984,7 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def add_link(self, sport: str, dport: str) -> None:
         self._refuse_after_build('add_link', "%s, %s" % (sport, dport))
+        self._calls.append(('add_link', (sport, dport)))
         self._edges.append("%s %s %s %s" % (_split_port(sport) + _split_port(dport)))
 
     def add_links_bulk(self, links: Any, use_dynamic: bool = False) -> None:
@@ -1839,6 +1993,7 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def add_generator(self, model: Any) -> None:
         self._refuse_after_build('add_generator', model.node)
+        self._calls.append(('add_generator', model))
         self._generators[model.node] = model.node + '.1'
         # Capture the injected source IP (for ACL src-seeding) and ingress VLAN
         # (to wire acl_in onto this source's ingress port). Hand-built generators
@@ -1871,6 +2026,7 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def add_probe(self, model: Any) -> None:
         self._refuse_after_build('add_probe', model.node)
+        self._calls.append(('add_probe', model))
         self._probes[model.node] = model.node + '.1'
 
     # --- build + query -------------------------------------------------------
@@ -1878,6 +2034,71 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _build(self) -> None:
         if self._built:
             return
+        if self._tracking and self._engine == 'bdd':
+            self._for_updates = True
+            self._frozen_ipv6 |= self._ipv6_fib_devices
+        t = self._translate()
+        if self._for_updates and self._frozen_split is None:
+            self._frozen_split = {device: {name: set(ports)
+                                           for name, ports in classes.items()}
+                                  for device, classes in self._split.items()}
+        edges, all_rules = t['edges'], t['rules']
+        if self._engine == 'ndd':
+            # The NDD engine covers forwarding (+fwd/+filter), ACLs (+acl,
+            # permit/deny as a residual out_port), and VLAN rewrite (+nat, an
+            # inline per-field exist+set on the egress port) -- i.e. every element
+            # type these benchmarks emit.
+            #
+            # A PURE dst-IP FIB (only +fwd rules: wl_i2's 77k routes,
+            # wl_stanford-P7a) blows up the monolithic residual, so route it to
+            # the atomic-predicate forwarding engine (AtomForwarding): elementary
+            # dst intervals + per-device LPM + signature-merge -> the minimal atom
+            # partition, atom-set flood. Everything else uses the general engine.
+            self._ndd_fwd_mode = bool(all_rules) and all(
+                len(r.split()) > 1 and r.split()[1] == 'fwd' for r in all_rules)
+            if self._ndd_fwd_mode:
+                self._ndd.build_fwd_atoms(all_rules, edges)
+                self._build_metrics = {"atoms": self._ndd.atom_count()}
+            else:
+                self._ndd.build(all_rules, edges)
+                self._build_metrics = {}
+            self._single_universe = True
+            self._build_metrics.update(self._cost_metrics(all_rules))
+            self._release_build_buffers()
+            self._built = True
+            return
+        self._lib.init_in_memory("fave", edges, t['fwd_devices'],
+                                 t['device_acls'], t['device_nats'],
+                                 device_filters=t['filter_devices'] or None,
+                                 bdd_table_size=t['bdd_table'])
+        # Apply ACLs BEFORE the VLAN-rewrite NATs: the ACLs split atomic predicates
+        # on VLAN, and the NAT rewrite table must be built over that final
+        # partition (a later ACL split would leave APs the NAT never rewrites).
+        self._lib.run(all_rules)
+        # Phase 7 fail-safe: the per-source reachability fixpoint is exact only in
+        # a SINGLE AP universe -- no ACLElement/NATElement divides the space, so the
+        # join at path merges is exact union. Read it back from the BUILT network
+        # (not the adapter's intent): guard keys on element presence, not the
+        # division flag (wl_up has division_activated=True yet zero ACLElements).
+        m = self._lib.element_metrics()
+        self._single_universe = (m["ACLElement"] == 0 and m["NATElement"] == 0)
+        self._build_metrics = dict(m)
+        self._build_metrics.update(self._cost_metrics(all_rules))
+        self._release_build_buffers()
+        self._built = True
+        if self._tracking:
+            # What the engine holds, for the next update to be diffed against
+            # (`_apply_translation`); kept only when updates are expected.
+            self._live = _live_state(t)
+            self._lib.track(True)
+
+    def _translate(self) -> Dict[str, Any]:
+        """ The buffered FaVe model as APKeep input -- edges, the element lists
+        `init_in_memory` takes, and the rule strings `run` applies -- without
+        touching an engine. A function of the buffers alone, so a shadow adapter
+        replaying the same calls with one rule changed yields exactly what a
+        build of the changed model would (`_shadow_translation`). """
+        self._ipv6_fib_devices |= self._frozen_ipv6
         # wl_stanford (and only it) has a mid. stage; its out. stage is an in-port
         # permutation to collapse. wl_i2 is in/out only -- its out. stage is a real
         # FIB, so it must NOT be collapsed. Decide here, now all devices are known.
@@ -2024,49 +2245,10 @@ class APKeepAdapter(AbstractVerificationEngine):
         # The combined, engine-neutral rule IR (identical to what the BDD engine's
         # run() receives, and to what wl_up_dump2.py captures for the NDD tests).
         all_rules = _dedup(fwd_rules) + acl_rules + nat_rules + filter_rules_all
-        if self._engine == 'ndd':
-            # The NDD engine covers forwarding (+fwd/+filter), ACLs (+acl,
-            # permit/deny as a residual out_port), and VLAN rewrite (+nat, an
-            # inline per-field exist+set on the egress port) -- i.e. every element
-            # type these benchmarks emit.
-            #
-            # A PURE dst-IP FIB (only +fwd rules: wl_i2's 77k routes,
-            # wl_stanford-P7a) blows up the monolithic residual, so route it to
-            # the atomic-predicate forwarding engine (AtomForwarding): elementary
-            # dst intervals + per-device LPM + signature-merge -> the minimal atom
-            # partition, atom-set flood. Everything else uses the general engine.
-            self._ndd_fwd_mode = bool(all_rules) and all(
-                len(r.split()) > 1 and r.split()[1] == 'fwd' for r in all_rules)
-            if self._ndd_fwd_mode:
-                self._ndd.build_fwd_atoms(all_rules, edges)
-                self._build_metrics = {"atoms": self._ndd.atom_count()}
-            else:
-                self._ndd.build(all_rules, edges)
-                self._build_metrics = {}
-            self._single_universe = True
-            self._build_metrics.update(self._cost_metrics(all_rules))
-            self._release_build_buffers()
-            self._built = True
-            return
-        self._lib.init_in_memory("fave", edges, fwd_devices,
-                                 device_acls, device_nats,
-                                 device_filters=filter_devices or None,
-                                 bdd_table_size=bdd_table)
-        # Apply ACLs BEFORE the VLAN-rewrite NATs: the ACLs split atomic predicates
-        # on VLAN, and the NAT rewrite table must be built over that final
-        # partition (a later ACL split would leave APs the NAT never rewrites).
-        self._lib.run(all_rules)
-        # Phase 7 fail-safe: the per-source reachability fixpoint is exact only in
-        # a SINGLE AP universe -- no ACLElement/NATElement divides the space, so the
-        # join at path merges is exact union. Read it back from the BUILT network
-        # (not the adapter's intent): guard keys on element presence, not the
-        # division flag (wl_up has division_activated=True yet zero ACLElements).
-        m = self._lib.element_metrics()
-        self._single_universe = (m["ACLElement"] == 0 and m["NATElement"] == 0)
-        self._build_metrics = dict(m)
-        self._build_metrics.update(self._cost_metrics(all_rules))
-        self._release_build_buffers()
-        self._built = True
+        return {'edges': edges, 'fwd_devices': fwd_devices,
+                'device_acls': device_acls, 'device_nats': device_nats,
+                'filter_devices': filter_devices, 'rules': all_rules,
+                'bdd_table': bdd_table}
 
     def _release_build_buffers(self) -> None:
         """ Drop the per-rule buffers once the engine holds the rules.
@@ -2623,6 +2805,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         are never touched (they are query endpoints / real forwarders, not identity
         filters). Iterated to a fixpoint so chains of pass-throughs collapse.
         Returns (edges, kept_elems, kept_rules). """
+        if self._for_updates:
+            return edges, elems, rules        # see `_for_updates`
         rules_by_elem: Dict[str, List[List[str]]] = {}
         for r in rules:
             t = r.split()
@@ -3044,19 +3228,25 @@ class APKeepAdapter(AbstractVerificationEngine):
         # Map router ports -> the VLAN group to enforce there. Ports whose
         # ingress VLAN is set by pre_routing (e.g. the Internet port -> 4095)
         # come first; the rest are traced from each source's generator VLAN.
-        in_port_vlan: Dict[str, str] = {
-            port: vlan for port, vlan in self._iport_vlan.items()
-            if vlan in self._acl_in
-        }
-        for source, vlan in self._gen_vlan.items():
-            if vlan in self._acl_in:
+        #
+        # EVERY port with a known VLAN gets its ACL, also when no rule names
+        # that VLAN: the table is first-match and a miss drops, so its element
+        # is then deny-all (an ACLElement's default). Until 2026-10-10 such a
+        # port got no element and let everything through -- unreached by any
+        # build (every VLAN in use had rules), found when an update deleted
+        # wl_ifi's only rule for VLAN 464 and NetPlumber and APKeep disagreed.
+        # It also keeps the element structure from depending on the rules.
+        in_port_vlan: Dict[str, str] = {}
+        out_port_vlan: Dict[str, str] = {}
+        if 'in' in self._acl_tables:
+            in_port_vlan.update(self._iport_vlan)
+            for source, vlan in self._gen_vlan.items():
                 port = ingress_port(source)
                 if port is not None:
                     in_port_vlan[port] = vlan
-        out_port_vlan: Dict[str, str] = {
-            port: vlan for vlan, port in self._vlan_to_eport.items()
-            if vlan in self._acl_out
-        }
+        if 'out' in self._acl_tables:
+            out_port_vlan.update(
+                {port: vlan for vlan, port in self._vlan_to_eport.items()})
 
         # Emit ACLElements + their rules.
         acl_names: set = set()
@@ -3064,12 +3254,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         for port, vlan in in_port_vlan.items():
             element = "%s_inACLp%s" % (dev, port)
             acl_names.add("inACLp%s" % port)
-            for idx, permit, src, dst in self._acl_in[vlan]:
+            for idx, permit, src, dst in self._acl_in.get(vlan, []):
                 acl_rules.append(_acl_rule_string(element, permit, src, dst, idx))
         for port, vlan in out_port_vlan.items():
             element = "%s_outACLp%s" % (dev, port)
             acl_names.add("outACLp%s" % port)
-            for idx, permit, src, dst in self._acl_out[vlan]:
+            for idx, permit, src, dst in self._acl_out.get(vlan, []):
                 acl_rules.append(_acl_rule_string(element, permit, src, dst, idx))
 
         # Splice the ACL nodes into the router's directed edges.
@@ -3181,6 +3371,8 @@ class APKeepAdapter(AbstractVerificationEngine):
             pdev, pport = _split_port(self._probes[probe_name])
             for source_name, negated, cond in src_rules:
                 sdev, sport = _split_port(self._generators[source_name])
+                key = (_footprint_key(source_name, probe_name)
+                       if self._tracking else None)
                 related, conditions = self._query_conditions(
                     cond, source_name, probe_name)
                 # With ACLs present, seed reachability with the source's actual
@@ -3232,7 +3424,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                     prefix, plen = _cidr_to_apkeep(src_cidr)
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, prefix, plen, target_vlan=tvlan,
-                        related=related, conditions=conditions)
+                        related=related, conditions=conditions,
+                        footprint_key=key)
                 elif self._src_seeded_source(src_cidr):
                     # Phase C1 Lever B: single-universe IPv6 source -> seed the
                     # exact src-IPv6 BDD into the query (excludes spoofed-src
@@ -3240,11 +3433,13 @@ class APKeepAdapter(AbstractVerificationEngine):
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, target_vlan=tvlan,
                         src_cidr=str(src_cidr), related=related,
-                        conditions=conditions)
+                        conditions=conditions,
+                        footprint_key=key)
                 else:
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, target_vlan=tvlan,
-                        related=related, conditions=conditions)
+                        related=related, conditions=conditions,
+                        footprint_key=key)
                 # `negated` True means "must not reach"; violation if the
                 # observed reachability contradicts the expectation.
                 must_reach = not negated
@@ -3257,6 +3452,359 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def clear_results(self) -> None:
         self._results = []
+
+    # --- updates after the build (INCREMENTAL_PLAN.md §6.2; O2, O6) ----------
+    #
+    # An update re-translates the whole model on a SHADOW adapter -- the build's
+    # own code, with one rule or link changed -- and applies the difference:
+    # "-"/"+" rule strings through APKeep's `updateRule`, edges through
+    # `setLink`. So an update can never be translated differently from a build,
+    # whatever whole-table decision the translation makes (demultiplexed
+    # ingress, NAT shadowing, pass-through elision, the stanford/i2 stages).
+    # What the engine cannot take in place -- a new element, an element changing
+    # type -- is refused and counted, never approximated
+    # (APKEEP_INCREMENTAL_SCOPE.md §3, tiers A and B; tier C as far as its
+    # updates leave the elements alone). The cost is one translation per
+    # update, charged to the update.
+
+    def prepare_twin(self, other: 'APKeepAdapter') -> None:
+        """ Make `other`, not yet built, translate with the element structure
+        THIS adapter fixed at its build (`_for_updates`): the split per ingress
+        port and the IPv6 routers of the initial model. For the from-zero
+        oracle (`util.incremental.from_zero`), whose model an update stream may
+        have taken where the default translation refuses. """
+        if self._for_updates:
+            other._frozen_split = self._frozen_split
+            other._frozen_ipv6 = set(self._frozen_ipv6)
+
+    def track_affected(self, on: bool) -> None:
+        self._tracking = on
+        if self._built and self._lib is not None:
+            if on and self._live is None:
+                self._live = _live_state(self._shadow_translation(
+                    self._models, self._down))
+            self._lib.track(on)
+
+    def take_affected(self) -> Optional[Set[Tuple[str, str]]]:
+        if not self._tracking or self._lib is None or not self._built:
+            return None
+        out = set()
+        for key in self._lib.take_affected():
+            source, _sep, probe = key.partition('\t')
+            out.add((source, probe))
+        return out
+
+    def _refuse(self, reason: str, message: str) -> None:
+        self.refused_updates[reason] += 1
+        raise UpdateRefused("APKeepAdapter: " + message)
+
+    def _require_updatable(self, op: str) -> None:
+        if self._engine != 'bdd':
+            self._refuse('engine', "%s: the NDD-flood engine builds from zero "
+                         "and takes no updates (APKEEP_INCREMENTAL_SCOPE.md)" % op)
+        if not self._built:
+            self._refuse('unbuilt', "%s before the build: there is nothing to "
+                         "update yet" % op)
+
+    def _shadow_translation(self, models: Dict[str, List[Any]],
+                            down: Set[Tuple[str, str]]) -> Dict[str, Any]:
+        """ Translate the model the recorded calls built, with `models` for
+        the devices' rule batches and the links in `down` left out. """
+        quiet = logging.getLogger('apkeep.shadow')
+        quiet.setLevel(logging.ERROR)
+        shadow = APKeepAdapter(quiet, faithful_vlan=self._faithful_vlan,
+                               engine=self._engine, _shadow=True)
+        shadow._for_updates = self._for_updates
+        shadow._frozen_split = self._frozen_split
+        shadow._frozen_ipv6 = self._frozen_ipv6
+        for op, arg in self._calls:
+            if op == 'add_rules':
+                shadow.add_rules(models[arg[0]][arg[1]])
+            elif op == 'add_link':
+                if arg not in down:
+                    shadow.add_link(*arg)
+            else:
+                getattr(shadow, op)(arg)
+        t = shadow._translate()
+        t['rewritten'] = shadow._rewritten_fields()
+        return t
+
+    def _apply_translation(self, op: str, models: Dict[str, List[Any]],
+                           down: Set[Tuple[str, str]]) -> None:
+        """ Bring the engine from what it holds to the translation of `models`
+        and `down`, or refuse and leave it untouched. """
+        if self._live is None:
+            self._live = _live_state(self._shadow_translation(
+                self._models, self._down))
+        try:
+            new = self._shadow_translation(models, down)
+        except (UntranslatedSemantics, ValueError) as err:
+            # The translation refuses the CHANGED model, exactly as a build of
+            # it would; so is the update.
+            self._refuse('untranslatable', "%s leaves a model the translation "
+                         "refuses: %s" % (op, err))
+        live = self._live
+        types = _element_types(new)
+        missing = sorted(name for name, kind in types.items()
+                         if live['types'].get(name) != kind)
+        if missing:
+            self._refuse('structural', "%s changes the element structure (%s%s); "
+                         "APKeep creates elements only when the network is "
+                         "initialised" % (op, ', '.join(missing[:5]),
+                                          '...' if len(missing) > 5 else ''))
+        old_rules = set(live['copies'])
+        new_rules = set(new['rules'])
+        removed = old_rules - new_rules
+        added = new_rules - old_rules
+        # Ties (O6): APKeep resolves equal priority as "inserted last wins", so
+        # a build resolves a tie by LIST order. An added rule would win every
+        # tie it is in; where a tied rule comes after it in the new list, that
+        # rule is taken out and put back after it, so the engine ends where a
+        # build of the new list would. Removal needs nothing: the fork hands a
+        # removed rule's packets back as if it had never been inserted.
+        position: Dict[str, int] = {}
+        for i, rule in enumerate(new['rules']):
+            position.setdefault(rule, i)
+        ties: Dict[Tuple[str, int, Any], List[str]] = collections.defaultdict(list)
+        for rule in new_rules:
+            ties[_rule_rank(rule)].append(rule)
+        again = set()
+        for rule in added:
+            for other in ties[_rule_rank(rule)]:
+                if other not in added and position[other] > position[rule]:
+                    again.add(other)
+        updates: List[str] = []
+        copies = live['copies']
+        for rule in sorted(removed | again, key=lambda r: -position.get(r, -1)):
+            updates.extend(['- ' + rule[2:]] * copies[rule])
+        for rule in sorted(added | again, key=lambda r: position[r]):
+            updates.append(rule)
+        if updates:
+            self._lib.update(updates)
+        for edge in sorted(live['edges'] - set(new['edges'])):
+            self._lib.set_link(*edge.split(), up=False)
+        for edge in sorted(set(new['edges']) - live['edges']):
+            self._lib.set_link(*edge.split(), up=True)
+        # Commit. Element types only ever accumulate: an element the new
+        # translation no longer names still exists in the engine.
+        types.update(live['types'])
+        self._live = {'types': types, 'edges': set(new['edges']),
+                      'rules': list(new['rules']),
+                      'copies': collections.Counter(
+                          {rule: (1 if rule in added or rule in again
+                                  else copies[rule]) for rule in new_rules})}
+        self._models = models
+        self._down = down
+        self._rewritten_cache = new['rewritten']
+
+    def _fib_rule_strings(self, node: str, rule: Any) -> Optional[List[str]]:
+        """ The "+ fwd" strings one rule of a plain FIB translates to on its
+        own -- per element of a frozen split, as `_demux_ingress` re-keys them
+        -- or None if it is not such a rule: destination match only, no
+        rewrite but the egress, and ingress qualification only on a device
+        split per port. """
+        split = (self._frozen_split or {}).get(node)
+        if rule.in_ports and split is None:
+            return None
+        strings = self._own_fib_strings(node, rule)
+        if strings is None or split is None:
+            return strings
+        held = {_split_port(p)[1] for p in rule.in_ports} if rule.in_ports else None
+        out = []
+        for string in strings:
+            tokens = string.split()
+            for name, ports in split.items():
+                if held is None or (held & ports):
+                    out.append(' '.join(tokens[:2] + [name] + tokens[3:]))
+        return out
+
+    def _own_fib_strings(self, node: str, rule: Any) -> Optional[List[str]]:
+        """ `_translate_fwd_rule` on one rule, or None if the rule is not a
+        plain route: destination match only, no rewrite but the egress. """
+        if any(f.name != _DST for f in (rule.match or [])):
+            return None
+        for action in rule.actions or []:
+            if isinstance(action, Rewrite) and any(
+                    f.name != _OUT_PORT for f in action.rewrite):
+                return None
+        scratch = APKeepAdapter(logging.getLogger('apkeep.shadow'),
+                                faithful_vlan=self._faithful_vlan,
+                                engine=self._engine, _shadow=True)
+        scratch._translate_fwd_rule(node, rule)
+        return list(scratch._fwd_rules)
+
+    def _fib_device(self, node: str, tid: str) -> bool:
+        """ Whether `node`'s strings follow from its own rules alone: a plain
+        FIB -- declared longest-prefix-match, one ForwardElement or a frozen
+        per-port split of it (`_frozen_split`), not an HSA stage, not a packet
+        filter or an IPv6 router (whose routing table feeds other elements). """
+        if self._live is None or tid not in (node + '.1', node + '.routing'):
+            return False
+        if node not in self._declared_lpm or _is_staged(node):
+            return False
+        if node in self._filter_devices or node in self._ipv6_fib_devices:
+            return False
+        if self._frozen_split and node in self._frozen_split:
+            return all(self._live['types'].get(name) == 'fwd'
+                       for name in self._frozen_split[node])
+        types = self._live['types']
+        if types.get(node) != 'fwd':
+            return False
+        prefix = node + self.INGRESS_CLASS_SEP
+        return not any(name.startswith(prefix) for name in types)
+
+    def _fib_update(self, op: str, node: str, batch: int, tid: str,
+                    rows: List[Any], rule: Any, insert: bool) -> bool:
+        """ The per-device path for a plain FIB (`_fib_device`): the update's
+        strings are the rule's own, counted per string across the device's
+        rules; a string is added when its first rule arrives and removed with
+        its last. Returns False -- the caller then re-translates the whole
+        model -- for anything else, and for an added string that would TIE
+        with a live one (same prefix, another egress), which only the full
+        path orders. Checked against the full translation in tests
+        (`verify_fib_path`). """
+        if not self._fib_device(node, tid):
+            return False
+        mine = self._fib_rule_strings(node, rule)
+        if mine is None:
+            return False
+        refs = self._fib_refs.get(node)
+        if refs is None:
+            refs = collections.Counter()
+            for model in self._models[node]:
+                for table in (node + '.1', node + '.routing'):
+                    for other in model.tables.get(table, []):
+                        strings = self._fib_rule_strings(node, other)
+                        if strings is None:
+                            return False
+                        refs.update(strings)
+            self._fib_refs[node] = refs
+        live = self._live
+        updates: List[str] = []
+        if insert:
+            fresh = [s for s in dict.fromkeys(mine) if refs[s] == 0]
+            elements = set((self._frozen_split or {}).get(node, {})) | {node}
+            ranks = {_rule_rank(r) for r in live['copies']
+                     if r.split()[2] in elements}
+            if any(_rule_rank(s) in ranks for s in fresh):
+                return False
+            updates = fresh
+        else:
+            gone = [s for s in dict.fromkeys(mine) if refs[s] - mine.count(s) <= 0]
+            updates = ['- ' + s[2:] for s in gone]
+        if updates:
+            self._lib.update(updates)
+        for s in mine:
+            refs[s] += 1 if insert else -1
+        for s in dict.fromkeys(mine):
+            if refs[s] <= 0:
+                del refs[s]
+                live['copies'].pop(s, None)
+                if s in live['rules']:
+                    live['rules'].remove(s)
+            elif s not in live['copies']:
+                live['copies'][s] = 1
+                live['rules'].append(s)
+        models = dict(self._models)
+        models[node] = list(self._models[node])
+        changed = copy.copy(self._models[node][batch])
+        changed.tables = dict(changed.tables)
+        changed.tables[tid] = rows
+        models[node][batch] = changed
+        self._models = models
+        self.update_paths['fib'] += 1
+        if self.verify_fib_path:
+            self._check_fib_update(op)
+        return True
+
+    def _check_fib_update(self, op: str) -> None:
+        full = self._shadow_translation(self._models, self._down)
+        held = set(self._live['copies'])
+        if held != set(full['rules']):
+            raise AssertionError(
+                "%s: the FIB path left %d string(s) a build would not have and "
+                "lacks %d it would" % (op, len(held - set(full['rules'])),
+                                       len(set(full['rules']) - held)))
+
+    def _replace_table(self, op: str, node: str, batch: int, tid: str,
+                       rows: List[Any]) -> None:
+        model = self._models[node][batch]
+        changed = copy.copy(model)
+        changed.tables = dict(model.tables)
+        # The table in the order the batch first gave it, so a rule put back
+        # sits where a build would have it; a rule never seen goes after, by
+        # index.
+        rank = {r.idx: i for i, r in enumerate(
+            self._original[node][batch].tables.get(tid, []))}
+        changed.tables[tid] = sorted(
+            rows, key=lambda r: (rank.get(r.idx, len(rank)), r.idx))
+        before = {r.idx for r in self._models[node][batch].tables.get(tid, [])}
+        after = {r.idx for r in changed.tables[tid]}
+        moved = [r for r in changed.tables[tid] if r.idx not in before] or \
+                [r for r in self._models[node][batch].tables.get(tid, [])
+                 if r.idx not in after]
+        if len(moved) == 1 and self._fib_update(
+                op, node, batch, tid, changed.tables[tid], moved[0],
+                insert=len(after) > len(before)):
+            return
+        models = dict(self._models)
+        models[node] = list(self._models[node])
+        models[node][batch] = changed
+        self.update_paths['full'] += 1
+        self._apply_translation(op, models, self._down)
+        self._fib_refs.pop(node, None)     # rebuilt from the models when next needed
+
+    def _batch_of(self, node: str, tid: str, idx: int,
+                  batches: List[Any]) -> Optional[int]:
+        for k, model in enumerate(batches):
+            if any(r.idx == idx for r in model.tables.get(tid, [])):
+                return k
+        return None
+
+    def insert_rule(self, rule: Any) -> None:
+        op = "insert_rule(%s, %s, %s)" % (rule.node, rule.tid, rule.idx)
+        self._require_updatable(op)
+        batches = self._models.get(rule.node, [])
+        if self._batch_of(rule.node, rule.tid, rule.idx, batches) is not None:
+            self._refuse('present', "%s: the rule is already present; a modify "
+                         "is a delete followed by an insert" % op)
+        # Back into the batch it was built in; a new rule into the last batch
+        # that carries its table.
+        batch = self._batch_of(rule.node, rule.tid, rule.idx,
+                               self._original.get(rule.node, []))
+        if batch is None:
+            carrying = [k for k, m in enumerate(batches) if rule.tid in m.tables]
+            if not carrying:
+                self._refuse('unknown', "%s: a table the model does not have" % op)
+            batch = carrying[-1]
+        rows = batches[batch].tables.get(rule.tid, [])
+        self._replace_table(op, rule.node, batch, rule.tid, list(rows) + [rule])
+
+    def delete_rule(self, node: str, tid: str, idx: int) -> None:
+        op = "delete_rule(%s, %s, %s)" % (node, tid, idx)
+        self._require_updatable(op)
+        batches = self._models.get(node, [])
+        batch = self._batch_of(node, tid, idx, batches)
+        if batch is None:
+            self._refuse('unknown', "%s: no such rule" % op)
+        rows = batches[batch].tables[tid]
+        self._replace_table(op, node, batch, tid, [r for r in rows if r.idx != idx])
+
+    def set_link(self, sport: str, dport: str, up: bool) -> None:
+        op = "set_link(%s, %s, %s)" % (sport, dport, up)
+        self._require_updatable(op)
+        link = (sport, dport)
+        if link not in {arg for name, arg in self._calls if name == 'add_link'}:
+            self._refuse('unknown', "%s: a link the model never had" % op)
+        if (link in self._down) != up:
+            self._refuse('present', "%s: the link is already %s"
+                         % (op, 'up' if up else 'down'))
+        down = set(self._down)
+        if up:
+            down.discard(link)
+        else:
+            down.add(link)
+        self._apply_translation(op, self._models, down)
 
     # --- not yet supported (not exercised by the forwarding-only smoke) ------
 

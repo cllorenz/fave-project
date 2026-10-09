@@ -40,6 +40,10 @@ of `--batch` updates, and writes what happened into `--cell-dir`:
                       with old and new verdict, RSS after the batch, and a
                       monotonic timestamp;
 * `oracle.jsonl`   -- only in an oracle run (below);
+* refusals         -- an update the engine refuses before changing anything
+                      (APKeep: one that would need a new element) is recorded
+                      in its batch's line with the reason, and the stream goes
+                      on with the model as it was;
 * `end.json`       -- written when the stream ends on its own.
 
 Nothing is summarised here: every statistic is generated from these files by
@@ -82,11 +86,11 @@ sys.path.insert(0, os.path.abspath(
 from bench.cell_run import engine_commit
 from util import incremental as inc
 
-ENGINES = ('netplumber', 'veriflow')
+ENGINES = ('netplumber', 'veriflow', 'apkeep')
 STREAMS = ('s1', 's2', 's3')
 
 #: the engine's source tree, for `engine_commit`
-_TREES = {'netplumber': 'net_plumber', 'veriflow': 'veriflow_fr'}
+_TREES = {'netplumber': 'net_plumber', 'veriflow': 'veriflow_fr', 'apkeep': 'apkeep'}
 
 _PAGE_MB = resource.getpagesize() / (1024.0 * 1024.0)
 
@@ -97,6 +101,11 @@ def make_engine(name):
     if name == 'netplumber':
         from netplumber.lib_adapter import NetPlumberLibAdapter
         return lambda: NetPlumberLibAdapter(log)
+    if name == 'apkeep':
+        # BDD-APKeep: the engine that takes updates (APKEEP_INCREMENTAL_SCOPE.md);
+        # NDD-flood builds from zero only.
+        from apkeep.adapter import APKeepAdapter
+        return lambda: APKeepAdapter(log, engine='bdd')
     from veriflow.adapter import VeriFlowAdapter
     return lambda: VeriFlowAdapter(log)
 
@@ -222,10 +231,11 @@ def run(args):
         for b, start in enumerate(range(0, len(stream), args.batch)):
             batch = stream[start:start + args.batch]
             each = []
+            refused = []
             t_a = time.perf_counter()
             for update in batch:
                 t_u = time.perf_counter()
-                inc.apply(engine, update, deleted, down)
+                inc.apply(engine, update, deleted, down, refused)
                 each.append(time.perf_counter() - t_u)
             t_b = time.perf_counter()
             affected = engine.take_affected()
@@ -241,6 +251,8 @@ def run(args):
                              else sorted([s, p] for s, p in affected)),
                 'rechecked': len(rechecked),
                 'changed': [list(c) for c in cache.last_changes],
+                'refused': [[start + batch.index(u), reason]
+                            for u, reason in refused],
                 'rss_mb': rss_mb(), 'mono': time.monotonic(),
             })
             if not oracle:
@@ -253,7 +265,7 @@ def run(args):
                 t_o = time.perf_counter()
                 full = cache.ask(checks)
                 zero = inc.from_zero(make, args.workload, checks, deleted, down,
-                                     files=files)
+                                     files=files, like=engine)
                 record.update({
                     'full': True,
                     'selective_vs_full': sorted(

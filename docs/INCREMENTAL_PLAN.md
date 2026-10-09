@@ -426,7 +426,8 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
 | 3. FaVe side | **done** — `VerdictCache`, selective re-verification, the from-zero oracle (a fresh engine behind a wrapper that withholds deleted rules and downed links) | `bff573f7` |
 | 4. VeriFlow-FR | **done** — per-rule translation, walk footprints, LPM as on NetPlumber | `518e75cb`, `0430d036` |
 | 5a. NetPlumber and VeriFlow-FR LPM (O1) | **done** — 32-bit bands (NetPlumber `_lpm_index`, VeriFlow-FR `plen·2^40 − idx`), a late route lands where a build puts it; the validator refuses a negated destination; `_RULE_IDX_MAX` = 2^20−1. Tested by moving every declared route of `wl_stanford` to an index the build never saw: verdicts unchanged, and an insert path that forgets the band fails it on both engines | this branch |
-| 5b. APKeep | **in progress** — `APKEEP_INCREMENTAL_SCOPE.md` steps 1–3 (BDD) | — |
+| 5b. BDD-APKeep | **done** — `APKEEP_INCREMENTAL_SCOPE.md` §7: a shadow re-translation per update (per rule for plain FIBs), its difference applied through `updateRule`/`setLink`; footprints in the fork; element structure fixed at build, updates that would change it refused and counted (2 of 50 on `wl_example` S1, none elsewhere). Held to the oracle on `wl_example`, `wl_ifi`, `wl_airtel1` (sample); agrees with NetPlumber update by update on `wl_ifi`. Not on `wl_cloud` (a 3.24 h build) | this branch |
+| 5c. NDD-APKeep | open — scope steps 4–5 | — |
 | 6. harness | **done but the protocol** — raw per-batch records (`incremental_run.py`), a cell under stamped wall/RSS/per-update limits with repetitions (`incremental_cell.py`, the per-update limit as a stall guard in `cell_run.run_cell`), statistics only from the records (`incremental_report.py`), the cross-engine check (`incremental_compare.py`), the oracle run (`--oracle-sample k --oracle-every N`) | `5a518599`, this branch |
 
 Held to the oracle in `test_incremental_{netplumber,veriflow}.py` on
