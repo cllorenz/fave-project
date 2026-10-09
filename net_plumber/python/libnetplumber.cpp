@@ -322,6 +322,13 @@ class LibNetPlumber {
     }
     void clear_results() { compliance_results_.clear(); }
 
+    // INCREMENTAL_PLAN.md §6.3: (root source, probe) pairs whose flows changed
+    // since the last call, while tracking is on.
+    void set_track_affected(bool on) { np_->set_track_affected(on); }
+    std::vector<std::pair<uint64_t, uint64_t>> take_affected() {
+        return np_->take_affected();
+    }
+
     void dump_plumbing_network(const std::string &dir) { np_->dump_plumbing_network(dir); }
     void dump_flows(const std::string &dir) { np_->dump_flows(dir); }
     void dump_flow_trees(const std::string &dir, bool simple) {
@@ -359,6 +366,10 @@ PYBIND11_MODULE(libnetplumber, m) {
              "Compliance violations collected since the last clear_results(), "
              "as (src, dst, valid, cond) tuples.")
         .def("clear_results", &LibNetPlumber::clear_results)
+        .def("set_track_affected", &LibNetPlumber::set_track_affected, py::arg("on"),
+             "Record (root source, probe) for every flow change at a probe.")
+        .def("take_affected", &LibNetPlumber::take_affected,
+             "The (source, probe) pairs recorded since the last call; clears them.")
         .def("loop_reports", &LibNetPlumber::loop_reports)
         .def("dump_plumbing_network", &LibNetPlumber::dump_plumbing_network, py::arg("dir"))
         .def("dump_flows", &LibNetPlumber::dump_flows, py::arg("dir"))

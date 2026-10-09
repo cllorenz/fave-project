@@ -98,6 +98,8 @@ private:
   FN(check_anomalies);
 #endif
   FN(check_compliance);
+  FN(set_track_affected);
+  FN(take_affected);
 #undef FN
 };
 

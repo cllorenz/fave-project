@@ -97,6 +97,8 @@ SourceProbeNode<T1, T2>::~SourceProbeNode() {
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
   if (f) {
+    // INCREMENTAL_PLAN.md §6.3: a flow from f->source now reaches this probe.
+    ((NetPlumber<T1, T2> *)this->plumber)->note_affected(f->source, this->node_id);
 //    if (f->hs_object) {
 //        f->hs_object->compact();
 //        if (f->hs_object->is_empty()) return;
@@ -136,6 +138,10 @@ template<class T1, class T2>
 void SourceProbeNode<T1, T2>::process_src_flow_at_location(
      typename list< Flow<T1, T2> *>::iterator loc, T2* change) {
   Flow<T1, T2> *f = *loc;
+  // INCREMENTAL_PLAN.md §6.3. Noted BEFORE the early returns below: by the
+  // time this runs the parent has already changed f->hs_object, which is
+  // what check_compliance reads, even when processed_hs is empty or absent.
+  ((NetPlumber<T1, T2> *)this->plumber)->note_affected(f->source, this->node_id);
   if (change) {
 #ifdef GENERIC_PS
     if (f->processed_hs->is_empty()) return;
@@ -185,6 +191,8 @@ void SourceProbeNode<T1, T2>::process_src_flow_at_location(
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::absorb_src_flow(typename list< Flow<T1, T2> *>::iterator s_flow,
     bool first) {
+  // INCREMENTAL_PLAN.md §6.3: a flow from this source leaves this probe.
+  ((NetPlumber<T1, T2> *)this->plumber)->note_affected((*s_flow)->source, this->node_id);
   if (state == RUNNING) update_check(*s_flow,FLOW_DELETE);
   Node<T1, T2>::absorb_src_flow(s_flow, first);
 }

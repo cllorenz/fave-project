@@ -28,6 +28,8 @@
 #include <algorithm>
 #include "test/net_plumber_slicing_unit.h"
 #endif /* PIPE_SLICING */
+#include <set>
+#include <utility>
 #include <vector>
 #include <list>
 #include "rule_node.h"
@@ -128,6 +130,10 @@ namespace net_plumber {
     //node_id to node
     std::map<uint64_t,Node<T1, T2> *> id_to_node;
 
+    // affected-check tracking; see set_track_affected()
+    bool track_affected = false;
+    std::set<std::pair<uint64_t, uint64_t>> affected;
+
     //list of rules for input port
     std::map<uint32_t, std::list<Node<T1, T2> *>* > inport_to_nodes;
 
@@ -207,6 +213,31 @@ namespace net_plumber {
      */
     Event get_last_event();
     void set_last_event(Event e);
+
+    /*
+     * Affected-check tracking (INCREMENTAL_PLAN.md §6.3). While on, every
+     * flow added to, changed at, or removed from a source probe records the
+     * pair (the flow's root source, the probe). A compliance check (source,
+     * probe) reads only the flows at its probe from its source, so after a
+     * series of updates the checks whose verdict CAN have changed are a
+     * subset of these pairs -- a sound over-approximation the caller uses to
+     * re-verify only those. OFF by default, so a build from zero does no
+     * extra work. take_affected() returns the pairs recorded since the last
+     * call and clears them.
+     */
+    void set_track_affected(bool on) {
+      track_affected = on;
+      if (!on) affected.clear();
+    }
+    bool tracking_affected() const { return track_affected; }
+    void note_affected(uint64_t source, uint64_t probe) {
+      if (track_affected) affected.insert(std::make_pair(source, probe));
+    }
+    std::vector<std::pair<uint64_t, uint64_t>> take_affected() {
+      std::vector<std::pair<uint64_t, uint64_t>> out(affected.begin(), affected.end());
+      affected.clear();
+      return out;
+    }
 
     /*
      * Topology Management

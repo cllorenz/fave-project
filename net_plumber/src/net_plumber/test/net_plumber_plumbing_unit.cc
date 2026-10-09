@@ -243,6 +243,104 @@ void NetPlumberPlumbingTest<T1, T2>::test_readd_at_occupied_index_stays_removabl
   CPPUNIT_ASSERT_EQUAL((size_t)0, count_node(N->get_nodes_with_inport(1), id));
 }
 
+static bool has_pair(const std::vector<std::pair<uint64_t, uint64_t>> &pairs,
+                     uint64_t source, uint64_t probe) {
+  for (auto const &p : pairs) if (p.first == source && p.second == probe) return true;
+  return false;
+}
+
+/*
+ * INCREMENTAL_PLAN.md §6.3: with tracking on, an update that adds, changes or
+ * removes flows at a probe records (root source, probe); one that never
+ * reaches the probe records nothing; with tracking off nothing is recorded.
+ *
+ * source (port 100) -> table 1 -> table 2 -> table 4 (rule 4.10, the only rule
+ * forwarding to port 13) -> probe (port 200). Table 3 forwards to port 7 -> 9,
+ * which no rule in table 4 accepts, so table 3 never reaches the probe.
+ */
+template<class T1, class T2>
+void NetPlumberPlumbingTest<T1, T2>::test_affected_pairs_follow_the_probe() {
+  printf("\n");
+  N->add_link(100,1);
+  N->add_link(13,200);
+  const uint64_t probe = N->add_source_probe(
+      make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
+      new TrueCondition<T1, T2>(), NULL, NULL, 2000);
+#ifdef GENERIC_PS
+  T1 *h = new T1(1);
+  T2 a = T2 ("1xxxxxxx");
+  h->psunion2(&a);
+#else
+  T1 *h = hs_from_str("1xxxxxxx");
+#endif
+  const uint64_t source = N->add_source(h, make_sorted_list(1,100), 1000);
+
+  // Off by default: building recorded nothing.
+  CPPUNIT_ASSERT(!N->tracking_affected());
+  CPPUNIT_ASSERT(N->take_affected().empty());
+  N->set_track_affected(true);
+
+  // An update that never reaches the probe records nothing.
+  N->add_rule(3,5,
+              make_sorted_list(1,6),
+              make_sorted_list(1,7),
+#ifdef GENERIC_PS
+              new T2 ("1011xxxx"),
+#else
+              array_from_str("1011xxxx"),
+#endif
+              NULL,
+              NULL);
+  CPPUNIT_ASSERT(!has_pair(N->take_affected(), source, probe));
+
+  // Removing the rule that delivers to the probe removes the source's flows.
+  N->remove_rule(node_ids[6]);
+  CPPUNIT_ASSERT(has_pair(N->take_affected(), source, probe));
+
+  // Adding it back delivers them again.
+  N->add_rule(4,10,
+              make_sorted_list(1,8),
+              make_sorted_list(1,13),
+#ifdef GENERIC_PS
+              new T2 ("xxx010xx"),
+#else
+              array_from_str("xxx010xx"),
+#endif
+              NULL,
+              NULL);
+  CPPUNIT_ASSERT(has_pair(N->take_affected(), source, probe));
+
+  // A link removal on the probe's path removes the flows; re-adding restores
+  // them.
+  N->remove_link(13,200);
+  CPPUNIT_ASSERT(has_pair(N->take_affected(), source, probe));
+  N->add_link(13,200);
+  CPPUNIT_ASSERT(has_pair(N->take_affected(), source, probe));
+
+  // A higher-priority rule in table 4 that diverts PART of the traffic (the
+  // headers ending in 11) changes the flow at the probe without removing it:
+  // the modify path. (Diverting all of it -- 1xx010xx -- would remove it.)
+  N->add_rule(4,5,
+              make_sorted_list(1,8),
+              make_sorted_list(1,9),
+#ifdef GENERIC_PS
+              new T2 ("1xx01011"),
+#else
+              array_from_str("1xx01011"),
+#endif
+              NULL,
+              NULL);
+  CPPUNIT_ASSERT(has_pair(N->take_affected(), source, probe));
+
+  // Taking clears.
+  CPPUNIT_ASSERT(N->take_affected().empty());
+
+  // Off again: nothing is recorded.
+  N->set_track_affected(false);
+  N->remove_link(13,200);
+  CPPUNIT_ASSERT(N->take_affected().empty());
+}
+
 #ifdef USE_GROUPS
 template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_pipeline_add_group_rule() {

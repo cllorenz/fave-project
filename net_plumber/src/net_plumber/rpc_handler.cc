@@ -219,6 +219,7 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
     FN(check_anomalies),
 #endif
     FN(check_compliance),
+    FN(set_track_affected), FN(take_affected),
     FN(expand)
   };
   size_t n = sizeof methods / sizeof *methods;
@@ -501,6 +502,30 @@ PROTO(reset_plumbing_network)
   netPlumber->~NetPlumber();
   netPlumber = new NetPlumber<T1, T2>(length);
   RETURN(VOID);
+}
+
+/*
+ * Affected-check tracking (INCREMENTAL_PLAN.md §6.3): while on, every flow
+ * added to, changed at or removed from a probe records (root source, probe).
+ * take_affected returns the pairs recorded since the last call, as
+ * [[source, probe], ...], and clears them.
+ */
+PROTO(set_track_affected)
+  if (!netPlumber) ERROR ("Not initialized.");
+  netPlumber->set_track_affected(PARAM(on).asBool());
+  RETURN(VOID);
+}
+
+PROTO(take_affected)
+  if (!netPlumber) ERROR ("Not initialized.");
+  Json::Value pairs(Json::arrayValue);
+  for (auto const &p : netPlumber->take_affected()) {
+    Json::Value pair(Json::arrayValue);
+    pair.append((Json::Value::UInt64) p.first);
+    pair.append((Json::Value::UInt64) p.second);
+    pairs.append(pair);
+  }
+  RETURN(pairs);
 }
 
 /*
