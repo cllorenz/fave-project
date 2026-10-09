@@ -28,7 +28,7 @@ import json
 import time
 import socket
 
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from util.typing_util import JSONDict
 
@@ -822,3 +822,42 @@ def check_compliance(socks: List[socket.socket], rules: Any) -> None:
     data["method"] = "check_compliance"
     data["params"] = {"rules":rules}
     _asend_recv(socks, json.dumps(data))
+
+
+def set_track_affected(socks: List[socket.socket], on: bool) -> None:
+    """ Switches affected-check tracking on or off (INCREMENTAL_PLAN.md §6.3).
+
+    While on, every flow added to, changed at or removed from a probe records
+    (root source, probe). Off by default, so a build from zero does no extra
+    work.
+
+    Keyword arguments:
+    socks -- A list of sockets connected to NetPlumber instances
+    on -- whether to track
+    """
+
+    data = _basic_rpc()
+    data["method"] = "set_track_affected"
+    data["params"] = {"on": bool(on)}
+    _asend_recv(socks, json.dumps(data))
+
+
+def take_affected(socks: List[socket.socket]) -> Set[Tuple[int, int]]:
+    """ The (source, probe) node-id pairs whose flows changed since the last
+    call, united over every NetPlumber instance, which each clear theirs.
+
+    Keyword arguments:
+    socks -- A list of sockets connected to NetPlumber instances
+    """
+
+    data = _basic_rpc()
+    data["method"] = "take_affected"
+    data["params"] = {}
+    pairs: Set[Tuple[int, int]] = set()
+    for resp in _asend_recv(socks, json.dumps(data)):
+        if "error" in resp:
+            raise RPCError(resp["error"].get("message", "take_affected failed"))
+        for src, probe in resp["result"] or []:
+            pairs.add((int(src), int(probe)))
+    return pairs
+

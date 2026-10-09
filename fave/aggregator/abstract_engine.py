@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set, Tuple
 
 #: TODO item 31's provenance vocabulary -- WHOSE CODE produced a number. It is
 #: a separate axis from the accommodations: one says whose code runs, the other
@@ -124,6 +124,40 @@ class AbstractVerificationEngine(object):
 
     def remove_link(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError()
+
+    # --- incremental updates (INCREMENTAL_PLAN.md §6.2) ----------------------
+    #
+    # Applied directly to a BUILT engine, bypassing the aggregator. A rule is
+    # identified by (node, tid, idx); a modify is a delete followed by an
+    # insert. The defaults are the SOUND ones: an engine that has not
+    # implemented an update refuses it, and an engine that cannot say what an
+    # update affected says so (None), which makes the caller re-verify every
+    # check -- never fewer.
+
+    def insert_rule(self, rule: Any) -> None:
+        """ Insert one rule into a table the built model already has. """
+        raise UpdateRefused(
+            "%s: insert_rule is not implemented" % type(self).__name__)
+
+    def delete_rule(self, node: str, tid: str, idx: int) -> None:
+        """ Delete the rule (node, tid, idx) from the built model. """
+        raise UpdateRefused(
+            "%s: delete_rule is not implemented" % type(self).__name__)
+
+    def set_link(self, sport: str, dport: str, up: bool) -> None:
+        """ Bring the link sport -> dport (FaVe port names) up or down. """
+        raise UpdateRefused(
+            "%s: set_link is not implemented" % type(self).__name__)
+
+    def track_affected(self, on: bool) -> None:
+        """ Start or stop recording what updates affect. A no-op for an
+        engine that cannot record it; `take_affected` then returns None. """
+
+    def take_affected(self) -> Optional[Set[Tuple[str, str]]]:
+        """ The (source, probe) NAME pairs whose compliance checks the updates
+        since the last call can have changed, then forget them. None means
+        "unknown": every check must be re-verified. """
+        return None
 
     def stop(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError()

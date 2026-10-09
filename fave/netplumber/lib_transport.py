@@ -152,6 +152,12 @@ class LibTransport:
         }
         self._lib.check_compliance(mapped)
 
+    def set_track_affected(self, _socks: Any, on: bool) -> None:
+        self._lib.set_track_affected(bool(on))
+
+    def take_affected(self, _socks: Any) -> set:
+        return {(int(src), int(probe)) for src, probe in self._lib.take_affected()}
+
     def check_anomalies(self, _socks: Any, table: int = 0, use_shadow: bool = False,
                         use_reach: bool = False, use_general: bool = False) -> None:
         # libnetplumber does not yet expose anomaly checking; the benchmarks

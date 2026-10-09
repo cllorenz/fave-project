@@ -32,7 +32,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from copy import deepcopy
 
 from aggregator.aggregator_abstract import TRACE, TraceLogger
-from aggregator.abstract_engine import AbstractVerificationEngine
+from aggregator.abstract_engine import AbstractVerificationEngine, UpdateRefused
 
 import netplumber.jsonrpc as jsonrpc
 from netplumber.mapping import Mapping, FIELD_SIZES
@@ -191,6 +191,11 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         # Declared tables already ordered, so a SECOND batch is refused rather
         # than silently mis-ordered (§9.1's open incremental question).
         self._lpm_ordered: Set[str] = set()
+        # The priority each rule of an ordered LPM table was given, by
+        # (tid, idx). A rule deleted and re-inserted returns to exactly its
+        # slot (INCREMENTAL_PLAN.md S1/S2); a route never seen here has no
+        # correct slot without renumbering, which is open question O1.
+        self._lpm_prio: Dict[Tuple[str, int], int] = {}
         self.links: Dict[Any, List[Any]] = {}
         self.fresh_table_index = 1
         self.ports: Dict[str, int] = {}
@@ -904,6 +909,8 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                        key=lambda i: (sign * lpm_prefix_len(rules[i]),
                                       getattr(rules[i], 'idx', i)))
         ordered = [rules[i] for i in order]
+        for priority, rule in enumerate(ordered, start=1):
+            self._lpm_prio[(table, rule.idx)] = priority
         # THE DENOMINATOR for §5.4's guardrail, in the run's own record.
         # "The verdict did not change under inversion" is only evidence about
         # the check set if something WAS inverted; on a workload that declares
@@ -968,6 +975,91 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             np_rid, _tid, _fave_rid, _in, _out, _match, _mask, _rewrite = rule
             self.rule_ids[np_rid].append(r_id)
 
+
+    # --- incremental updates (INCREMENTAL_PLAN.md §6.2, §6.3) ---------------
+
+    def _refuse_special_table(self, op: str, tid: str) -> None:
+        # pre_routing/post_routing are translated by their own routines with
+        # their own index scheme (`_add_pre_routing_rules`,
+        # `_add_post_routing_rules`); a single-rule update there is not
+        # implemented, so it is refused rather than misplaced.
+        if tid.endswith(('.pre_routing', '.post_routing')):
+            raise UpdateRefused(
+                "NetPlumberAdapter: %s on %s is not implemented: pre/post-"
+                "routing tables are translated as a whole." % (op, tid))
+        if tid not in self.tables:
+            raise UpdateRefused(
+                "NetPlumberAdapter: %s on %s, a table the model does not have."
+                % (op, tid))
+
+    def insert_rule(self, rule: Any) -> None:
+        """ Insert one FaVe rule into a table of the built model.
+
+        A declared-LPM table takes a rule only back into the slot it had
+        (`_lpm_prio`); any other insert there is refused (O1). Elsewhere the
+        model's own `idx` is the priority, as at build.
+        """
+        self._refuse_special_table('insert_rule', rule.tid)
+        if _calc_rule_index(rule.idx, t_idx=self.tables[rule.tid]) in self.rule_ids:
+            raise UpdateRefused(
+                "NetPlumberAdapter: insert_rule(%s, %s, %s): the rule is "
+                "already present; a modify is a delete followed by an insert."
+                % (rule.node, rule.tid, rule.idx))
+        priorities = None
+        if rule.tid in self._lpm_tables:
+            slot = self._lpm_prio.get((rule.tid, rule.idx))
+            if slot is None:
+                raise UpdateRefused(
+                    "NetPlumberAdapter: insert_rule(%s, %s, %s) into a declared "
+                    "%s table: its priorities were assigned densely at build, so "
+                    "a new route has no free slot (INCREMENTAL_PLAN.md O1)."
+                    % (rule.node, rule.tid, rule.idx, LPM))
+            priorities = [slot]
+        self.add_rules_batch([rule], priorities)
+
+    def delete_rule(self, node: str, tid: str, idx: int) -> None:
+        """ Delete one FaVe rule, with every engine rule its negations
+        expanded into (n_idx 0, 1, ... -- contiguous, see
+        `_prepare_generic_rule`). """
+        self._refuse_special_table('delete_rule', tid)
+        t_idx = self.tables[tid]
+        first = _calc_rule_index(idx, t_idx=t_idx)
+        if first not in self.rule_ids:
+            raise UpdateRefused(
+                "NetPlumberAdapter: delete_rule(%s, %s, %s): no such rule."
+                % (node, tid, idx))
+        nid = 0
+        while True:
+            key = _calc_rule_index(idx, t_idx=t_idx, n_idx=nid)
+            if key not in self.rule_ids:
+                break
+            for r_id in self.rule_ids.pop(key):
+                self._rpc.remove_rule(self.socks, r_id)
+            nid += 1
+
+    def set_link(self, sport: str, dport: str, up: bool) -> None:
+        g_s, g_d = self.global_port(sport), self.global_port(dport)
+        if up:
+            self._rpc.add_link(self.socks, g_s, g_d)
+            self.links.setdefault(g_s, []).append(g_d)
+        else:
+            self._rpc.remove_link(self.socks, g_s, g_d)
+            if g_d in self.links.get(g_s, []):
+                self.links[g_s].remove(g_d)
+                if not self.links[g_s]:
+                    del self.links[g_s]
+
+    def track_affected(self, on: bool) -> None:
+        self._rpc.set_track_affected(self.socks, on)
+
+    def take_affected(self) -> Optional[Set[Tuple[str, str]]]:
+        """ The engine's (source id, probe id) pairs, as FaVe names. A pair
+        naming a node FaVe does not know -- a source or probe already deleted
+        -- has no check left to re-verify and is dropped. """
+        sid = {info[1]: name for name, info in self.generators.items()}
+        pid = {info[1]: name for name, info in self.probes.items()}
+        return {(sid[s], pid[p]) for s, p in self._rpc.take_affected(self.socks)
+                if s in sid and p in pid}
 
     def delete_rules(self, model: Any) -> None:
         """ Deletes all rules from a device model.
