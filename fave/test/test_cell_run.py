@@ -95,9 +95,32 @@ class TestEveryStoppingRuleFires(unittest.TestCase):
         got = self._run([_PY, '-c', 'import time; time.sleep(30)'], wall=0.3)
         self.assertEqual(got['status'], 'deadline')
         self.assertEqual(got['limit_tripped'], 'wall')
+        self.assertEqual(got['deadline_stop'], 'limit_wall')
         self.assertLess(got['wall_s'], 20)
         self.assertEqual(cell_metrics.outcome(got['status'], False),
                          'did_not_finish')
+
+    def test_the_stall_limit_fires_once_the_file_stops_moving(self):
+        # INCREMENTAL_PLAN.md O4.3: a run that writes a record per update is
+        # stopped when no record has come for the per-update limit. The child
+        # touches the file twice, 0.2 s apart -- within the limit -- and then
+        # hangs; the wall limit is far away, so only the stall rule can fire.
+        stall = os.path.join(self.dir, 'updates.jsonl')
+        script = ("import time\n"
+                  "time.sleep(0.4)\n"            # no file yet: build phase
+                  "open(%r, 'a').write('1')\n"
+                  "time.sleep(0.2)\n"
+                  "open(%r, 'a').write('2')\n"
+                  "time.sleep(30)\n" % (stall, stall))
+        got = cell_run.run_cell([_PY, '-c', script], {}, 600, 0, 0, 1, self.out,
+                                grace_s=0.3, poll_s=0.05, stall_path=stall,
+                                limit_stall_s=0.35)
+        self.assertEqual(got['status'], 'deadline')
+        self.assertEqual(got['limit_tripped'], 'wall')
+        self.assertEqual(got['deadline_stop'], 'limit_stall')
+        self.assertLess(got['wall_s'], 20)
+        with open(stall) as handle:
+            self.assertEqual(handle.read(), '12', "stopped only after the stall")
 
     def test_the_rss_limit_fires(self):
         # Item 31's declared per-cell memory limit, as a cap on the run's

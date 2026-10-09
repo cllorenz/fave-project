@@ -323,9 +323,17 @@ def _progress(session, started, peak_rss, aggregator_log, ad6_progress):
     return line
 
 
+def _stalled(path, limit_s, now):
+    """ True when `path` exists and was last written more than `limit_s` ago. """
+    try:
+        return now - os.stat(path).st_mtime > limit_s
+    except OSError:
+        return False
+
+
 def run_cell(argv, env_overrides, limit_wall_s, limit_rss_mb, memory_floor_mb,
              status_every_s, out, ad6_progress=None, grace_s=3.0,
-             poll_s=1.0, _clock=time.time):
+             poll_s=1.0, _clock=time.time, stall_path=None, limit_stall_s=0):
     """ Run one child under the two declared stopping rules, and measure it.
 
     The testable core: it takes a COMMAND, not a workload, so every stopping
@@ -337,6 +345,12 @@ def run_cell(argv, env_overrides, limit_wall_s, limit_rss_mb, memory_floor_mb,
     second over a 24 h cell is the right trade and is what the campaign uses;
     the unit tests drop it so that sub-second limits can be made to fire
     without the tier paying a second per rule.
+
+    `stall_path`/`limit_stall_s` add a third, optional stopping rule for runs
+    that make progress in steps -- the incremental streams' per-update limit
+    (INCREMENTAL_PLAN.md O4.3): once `stall_path` exists, the run is stopped
+    when the file has not been written for `limit_stall_s`. It is a deadline
+    like the wall limit (`limit_tripped: wall`), told apart by `deadline_stop`.
     """
     out_dir = os.path.dirname(os.path.abspath(out)) or '.'
     stem = os.path.splitext(os.path.basename(out))[0]
@@ -369,6 +383,7 @@ def run_cell(argv, env_overrides, limit_wall_s, limit_rss_mb, memory_floor_mb,
     least_available = cell_metrics.available_mb()
     status = None
     memory_stop = None
+    deadline_stop = None
     rc = None
     last_trail = 0.0
 
@@ -411,7 +426,10 @@ def run_cell(argv, env_overrides, limit_wall_s, limit_rss_mb, memory_floor_mb,
                 elif limit_rss_mb and total > limit_rss_mb:
                     status, memory_stop = 'memory', 'limit_rss'
                 elif limit_wall_s and now - started > limit_wall_s:
-                    status = 'deadline'
+                    status, deadline_stop = 'deadline', 'limit_wall'
+                elif limit_stall_s and stall_path and _stalled(
+                        stall_path, limit_stall_s, _clock()):
+                    status, deadline_stop = 'deadline', 'limit_stall'
 
                 if status is not None:
                     os.killpg(proc.pid, signal.SIGKILL)
@@ -460,6 +478,7 @@ def run_cell(argv, env_overrides, limit_wall_s, limit_rss_mb, memory_floor_mb,
         'status': status, 'exit': rc, 'wall_s': round(wall, 3),
         'limit_tripped': tripped,
         'memory_stop': memory_stop,
+        'deadline_stop': deadline_stop,
         'peak_rss_mb': peak_rss,
         'peak_rss_by_process_mb': peak_by_process,
         'least_available_mb': least_available,
