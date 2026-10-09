@@ -130,6 +130,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_ndd_vlan_slot.py  # a `+ filter` rule's VLAN slot means the same to BOTH engines (TABLE_SEMANTICS_PLAN.md §8); skips if either is unavailable
     test/test_table_semantics.py  # declared table semantics reach the ENGINE, not just the JSON (TABLE_SEMANTICS_PLAN.md S1+S2)
     test/test_apkeep_adapter.py  # APKeepAdapter: FaVe model -> APKeep (P4); skips if unavailable
+    test/test_apkeep_update_refused.py  # a model change after the one-time build is refused, not dropped (TODO item 31); skips if unavailable
     test/test_apkeep_wl_ifi.py   # APKeepAdapter driven by the real wl_ifi models (P4); skips if unavailable
     test/test_apkeep_i2.py       # APKeep scale validation on wl_i2 (77k dst-IP routes, P5); skips if unavailable
     test/test_apkeep_stanford.py # APKeep on wl_stanford (in/mid/out HSA, out-stage collapse, P7); skips if unavailable

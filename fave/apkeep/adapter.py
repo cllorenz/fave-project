@@ -44,7 +44,7 @@ import sys
 from types import MappingProxyType
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Set
 
-from aggregator.abstract_engine import AbstractVerificationEngine
+from aggregator.abstract_engine import AbstractVerificationEngine, UpdateRefused
 from aggregator.aggregator_abstract import TraceLogger
 from rule.rule_model import Forward, Rewrite
 from devices.abstract_device import LPM
@@ -1039,7 +1039,28 @@ class APKeepAdapter(AbstractVerificationEngine):
                 self._declared_lpm.add(model.node)
 
 
+    def _refuse_after_build(self, op: str, what: Any) -> None:
+        """ Refuse a model change that arrives once `_build` has run.
+
+        The engine is built ONCE, from the buffers, on the first
+        check_compliance; `_release_build_buffers` then drops the per-rule
+        buffers, and nothing re-translates. A forwarding rule after that hit a
+        released buffer and died as an AttributeError; a link, generator,
+        probe, table or deletion was accepted and never reached the engine, so
+        every later check answered from the model as it was -- the pre-update
+        verdict, with no error (`test/test_apkeep_update_refused.py` measures
+        one). Incremental updates are TODO item 31's open axis, not something
+        this adapter does; until it does, every change is refused, by name.
+        """
+        if self._built:
+            raise UpdateRefused(
+                "APKeepAdapter: %s(%s) after the model was built. The engine is "
+                "built once, on the first check_compliance, and does not take "
+                "updates; accepting this would answer every later check from "
+                "the model as it was before it." % (op, what))
+
     def add_tables(self, model: Any) -> None:
+        self._refuse_after_build('add_tables', model.node)
         # Routers and switches all become dst-IP ForwardElements. The wl_stanford
         # out. stage is an in-port permutation (not a FIB) collapsed into the
         # topology at build -- but that is decided THERE, keyed on the mid. stage
@@ -1049,6 +1070,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._capture_declared_semantics(model)
 
     def add_rules(self, model: Any) -> None:
+        self._refuse_after_build('add_rules', model.node)
         # Only the router's routing table and the switch's flat table hold real
         # dst-IP forwarding. The router's pre_routing/post_routing carry VLAN/
         # egress plumbing, and acl_in/acl_out carry ACL rules that "forward" to
@@ -1808,6 +1830,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         pass
 
     def add_link(self, sport: str, dport: str) -> None:
+        self._refuse_after_build('add_link', "%s, %s" % (sport, dport))
         self._edges.append("%s %s %s %s" % (_split_port(sport) + _split_port(dport)))
 
     def add_links_bulk(self, links: Any, use_dynamic: bool = False) -> None:
@@ -1815,6 +1838,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             self.add_link(sport, dport)
 
     def add_generator(self, model: Any) -> None:
+        self._refuse_after_build('add_generator', model.node)
         self._generators[model.node] = model.node + '.1'
         # Capture the injected source IP (for ACL src-seeding) and ingress VLAN
         # (to wire acl_in onto this source's ingress port). Hand-built generators
@@ -1846,6 +1870,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             self.add_generator(model)
 
     def add_probe(self, model: Any) -> None:
+        self._refuse_after_build('add_probe', model.node)
         self._probes[model.node] = model.node + '.1'
 
     # --- build + query -------------------------------------------------------
@@ -3250,14 +3275,23 @@ class APKeepAdapter(AbstractVerificationEngine):
         pass
 
     def remove_link(self, sport: Any, dport: Any) -> None:
-        # buffered-build model: removal before build just edits the adjacency
-        if sport in self.links and dport in self.links[sport]:
-            self.links[sport].remove(dport)
+        # Refused before the build as well as after. This used to edit
+        # `self.links`, which is the aggregator's adjacency bookkeeping (see
+        # __init__); the model is built from `self._edges`, which it never
+        # touched -- so the link stayed in the model and the removal changed no
+        # answer, at any time.
+        raise UpdateRefused(
+            "APKeepAdapter: remove_link(%s, %s) is not implemented. The model "
+            "is built from the recorded topology, which a removal never "
+            "reached, so accepting it would leave the link in place."
+            % (sport, dport))
 
     def delete_generator(self, node: str) -> None:
+        self._refuse_after_build('delete_generator', node)
         self._generators.pop(node, None)
 
     def delete_probe(self, node: str) -> None:
+        self._refuse_after_build('delete_probe', node)
         self._probes.pop(node, None)
 
     def stop(self) -> None:

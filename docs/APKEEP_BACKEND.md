@@ -137,6 +137,10 @@ Mapping the ~20 `AbstractVerificationEngine` methods onto this:
   `insertOneRule`; **rewrite limited to NAT-style only**), `add_wiring` /
   `add_link(s)` / `remove_link` (`topology` / `addDirectedEdge`), `stop`, and the
   `delete_*` / bookkeeping methods.
+  *(2026-10-09: `remove_link` was never translated. The adapter's version edited
+  the aggregator's adjacency, not the `_edges` the model is built from, so it
+  removed nothing; it now raises `UpdateRefused`, as does every model change
+  after the one-time build. TODO item 31.)*
 - **Tier B — new solver code on the PPM:** `add_generator` (no source object;
   emulate by seeding the traversal with `getPortAPs(src) ∩ H`), `add_probe`
   (storage is bookkeeping; evaluation is the next item), `check_compliance`

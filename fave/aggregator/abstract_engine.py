@@ -18,6 +18,19 @@ from typing import Any, Dict, Optional
 IMPLS = ('authors', 'authors+fave', 'first-party', 'reimpl-literature')
 
 
+class UpdateRefused(NotImplementedError):
+    """ A model change this engine cannot apply to the model it has built.
+
+    Raised instead of accepting the change and answering from the model as it
+    was. An adapter that buffers the model and builds once (APKeep), or whose
+    deletion only edits bookkeeping the built model never reads, would otherwise
+    keep returning the PRE-update verdict with no error -- a wrong answer that
+    looks like a right one, and the first thing TODO item 31's incremental axis
+    would have measured. Refused, never approximated: the aggregator reports it
+    through the request's barrier, so the caller sees it.
+    """
+
+
 class AbstractVerificationEngine(object):
     """ What every verification backend must answer, including WHOSE it is.
 
