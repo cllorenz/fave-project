@@ -1,6 +1,6 @@
 # Document index
 
-Twenty reference documents, ~23,000 lines. They are lab notebooks, not
+Twenty-one reference documents, ~23,500 lines. They are lab notebooks, not
 specifications: each records what was tried, what it cost, what was measured and
 what the owner decided, usually with a dated status header at the top. **Read the
 status header before the body** — several of these describe work that is finished,
@@ -21,6 +21,7 @@ that produced them, under [`../fave/bench/campaigns/`](../fave/bench/campaigns/)
 | [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) | 986 | **The run book.** The measurements that are open and worth running, ordered so a session with no prior context can execute it top to bottom, unattended. Start here to run something. |
 | [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md) | 136 | **The accommodation registry.** Every way a tool was helped to run the suite, or a workload changed for it — what was done, what it costs, the evidence it is right. The write-up cites this for all of them. |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | 87 | How result directories and per-cell artifacts are named, what a run directory must carry, and why a committed result directory is never renamed. Read before starting a run. |
+| [`INCREMENTAL_PLAN.md`](INCREMENTAL_PLAN.md) | 362 | **The incremental axis (TODO item 31), PLAN.** Making updates work end to end — engines that report what a change affected, FaVe re-verifying only those checks — and measuring it. The owner's decisions of 2026-10-09 are its §4; open questions its §9. |
 
 ## The verification backends — one document per engine family
 
