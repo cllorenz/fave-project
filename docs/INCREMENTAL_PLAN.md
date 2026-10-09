@@ -346,9 +346,24 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
      be masked — a missed change undone by a later update (S2 re-adds) leaves
      a correct cache by the checkpoint — so the result is stated as a sample.
   4. Tests keep both halves after every update on the small workloads.
-- **O4. Repetitions and limits.** *Recommendation:* 3 repetitions per stream on
-  one machine, a declared per-update limit (a slow tail is a did-not-finish,
-  not a hang) and a per-stream limit, stamped as in V5.
+- **O4. Repetitions and limits — DECIDED 2026-10-09.**
+  1. **Per-stream (cell) limit = V5's class:** 24 h wall, 32 GB RSS, stamped per
+     cell; the O3 oracle run has the same budget.
+  2. **A stream stopped by a limit reports its completed prefix** ("n of N"),
+     quantiles over the prefix, stamped did-not-finish at update n, never
+     extrapolated. Prefixes are order-biased (a stopped S1 has only deleted).
+  3. **Per-update limit 1 h** (update + re-check), a hang guard that ends the
+     stream as in 2. Reported beside it: the **break-even share**, the updates
+     whose `t_total` exceeds the same engine's V5 from-zero build + full check on
+     that workload.
+  4. **Ten repetitions per seed** (owner), the count stamped; per-repetition
+     quantiles and their spread reported, never a pooled mean; the first 100
+     updates reported separately so warm-up shows. Seed variance (S2's choice
+     of rules) on `wl_ifi` and `wl_airtel1` only, three seeds each.
+  5. **A reduced grid:** batch 1 everywhere; batches 10, 100 and the whole stream
+     on S2 only. A dev-stamped **calibration** (the first ~200 updates of each
+     stream) precedes the protocol, so its grid and predictions rest on data.
+  RSS is recorded after every batch, so a reference-count leak shows as growth.
 - **O5. `precision` as a headline.** It is where the engines' by-products
   differ (NetPlumber per (source, probe); VeriFlow-FR per walk footprint;
   NDD per device). *Recommendation:* report it beside every `t_total`.
