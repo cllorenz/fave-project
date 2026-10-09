@@ -108,8 +108,14 @@ class TestAPKeepWlIfi(unittest.TestCase):
             cls.expected = json.load(raw)
 
     def test_network_built(self):
-        # 1 router + 16 switches; 17 generators; 17 probes.
-        self.assertEqual(len(self.engine._fwd_devices), 17)
+        # 1 router + 16 switches; 17 generators; 17 probes. Only the router
+        # DECLARES its table longest-prefix-match, so only it is a dst trie
+        # (ForwardElement); the 16 switches declare nothing and are first-match
+        # FilterElements -- the declaration decides, not the rules' shape
+        # (2026-10-09). Their rules agree under both orders, so the verdicts
+        # below did not move.
+        self.assertEqual(len(self.engine._fwd_devices), 1)
+        self.assertEqual(len(self.engine._fm_devices), 16)
         self.assertEqual(len(self.sources), 17)
         self.assertEqual(len(self.probes), 17)
         self.assertGreater(

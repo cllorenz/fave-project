@@ -2137,11 +2137,10 @@ class APKeepAdapter(AbstractVerificationEngine):
         FIB under any backend, and translating it as one would answer a
         different question (CLOUD_BENCH_PLAN.md §1.7.3 is what that costs).
 
-        The converse is deliberately NOT checked: an UNDECLARED dst-only table
-        still becomes a `ForwardElement`, as it always has. Making the
-        declaration authoritative for undeclared tables would change every
-        workload that declares nothing, and belongs to a later step
-        (TABLE_SEMANTICS_PLAN.md §9.7) once every producer declares.
+        The converse no longer needs checking: since 2026-10-09 an UNDECLARED
+        table is first-match whatever its shape (`_first_match_devices`), so
+        shape no longer promotes a table to LPM. Before, an undeclared dst-only
+        table became a `ForwardElement` by inference.
         """
         for device in sorted(self._declared_lpm & set(self._fwd_table)):
             rows = self._fwd_table[device]
@@ -2208,10 +2207,18 @@ class APKeepAdapter(AbstractVerificationEngine):
         """
         staged = {d for d in self._fwd_table if _is_staged(d)}
         owned = self._filter_devices | self._ipv6_fib_devices
-        return {dev for dev, rows in self._fwd_table.items()
+        # THE DECLARATION DECIDES (owner, 2026-10-09; TABLE_SEMANTICS_PLAN.md
+        # §6.3): a table is longest-prefix-match only if its model DECLARES it,
+        # and every other table is first-match, whatever its shape. Until then an
+        # undeclared table whose rules happened to match only a destination was
+        # inferred to be a FIB and given LPM priorities -- the inference the
+        # declaration was introduced to end, and one an update can falsify (one
+        # inserted rule turns a dst-only first-match list into a table where the
+        # two orders disagree). A declared table that is not triable is refused
+        # by `_assert_declared_lpm_is_triable`, never demoted.
+        return {dev for dev in self._fwd_table
                 if dev not in staged and dev not in owned
-                and not _is_dst_lpm_table(
-                    rows, vlan_rewrite=dev in self._router_devices)}
+                and dev not in self._declared_lpm}
 
     def _build_first_match_tables(self, devices: set):
         """ Realise each first-match forwarding table as a FilterElement, and

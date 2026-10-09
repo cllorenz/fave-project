@@ -48,6 +48,7 @@ import unittest
 from types import SimpleNamespace
 
 from rule.rule_model import Rule, Match, RuleField, Forward, Rewrite
+from devices.abstract_device import FIRST_MATCH, LPM
 from apkeep.adapter import (APKeepAdapter, available, _is_dst_lpm_table,
                            _is_acceptall_filter_rule)
 from test.backend_gate import require_or_skip
@@ -98,12 +99,22 @@ def _gateway():
     ]})
 
 
-def _fib():
-    """ A pure destination FIB -- the shape the ForwardElement is for. """
-    return SimpleNamespace(node='core', tables={'core.1': [
+def _declaring(model, *tables):
+    """ Give a test model the one method a real `AbstractDeviceModel` uses to
+    DECLARE a table longest-prefix-match (`semantics_of`, first-match by
+    default), and declare `tables`. """
+    model.semantics_of = lambda table: LPM if table in tables else FIRST_MATCH
+    return model
+
+
+def _fib(declared=True):
+    """ A pure destination FIB -- the shape the ForwardElement is for -- and,
+    unless told otherwise, DECLARED one, as the generators declare theirs. """
+    model = SimpleNamespace(node='core', tables={'core.1': [
         _rule('core', 1, [RuleField(_DST, '10.0.4.0/25')], [Forward(['core.1'])]),
         _rule('core', 2, [RuleField(_DST, '10.0.0.0/22')], [Forward(['core.2'])]),
     ]})
+    return _declaring(model, 'core.1') if declared else model
 
 
 def _adapter(*models):
@@ -116,12 +127,34 @@ def _adapter(*models):
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 class TestWhichElementATableBecomes(unittest.TestCase):
-    """ Decided by what the rules match, never by what the device is called. """
+    """ Decided by the model's DECLARATION, never by what the device is called
+    and -- since 2026-10-09 -- never by the rules' shape either: a table is
+    longest-prefix-match only if declared so, and first-match otherwise. """
 
-    def test_a_table_matching_only_the_destination_is_a_FIB(self):
+    def test_a_DECLARED_destination_table_is_a_FIB(self):
         adapter = _adapter(_fib())
         self.assertTrue(_is_dst_lpm_table(adapter._fwd_table['core']))
         self.assertEqual(adapter._first_match_devices(), set())
+
+    def test_an_UNDECLARED_destination_table_is_first_match(self):
+        """ Its shape would fit a trie, but nothing declared it one, so its
+        rule order holds. Until 2026-10-09 the shape decided, and made it LPM. """
+        adapter = _adapter(_fib(declared=False))
+        self.assertTrue(_is_dst_lpm_table(adapter._fwd_table['core']))
+        self.assertEqual(adapter._first_match_devices(), {'core'})
+
+    def test_where_the_two_orders_disagree_the_rule_order_wins(self):
+        """ The case the declaration exists for: a discard aggregate AHEAD of a
+        longer forward. First-match drops 10.240.0.0/12; LPM would forward it.
+        Undeclared, the table must be first-match, and its rule order is what
+        reaches the engine. """
+        model = SimpleNamespace(node='agg', tables={'agg.1': [
+            _rule('agg', 1, [RuleField(_DST, '10.0.0.0/8')], []),
+            _rule('agg', 2, [RuleField(_DST, '10.240.0.0/12')], [Forward(['agg.2'])]),
+        ]})
+        adapter = _adapter(model)
+        self.assertTrue(_is_dst_lpm_table(adapter._fwd_table['agg']))
+        self.assertEqual(adapter._first_match_devices(), {'agg'})
 
     def test_a_table_matching_a_protocol_or_port_is_NOT_a_FIB(self):
         adapter = _adapter(_leaf())
@@ -167,7 +200,8 @@ class TestWhichElementATableBecomes(unittest.TestCase):
                   [Rewrite([RuleField(_VLAN, 20), RuleField('out_port', 'ifi.2')]),
                    Forward(['ifi.routing_out'])]),
         ]})
-        adapter = _adapter(ifi)
+        # RouterModel declares its routing table LPM (devices/router.py).
+        adapter = _adapter(_declaring(ifi, 'ifi.routing'))
         self.assertEqual(adapter._first_match_devices(), set())
 
     def test_a_table_that_rewrites_an_address_is_NOT_a_FIB(self):
@@ -177,8 +211,8 @@ class TestWhichElementATableBecomes(unittest.TestCase):
 
     def test_the_decision_is_per_device(self):
         """ A model may hold both kinds, and each keeps its own element: the
-        leaf tables carry ACLs, the cores are plain FIBs, and turning the cores
-        into first-match lists as well would cost the trie for nothing. """
+        leaf tables carry ACLs, the cores are DECLARED FIBs, and turning the
+        cores into first-match lists as well would cost the trie for nothing. """
         adapter = _adapter(_fib(), _leaf(), _gateway())
         self.assertEqual(adapter._first_match_devices(), {'leaf', 'gw'})
 
