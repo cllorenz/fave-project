@@ -1,0 +1,11 @@
+--- /home/ubuntu/fave-project/apkeep/src/main/java/apkeep/core/Network.java	2026-10-10 21:42:41.079509381 +0200
++++ src/main/java/apkeep/core/Network.java	2026-10-10 21:46:33.132325756 +0200
+@@ -997,7 +997,7 @@
+ 					List<Witness.Hop> hops = fp.hops.get(e);
+ 					if (hops != null) {
+ 						for (Witness.Hop hop : hops) {
+-							if ((hop.port == null || hop.port.equals(from))
++							if ((hop.port == null || hop.port.equals(changed_to.get(i)))
+ 									&& (meets(delta, hop.fwd) || meets(delta, hop.acl))) {
+ 								out.add(key);
+ 								break;

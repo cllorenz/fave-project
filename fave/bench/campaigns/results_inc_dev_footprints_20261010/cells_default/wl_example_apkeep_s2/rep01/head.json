@@ -1,0 +1,43 @@
+{
+ "batch": 1,
+ "build_and_first_check_s": 0.2522880919277668,
+ "checks": 10,
+ "checks_file": "bench/wl_example/checks.json",
+ "checks_sha256": "0417ecd58347aca51cc37f4b4d22af1a38b4862a30a0edd4a2db511957d1fb54",
+ "configuration": {
+  "engine": "bdd",
+  "faithful_vlan": true,
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)"
+ },
+ "engine": "apkeep",
+ "engine_commit": "55ba3c09d87a7490252d6c813914fdcef5fb1513 2026-10-10",
+ "files": null,
+ "footprint": [],
+ "fraction": 0.2,
+ "git_head": "1ec1e26bf34ba2f1e5aa52f7b567f980e9c93398",
+ "initial_verdicts": {
+  "! s=source.dmz && EF p=probe.internet && f=related:0": false,
+  "! s=source.dmz && EF p=probe.office && f=related:0": false,
+  "! s=source.internet && EF p=probe.office && f=related:0": false,
+  "s=source.dmz && EF p=probe.internet && f=related:1": false,
+  "s=source.dmz && EF p=probe.office && f=related:1": false,
+  "s=source.internet && EF p=probe.dmz && f=related:0 && f=protocol:tcp && f=port:80": false,
+  "s=source.internet && EF p=probe.office && f=related:1": false,
+  "s=source.office && EF p=probe.dmz && f=related:0 && f=protocol:tcp && f=port:22": false,
+  "s=source.office && EF p=probe.dmz && f=related:0 && f=protocol:tcp && f=port:80": false,
+  "s=source.office && EF p=probe.internet": false
+ },
+ "limit_updates": 200,
+ "links": 10,
+ "oracle": null,
+ "rss_after_build_mb": 199.4,
+ "rules": 22,
+ "seed": 1,
+ "started": "2026-10-10T20:14:10.358553+00:00",
+ "stream": "s2",
+ "stream_sha256": "4325f5c83687efe1a4c69b3d37112e2a07dc4922f86e95e02a23411fc9ccfde5",
+ "updates": 8,
+ "what": "incremental stream, raw records (INCREMENTAL_PLAN.md \u00a75, \u00a77)",
+ "workload": "bench/wl_example"
+}

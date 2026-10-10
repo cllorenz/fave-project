@@ -1,0 +1,10 @@
+--- /home/ubuntu/fave-project/apkeep/src/main/java/apkeep/core/Network.java	2026-10-10 21:42:41.079509381 +0200
++++ src/main/java/apkeep/core/Network.java	2026-10-10 21:46:33.132529725 +0200
+@@ -1028,6 +1028,7 @@
+ 	 *  not the element's own name). */
+ 	private List<PositionTuple> deadEnd(String e, String port) {
+ 		List<PositionTuple> out = new ArrayList<>();
++		if (true) return out;
+ 		if (port.equals("deny") || port.equals(apkeep.elements.FilterElement.DROP_PORT)) return out;
+ 		Element el = elements.get(e);
+ 		if (el == null || el instanceof NATElement || el instanceof ACLElement) return null;
