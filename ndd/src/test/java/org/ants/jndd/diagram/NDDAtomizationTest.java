@@ -76,6 +76,42 @@ class NDDAtomizationTest {
         return r;
     }
 
+    /**
+     * FaVe fix (ndd/FAVE_CHANGES.md §12). SRC and DST are both 128 bits, so they
+     * share label variables and one prefix is one label id on either field.
+     * Atomization mapped labels to atoms in ONE map, so a label on both fields
+     * got the atoms of whichever field came last: the SRC molecule below held
+     * DST's atoms. The sets still recombine (both fields' atoms tile the same
+     * prefix), so only the atom ids show it -- and a later split, which finds
+     * a molecule's atoms by field, then misses them.
+     */
+    @Test
+    void aLabelOnTwoFieldsGetsEachFieldsOwnAtoms() {
+        int[] x = new int[48];
+        x[0] = 1;
+        int[] y = x.clone();
+        y[47] = 1;
+        int pSrc = NDD.ref(nddPrefix(SRC, x, 32));     // X as a source
+        int pDst = NDD.ref(nddPrefix(DST, x, 32));     // X as a destination
+        int pDst2 = NDD.ref(nddPrefix(DST, y, 48));    // Y inside X, destination only
+        HashSet<Integer> preds = new HashSet<>();
+        preds.add(pSrc);
+        preds.add(pDst);
+        preds.add(pDst2);
+        HashMap<Integer, HashSet<Integer>[]> perPred = new HashMap<>();
+        HashMap<Integer, AtomizedNDD> mol = AtomizedNDD.atomization(preds, perPred);
+        assertEquals(2, AtomizedNDD.getAllAtoms(SRC).size(), "X and not-X");
+        assertEquals(3, AtomizedNDD.getAllAtoms(DST).size(), "Y, X minus Y, not-X");
+        for (int p : preds) {
+            HashSet<Integer>[] atoms = perPred.get(p);
+            for (int f = 0; f < FIELD_BITS.length; f++) {
+                assertTrue(AtomizedNDD.getAllAtoms(f).containsAll(atoms[f]),
+                        "a molecule holds atoms of another field on field " + f);
+            }
+            assertEquals(p, AtomizedNDD.atomizedToNDD(mol.get(p)), "recombines");
+        }
+    }
+
     @Test
     void atomsPartitionEachFieldAndPredicatesRecombine() {
         Random rnd = new Random(0xA70A1DL);

@@ -57,6 +57,17 @@ public class AtomizedNDD extends NDD {
         atomizedNodeTable.deref(ndd);
     }
 
+    /** FaVe (ndd/FAVE_CHANGES.md §11): see AtomizedNodeTable#collectGarbage. */
+    public static void collectGarbage() {
+        atomizedTemporarilyProtect.clear();
+        atomizedNodeTable.collectGarbage();
+    }
+
+    /** FaVe: nodes in the atomized table, live or not yet collected. */
+    public static long tableSize() {
+        return atomizedNodeTable.size();
+    }
+
     public static AtomizedNDD mkAtomized(int field, HashMap<AtomizedNDD, HashSet<Integer>> edges) {
         return atomizedNodeTable.mk(field, edges);
     }
@@ -433,8 +444,14 @@ public class AtomizedNDD extends NDD {
         }
 
         //atomize bdd pred
-        HashMap<Integer, HashSet<Integer>> bddToAtoms = new HashMap<>();
+        // FaVe fix (ndd/FAVE_CHANGES.md §12): one map PER FIELD. Fields of equal
+        // width share their label variables (generateFields), so one label id
+        // can be a predicate on two fields -- e.g. the same /24 as a source and
+        // as a destination address -- and a single map gave the label the atoms
+        // of whichever field came last, on every field it occurs on.
+        ArrayList<HashMap<Integer, HashSet<Integer>>> bddToAtoms = new ArrayList<>();
         for(int field = 0; field <= fieldNum; field++) {
+            HashMap<Integer, HashSet<Integer>> ofField = new HashMap<>();
             for(int bddPredicate : bddPredicatesPerField[field]) {
                 HashSet<Integer> atomsOfPredicate = new HashSet<>();
                 for(int atom : atomsPerField.get(field)) {
@@ -442,8 +459,9 @@ public class AtomizedNDD extends NDD {
                         atomsOfPredicate.add(atom);
                     }
                 }
-                bddToAtoms.put(bddPredicate, atomsOfPredicate);
+                ofField.put(bddPredicate, atomsOfPredicate);
             }
+            bddToAtoms.add(ofField);
         }
 
         //atomize ndd pred
@@ -461,7 +479,7 @@ public class AtomizedNDD extends NDD {
         return nddToAtomizationNDD;
     }
 
-    private static AtomizedNDD atomizeNDD(int current, HashMap<Integer, HashSet<Integer>> bddToAtoms) {
+    private static AtomizedNDD atomizeNDD(int current, ArrayList<HashMap<Integer, HashSet<Integer>>> bddToAtoms) {
         if (current == NDD.getTrue()) {
             return TRUE;
         } else if (current == NDD.getFalse()){
@@ -474,7 +492,7 @@ public class AtomizedNDD extends NDD {
             int target = NDD.getEdgeTarget(current, i);
             int label = NDD.getEdgeLabel(current, i);
             AtomizedNDD subResult = atomizeNDD(target, bddToAtoms);
-            edges.put(subResult, new HashSet<>(bddToAtoms.get(label)));
+            edges.put(subResult, new HashSet<>(bddToAtoms.get(field).get(label)));
         }
         return mkAtomized(field, edges);
     }

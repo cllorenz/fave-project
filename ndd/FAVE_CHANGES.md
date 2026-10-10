@@ -235,3 +235,68 @@ Compiled, not yet run: the reference reads its own dataset layout
 (`layer1Topology`, `edgePorts`, `dpv/*/change_base`, ACL JSON) and no such dataset
 is in the tree. Its known gaps are unchanged (`APKEEP_INCREMENTAL_SCOPE.md` §1:
 no ACL delete, forwarding deletes computed but not applied, no links, NAT unwired).
+
+**Run since (2026-10-10).** Its `BDDACLWrapper` declared each field and read
+its variables at once; the int-node core creates variables only in
+`NDD.generateFields()`, after all declarations, and creates the label engine at
+the first declaration (so the engine the constructor was handed was null). The
+constructor now declares the same five fields, in the same order and widths,
+generates them, and then reads them -- the layout the reference intended. With
+that, `org.ants.jndd.fave.ReferenceApkeepDump` (FaVe harness code, not the
+reference) builds a FaVe workload through the reference's own entry point
+(`DPVerifierNDDAP`, `UpdateBatchRules`) and dumps every port's destination set;
+`../fave/test/test_ndd_apkeep_reference.py` compares it with NDD-APKeep
+(`../apkeep/FAVE_CHANGES.md` §12). `PrefixDump` writes a 32-bit set as its
+canonical maximal prefixes, so the two layouts compare exactly.
+
+## 10. One field layout for every NDD engine in the JVM  **[NEW]**
+
+2026-10-10, `APKEEP_INCREMENTAL_SCOPE.md` §4. `org.ants.jndd.fave.FaveFields`
+holds the field layout NDD-flood (`NddReachabilityEngine`) declared privately --
+the same indices and widths -- and initialises it once per JVM. NDD-APKeep, the
+APKeep fork's NDD backend (`../apkeep/FAVE_CHANGES.md` §12), takes its layout
+from it too: NDD's node tables, label engine and `AtomizedNDD`'s per-field atoms
+are process-global, a layout can be declared only once, and the two engines meet
+in one JVM (the exactness gate, the oracle). `NddReachabilityEngine` now reads
+its constants from it; nothing else changed.
+
+## 11. Collecting the atomized node table on demand  **[NEW]**
+
+2026-10-10. `AtomizedNodeTable` collects only when it is full -- 8M nodes in
+FaVe's layout (§10), sized for NDD-flood, which never makes an atomized node.
+NDD-APKeep makes many, and each node of a molecule carries the atom-id sets of
+its edges, thousands of ids on a large FIB: dead molecules from earlier updates
+filled the JVM heap long before 8M (`wl_airtel1` peaked at 15 GB, faithful
+`wl_i2` thrashed at 25 GB). `AtomizedNDD.collectGarbage()` /
+`AtomizedNodeTable.collectGarbage()` run the table's own collection now, and
+`tableSize()` reports its size; NDD-APKeep calls them between updates and
+between queries, where everything in use is referenced
+(`../apkeep/FAVE_CHANGES.md` §12). A smaller automatic threshold would not do:
+the split helpers (`split*AtomsWith*Predicate`) build molecules from
+unreferenced intermediates, which a collection inside them would remove.
+
+## 12. Atomization keyed a label's atoms by label alone  **[FIX]**
+
+2026-10-10. `AtomizedNDD.atomization` builds a map from each edge label to the
+atoms it covers, then rebuilds every predicate as a molecule from it. The map
+was keyed by the label id only. `generateFields` gives fields of equal width the
+SAME label variables, so one label id can be a predicate on two fields -- the
+same /24 as a source and as a destination address, both 32 bits -- and the
+label then got the atoms of whichever field was processed last, on every field
+it occurs on. The molecule holds another field's atom ids: it may still denote
+the right set (both fields' atoms tile the same prefix) or collapse to TRUE
+(when the borrowed atoms are as many as the field's own), and a later split,
+which finds a molecule's atoms per field, misses the borrowed ones and leaves
+them stale.
+
+Found through NDD-APKeep (`../apkeep/FAVE_CHANGES.md` §12): on `wl_cloud`, whose
+source-NAT prefixes are also destinations, the re-atomization after the 1,500th
+rule broke 43,636 molecule invariants -- while the verdicts still agreed with
+NDD-flood -- and a second network in the JVM then answered `wl_ifi` with 39
+violations instead of 27. The reference's own layout (two 32-bit address
+fields, two 16-bit port fields) is exposed the same way whenever an ACL names
+the same prefix as source and destination.
+
+The map is now one per field. Test: `NDDAtomizationTest.
+aLabelOnTwoFieldsGetsEachFieldsOwnAtoms` (on the unfixed code the source
+predicate's molecule is TRUE).

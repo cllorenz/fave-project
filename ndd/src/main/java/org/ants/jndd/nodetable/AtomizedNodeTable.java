@@ -165,6 +165,23 @@ public class AtomizedNodeTable {
     }
 
     /**
+     * FaVe (ndd/FAVE_CHANGES.md §11): collect now. Every node with no reference
+     * left is removed, so the caller must hold a reference on everything it
+     * still uses -- call it only where that holds (NDD-APKeep calls it between
+     * updates). The automatic collection runs only when the table is full,
+     * which for nodes carrying atom sets of thousands of ids is far too late.
+     */
+    public void collectGarbage() {
+        gc();
+        AtomizedNDD.clearCaches();
+    }
+
+    /** FaVe: the number of nodes in the table, live or not yet collected. */
+    public long size() {
+        return currentSize;
+    }
+
+    /**
      * Grow the node table.
      */
     private void grow() {

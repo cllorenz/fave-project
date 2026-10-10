@@ -46,9 +46,12 @@ public final class NddReachabilityEngine {
     // §2.5e parity is preserved by construction; IPv4 address fields and VLAN are
     // APPENDED. A benchmark constrains only the fields it uses (IPv4 xor IPv6 per
     // rule; the untouched fields stay TRUE, so unused fields cost nothing).
-    static final int SRC = 0, DST = 1, PROTO = 2, SPORT = 3, DPORT = 4, REL = 5;
-    static final int SRC4 = 6, DST4 = 7, VLAN = 8, FLAGS = 9;
-    static final int[] W = {128, 128, 8, 16, 16, 1, 32, 32, 16, 8};
+    static final int SRC = FaveFields.SRC6, DST = FaveFields.DST6,
+            PROTO = FaveFields.PROTO, SPORT = FaveFields.SPORT,
+            DPORT = FaveFields.DPORT, REL = FaveFields.REL;
+    static final int SRC4 = FaveFields.SRC4, DST4 = FaveFields.DST4,
+            VLAN = FaveFields.VLAN, FLAGS = FaveFields.FLAGS;
+    static final int[] W = FaveFields.WIDTH;
     static final String DROP = "__drop__";
 
     // THE `+ filter` / `+ acl` RULE-STRING LAYOUT, declared once (item 28,
@@ -66,14 +69,9 @@ public final class NddReachabilityEngine {
 
     // NDD's node tables are process-global statics; initialise the field layout
     // exactly once per JVM (the FaVe path builds one network per process).
-    private static boolean fieldsReady = false;
-
-    private static synchronized void ensureFields() {
-        if (fieldsReady) return;
-        AtomizedNDD.initAtomizedNDD(8_000_000, 16_000_000, 48_000_000, 16_000_000);
-        for (int w : W) AtomizedNDD.declareField(w);
-        NDD.generateFields();
-        fieldsReady = true;
+    // The layout itself lives in FaveFields, shared with NDD-APKeep.
+    private static void ensureFields() {
+        FaveFields.ensure();
     }
 
     private static final class Rule { int hit; String out; long prio; }

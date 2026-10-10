@@ -107,6 +107,24 @@ public class BDDACLWrapper implements Serializable {
 		srcIP = new int[ipBits];
 		dstIP = new int[ipBits];
 
+		/*
+		 * FaVe (ndd/FAVE_CHANGES.md §9): the int-node core declares fields first
+		 * and creates their variables once, in NDD.generateFields(); variables
+		 * do not exist before, and the label engine is created by the first
+		 * declaration (so the engine passed in, read before it, is null). The
+		 * five fields are declared in the order and with the widths below, then
+		 * generated, then read -- the layout the reference intended.
+		 */
+		if (NDD.getFieldNum() < 0) {
+			AtomizedNDD.declareField(ipBits);       // SRC_IP_FIELD
+			AtomizedNDD.declareField(ipBits);       // DST_IP_FIELD
+			AtomizedNDD.declareField(portBits);     // SRC_PORT_FIELD
+			AtomizedNDD.declareField(portBits);     // DST_PORT_FIELD
+			AtomizedNDD.declareField(protocolBits); // PROTOCOL_FIELD
+			NDD.generateFields();
+		}
+		this.aclBDD = NDD.getBDDEngine();
+
 		/**
 		 * will try more orders of variables
 		 */
@@ -126,7 +144,7 @@ public class BDDACLWrapper implements Serializable {
 	}
 
 	private void DeclareVars(int[] vars, int bits, int field) {
-		AtomizedNDD.declareField(bits);
+		// FaVe: declared in the constructor (see there); this reads them.
 		for (int i = bits - 1; i >= 0; i--) {
 			vars[i] = NDD.getVar(field, i);
 		}
