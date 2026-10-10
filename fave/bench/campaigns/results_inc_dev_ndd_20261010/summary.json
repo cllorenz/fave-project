@@ -1,0 +1,1062 @@
+{
+ "cells": [
+  {
+   "changed": 0,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.0,
+   "rechecked": 3306,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 847.1,
+    "first_batch": 850.1,
+    "last_batch": 910.3,
+    "max": 910.4
+   },
+   "selectivity": 0.0645703125,
+   "stream": "s1",
+   "t_recheck_ms_median": 1.18,
+   "t_total_ms": {
+    "max": 70.34,
+    "median": 2.44,
+    "p90": 3.33,
+    "p99": 5.39
+   },
+   "t_update_ms_median": 1.23,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 0,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.0,
+   "rechecked": 3698,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 9039.9,
+    "first_batch": 8550.1,
+    "last_batch": 8550.2,
+    "max": 8550.3
+   },
+   "selectivity": 0.0722265625,
+   "stream": "s1",
+   "t_recheck_ms_median": 1.32,
+   "t_total_ms": {
+    "max": 33.8,
+    "median": 2.69,
+    "p90": 3.55,
+    "p99": 4.97
+   },
+   "t_update_ms_median": 1.32,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 0,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.0,
+   "rechecked": 243,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 174.2,
+    "first_batch": 175.6,
+    "last_batch": 175.6,
+    "max": 175.6
+   },
+   "selectivity": 0.00474609375,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.37,
+   "t_total_ms": {
+    "max": 1.05,
+    "median": 0.41,
+    "p90": 0.52,
+    "p99": 0.74
+   },
+   "t_update_ms_median": 0.04,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 0,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.0,
+   "rechecked": 4166,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 701.8,
+    "first_batch": 701.9,
+    "last_batch": 722.3,
+    "max": 722.3
+   },
+   "selectivity": 0.0813671875,
+   "stream": "s2",
+   "t_recheck_ms_median": 1.87,
+   "t_total_ms": {
+    "max": 71.05,
+    "median": 3.24,
+    "p90": 13.05,
+    "p99": 45.15
+   },
+   "t_update_ms_median": 1.41,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 0,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.0,
+   "rechecked": 4300,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 8787.2,
+    "first_batch": 8794.5,
+    "last_batch": 8818.5,
+    "max": 8859.0
+   },
+   "selectivity": 0.083984375,
+   "stream": "s2",
+   "t_recheck_ms_median": 1.77,
+   "t_total_ms": {
+    "max": 210.77,
+    "median": 3.32,
+    "p90": 8.26,
+    "p99": 47.76
+   },
+   "t_update_ms_median": 1.64,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 0,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.0,
+   "rechecked": 295,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 173.5,
+    "first_batch": 173.5,
+    "last_batch": 173.5,
+    "max": 173.5
+   },
+   "selectivity": 0.00576171875,
+   "stream": "s2",
+   "t_recheck_ms_median": 0.39,
+   "t_total_ms": {
+    "max": 1.1,
+    "median": 0.45,
+    "p90": 0.64,
+    "p99": 0.93
+   },
+   "t_update_ms_median": 0.06,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 1804,
+   "completed": "168 of 168",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.17819043856183328,
+   "rechecked": 10124,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 688.0,
+    "first_batch": 695.9,
+    "last_batch": 707.5,
+    "max": 707.5
+   },
+   "selectivity": 0.23539806547619047,
+   "stream": "s3",
+   "t_recheck_ms_median": 2.2,
+   "t_total_ms": {
+    "max": 620.95,
+    "median": 532.42,
+    "p90": 557.63,
+    "p99": 579.33
+   },
+   "t_update_ms_median": 530.19,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 1804,
+   "completed": "168 of 168",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.17886178861788618,
+   "rechecked": 10086,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 10546.6,
+    "first_batch": 10566.0,
+    "last_batch": 10556.0,
+    "max": 10568.8
+   },
+   "selectivity": 0.23451450892857142,
+   "stream": "s3",
+   "t_recheck_ms_median": 2.46,
+   "t_total_ms": {
+    "max": 603.02,
+    "median": 548.59,
+    "p90": 580.61,
+    "p99": 590.72
+   },
+   "t_update_ms_median": 545.87,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 1804,
+   "completed": "168 of 168",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 1.0,
+   "rechecked": 1804,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 173.4,
+    "first_batch": 173.4,
+    "last_batch": 219.7,
+    "max": 219.7
+   },
+   "selectivity": 0.04194568452380952,
+   "stream": "s3",
+   "t_recheck_ms_median": 0.63,
+   "t_total_ms": {
+    "max": 11.34,
+    "median": 3.02,
+    "p90": 7.52,
+    "p99": 10.67
+   },
+   "t_update_ms_median": 2.04,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 8,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.00150093808630394,
+   "rechecked": 5330,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 5385.6,
+    "first_batch": 5407.7,
+    "last_batch": 7386.8,
+    "max": 7386.8
+   },
+   "selectivity": 0.37535211267605634,
+   "stream": "s1",
+   "t_recheck_ms_median": 62.65,
+   "t_total_ms": {
+    "max": 251.87,
+    "median": 80.12,
+    "p90": 99.41,
+    "p99": 119.93
+   },
+   "t_update_ms_median": 17.78,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 8,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.8,
+   "rechecked": 10,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 49.7,
+    "first_batch": 49.9,
+    "last_batch": 49.9,
+    "max": 49.9
+   },
+   "selectivity": 0.0007042253521126761,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.0,
+   "t_total_ms": {
+    "max": 2.08,
+    "median": 0.01,
+    "p90": 0.02,
+    "p99": 0.04
+   },
+   "t_update_ms_median": 0.01,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 15,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.0028951939779965257,
+   "rechecked": 5181,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 5034.3,
+    "first_batch": 5044.7,
+    "last_batch": 9099.0,
+    "max": 9099.0
+   },
+   "selectivity": 0.3648591549295775,
+   "stream": "s2",
+   "t_recheck_ms_median": 63.71,
+   "t_total_ms": {
+    "max": 235.0,
+    "median": 83.28,
+    "p90": 141.81,
+    "p99": 190.91
+   },
+   "t_update_ms_median": 17.92,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 15,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.3333333333333333,
+   "rechecked": 45,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 49.7,
+    "first_batch": 49.7,
+    "last_batch": 49.8,
+    "max": 49.8
+   },
+   "selectivity": 0.0031690140845070424,
+   "stream": "s2",
+   "t_recheck_ms_median": 0.0,
+   "t_total_ms": {
+    "max": 1.85,
+    "median": 0.02,
+    "p90": 0.05,
+    "p99": 1.05
+   },
+   "t_update_ms_median": 0.02,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 326,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.07180616740088105,
+   "rechecked": 4540,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 5079.5,
+    "first_batch": 5084.3,
+    "last_batch": 9438.8,
+    "max": 9438.8
+   },
+   "selectivity": 0.31971830985915495,
+   "stream": "s3",
+   "t_recheck_ms_median": 60.14,
+   "t_total_ms": {
+    "max": 195.38,
+    "median": 78.58,
+    "p90": 161.69,
+    "p99": 185.61
+   },
+   "t_update_ms_median": 17.93,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 326,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.8810810810810811,
+   "rechecked": 370,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 49.7,
+    "first_batch": 49.8,
+    "last_batch": 56.1,
+    "max": 56.1
+   },
+   "selectivity": 0.026056338028169014,
+   "stream": "s3",
+   "t_recheck_ms_median": 0.0,
+   "t_total_ms": {
+    "max": 8.4,
+    "median": 0.13,
+    "p90": 1.24,
+    "p99": 2.26
+   },
+   "t_update_ms_median": 0.1,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 14,
+   "completed": "44 of 44",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.08433734939759036,
+   "rechecked": 166,
+   "refused": 6,
+   "rss_mb": {
+    "after_build": 200.3,
+    "first_batch": 200.4,
+    "last_batch": 212.8,
+    "max": 212.8
+   },
+   "selectivity": 0.37727272727272726,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.47,
+   "t_total_ms": {
+    "max": 70.58,
+    "median": 0.85,
+    "p90": 2.71,
+    "p99": 70.58
+   },
+   "t_update_ms_median": 0.41,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 14,
+   "completed": "44 of 44",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.08433734939759036,
+   "rechecked": 166,
+   "refused": 6,
+   "rss_mb": {
+    "after_build": 1887.4,
+    "first_batch": 1887.4,
+    "last_batch": 2007.8,
+    "max": 2007.8
+   },
+   "selectivity": 0.37727272727272726,
+   "stream": "s1",
+   "t_recheck_ms_median": 1.05,
+   "t_total_ms": {
+    "max": 68.91,
+    "median": 1.33,
+    "p90": 5.84,
+    "p99": 68.91
+   },
+   "t_update_ms_median": 0.46,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 14,
+   "completed": "44 of 44",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.7,
+   "rechecked": 20,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 43.1,
+    "first_batch": 43.1,
+    "last_batch": 43.1,
+    "max": 43.1
+   },
+   "selectivity": 0.045454545454545456,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.0,
+   "t_total_ms": {
+    "max": 0.93,
+    "median": 0.03,
+    "p90": 0.81,
+    "p99": 0.93
+   },
+   "t_update_ms_median": 0.02,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 4,
+   "completed": "8 of 8",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.07547169811320754,
+   "rechecked": 53,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 200.8,
+    "first_batch": 202.0,
+    "last_batch": 202.7,
+    "max": 202.7
+   },
+   "selectivity": 0.6625,
+   "stream": "s2",
+   "t_recheck_ms_median": 1.98,
+   "t_total_ms": {
+    "max": 23.35,
+    "median": 6.45,
+    "p90": 8.52,
+    "p99": 23.35
+   },
+   "t_update_ms_median": 4.52,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 4,
+   "completed": "8 of 8",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.07407407407407407,
+   "rechecked": 54,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1883.9,
+    "first_batch": 1885.0,
+    "last_batch": 1889.1,
+    "max": 1889.1
+   },
+   "selectivity": 0.675,
+   "stream": "s2",
+   "t_recheck_ms_median": 2.63,
+   "t_total_ms": {
+    "max": 25.74,
+    "median": 7.58,
+    "p90": 8.87,
+    "p99": 25.74
+   },
+   "t_update_ms_median": 4.59,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 4,
+   "completed": "8 of 8",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.15384615384615385,
+   "rechecked": 26,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 42.8,
+    "first_batch": 42.8,
+    "last_batch": 42.8,
+    "max": 42.8
+   },
+   "selectivity": 0.325,
+   "stream": "s2",
+   "t_recheck_ms_median": 0.64,
+   "t_total_ms": {
+    "max": 0.91,
+    "median": 0.68,
+    "p90": 0.79,
+    "p99": 0.91
+   },
+   "t_update_ms_median": 0.05,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 48,
+   "completed": "20 of 20",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.42857142857142855,
+   "rechecked": 112,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 201.2,
+    "first_batch": 202.7,
+    "last_batch": 205.1,
+    "max": 205.1
+   },
+   "selectivity": 0.56,
+   "stream": "s3",
+   "t_recheck_ms_median": 1.24,
+   "t_total_ms": {
+    "max": 21.38,
+    "median": 5.36,
+    "p90": 6.14,
+    "p99": 21.38
+   },
+   "t_update_ms_median": 4.11,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 48,
+   "completed": "20 of 20",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.41379310344827586,
+   "rechecked": 116,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1890.3,
+    "first_batch": 1893.9,
+    "last_batch": 1935.0,
+    "max": 1937.0
+   },
+   "selectivity": 0.58,
+   "stream": "s3",
+   "t_recheck_ms_median": 1.93,
+   "t_total_ms": {
+    "max": 50.02,
+    "median": 6.49,
+    "p90": 23.24,
+    "p99": 50.02
+   },
+   "t_update_ms_median": 4.34,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 48,
+   "completed": "20 of 20",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.7058823529411765,
+   "rechecked": 68,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 42.7,
+    "first_batch": 42.8,
+    "last_batch": 42.8,
+    "max": 42.8
+   },
+   "selectivity": 0.34,
+   "stream": "s3",
+   "t_recheck_ms_median": 0.75,
+   "t_total_ms": {
+    "max": 1.99,
+    "median": 0.77,
+    "p90": 0.89,
+    "p99": 1.99
+   },
+   "t_update_ms_median": 0.02,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 81,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.04345493562231759,
+   "rechecked": 1864,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 240.7,
+    "first_batch": 241.1,
+    "last_batch": 278.9,
+    "max": 278.9
+   },
+   "selectivity": 0.03117056856187291,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.02,
+   "t_total_ms": {
+    "max": 24.99,
+    "median": 0.67,
+    "p90": 3.88,
+    "p99": 14.89
+   },
+   "t_update_ms_median": 0.65,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 81,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.03593611357586513,
+   "rechecked": 2254,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1877.1,
+    "first_batch": 1889.3,
+    "last_batch": 2006.1,
+    "max": 2019.2
+   },
+   "selectivity": 0.03769230769230769,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.02,
+   "t_total_ms": {
+    "max": 31.24,
+    "median": 0.68,
+    "p90": 5.65,
+    "p99": 19.92
+   },
+   "t_update_ms_median": 0.66,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 81,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.75,
+   "rechecked": 108,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 37.7,
+    "first_batch": 37.7,
+    "last_batch": 38.0,
+    "max": 38.0
+   },
+   "selectivity": 0.001806020066889632,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.01,
+   "t_total_ms": {
+    "max": 0.97,
+    "median": 0.02,
+    "p90": 0.77,
+    "p99": 0.96
+   },
+   "t_update_ms_median": 0.01,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 126,
+   "completed": "56 of 56",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.0473328324567994,
+   "rechecked": 2662,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 242.6,
+    "first_batch": 252.1,
+    "last_batch": 355.2,
+    "max": 355.2
+   },
+   "selectivity": 0.1589823220258003,
+   "stream": "s2",
+   "t_recheck_ms_median": 2.96,
+   "t_total_ms": {
+    "max": 23.23,
+    "median": 4.61,
+    "p90": 12.32,
+    "p99": 18.04
+   },
+   "t_update_ms_median": 1.49,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 126,
+   "completed": "56 of 56",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.07645631067961164,
+   "rechecked": 1648,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1876.8,
+    "first_batch": 1888.3,
+    "last_batch": 2013.9,
+    "max": 2013.9
+   },
+   "selectivity": 0.09842331581462016,
+   "stream": "s2",
+   "t_recheck_ms_median": 2.13,
+   "t_total_ms": {
+    "max": 33.17,
+    "median": 3.44,
+    "p90": 16.53,
+    "p99": 32.25
+   },
+   "t_update_ms_median": 1.31,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 126,
+   "completed": "56 of 56",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 0.7241379310344828,
+   "rechecked": 174,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 37.7,
+    "first_batch": 37.7,
+    "last_batch": 38.0,
+    "max": 38.0
+   },
+   "selectivity": 0.010391782130912566,
+   "stream": "s2",
+   "t_recheck_ms_median": 0.38,
+   "t_total_ms": {
+    "max": 1.18,
+    "median": 0.48,
+    "p90": 0.95,
+    "p99": 1.15
+   },
+   "t_update_ms_median": 0.05,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 606,
+   "completed": "132 of 132",
+   "ended_by": "completed",
+   "engine": "apkeep",
+   "outcome": "measured",
+   "precision": 0.10752306600425834,
+   "rechecked": 5636,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 232.6,
+    "first_batch": 236.1,
+    "last_batch": 473.7,
+    "max": 473.7
+   },
+   "selectivity": 0.1427992297557515,
+   "stream": "s3",
+   "t_recheck_ms_median": 1.46,
+   "t_total_ms": {
+    "max": 26.58,
+    "median": 2.95,
+    "p90": 11.84,
+    "p99": 23.69
+   },
+   "t_update_ms_median": 1.33,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 606,
+   "completed": "132 of 132",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.104989604989605,
+   "rechecked": 5772,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1878.4,
+    "first_batch": 1899.9,
+    "last_batch": 2066.4,
+    "max": 2066.4
+   },
+   "selectivity": 0.14624505928853754,
+   "stream": "s3",
+   "t_recheck_ms_median": 1.28,
+   "t_total_ms": {
+    "max": 39.49,
+    "median": 2.73,
+    "p90": 12.41,
+    "p99": 32.5
+   },
+   "t_update_ms_median": 1.35,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 606,
+   "completed": "132 of 132",
+   "ended_by": "completed",
+   "engine": "netplumber",
+   "outcome": "measured",
+   "precision": 1.0,
+   "rechecked": 606,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 37.7,
+    "first_batch": 37.7,
+    "last_batch": 38.1,
+    "max": 38.1
+   },
+   "selectivity": 0.01535421100638492,
+   "stream": "s3",
+   "t_recheck_ms_median": 0.46,
+   "t_total_ms": {
+    "max": 1.23,
+    "median": 0.52,
+    "p90": 0.91,
+    "p99": 1.14
+   },
+   "t_update_ms_median": 0.01,
+   "workload": "wl_ifi"
+  }
+ ],
+ "cross_engine": [
+  {
+   "agree": true,
+   "batches_compared": 200,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s1",
+   "why": null,
+   "workload": "wl_airtel1"
+  },
+  {
+   "agree": true,
+   "batches_compared": 200,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s2",
+   "why": null,
+   "workload": "wl_airtel1"
+  },
+  {
+   "agree": true,
+   "batches_compared": 168,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s3",
+   "why": null,
+   "workload": "wl_airtel1"
+  },
+  {
+   "agree": true,
+   "batches_compared": 200,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s1",
+   "why": null,
+   "workload": "wl_cloud"
+  },
+  {
+   "agree": true,
+   "batches_compared": 200,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s2",
+   "why": null,
+   "workload": "wl_cloud"
+  },
+  {
+   "agree": true,
+   "batches_compared": 200,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s3",
+   "why": null,
+   "workload": "wl_cloud"
+  },
+  {
+   "agree": false,
+   "batches_compared": 0,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": 0,
+   "stream": "s1",
+   "why": null,
+   "workload": "wl_example"
+  },
+  {
+   "agree": true,
+   "batches_compared": 8,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s2",
+   "why": null,
+   "workload": "wl_example"
+  },
+  {
+   "agree": true,
+   "batches_compared": 20,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s3",
+   "why": null,
+   "workload": "wl_example"
+  },
+  {
+   "agree": true,
+   "batches_compared": 200,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s1",
+   "why": null,
+   "workload": "wl_ifi"
+  },
+  {
+   "agree": true,
+   "batches_compared": 56,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s2",
+   "why": null,
+   "workload": "wl_ifi"
+  },
+  {
+   "agree": true,
+   "batches_compared": 132,
+   "disagreeing_batches": 0,
+   "engines": [
+    "netplumber",
+    "apkeep",
+    "ndd-apkeep"
+   ],
+   "refusals_diverge_at_batch": null,
+   "stream": "s3",
+   "why": null,
+   "workload": "wl_ifi"
+  }
+ ]
+}
