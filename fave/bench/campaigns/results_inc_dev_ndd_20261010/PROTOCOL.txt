@@ -1,0 +1,58 @@
+PROTOCOL -- incremental axis, INDICATIVE calibration of NDD-APKeep (dev)
+Declared 2026-10-10, BEFORE any cell of this run. Not edited afterwards.
+INCREMENTAL_PLAN.md §7, O3-O5; APKEEP_INCREMENTAL_SCOPE.md §8; the owner's
+scope of 2026-10-09: runs on this branch are indicative -- limit_class dev, one
+repetition, the machine as the memory cap -- and the complete campaign is run
+separately.
+
+WHO AND UNDER WHAT MANDATE
+  Executed unattended by a Claude session while the owner is away ("execute
+  the plan autonomously"; NDD-APKeep design B decided by the owner the same
+  day). Nothing here is reportable. It is the calibration of
+  ../results_inc_dev_20261010/ for the engine built since, and it re-runs the
+  engines it is compared with on the same code: wl_example's packet-filter
+  routing rules changed after that run (owner decision A1, commit 10b74417).
+
+WHAT IS BEING RUN  (run.sh in this directory)
+  Engines   netplumber (lib), apkeep (BDD-APKeep), ndd-apkeep (NDD-APKeep);
+            on wl_cloud netplumber and ndd-apkeep only (BDD-APKeep takes
+            3.24 h to build it, V5).
+  Workloads wl_example, wl_ifi, wl_airtel1, wl_cloud.
+  Streams   S1, S2 (fraction 0.2, seed 1), S3 -- each its FIRST 200 updates
+            (--limit-updates 200). Batch 1.
+  Timed cells: 33 (3 x 3 x 3 + 2 x 3), no oracle in them (O3.1).
+  Oracle runs: S2 on wl_ifi, wl_airtel1 and wl_cloud, NDD-APKeep only,
+            --oracle-sample 50 --oracle-every 50 (O3.3): 3 runs, untimed.
+  Cross-engine: incremental_compare over the engines that ran, per stream.
+
+STOPPING RULES (incremental_cell.py defaults, the indicative ones)
+  limit_class dev; limit_wall 86400 s; limit_rss = the machine's memory;
+  memory_floor 1024 MB; per-update limit 3600 s; one repetition.
+
+PREDICTIONS -- declared now, checked in FINDINGS.md afterwards
+  P1  Every stream AGREES across the engines that ran it, up to the first
+      update one of them refuses (same changed checks per update). A
+      disagreement is a defect.
+  P2  Every NDD-APKeep oracle run PASSES (sample, full and from-zero halves).
+  P3  NDD-APKeep refuses exactly the updates BDD-APKeep refuses, stream by
+      stream: the refusals are the adapter's, shared. On wl_example S1 that is
+      6 (pgf's three routes each lose their drop before their forwarding rule,
+      and are put back); none on wl_ifi and wl_airtel1. On wl_cloud no count
+      is predicted (no BDD run to share it with); it is recorded.
+  P4  Re-checked counts: NDD-APKeep EQUALS BDD-APKeep on wl_example and
+      wl_airtel1 (one packet universe on both there, and the same footprint
+      design over exact sets). On wl_ifi they may differ (BDD-APKeep divides
+      ACLs into their own universe, NDD-APKeep does not); no direction is
+      predicted.
+  P5  NDD-APKeep's median t_update stays below 10 ms on wl_ifi and wl_airtel1
+      S1/S2 (BDD-APKeep: 0.6-1.5 ms in the previous run; NDD-APKeep's build of
+      wl_airtel1 is ~5x BDD-APKeep's, 17 s vs 3.3 s).
+  P6  NDD-APKeep's median t_recheck is at most BDD-APKeep's on wl_airtel1 S1
+      and S2 (a query is a walk of AtomizedNDD.and over molecules; wl_up from
+      zero answered 18,811 checks in ~46 s against BDD-APKeep's ~377 s).
+  P7  NDD-APKeep completes every wl_cloud cell (200 updates or the whole
+      stream) and every update there is answered (no error outcome).
+
+WHAT WOULD MAKE THIS RUN WORTHLESS
+  A harness crash or an `error` outcome on a cell: recorded, not hidden, and
+  the cell re-run once after the cause is understood.
