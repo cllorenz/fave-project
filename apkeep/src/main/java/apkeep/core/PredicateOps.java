@@ -27,4 +27,11 @@ public interface PredicateOps {
 	int not(int a);
 	int diffTo(int a, int b);
 	int orTo(int a, int b);
+
+	/** FaVe fork (witness footprints, APKEEP_INCREMENTAL_SCOPE.md §9): one
+	 *  packet of {@code set} -- a single full header assignment -- as a set
+	 *  the caller owns; FALSE for an empty set. Which packet is unspecified
+	 *  but deterministic. An implementation that cannot pick one returns
+	 *  {@code set} itself (referenced), which is coarser but never wrong. */
+	int onePacket(int set);
 }

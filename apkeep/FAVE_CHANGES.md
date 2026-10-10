@@ -524,3 +524,41 @@ invariants hold, and the host-to-host matrix equals a from-zero NDD build's and
 BDD-APKeep's. Non-vacuity is asserted (both outcomes occur), and a negative
 control shows one dropped rule changes the matrix. Also two networks sharing
 atoms, and re-atomization.
+
+## 13. Selectable footprints: witness and dead ends  **[NEW]**
+
+Two finer footprints for the selective re-check (`../docs/APKEEP_INCREMENTAL_SCOPE.md`
+§9), both OFF by default -- the default footprint, and every recorded number
+made with it, are unchanged. `Network.setFootprintModes(witness, deadEnds)`;
+from Python `LibAPKeep(footprint=...)`, `APKeepAdapter(footprint=...)`,
+`bench/incremental_run.py --footprint witness,dead-ends`.
+
+- **witness**: a REACHABLE query's footprint is its witness -- the path the
+  walk found, the logical port it left each element by, and the links it used
+  -- instead of everything the walk explored. After the path's last rewrite
+  one concrete packet of what arrived stands for each hop
+  (`PredicateOps.onePacket`, new: JDD's `oneSat` with free variables 0, on
+  BDDs; one path of the NDD with each label's `oneSat`, on NDDs); at the
+  rewrite and before it a hop keeps the sets that arrived there. A change at a
+  hop counts only if it moves those packets OUT of the port the path uses (a
+  rewrite: any change meeting them). Sound because "reachable" is existential
+  and the walk complete: an intact witness keeps the answer.
+  `checker/Witness.java` (new); both reachability checkers keep a stack of
+  hops and of egress ports during the walk and build the witness on arrival,
+  only when the network asks for it.
+- **dead ends**: for an UNREACHABLE query, a change that moves packets only
+  into a dead end -- "deny", the filter drop sink, or ports with no link that
+  are not the query's target -- cannot open a path, and is ignored; the port
+  joins the footprint's ports, so a link brought up there later counts.
+  Rewrites and ACL permit ports are never treated as dead ends (their
+  positions are not named after the element). A reachable query's explored
+  footprint is kept apart (`Footprint.reached`) so the rule never applies to
+  it.
+- `Network`: change tuples now keep their from- and to-ports
+  (`changed_from`/`changed_to`); `predicateOps()`.
+
+**Tests:** `src/test/java/apkeep/core/OnePacketTest.java` (both backends: the
+packet is non-empty, inside the set, decides every variable, deterministic);
+`fave/test/test_apkeep_incremental_core.py` (`Test[Ndd]WitnessFootprints`,
+`Test[Ndd]DeadEndFootprints`); `fave/test/test_incremental_apkeep.py` runs
+every oracle stream with the modes on (`*FinerFootprints`, `*DeadEnds`).

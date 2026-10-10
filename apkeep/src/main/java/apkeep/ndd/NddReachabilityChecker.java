@@ -10,6 +10,7 @@ import java.util.Set;
 import org.ants.jndd.diagram.AtomizedNDD;
 import org.ants.jndd.diagram.NDD;
 
+import apkeep.checker.Witness;
 import apkeep.core.Network;
 import apkeep.elements.Element;
 import apkeep.elements.ForwardElement;
@@ -53,6 +54,16 @@ public class NddReachabilityChecker {
 
 	public List<PositionTuple> witnessPath = null;
 
+	/* Witness footprints (APKEEP_INCREMENTAL_SCOPE.md §9), as the BDD
+	 * checker's: the hops on the current path -- {element, logical port or
+	 * null for a rewrite, the molecule and the seed that arrived there} -- and
+	 * the ports the path left by. */
+	public Witness witness = null;
+	public PositionTuple lastTarget = null;
+	private final boolean recordWitness;
+	private final List<Object[]> hopStack = new ArrayList<>();
+	private final List<PositionTuple> egressStack = new ArrayList<>();
+
 	public NddReachabilityChecker(Network net) {
 		this.net = net;
 		this.ports = net.nddPorts();
@@ -62,6 +73,15 @@ public class NddReachabilityChecker {
 			fpAcl = new HashMap<>();
 			fpPorts = new HashSet<>();
 		}
+		recordWitness = net.isTracking() && net.footprintWitness();
+	}
+
+	private void begin(PositionTuple target) {
+		witnessPath = null;
+		witness = null;
+		lastTarget = target;
+		hopStack.clear();
+		egressStack.clear();
 	}
 
 	public void setRelatedHeader(int related) { this.relatedHeader = related; }
@@ -94,18 +114,49 @@ public class NddReachabilityChecker {
 		}
 	}
 
-	private boolean arrive(List<PositionTuple> history, PositionTuple last) {
+	private boolean arrive(List<PositionTuple> history, PositionTuple last, AtomizedNDD fwd, int acl) {
 		witnessPath = new ArrayList<>(history);
 		witnessPath.add(last);
+		if (recordWitness) witness = buildWitness(fwd, acl);
 		return true;
 	}
 
+	/** {@link apkeep.checker.ReachabilityChecker}'s witness, on NDDs. */
+	private Witness buildWitness(AtomizedNDD fwd, int acl) {
+		NddOps ops = NddOps.INSTANCE;
+		int space = NDD.ref(AtomizedNDD.atomizedToNDD(fwd));
+		int arrived = ops.and(space, acl);
+		NDD.deref(space);
+		for (int header : new int[] {targetHeader, relatedHeader}) {
+			int next = ops.and(arrived, header);
+			NDD.deref(arrived);
+			arrived = next;
+		}
+		int packet = ops.onePacket(arrived);
+		NDD.deref(arrived);
+		int lastRewrite = -1;
+		for (int i = 0; i < hopStack.size(); i++) if (hopStack.get(i)[1] == null) lastRewrite = i;
+		Witness w = new Witness();
+		for (int i = 0; i < hopStack.size(); i++) {
+			Object[] hop = hopStack.get(i);
+			w.hops.add(i <= lastRewrite
+					? new Witness.Hop((String) hop[0], (String) hop[1],
+							NDD.ref(AtomizedNDD.atomizedToNDD((AtomizedNDD) hop[2])), NDD.ref((Integer) hop[3]))
+					: new Witness.Hop((String) hop[0], (String) hop[1], NDD.ref(packet), NDD.ref(packet)));
+		}
+		NDD.deref(packet);
+		w.egress.addAll(egressStack);
+		return w;
+	}
+
 	public boolean isReachable(PositionTuple source, PositionTuple target) {
+		begin(target);
 		return start(source, target, NDD.getTrue());
 	}
 
 	/** Traffic from source IPv4 prefix src/len (len &lt;= 0: any source). */
 	public boolean isReachable(PositionTuple source, PositionTuple target, long src, int len) {
+		begin(target);
 		int seed = len <= 0 ? NDD.getTrue() : enc.srcPrefix(src, len);
 		boolean r = start(source, target, seed);
 		NDD.deref(seed);
@@ -120,6 +171,7 @@ public class NddReachabilityChecker {
 
 	/** Traffic from a source IPv6 prefix (null/empty: any source). */
 	public boolean isReachable(PositionTuple source, PositionTuple target, String srcCidr) {
+		begin(target);
 		int seed = enc.srcIP6(srcCidr);
 		if (NDD.isFalse(seed)) return false;
 		boolean r = start(source, target, seed);
@@ -159,7 +211,7 @@ public class NddReachabilityChecker {
 		if (cur_hop.getPortName().equals("deny")) return false;
 
 		if (moved && cur_hop.equals(target) && arrives(fwd, acl))
-			return arrive(history, cur_hop);
+			return arrive(history, cur_hop, fwd, acl);
 
 		if (history.contains(cur_hop)) return false;
 		history.add(cur_hop);
@@ -168,9 +220,19 @@ public class NddReachabilityChecker {
 		Set<PositionTuple> connected_ports = net.getConnectedPorts(cur_hop);
 		if (connected_ports == null) return false;
 
+		egressStack.add(cur_hop);
+		try {
+			return traverseLinks(connected_ports, fwd, acl, target, history);
+		} finally {
+			egressStack.remove(egressStack.size() - 1);
+		}
+	}
+
+	private boolean traverseLinks(Set<PositionTuple> connected_ports, AtomizedNDD fwd, int acl,
+			PositionTuple target, List<PositionTuple> history) {
 		for (PositionTuple connected_pt : connected_ports) {
 			if (connected_pt.equals(target) && arrives(fwd, acl))
-				return arrive(history, connected_pt);
+				return arrive(history, connected_pt, fwd, acl);
 
 			Element e = getElement(connected_pt.getDeviceName());
 			note(e, fwd, acl);
@@ -180,7 +242,13 @@ public class NddReachabilityChecker {
 				PositionTuple out = new PositionTuple(connected_pt.getDeviceName(), "outport");
 				List<PositionTuple> new_history = new ArrayList<>(history);
 				new_history.add(connected_pt);
-				boolean hit = traverse(out, rw, acl, target, new_history, true);
+				hopStack.add(new Object[] {e.getName(), null, fwd, acl});
+				boolean hit;
+				try {
+					hit = traverse(out, rw, acl, target, new_history, true);
+				} finally {
+					hopStack.remove(hopStack.size() - 1);
+				}
 				AtomizedNDD.deref(rw);
 				if (hit) return true;
 				continue;
@@ -191,16 +259,21 @@ public class NddReachabilityChecker {
 				// one universe: an ACL filters the forwarded space itself
 				AtomizedNDD next_fwd = AtomizedNDD.ref(
 						AtomizedNDD.and(fwd, ports.molecule(e.getName(), port)));
-				for (String next_port : getPhysicalPorts(e, port)) {
-					if (next_port.equals(connected_pt.getPortName())) continue;
-					PositionTuple next_hop = new PositionTuple(connected_pt.getDeviceName(), next_port);
-					List<PositionTuple> new_history = new ArrayList<>(history);
-					new_history.add(connected_pt);
-					branchesExplored++;
-					if (traverse(next_hop, next_fwd, acl, target, new_history, true)) {
-						AtomizedNDD.deref(next_fwd);
-						return true;
+				hopStack.add(new Object[] {e.getName(), port, fwd, acl});
+				try {
+					for (String next_port : getPhysicalPorts(e, port)) {
+						if (next_port.equals(connected_pt.getPortName())) continue;
+						PositionTuple next_hop = new PositionTuple(connected_pt.getDeviceName(), next_port);
+						List<PositionTuple> new_history = new ArrayList<>(history);
+						new_history.add(connected_pt);
+						branchesExplored++;
+						if (traverse(next_hop, next_fwd, acl, target, new_history, true)) {
+							AtomizedNDD.deref(next_fwd);
+							return true;
+						}
 					}
+				} finally {
+					hopStack.remove(hopStack.size() - 1);
 				}
 				AtomizedNDD.deref(next_fwd);
 			}

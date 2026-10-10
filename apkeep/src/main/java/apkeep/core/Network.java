@@ -14,6 +14,7 @@ import java.util.Set;
 import apkeep.checker.Checker;
 import apkeep.checker.ForwardingGraph;
 import apkeep.checker.ReachabilityChecker;
+import apkeep.checker.Witness;
 import apkeep.elements.ACLElement;
 import apkeep.elements.Element;
 import apkeep.elements.ForwardElement;
@@ -596,6 +597,8 @@ public class Network {
 			for (ChangeItem item : change_set) {
 				changed_elements.add(element_name);
 				changed_deltas.add(ops.ref(item.getDelta()));
+				changed_from.add(item.getFrom_port());
+				changed_to.add(item.getTo_port());
 			}
 		}
 		if (op.equals("-")) ops.deref(r.getMatch_bdd());
@@ -657,6 +660,8 @@ public class Network {
 			for (ChangeItem item : change_set) {
 				changed_elements.add(element_name);
 				changed_deltas.add(ops.ref(item.getDelta()));
+				changed_from.add(item.getFrom_port());
+				changed_to.add(item.getTo_port());
 			}
 		}
 		// The rule a "-" encodes is only a probe to find the stored rule with;
@@ -720,12 +725,55 @@ public class Network {
 	private static final class Footprint {
 		final Map<String, int[]> elements = new HashMap<>();
 		final Set<PositionTuple> ports = new HashSet<>();
+		/* The selectable footprints of APKEEP_INCREMENTAL_SCOPE.md §9 (off by
+		 * default, and then empty): under "dead ends", the explored part of
+		 * the REACHABLE queries, kept apart from `elements` because the
+		 * dead-end rule holds only for unreachable ones; under "witness", the
+		 * witness hops of the reachable queries, per element. `targets`: the
+		 * targets of the key's queries (a port that is one is no dead end). */
+		final Map<String, int[]> reached = new HashMap<>();
+		final Map<String, List<Witness.Hop>> hops = new HashMap<>();
+		final Set<PositionTuple> targets = new HashSet<>();
+	}
+
+	/* FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §9): selectable, finer
+	 * footprints, both off by default.
+	 *   witness:   a reachable query's footprint is its witness path, with
+	 *              one concrete packet per hop after the path's last rewrite
+	 *              (the arriving sets at and before it); a change counts only
+	 *              if it moves those packets OUT of the port the path uses.
+	 *   dead ends: for an unreachable query, a change moving packets only
+	 *              into a dead end ("deny", the filter drop sink, or a port
+	 *              with no link that is not the query's target) cannot open a
+	 *              path and is ignored -- the port joins the footprint's
+	 *              ports instead, so a link brought up there later counts. */
+	private boolean fp_witness = false;
+	private boolean fp_dead_ends = false;
+
+	public void setFootprintModes(boolean witness, boolean deadEnds) {
+		fp_witness = witness;
+		fp_dead_ends = deadEnds;
+	}
+
+	public boolean footprintWitness() {
+		return fp_witness;
+	}
+
+	public boolean footprintDeadEnds() {
+		return fp_dead_ends;
+	}
+
+	/** The packet-set operations of this network's backend. */
+	public PredicateOps predicateOps() {
+		return ops;
 	}
 
 	private Evaluator inc_eva = null;
 	private boolean tracking = false;
 	private final List<String> changed_elements = new ArrayList<>();
 	private final List<Integer> changed_deltas = new ArrayList<>();
+	private final List<String> changed_from = new ArrayList<>();
+	private final List<String> changed_to = new ArrayList<>();
 	private final Set<PositionTuple> changed_ports = new HashSet<>();
 	private final Map<String, Footprint> footprints = new HashMap<>();
 	private final Map<String, Set<String>> element_keys = new HashMap<>();
@@ -773,6 +821,8 @@ public class Network {
 			for (int d : changed_deltas) ops.deref(d);
 			changed_elements.clear();
 			changed_deltas.clear();
+			changed_from.clear();
+			changed_to.clear();
 			changed_ports.clear();
 			for (String key : new ArrayList<>(footprints.keySet())) dropFootprint(key);
 		}
@@ -804,26 +854,58 @@ public class Network {
 	public void recordFootprint(String key, ReachabilityChecker checker) {
 		if (!tracking || checker.fpFwd == null) return;
 		activate();
+		boolean reachable = checker.witnessPath != null;
+		Map<String, int[]> explored = new HashMap<>();
+		if (!(reachable && fp_witness && checker.witness != null)) {
+			Set<String> names = new HashSet<>(checker.fpFwd.keySet());
+			names.addAll(checker.fpAcl.keySet());
+			for (String e : names) {
+				explored.put(e, new int[] {union(checker.fpFwd.get(e)), union(checker.fpAcl.get(e))});
+			}
+		}
+		addFootprint(key, reachable, explored, checker.fpPorts, checker.witness, checker.lastTarget);
+		checker.witness = null;
+	}
+
+	/** One query's footprint into `key`'s: its explored part (element ->
+	 *  {forwarded, seed}, owned) and ports, or, for a reachable query under
+	 *  the witness mode, its witness (owned) instead. */
+	private void addFootprint(String key, boolean reachable, Map<String, int[]> explored,
+			Set<PositionTuple> exploredPorts, Witness witness, PositionTuple target) {
 		Footprint fp = footprints.computeIfAbsent(key, k -> new Footprint());
-		Set<String> names = new HashSet<>(checker.fpFwd.keySet());
-		names.addAll(checker.fpAcl.keySet());
-		for (String e : names) {
-			int f = union(checker.fpFwd.get(e));
-			int a = union(checker.fpAcl.get(e));
-			int[] old = fp.elements.get(e);
+		if (target != null) fp.targets.add(target);
+		if (reachable && fp_witness && witness != null) {
+			for (int[] fa : explored.values()) {
+				ops.deref(fa[0]);
+				ops.deref(fa[1]);
+			}
+			for (Witness.Hop hop : witness.hops) {
+				fp.hops.computeIfAbsent(hop.element, k -> new ArrayList<>()).add(hop);
+				element_keys.computeIfAbsent(hop.element, k -> new HashSet<>()).add(key);
+			}
+			for (PositionTuple pt : witness.egress) watchPort(key, fp, pt);
+			return;
+		}
+		Map<String, int[]> into = reachable && fp_dead_ends ? fp.reached : fp.elements;
+		for (Map.Entry<String, int[]> entry : explored.entrySet()) {
+			String e = entry.getKey();
+			int f = entry.getValue()[0], a = entry.getValue()[1];
+			int[] old = into.get(e);
 			if (old != null) {
 				int f2 = ops.or(old[0], f), a2 = ops.or(old[1], a);
 				ops.deref(old[0]); ops.deref(old[1]);
 				ops.deref(f); ops.deref(a);
 				f = f2; a = a2;
 			}
-			fp.elements.put(e, new int[] {f, a});
+			into.put(e, new int[] {f, a});
 			element_keys.computeIfAbsent(e, k -> new HashSet<>()).add(key);
 		}
-		for (PositionTuple pt : checker.fpPorts) {
-			fp.ports.add(pt);
-			port_keys.computeIfAbsent(pt, k -> new HashSet<>()).add(key);
-		}
+		for (PositionTuple pt : exploredPorts) watchPort(key, fp, pt);
+	}
+
+	private void watchPort(String key, Footprint fp, PositionTuple pt) {
+		fp.ports.add(pt);
+		port_keys.computeIfAbsent(pt, k -> new HashSet<>()).add(key);
 	}
 
 	/** NDD-APKeep's {@link #recordFootprint(String, ReachabilityChecker)}:
@@ -831,38 +913,41 @@ public class Network {
 	 *  survive later splits and re-atomizations, as AP ids do not). */
 	public void recordFootprint(String key, apkeep.ndd.NddReachabilityChecker checker) {
 		if (!tracking || checker.fpFwd == null) return;
-		Footprint fp = footprints.computeIfAbsent(key, k -> new Footprint());
-		Set<String> names = new HashSet<>(checker.fpFwd.keySet());
-		names.addAll(checker.fpAcl.keySet());
-		for (String e : names) {
-			org.ants.jndd.diagram.AtomizedNDD m = checker.fpFwd.get(e);
-			int f = m == null ? PredicateOps.FALSE
-					: ops.ref(org.ants.jndd.diagram.AtomizedNDD.atomizedToNDD(m));
-			Integer acl = checker.fpAcl.get(e);
-			int a = acl == null ? PredicateOps.FALSE : ops.ref(acl);
-			int[] old = fp.elements.get(e);
-			if (old != null) {
-				int f2 = ops.or(old[0], f), a2 = ops.or(old[1], a);
-				ops.deref(old[0]); ops.deref(old[1]);
-				ops.deref(f); ops.deref(a);
-				f = f2; a = a2;
+		boolean reachable = checker.witnessPath != null;
+		Map<String, int[]> explored = new HashMap<>();
+		if (!(reachable && fp_witness && checker.witness != null)) {
+			Set<String> names = new HashSet<>(checker.fpFwd.keySet());
+			names.addAll(checker.fpAcl.keySet());
+			for (String e : names) {
+				org.ants.jndd.diagram.AtomizedNDD m = checker.fpFwd.get(e);
+				int f = m == null ? PredicateOps.FALSE
+						: ops.ref(org.ants.jndd.diagram.AtomizedNDD.atomizedToNDD(m));
+				Integer acl = checker.fpAcl.get(e);
+				int a = acl == null ? PredicateOps.FALSE : ops.ref(acl);
+				explored.put(e, new int[] {f, a});
 			}
-			fp.elements.put(e, new int[] {f, a});
-			element_keys.computeIfAbsent(e, k -> new HashSet<>()).add(key);
 		}
-		for (PositionTuple pt : checker.fpPorts) {
-			fp.ports.add(pt);
-			port_keys.computeIfAbsent(pt, k -> new HashSet<>()).add(key);
-		}
+		addFootprint(key, reachable, explored, checker.fpPorts, checker.witness, checker.lastTarget);
+		checker.witness = null;
 		checker.releaseFootprint();
 	}
 
 	private void dropFootprint(String key) {
 		Footprint fp = footprints.remove(key);
 		if (fp == null) return;
-		for (Map.Entry<String, int[]> entry : fp.elements.entrySet()) {
-			ops.deref(entry.getValue()[0]);
-			ops.deref(entry.getValue()[1]);
+		for (Map<String, int[]> part : java.util.Arrays.asList(fp.elements, fp.reached)) {
+			for (Map.Entry<String, int[]> entry : part.entrySet()) {
+				ops.deref(entry.getValue()[0]);
+				ops.deref(entry.getValue()[1]);
+				Set<String> keys = element_keys.get(entry.getKey());
+				if (keys != null) keys.remove(key);
+			}
+		}
+		for (Map.Entry<String, List<Witness.Hop>> entry : fp.hops.entrySet()) {
+			for (Witness.Hop hop : entry.getValue()) {
+				ops.deref(hop.fwd);
+				ops.deref(hop.acl);
+			}
 			Set<String> keys = element_keys.get(entry.getKey());
 			if (keys != null) keys.remove(key);
 		}
@@ -888,12 +973,37 @@ public class Network {
 		for (int i = 0; i < changed_deltas.size(); i++) {
 			String e = changed_elements.get(i);
 			int delta = changed_deltas.get(i);
+			String from = changed_from.get(i);
+			// dead-ends mode: where the change leaves its packets, if nowhere
+			List<PositionTuple> sink = fp_dead_ends ? deadEnd(e, changed_to.get(i)) : null;
 			Set<String> keys = element_keys.get(e);
 			if (keys != null) {
 				for (String key : keys) {
 					if (out.contains(key)) continue;
-					int[] fp = footprints.get(key).elements.get(e);
-					if (meets(delta, fp[0]) || meets(delta, fp[1])) out.add(key);
+					Footprint fp = footprints.get(key);
+					int[] x = fp.elements.get(e);
+					if (x != null && (meets(delta, x[0]) || meets(delta, x[1]))) {
+						if (sink == null || targetIn(sink, fp)) {
+							out.add(key);
+							continue;
+						}
+						for (PositionTuple pt : sink) watchPort(key, fp, pt);
+					}
+					x = fp.reached.get(e);
+					if (x != null && (meets(delta, x[0]) || meets(delta, x[1]))) {
+						out.add(key);
+						continue;
+					}
+					List<Witness.Hop> hops = fp.hops.get(e);
+					if (hops != null) {
+						for (Witness.Hop hop : hops) {
+							if ((hop.port == null || hop.port.equals(from))
+									&& (meets(delta, hop.fwd) || meets(delta, hop.acl))) {
+								out.add(key);
+								break;
+							}
+						}
+					}
 				}
 			}
 			ops.deref(delta);
@@ -904,9 +1014,38 @@ public class Network {
 		}
 		changed_elements.clear();
 		changed_deltas.clear();
+		changed_from.clear();
+		changed_to.clear();
 		changed_ports.clear();
 		for (String key : out) dropFootprint(key);
 		return out;
+	}
+
+	/** The ports a change into `port` of element `e` leaves its packets at,
+	 *  if that is a dead end -- "deny", the filter drop sink, or ports none
+	 *  of which has a link -- and null otherwise. A rewrite and an ACL
+	 *  element's permit ports are never dead ends here (their positions are
+	 *  not the element's own name). */
+	private List<PositionTuple> deadEnd(String e, String port) {
+		List<PositionTuple> out = new ArrayList<>();
+		if (port.equals("deny") || port.equals(apkeep.elements.FilterElement.DROP_PORT)) return out;
+		Element el = elements.get(e);
+		if (el == null || el instanceof NATElement || el instanceof ACLElement) return null;
+		Set<String> physical = el instanceof ForwardElement && port.toLowerCase().startsWith("vlan")
+				? ((ForwardElement) el).getVlanPorts(port) : java.util.Collections.singleton(port);
+		if (physical.isEmpty()) return null;
+		for (String p : physical) {
+			PositionTuple pt = new PositionTuple(e, p);
+			Set<PositionTuple> down = topology.get(pt);
+			if (down != null && !down.isEmpty()) return null;
+			out.add(pt);
+		}
+		return out;
+	}
+
+	private static boolean targetIn(List<PositionTuple> sink, Footprint fp) {
+		for (PositionTuple pt : sink) if (fp.targets.contains(pt)) return true;
+		return false;
 	}
 
 	/* answer "what if" questions for each possible link failure

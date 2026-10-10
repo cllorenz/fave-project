@@ -9,6 +9,7 @@ import java.util.Set;
 
 import apkeep.core.APKeeper;
 import apkeep.core.Network;
+import apkeep.core.PredicateOps;
 import apkeep.elements.ACLElement;
 import apkeep.elements.Element;
 import apkeep.elements.ForwardElement;
@@ -115,6 +116,17 @@ public class ReachabilityChecker {
     public List<PositionTuple> witnessPath = null;
     public Set<Integer> witnessFwd = null;
 
+    /* FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §9): when the network keeps
+     * witness footprints, the witness of a reachable answer (null otherwise),
+     * built from the hops on the current path -- {element, logical port or
+     * null for a rewrite, forwarding APs and ACL APs that arrived there} --
+     * and the ports the path left by. `lastTarget`: the query's target. */
+    public Witness witness = null;
+    public PositionTuple lastTarget = null;
+    private final boolean recordWitness;
+    private final List<Object[]> hopStack = new ArrayList<>();
+    private final List<PositionTuple> egressStack = new ArrayList<>();
+
     public ReachabilityChecker(Network net) {
         this.net = net;
         net.activate();
@@ -123,18 +135,76 @@ public class ReachabilityChecker {
             fpAcl = new HashMap<>();
             fpPorts = new HashSet<>();
         }
+        recordWitness = net.isTracking() && net.footprintWitness();
     }
 
-    private boolean arrive(List<PositionTuple> history, PositionTuple last, Set<Integer> fwd) {
+    private void begin(PositionTuple target) {
+        witnessPath = null;
+        witness = null;
+        lastTarget = target;
+        hopStack.clear();
+        egressStack.clear();
+    }
+
+    private boolean arrive(List<PositionTuple> history, PositionTuple last, Set<Integer> fwd,
+                           Set<Integer> acl) {
         witnessPath = new ArrayList<>(history);
         witnessPath.add(last);
         witnessFwd = new HashSet<>(fwd);
+        if (recordWitness) witness = buildWitness(fwd, acl);
         return true;
+    }
+
+    /** The witness of the path on the stacks, the packets arriving at the
+     *  target being `fwd` AND `acl` AND the arrival constraints (see
+     *  {@link Witness}). */
+    private Witness buildWitness(Set<Integer> fwd, Set<Integer> acl) {
+        PredicateOps ops = net.predicateOps();
+        int f = union(ops, fwd), a = union(ops, acl);
+        int arrived = ops.and(f, a);
+        ops.deref(f);
+        ops.deref(a);
+        for (int header : new int[] {targetHeader, relatedHeader}) {
+            int next = ops.and(arrived, header);
+            ops.deref(arrived);
+            arrived = next;
+        }
+        int packet = ops.onePacket(arrived);
+        ops.deref(arrived);
+        int lastRewrite = -1;
+        for (int i = 0; i < hopStack.size(); i++) if (hopStack.get(i)[1] == null) lastRewrite = i;
+        Witness w = new Witness();
+        for (int i = 0; i < hopStack.size(); i++) {
+            Object[] hop = hopStack.get(i);
+            @SuppressWarnings("unchecked") Set<Integer> hf = (Set<Integer>) hop[2];
+            @SuppressWarnings("unchecked") Set<Integer> ha = (Set<Integer>) hop[3];
+            w.hops.add(i <= lastRewrite
+                    ? new Witness.Hop((String) hop[0], (String) hop[1], union(ops, hf), union(ops, ha))
+                    : new Witness.Hop((String) hop[0], (String) hop[1], ops.ref(packet), ops.ref(packet)));
+        }
+        ops.deref(packet);
+        w.egress.addAll(egressStack);
+        return w;
+    }
+
+    private static int union(PredicateOps ops, Set<Integer> aps) {
+        int u = PredicateOps.FALSE;
+        for (int ap : aps) {
+            if (ap == PredicateOps.TRUE) {
+                ops.deref(u);
+                return PredicateOps.TRUE;
+            }
+            int next = ops.or(u, ap);
+            ops.deref(u);
+            u = next;
+        }
+        return u;
     }
 
     /** True iff traffic injected at {@code source} can reach {@code target}. */
     public boolean isReachable(PositionTuple source, PositionTuple target) {
         resetCounters();
+        begin(target);
         Set<Integer> fwd_aps = new HashSet<>();
         fwd_aps.add(BDDACLWrapper.BDDTrue);
         Set<Integer> acl_aps = new HashSet<>();
@@ -159,6 +229,7 @@ public class ReachabilityChecker {
     public boolean isReachable(PositionTuple source, PositionTuple target,
                                long src, int srcPrefixLen) {
         resetCounters();
+        begin(target);
         Set<Integer> fwd_aps = new HashSet<>();
         fwd_aps.add(BDDACLWrapper.BDDTrue);
         Set<Integer> acl_aps = net.getACLSeedAPs(src, srcPrefixLen);
@@ -195,6 +266,7 @@ public class ReachabilityChecker {
     public boolean isReachable(PositionTuple source, PositionTuple target,
                                String srcCidr) {
         resetCounters();
+        begin(target);
         Set<Integer> fwd_aps = new HashSet<>();
         fwd_aps.add(BDDACLWrapper.BDDTrue);
         Set<Integer> acl_aps = new HashSet<>();
@@ -244,7 +316,7 @@ public class ReachabilityChecker {
         // ACL packet space. Checked before the loop guard so a self-reaching
         // (looping) port is still detected.
         if (moved && cur_hop.equals(target) && arrives(fwd_aps, acl_aps))
-            return arrive(history, cur_hop, fwd_aps);
+            return arrive(history, cur_hop, fwd_aps, acl_aps);
 
         if (history.contains(cur_hop)) return false;  // simple-path pruning
         history.add(cur_hop);
@@ -253,6 +325,17 @@ public class ReachabilityChecker {
         Set<PositionTuple> connected_ports = net.getConnectedPorts(cur_hop);
         if (connected_ports == null) return false;
 
+        egressStack.add(cur_hop);
+        try {
+            return traverseLinks(cur_hop, connected_ports, fwd_aps, acl_aps, target, history);
+        } finally {
+            egressStack.remove(egressStack.size() - 1);
+        }
+    }
+
+    private boolean traverseLinks(PositionTuple cur_hop, Set<PositionTuple> connected_ports,
+                                  Set<Integer> fwd_aps, Set<Integer> acl_aps,
+                                  PositionTuple target, List<PositionTuple> history) {
         for (PositionTuple connected_pt : connected_ports) {
             // Arrival at a link-destination (ingress) port: traffic forwarded
             // out cur_hop is delivered to connected_pt over the L1 link, with
@@ -260,7 +343,7 @@ public class ReachabilityChecker {
             // target may be either an egress port (a cur_hop above) or such an
             // ingress port (e.g. a probe attached to a device input).
             if (connected_pt.equals(target) && arrives(fwd_aps, acl_aps))
-                return arrive(history, connected_pt, fwd_aps);
+                return arrive(history, connected_pt, fwd_aps, acl_aps);
 
             Element e = getElement(connected_pt.getDeviceName());
             note(e, fwd_aps, acl_aps);
@@ -279,7 +362,12 @@ public class ReachabilityChecker {
                 PositionTuple out = new PositionTuple(connected_pt.getDeviceName(), "outport");
                 List<PositionTuple> new_history = new ArrayList<>(history);
                 new_history.add(connected_pt);
-                if (traverse(out, rw_fwd, rw_acl, target, new_history, true)) return true;
+                hopStack.add(new Object[] {e.getName(), null, fwd_aps, acl_aps});
+                try {
+                    if (traverse(out, rw_fwd, rw_acl, target, new_history, true)) return true;
+                } finally {
+                    hopStack.remove(hopStack.size() - 1);
+                }
                 continue;
             }
 
@@ -300,13 +388,18 @@ public class ReachabilityChecker {
                     next_fwd = e.forwardAPs(port, fwd_aps);
                 }
 
-                for (String next_port : getPhysicalPorts(e, port)) {
-                    if (next_port.equals(connected_pt.getPortName())) continue;
-                    PositionTuple next_hop = new PositionTuple(connected_pt.getDeviceName(), next_port);
-                    List<PositionTuple> new_history = new ArrayList<>(history);
-                    new_history.add(connected_pt);
-                    branchesExplored++;
-                    if (traverse(next_hop, next_fwd, next_acl, target, new_history, true)) return true;
+                hopStack.add(new Object[] {e.getName(), port, fwd_aps, acl_aps});
+                try {
+                    for (String next_port : getPhysicalPorts(e, port)) {
+                        if (next_port.equals(connected_pt.getPortName())) continue;
+                        PositionTuple next_hop = new PositionTuple(connected_pt.getDeviceName(), next_port);
+                        List<PositionTuple> new_history = new ArrayList<>(history);
+                        new_history.add(connected_pt);
+                        branchesExplored++;
+                        if (traverse(next_hop, next_fwd, next_acl, target, new_history, true)) return true;
+                    }
+                } finally {
+                    hopStack.remove(hopStack.size() - 1);
                 }
             }
         }
