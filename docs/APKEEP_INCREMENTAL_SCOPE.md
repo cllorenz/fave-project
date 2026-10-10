@@ -330,3 +330,95 @@ unchanged (exact only while nothing rewrites the source — the adapter seeds no
 such source); with an oracle twin in the JVM, its build's re-atomization also
 re-atomizes the network under test (same predicates, new atom ids — no effect
 on answers, and timed runs carry no oracle, O3). `wl_berkeley` not run.
+
+## 9. Selectable footprints: witness and dead ends (2026-10-10)
+
+**Why.** The calibration of NDD-APKeep found the selective re-check coarse:
+on `wl_cloud` a third of all checks per update, against under 3% for
+NetPlumber. Testing only the forwarded side of the §4 footprint was sound but
+cut little. A variant that re-checks every check whose walk visited the changed
+element matched the current rule exactly on `wl_cloud`: the footprint itself
+was too wide, not the test applied to it
+(`fave/bench/campaigns/results_inc_dev_ndd_20261010/FINDINGS.md`, "The re-check
+rule"). The owner asked for the two redesigns below as selectable variants, not
+as the default.
+
+**The idea.** "Reachable" is existential, so the two verdicts depend on
+different things. A reachable check depends only on its witness; changes
+elsewhere, including on the dead ends the walk tried first, can only add paths.
+An unreachable check depends on any change that could open a path.
+
+**witness** (for reachable checks). The footprint is the witness: the hops of
+the path the walk found, the logical port it left each element by, and the
+links it used. After the path's last rewrite, one concrete packet of what
+arrived at the target (within the seed and the check's conditions) stands for
+each hop; at the rewrite and before it, a hop keeps the sets that arrived
+there, because the packet's earlier header would need the rewrite inverted. A
+change at a hop counts only if it moves those packets OUT of the port the path
+uses; at a rewrite, any change meeting them counts. A link change on the path
+counts.
+*Sound because* an intact witness still delivers its packet and the walk is
+complete, so it would answer "reachable" again. Moving packets into the port,
+or anything off the path, cannot remove the witness.
+
+**dead ends** (for unreachable checks). A change that moves packets only into
+a dead end -- "deny", the packet filter's drop sink, or ports with no link that
+are not the check's target -- is ignored. The port is added to the check's
+watched ports, so a link brought up there later still counts.
+*Sound because*, with the forwarding monotone (no negation; a rewrite's image
+grows with its input), removing packets from a port cannot open a path, and any
+new path has to leave the changed element by the port the packets moved into;
+from a dead end there is none. A rewrite and an ACL element's permit ports are
+never treated as dead ends (their positions in the topology are not named after
+the element). A reachable check's explored footprint is kept apart, so the rule
+never applies to it.
+
+| part | where |
+|---|---|
+| one concrete packet of a set, both backends | `PredicateOps.onePacket` (`BddOps`: JDD `oneSat`, free variables 0; `NddOps`: one NDD path, each label's `oneSat`) |
+| the witness, built on arrival when asked for | `checker/Witness.java`; the hop and egress stacks in both reachability checkers |
+| footprint parts, change ports, the per-mode test, dead ends | `Network` (`Footprint.reached`/`hops`/`targets`, `changed_from`/`changed_to`, `takeAffected`, `deadEnd`) |
+| selection | `Network.setFootprintModes`; `LibAPKeep(footprint=...)`; `APKeepAdapter(footprint=...)` (in the configuration stamp); `incremental_run.py`/`incremental_cell.py --footprint witness,dead-ends` (in `head.json`) |
+
+Both modes are off by default, and the default footprint is unchanged (Java
+suite and Stanford loop golden unchanged; the default mode's re-run matches
+the calibration). `apkeep/FAVE_CHANGES.md` §13.
+
+**Tests.** `OnePacketTest` (both backends: non-empty, inside the set, every
+variable decided, deterministic); `test_apkeep_incremental_core.py`
+(`Test[Ndd]WitnessFootprints`, `Test[Ndd]DeadEndFootprints`: only the half of
+a split path holding the witness packet is reported; moves into the path are
+not; before a rewrite the arriving set counts; a dead end is watched for a
+link; a port that is the target is no dead end; reachable checks still see
+their packets dropped). In `test_incremental_apkeep.py`, every oracle stream
+runs with witness+dead-ends on both engines and with dead-ends alone on
+NDD-APKeep. Two negative controls built outside the tree each fail the unit
+tests and 4 or 5 of the 6 oracle tests: a witness test on the to-port instead
+of the from-port, and every port a dead end.
+
+**Measured** (indicative, dev, one repetition;
+`fave/bench/campaigns/results_inc_dev_footprints_20261010/FINDINGS.md`,
+predictions committed before the run). All four modes change the same verdicts
+as the default on every update of 84 cells; the three oracle runs pass.
+Re-checks with both modes, against the default:
+
+| workload | S1 | S2 | S3 |
+|---|---|---|---|
+| `wl_cloud` (NDD-APKeep) | 5,330 -> 10 | 5,181 -> 466 | 4,540 -> 1,866 |
+| `wl_airtel1` (either engine) | ~3,500 -> 0 | ~4,200 -> 4 | ~10,100 -> 4,564 |
+| `wl_ifi` | -50% / -59% | -40% / -32% | -17% / -19% |
+| `wl_example` | -39% | -51% | -7% / -10% |
+
+(`wl_ifi` and `wl_example`: BDD-APKeep / NDD-APKeep where they differ.)
+NetPlumber on `wl_cloud`: 10 / 45 / 370. On `wl_cloud` the median per-update
+re-check falls from 57-76 ms to 0.04 ms (S1, S2) and 26 ms (S3); what remains
+is the update itself (~17 ms). witness covers the link stream (S3) alone;
+dead-ends contributes most on `wl_ifi` S1. One prediction missed: witness alone
+doubles the median re-check time on `wl_example` S1 (~0.5 -> ~1.1 ms), likely
+the cost of building witnesses on a network where a walk is as cheap.
+
+**Open (owner):** whether either mode, or both, becomes the default; and
+whether the campaign reports the modes as configurations of APKeep. Not built:
+inverting a rewrite to carry the witness packet before it, and per-probe
+backward sets for unreachable checks (B2), which the measurements now give
+less reason for.

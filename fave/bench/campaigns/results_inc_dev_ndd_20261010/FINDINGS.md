@@ -204,3 +204,9 @@ the probe rewrites the source).
 **Owner decision, open:** whether to adopt F for NDD-APKeep (and its BDD
 counterpart). It is sound by the checker's semantics and by the oracle, and
 small; but on `wl_cloud` it helps S2 only, by a fifth.
+
+**Followed up (2026-10-10):** the footprint redesigns -- a witness footprint
+for reachable checks, a dead-end rule for unreachable ones -- built as
+selectable modes, off by default (`docs/APKEEP_INCREMENTAL_SCOPE.md` §9) and
+measured in `../results_inc_dev_footprints_20261010/FINDINGS.md`: with both,
+`wl_cloud` S1 re-checks 5,330 -> 10, verdicts unchanged.
