@@ -53,6 +53,9 @@ _NDD_JAR = os.path.join(
     _REPO_ROOT, "ndd", "target", "ndd-1.0.1-jar-with-dependencies.jar"
 )
 
+#: the selectable footprints (APKEEP_INCREMENTAL_SCOPE.md §9), in canonical order
+FOOTPRINT_MODES = ('witness', 'dead-ends')
+
 try:
     import jpype
     import jpype.imports  # noqa: F401  (enables `from java... import ...`)
@@ -94,14 +97,24 @@ class LibAPKeep:
     instance maps to one network per process.
     """
 
-    def __init__(self, backend: str = 'bdd') -> None:
+    def __init__(self, backend: str = 'bdd', footprint: Tuple[str, ...] = ()) -> None:
         """ `backend` 'bdd' is BDD-APKeep (upstream's atomic predicates);
         'ndd' is NDD-APKeep -- the same network, elements and change tuples
         with NDD's per-field atoms (APKEEP_INCREMENTAL_SCOPE.md §4). Its jar
         dependency is the NDD fat jar, which `_ensure_jvm` puts on the
-        classpath when built. """
+        classpath when built.
+
+        `footprint` selects the finer footprints of
+        APKEEP_INCREMENTAL_SCOPE.md §9, none by default: 'witness' (a
+        reachable query's footprint is its witness path) and 'dead-ends' (an
+        unreachable query ignores changes into a dead end). """
         if backend not in ('bdd', 'ndd'):
             raise ValueError("backend must be 'bdd' or 'ndd', got %r" % backend)
+        unknown = set(footprint) - set(FOOTPRINT_MODES)
+        if unknown:
+            raise ValueError("unknown footprint mode(s) %s; known: %s"
+                             % (sorted(unknown), ', '.join(FOOTPRINT_MODES)))
+        self.footprint = tuple(m for m in FOOTPRINT_MODES if m in footprint)
         if backend == 'ndd' and not os.path.isfile(_NDD_JAR):
             raise RuntimeError(
                 "NDD-APKeep needs the NDD jar: %s (run fave/test/ndd_build.sh)"
@@ -126,6 +139,7 @@ class LibAPKeep:
         self._APKeep.init(snapshot_dir)
         self._net = self._APKeep.net
         self._eva = self._APKeep.eva
+        self._apply_footprint()
 
     def init_in_memory(self, name: str, l1_links: List[str],
                        fwd_devices: Optional[List[str]] = None,
@@ -201,6 +215,7 @@ class LibAPKeep:
         #                   device_filters)
         self._net.initializeNetwork(links, devices, acls_map, None, nats_map, filters_set)
         self._eva = self._Evaluator(name, _tempfile.mktemp())
+        self._apply_footprint()
 
     def run(self, rules: List[str]) -> None:
         """ Apply a batch of rule updates IN MEMORY (a Python list of APKeep
@@ -345,6 +360,10 @@ class LibAPKeep:
         """ Record change tuples and query footprints from now on (off: drop
         them). """
         self._net.setTracking(jpype.JBoolean(on))
+
+    def _apply_footprint(self) -> None:
+        self._net.setFootprintModes(jpype.JBoolean('witness' in self.footprint),
+                                    jpype.JBoolean('dead-ends' in self.footprint))
 
     def take_affected(self) -> List[str]:
         """ The footprint keys an update since the last call can have

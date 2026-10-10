@@ -49,11 +49,11 @@ from test.incremental_oracle import inputs_present, run, s1, s2_and_s3
 from util import incremental as inc
 
 
-def _maker(engine):
+def _maker(engine, footprint=()):
     def make():
         log = logging.getLogger("test_incremental_apkeep")
         log.setLevel(logging.ERROR)
-        return APKeepAdapter(log, engine=engine)
+        return APKeepAdapter(log, engine=engine, footprint=footprint)
     return make
 
 
@@ -151,6 +151,27 @@ class TestIncrementalNddAPKeep(TestIncrementalAPKeep):
                     s2_and_s3(fraction=0.05), every=25, refusals=True)
         print("wl_cloud S2+S3 on NDD-APKeep:", {k: (len(v) if isinstance(v, list) else v)
                                                 for k, v in stats.items()})
+
+
+# The selectable footprints (APKEEP_INCREMENTAL_SCOPE.md §9) change which checks
+# an update reports, never an answer: every stream above, under the oracle, with
+# them on. 'witness' with 'dead-ends' on both engines; 'dead-ends' alone on
+# NDD-APKeep too, because it keeps a reachable query's explored footprint
+# apart from an unreachable one's, a path the pair never takes.
+
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
+class TestIncrementalAPKeepFinerFootprints(TestIncrementalAPKeep):
+    make = staticmethod(_maker('bdd', ('witness', 'dead-ends')))
+
+
+@require_or_skip(ndd_available, "JPype, the APKeep jar or the NDD jar is unavailable")
+class TestIncrementalNddAPKeepFinerFootprints(TestIncrementalNddAPKeep):
+    make = staticmethod(_maker('ndd-apkeep', ('witness', 'dead-ends')))
+
+
+@require_or_skip(ndd_available, "JPype, the APKeep jar or the NDD jar is unavailable")
+class TestIncrementalNddAPKeepDeadEnds(TestIncrementalNddAPKeep):
+    make = staticmethod(_maker('ndd-apkeep', ('dead-ends',)))
 
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")

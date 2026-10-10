@@ -83,6 +83,8 @@ def child_argv(args, cell_dir):
         argv += ['--oracle-sample', str(args.oracle_sample),
                  '--oracle-every', str(args.oracle_every),
                  '--oracle-seed', str(args.oracle_seed)]
+    if args.footprint:
+        argv += ['--footprint', args.footprint]
     return argv
 
 
@@ -156,6 +158,8 @@ def main(argv=None):
     parser.add_argument('--oracle-sample', type=int, default=0)
     parser.add_argument('--oracle-every', type=int, default=0)
     parser.add_argument('--oracle-seed', type=int, default=1)
+    parser.add_argument('--footprint', default=None,
+                        help="passed to incremental_run.py (witness, dead-ends)")
     parser.add_argument('--limit-class', choices=('dev', 'v5'), default='dev')
     parser.add_argument('--limit-wall', type=float, default=86400.0)
     parser.add_argument('--limit-rss', type=int, default=None,

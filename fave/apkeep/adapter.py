@@ -765,7 +765,7 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
                  faithful_vlan: bool = True, engine: str = 'ndd',
-                 _shadow: bool = False) -> None:
+                 _shadow: bool = False, footprint: Tuple[str, ...] = ()) -> None:
         self.logger = logger
         # One shared adapter, two backend ENGINES (APKEEP_NDD_PLAN §2.5e). The
         # model construction below is engine-agnostic (it emits neutral "+ filter"
@@ -781,6 +781,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         if engine not in ('bdd', 'ndd', 'ndd-apkeep'):
             raise ValueError("engine must be 'bdd', 'ndd' or 'ndd-apkeep', got %r" % engine)
         self._engine = engine
+        # The selectable footprints of APKEEP_INCREMENTAL_SCOPE.md §9 ('witness',
+        # 'dead-ends'); none by default. They change which checks an update
+        # reports, never an answer.
+        if footprint and engine not in self.APKEEP_ENGINES:
+            raise ValueError("footprint modes need an APKeep engine, not %r" % engine)
+        self._footprint = tuple(footprint)
         if _shadow:
             # Translates only (`_shadow_translation`): no engine behind it.
             self._ndd = None
@@ -792,7 +798,8 @@ class APKeepAdapter(AbstractVerificationEngine):
             self._lib = None
             self._ndd_fwd_mode = False   # pure-+fwd -> AtomForwarding path
         else:
-            self._lib = LibAPKeep(backend='ndd' if engine == 'ndd-apkeep' else 'bdd')
+            self._lib = LibAPKeep(backend='ndd' if engine == 'ndd-apkeep' else 'bdd',
+                                  footprint=self._footprint)
             self._ndd = None
         # --- updates after the build (INCREMENTAL_PLAN.md §6.2, O2) ----------
         # Every model-construction call, in order, so a SHADOW adapter can
@@ -1031,6 +1038,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         stamp = self.provenance()
         stamp['engine'] = self._engine
         stamp['faithful_vlan'] = self._faithful_vlan
+        if self._footprint:
+            stamp['footprint'] = list(self._lib.footprint if self._lib else self._footprint)
         return stamp
 
     def global_port(self, port: Any) -> Any:
