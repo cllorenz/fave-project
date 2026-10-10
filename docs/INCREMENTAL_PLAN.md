@@ -327,6 +327,13 @@ end from a configuration change to an updated verdict, which is TNSM'21's claim.
   rule alone, build and update agree by construction, and ties keep the order
   the old dense scheme gave them. A band holds ~33M slots; what binds first is
   the model index itself (≤ `_RULE_IDX_MAX`, part of the adapter's local key).
+  *Checked on `wl_berkeley` (2026-10-10)*, the largest tables in the suite:
+  4,476,240 routes in 23 declared-LPM tables, every one a destination prefix
+  with **no negation** (the switch route format cannot express one,
+  `devices/switch.py` `fieldify`), at most 195,357 per table and model index
+  ≤ 195,357 — within `_RULE_IDX_MAX` (2^20−1) and a band (~33M). (A first
+  attempt replayed the workload into NetPlumber and hit its 6 h timeout before
+  printing; counted from `routes.json` instead, 7 s.)
 - **O2. APKeep scope — DECIDED 2026-10-09.** NDD-APKeep is the NDD paper's
   system (APKeep's core, atom layer replaced by NDD); BDD-APKeep and NDD-APKeep
   work alike, incrementally. FaVe's `NddReachabilityEngine` is not that system
