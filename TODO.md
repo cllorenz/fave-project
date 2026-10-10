@@ -1528,6 +1528,12 @@ Linux is the other way round -- netfilter routes *before* the FORWARD chain, whi
 
 ### 13a. CLOSED 2026-10-06 — `-o` was always expressible; the refusal rested on a wrong premise
 
+> **Correction 2026-10-10:** "the rewrite afterwards is consistent with it" was
+> not true of the routing table's consistency rules in every model -- the
+> default route overflowed its index block, and nested routes were not handled.
+> Fixed (owner decision A1: `-o` means netfilter's routed egress); see
+> `docs/ACCOMMODATIONS.md`, "Retired — `-o`", correction.
+
 **Retired in full: the refusal, the opt-out and the notice are deleted**, which
 is what this item's own definition of done asked for. What it did NOT need was
 the pipeline reordering described below — that never happened, and is not why

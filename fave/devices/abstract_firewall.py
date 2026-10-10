@@ -33,14 +33,11 @@ from devices.abstract_device import AbstractDeviceModel
 
 from rule.rule_model import Rule, Forward, Match, RuleField, Rewrite
 
-from util.model_util import TABLE_MAX
 from util.packet_util import is_ip as is_ipv4
 
-_BASE_ROUTING_EXACT = 0
-_BASE_ROUTING_WRONG_IO = int((TABLE_MAX + 1) / 4) * 1
-_BASE_ROUTING_WRONG_AP = int((TABLE_MAX + 1) / 4) * 2
-_BASE_ROUTING_RULE = int((TABLE_MAX + 1) / 4) * 3
-
+# A route at index i becomes two rules of the routing table, at 2i and 2i+1;
+# see `AbstractFirewallModel.add_rules`.
+_ROUTING_SLOTS = 2
 
 class AbstractFirewallModel(AbstractDeviceModel):
     """ An abstract model for firewalls that groups common characteristica.
@@ -118,22 +115,41 @@ class AbstractFirewallModel(AbstractDeviceModel):
 
 
     def add_rules(self, rules: Iterable["Rule"]) -> None:
-        """ Add a rule to the post_routing chain.
+        """ Add routes to the routing table.
 
-        Keyword arguments:
-        rule -- new rule
+        `-o X` in a filter chain means what netfilter means: the rule applies
+        iff ROUTING sends the packet out of X (owner, 2026-10-10). The chains
+        run before `routing` here, so an `-o X` rule accepts the slice of a
+        flow tagged `out_port = X`, and routing must let a packet through only
+        by the route its destination takes. Each route at index i becomes, in
+        route order (the table is first-match):
+
+        * 2i   -- destination in the route's prefix and `out_port` its egress:
+                  forward. An untagged flow's out_port is a wildcard, so this
+                  keeps exactly the slice a rewrite to the egress would make;
+        * 2i+1 -- destination in the prefix: drop. Whatever else reached this
+                  route -- a slice tagged for another interface -- is a packet
+                  netfilter would never have matched with that `-o`.
+
+        A route without an egress (a discard) is the drop alone. Until
+        2026-10-10 each route became three rules in index BLOCKS of 16,384
+        (tagged-exact, wrong-port drop, untagged rewrite): the default route,
+        index 65535, overflowed its blocks so its tagged rule ran after every
+        specific route's rewrite, and a shorter route's tagged rule caught
+        packets a longer route owns. On wl_example, deleting pgf's
+        anti-spoofing rule then let a spoofed `-o pgf.1` slice reach office
+        (bench/campaigns/results_inc_dev_20261010/FINDINGS.md).
+
+        Only `out_port` is ever MATCHED before routing (iptables/generator.py
+        never rewrites it), so a tag is either absent or an `-o`.
         """
 
-        exact_rules: List[Rule] = []
-        wrong_io_rules: List[Rule] = []
-        normal_rules: List[Rule] = []
+        routes: List[Rule] = []
 
         for rule in rules:
             assert isinstance(rule, Rule)
 
             idx = rule.idx
-
-            rule.in_ports = [self.node+'.routing_in']
 
             output_ports: List[str] = []
             for action in [a for a in rule.actions if isinstance(a, Forward)]:
@@ -148,54 +164,40 @@ class AbstractFirewallModel(AbstractDeviceModel):
 
                     output_ports.append(port)
 
-                action.ports = [self.node+".routing_out"]
+            if len(output_ports) > 1:
+                # One tag, one egress: a route to several ports would need a
+                # keep rule per port, and none exists in the suite.
+                raise ValueError(
+                    "%s route %s forwards to %d ports; a packet filter route "
+                    "has one egress" % (self.node, idx, len(output_ports)))
 
+            if output_ports:
+                keep = deepcopy(rule)
+                keep.idx = _ROUTING_SLOTS * idx
+                keep.tid = self.node+".routing"
+                keep.in_ports = [self.node+'.routing_in']
+                keep.match.append(RuleField("out_port", output_ports[0]))
+                keep.actions = [Forward(ports=[self.node+".routing_out"])]
+                routes.append(keep)
 
-            # first, forward traffic that already has the destination and output
-            # ports set correctly (via a filtering rule set)
-            rule_exact = deepcopy(rule)
-            rule_exact.idx = _BASE_ROUTING_EXACT + idx
-            rule_exact.match.extend([RuleField("out_port", port) for port in output_ports])
+            drop = deepcopy(rule)
+            drop.idx = _ROUTING_SLOTS * idx + 1
+            drop.tid = self.node+".routing"
+            drop.in_ports = [self.node+'.routing_in']
+            drop.actions = []
+            routes.append(drop)
 
-
-            # second, drop traffic that has an incorrect destination set for an
-            # output port
-            rule_wrong_io = deepcopy(rule)
-            rule_wrong_io.idx = _BASE_ROUTING_WRONG_IO + idx
-            rule_wrong_io.match.filter("packet.ipv6.destination")
-            rule_wrong_io.match.extend([RuleField("out_port", port) for port in output_ports])
-            rule_wrong_io.actions = []
-
-
-            # third, forward traffic with the destination set
-            rewrites = [Rewrite(rewrite=[RuleField("out_port", port) for port in output_ports])]
-            rule.idx = _BASE_ROUTING_RULE + idx
-            rule.actions.extend(rewrites)
-
-            rule_exact.tid = self.node+".routing"
-            rule_wrong_io.tid = self.node+".routing"
-            rule.tid = self.node+".routing"
-
-            exact_rules.append(rule_exact)
-            wrong_io_rules.append(rule_wrong_io)
-            normal_rules.append(rule)
-
-        super(AbstractFirewallModel, self).add_rules(exact_rules)
-        super(AbstractFirewallModel, self).add_rules(wrong_io_rules)
-        super(AbstractFirewallModel, self).add_rules(normal_rules)
+        super(AbstractFirewallModel, self).add_rules(routes)
 
 
     def remove_rule(self, idx: int) -> None:
-        """ Remove a rule from the post_routing chain.
-
-        Keyword arguments:
-        idx -- a rule index
-        """
-        rule = self.tables[self.node+'_routing'][_BASE_ROUTING_EXACT + idx]
-        super(AbstractFirewallModel, self).remove_rule(idx)
-        del self.tables[self.node+".routing"][_BASE_ROUTING_EXACT + rule.idx]
-        del self.tables[self.node+".routing"][_BASE_ROUTING_WRONG_IO + rule.idx]
-        del self.tables[self.node+".routing"][_BASE_ROUTING_RULE + rule.idx]
+        """ Remove the route at index `idx` -- both of its rules. """
+        table = self.node + ".routing"
+        derived = {_ROUTING_SLOTS * idx, _ROUTING_SLOTS * idx + 1}
+        for rule_idx in sorted(derived):
+            super(AbstractFirewallModel, self).remove_rule(rule_idx)
+        self.tables[table] = [r for r in self.tables.get(table, [])
+                              if r.idx not in derived]
 
 
     def update_rule(self, idx: int, rule: "Rule") -> None:

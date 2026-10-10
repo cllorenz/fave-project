@@ -59,3 +59,14 @@ first. **Open for the owner**: which semantics FaVe's packet filter means.
 
 `wl_up`, `wl_stanford`, `wl_i2`, `wl_cloud`, `wl_berkeley`; batches > 1; seeds
 other than 1; repetitions. NDD-APKeep does not exist yet.
+
+## Addendum, 2026-10-10 (after the run; the numbers above are unchanged)
+
+The owner decided P1's open question: `-o` means what netfilter means (A1).
+The cause was the packet filter model's routing consistency rules, not an
+engine: the default route overflowed its index block and nested routes were
+not handled (`docs/ACCOMMODATIONS.md`, "Retired — `-o`", correction). After the
+fix, re-run outside this record: S2 agrees across all three engines on every
+update; S1 agrees between NetPlumber and VeriFlow-FR on all 44 updates, while
+APKeep refuses deleting a route's drop rule before its forwarding rule (a table
+its FIB cannot express), so the three-way comparison stops at the first update.

@@ -62,10 +62,14 @@ class TestIncrementalAPKeep(unittest.TestCase):
     def test_wl_example_s1_oracle_at_every_update(self):
         stats = run(self, _make, _workload(self, 'bench/wl_example'), s1,
                     every=1, refusals=True)
-        # pgf's last route turns the packet filter from transit to terminal --
-        # its pipeline's elements depend on its rules and links (tier C,
-        # deferred): one deletion refused, hence its re-insertion.
-        self.assertEqual(len(stats['refused']), 2, stats['refused'])
+        # S1 deletes in reverse model order, so each of pgf's three routes
+        # loses its drop before its forwarding rule: a forwarding rule without
+        # its drop, which APKeep's FIB cannot express and REFUSES (the model
+        # makes every route two rules, AbstractFirewallModel.add_rules) --
+        # three deletions, hence three re-insertions. An engine-level stream
+        # edits derived rules one at a time; route-level updates are M2's.
+        self.assertEqual(len(stats['refused']), 6, stats['refused'])
+        self.assertTrue(all('pgf.routing' in reason for _u, reason in stats['refused']))
 
     def test_wl_example_s2_s3(self):
         # Split per ingress port for updates, the demultiplexed switches dmz

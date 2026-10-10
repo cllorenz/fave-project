@@ -34,9 +34,6 @@ from devices.snapshot_packet_filter import (
 from devices.application_layer_gateway import ApplicationLayerGatewayModel
 from devices.generator import GeneratorModel
 from devices.probe import ProbeModel
-from devices.abstract_firewall import (
-    _BASE_ROUTING_EXACT, _BASE_ROUTING_WRONG_IO, _BASE_ROUTING_RULE
-)
 from rule.rule_model import Rule, Forward
 
 
@@ -127,17 +124,17 @@ class TestProbeModel(unittest.TestCase):
 
 
 class TestFirewallAddRules(unittest.TestCase):
-    """ Tests the firewall routing-rule priority-band expansion.
+    """ Tests the firewall routing-rule expansion.
 
-    AbstractFirewallModel.add_rules splits each routing rule into three
-    priority bands (exact / wrong-io / normal) by offsetting rule.idx with the
-    _BASE_ROUTING_* bases, all under the '<node>.routing' table.
-    """
+    AbstractFirewallModel.add_rules turns the route at index i into two rules
+    of '<node>.routing': at 2i, destination and egress tag -> forward; at 2i+1,
+    destination -> drop. So an `-o` tag passes only by the route its
+    destination takes (test_packet_filter_out_iface.py for the semantics). """
 
-    def test_routing_rule_expands_into_three_bands(self):
+    def test_a_route_becomes_a_tagged_forward_and_a_drop(self):
         firewall = PacketFilterModel('fw', ports=['1', '2'])
         rule = Rule(
-            'fw', 'fw.routing', 0,
+            'fw', 'fw.routing', 3,
             in_ports=['fw.1'],
             match=Match([RuleField('packet.ipv6.destination', '2001:db8::1')]),
             actions=[Forward(ports=['1'])],
@@ -145,15 +142,25 @@ class TestFirewallAddRules(unittest.TestCase):
 
         firewall.add_rules([rule])
 
-        banded = firewall._adds.get('fw.routing', [])
-        self.assertEqual(len(banded), 3)
-        # The three copies sit at the three band bases (rule idx was 0).
-        self.assertEqual(
-            sorted(r.idx for r in banded),
-            sorted([_BASE_ROUTING_EXACT, _BASE_ROUTING_WRONG_IO, _BASE_ROUTING_RULE])
-        )
-        # All land in the routing table.
-        self.assertTrue(all(r.tid == 'fw.routing' for r in banded))
+        rows = sorted(firewall._adds.get('fw.routing', []), key=lambda r: r.idx)
+        self.assertEqual([r.idx for r in rows], [6, 7])
+        keep, drop = rows
+        self.assertIn(('out_port', 'fw.1_egress'),
+                      [(f.name, f.value) for f in keep.match])
+        self.assertEqual([a.ports for a in keep.actions], [['fw.routing_out']])
+        self.assertNotIn('out_port', [f.name for f in drop.match])
+        self.assertEqual(drop.actions, [])
+        self.assertTrue(all(r.tid == 'fw.routing' for r in rows))
+        self.assertTrue(all(r.in_ports == ['fw.routing_in'] for r in rows))
+
+    def test_a_discard_route_is_the_drop_alone(self):
+        firewall = PacketFilterModel('fw', ports=['1', '2'])
+        firewall.add_rules([Rule(
+            'fw', 'fw.routing', 4,
+            match=Match([RuleField('packet.ipv6.destination', '2001:db8::/32')]),
+            actions=[])])
+        rows = firewall._adds.get('fw.routing', [])
+        self.assertEqual([(r.idx, r.actions) for r in rows], [(9, [])])
 
 
 class TestSnapshotHelpers(unittest.TestCase):

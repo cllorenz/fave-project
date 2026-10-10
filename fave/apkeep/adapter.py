@@ -1335,6 +1335,28 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._pf_rules.setdefault(device, {}).setdefault(chain, []).append(
             (out_port, proto, src, dst, sport, dport, related, in_qual, out_qual, rule.idx))
 
+    def _pf_fib(self, device: str) -> List[Tuple[Optional[str], str, int]]:
+        """ A packet filter's routes, `_filter_fib` without the drops that
+        belong to a route. The model turns each route into "destination and
+        egress tag: forward", then "destination: drop" (the tag must be the
+        routed port, `AbstractFirewallModel.add_rules`); APKeep routes by the
+        FIB, so only a destination with no forwarding route is a discard. """
+        entries = self._filter_fib.get(device, [])
+        routed = {dst for dst, egress, _plen in entries if egress != _FILTER_DROP}
+        dropped = {dst for dst, egress, _plen in entries if egress == _FILTER_DROP}
+        unpaired = sorted(map(str, routed - dropped))
+        if unpaired:
+            # A forwarding rule without its drop: packets tagged for another
+            # interface fall through to later routes, which no FIB expresses.
+            # Only an update stream deleting one of a route's two rules makes
+            # such a table.
+            raise UntranslatedSemantics(
+                "%s.routing has %d route(s) without the drop that makes its "
+                "egress tag binding (%s); APKeep routes by a FIB and cannot "
+                "express what such a table does with a packet `-o` tagged for "
+                "another interface." % (device, len(unpaired), ', '.join(unpaired[:3])))
+        return [e for e in entries if e[1] != _FILTER_DROP or e[0] not in routed]
+
     def _translate_fib_rule(self, device: str, rule: Any) -> None:
         """ One packet_filter `routing` rule -> a companion-FIB entry
         (dst-prefix -> physical egress). The routing rule carries the egress in an
@@ -1359,9 +1381,12 @@ class APKeepAdapter(AbstractVerificationEngine):
             if not has_fwd:
                 return
         else:
-            # No out_port: a dst-only, action-less rule is a route-unknown discard.
-            if dst is not None and not rule.actions:
-                egress = _FILTER_DROP     # internal "route unknown" discard
+            # No out_port and no action: a route's drop -- the second rule of
+            # every route (`AbstractFirewallModel.add_rules`), the default
+            # route's included -- or, alone, a discard. `_pf_fib` tells them
+            # apart.
+            if not rule.actions:
+                egress = _FILTER_DROP
             else:
                 return                    # nothing routable (e.g. pipeline plumbing)
         if dst is None:
@@ -2562,7 +2587,7 @@ class APKeepAdapter(AbstractVerificationEngine):
                 # the old skip stands there and is the honest answer.
                 expanded = [t]
                 if handle_quals and t[8] is not None:
-                    allowed = _lpm_destinations(self._filter_fib.get(dev, []),
+                    allowed = _lpm_destinations(self._pf_fib(dev),
                                                 t[8])
                     if not allowed:
                         # No FIB, so the egress is not a function of anything
@@ -2621,7 +2646,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             phys_ports |= {e.split()[3] for e in new_edges
                            if e.split()[2] == dev and e.split()[3].isdigit()}
             is_transit = len(phys_ports) >= 2
-            fib = self._filter_fib.get(dev)
+            fib = self._pf_fib(dev)
             has_routing = bool(phys_egress and fib)
             fib_dev = _fib_name(dev)
 

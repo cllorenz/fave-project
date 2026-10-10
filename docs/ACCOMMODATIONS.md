@@ -128,6 +128,33 @@ device with a count and the direction of the error. It is the only surviving
 `-o` infidelity in the suite, it affects one backend on one device shape, and
 `wl_tum` has no check set, so no verdict in the comparison rests on it.
 
+**Correction, 2026-10-10 (owner decision A1).** "Correct" above held for the
+SHIPPED `wl_example` only. The premise -- *the rewrite afterwards is consistent
+with* the `-o` narrowing -- was the job of the routing table's consistency rules
+(`AbstractFirewallModel.add_rules`), and they did it wrongly: the default route
+(index 65535) overflowed its 16,384-wide index block, so its tagged rule ran
+after every specific route's rewrite, and a shorter route's tagged rule caught
+packets a longer route owns. A slice accepted by `-o pgf.1` with a destination
+routed out `pgf.3` was re-tagged and delivered. `wl_example`'s anti-spoofing
+rule hid it; the incremental calibration's updates removed that rule and
+NetPlumber and VeriFlow-FR then disagreed with APKeep
+(`fave/bench/campaigns/results_inc_dev_20261010/FINDINGS.md`).
+
+**`-o` now means what netfilter means**: the rule applies iff routing sends the
+packet out of that interface. Each route becomes two rules in route order --
+destination and egress tag: forward; destination: drop -- so a tagged packet
+passes only by the route its destination takes. APKeep, which resolves `-o`
+against the FIB, already meant this; it now also refuses a routing table whose
+route lost its drop (only an engine-level update stream makes one). Tests:
+`fave/test/test_packet_filter_out_iface.py`. On the shipped `wl_example` (10
+checks) and `wl_up` (18,811) every verdict of all five engines -- NetPlumber,
+VeriFlow-FR, BDD-APKeep, NDD-flood, ad6 -- is unchanged (0 violations before
+and after, compared check by check). The only other `-o` workloads have no
+check set (`wl_tum`, `wl_generic_fw`, `wl_shadow`). The routing table is smaller
+now (two rules per route instead of three); single dev runs of the `wl_up`
+re-check took 18 s → 5 s on NetPlumber and 384 s → 99 s on VeriFlow-FR, the
+other engines unchanged -- indicative, not a V5 measurement.
+
 ## Workloads
 
 | entry | kind | status |

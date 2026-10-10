@@ -447,10 +447,12 @@ footprint states (VeriFlow-FR) fails every stream test.
 [`results_inc_dev_20261010/FINDINGS.md`](../fave/bench/campaigns/results_inc_dev_20261010/FINDINGS.md)
 — three engines × `wl_example`/`wl_ifi`/`wl_airtel1` × S1–S3, 200 updates each,
 protocol first. All six oracle runs pass; 7 of 9 streams agree across engines on
-every update. The other two expose a **translation difference updates reach**:
-`-o` in `pgf`'s FORWARD chain, evaluated before routing by NetPlumber and
-VeriFlow-FR (FaVe's packet filter model) and after it by APKeep (netfilter);
-the shipped model masks it. **Open for the owner.**
+every update. The other two exposed a **model defect updates reach**: `-o` in
+`pgf`'s FORWARD chain, which the routing table's consistency rules failed to
+tie to the routed egress (the shipped model masks it). **Decided and fixed
+2026-10-10 (owner, A1): `-o` means netfilter's routed egress**
+(`docs/ACCOMMODATIONS.md`, "Retired — `-o`", correction); both streams now agree
+across engines, and no shipped verdict changed.
 
 **Found on the way, fixed:** a NetPlumber flow created by re-propagation left
 `processed_hs` uninitialised, and a later deletion crashed on it
