@@ -38,6 +38,10 @@ command -v mvn >/dev/null 2>&1 || fail "mvn not found (need Maven + JDK 11)"
 command -v java >/dev/null 2>&1 || fail "java not found (need JDK 11)"
 [ -d "$APKEEP_DIR/networks/stanford" ] || fail "bundled networks/stanford missing in $APKEEP_DIR"
 
+# 0. The NDD jar, which APKeep's NDD backend (apkeep.ndd, NDD-APKeep) compiles
+#    against (pom.xml, system scope) -- without it the build below fails.
+bash "$HERE/ndd_build.sh" || fail "the NDD jar APKeep compiles against did not build"
+
 # 1. Build the fat jar.
 echo "== apkeep: mvn package =="
 ( cd "$APKEEP_DIR" && mvn -q -B package ) || fail "build failed"

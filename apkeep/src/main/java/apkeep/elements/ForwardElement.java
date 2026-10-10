@@ -29,10 +29,7 @@ public class ForwardElement extends Element {
 
 	@Override
 	public void initialize() {
-		String default_port = "default";
-		HashSet<Integer> alltrue = new HashSet<Integer>();
-		alltrue.add(BDDACLWrapper.BDDTrue);
-		port_aps_raw.put(default_port, alltrue);
+		initPort("default", true);
 	}
 
 	public void addVlanPorts(Map<String, Set<String>> map) {
@@ -52,7 +49,7 @@ public class ForwardElement extends Element {
 		String port = tokens[5];
 		int priority = Integer.valueOf(tokens[6]);
 		
-		int match_bdd = apk.encodePrefixBDD(prefix, prefixlen);
+		int match_bdd = enc.dstPrefix(prefix, prefixlen);
 		
 		return new ForwardingRule(match_bdd, prefix, prefixlen, port, priority);
 	}
@@ -65,7 +62,7 @@ public class ForwardElement extends Element {
 		// duplicate rules
 		if (node.hasRule(rule)) {
 			Logger.logInfo("duplicate rule " + rule.toString());
-			bdd.deref(rule.getMatch_bdd());   // FaVe fork: not stored, so its reference goes
+			ops.deref(rule.getMatch_bdd());   // FaVe fork: not stored, so its reference goes
 			return new ArrayList<ChangeItem>();
 		}
 		
@@ -75,7 +72,7 @@ public class ForwardElement extends Element {
 		
 		// check whether the forwarding port exists, if not create it, 
 		// and initialize the AP set of the port to empty
-		port_aps_raw.putIfAbsent(rule.getPort(), new HashSet<Integer>());
+		ensurePort(rule.getPort());
 		
 		// insert the rule
 		node.addRule(rule);
@@ -132,10 +129,10 @@ public class ForwardElement extends Element {
 		// FaVe fork: every rule owns a reference to its match (see
 		// APKeeper.encodePrefixBDD), so it is released with the rule, not only
 		// with the last rule of the node.
-		bdd.deref(rule.getMatch_bdd());
+		ops.deref(rule.getMatch_bdd());
 		if(node.noRules()) {
 			ForwardingRule r = (ForwardingRule) rule;
-			apk.removePrefixBDD(r.getDstIP(), r.getMaskLen());
+			if (apk != null) apk.removePrefixBDD(r.getDstIP(), r.getMaskLen());   // a no-op (see there); NDD has no APKeeper
         	node.delete();
 		}
 	}

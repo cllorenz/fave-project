@@ -11,6 +11,8 @@ import java.util.Set;
 
 import apkeep.core.APKeeper;
 import apkeep.core.ChangeItem;
+import apkeep.core.PredicateOps;
+import apkeep.core.RuleEncoder;
 import apkeep.exception.APNotFoundException;
 import apkeep.exception.APSetNotFoundException;
 import apkeep.exception.BDDNotFalseException;
@@ -25,6 +27,16 @@ public abstract class Element {
 	
 	protected static BDDACLWrapper bdd;
 	protected APKeeper apk;
+
+	/* FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §4): the representation this
+	 * element's rules and change tuples live in, and how rule strings are
+	 * encoded into it -- BDD (upstream) or NDD (apkeep.ndd). The change
+	 * computation below is upstream's, routed through `ops`; the predicate
+	 * map (port_aps_raw and the APKeeper) stays BDD-only, and an NDD network
+	 * keeps its own (`ndd`, null under BDD). Set by the network (`bind`). */
+	protected PredicateOps ops;
+	protected RuleEncoder enc;
+	protected apkeep.ndd.NddPorts ndd;
 	
 	protected Map<String, Set<Integer>> port_aps_raw;
 	
@@ -42,6 +54,16 @@ public abstract class Element {
 		apk = theapk;
 		apk.addElement(name, this);
 	}
+
+	/** FaVe fork: bind the representation (see `ops`). A BDD network passes
+	 *  {@link BddOps} over its engine and a {@link BddEncoder} over `apk`, so
+	 *  every call reaches the same BDD engine upstream's did; an NDD network
+	 *  passes its own, plus its port map. */
+	public void bind(PredicateOps ops, RuleEncoder enc, apkeep.ndd.NddPorts ndd) {
+		this.ops = ops;
+		this.enc = enc;
+		this.ndd = ndd;
+	}
 	
 	public abstract void initialize();
 	public abstract Rule encodeOneRule(String rule);
@@ -58,7 +80,7 @@ public abstract class Element {
 		// set bdd for the inserted rule
 		List<ChangeItem> change_set = new ArrayList<>();
 		
-		int hit_bdd = bdd.ref(rule.getMatch_bdd());
+		int hit_bdd = ops.ref(rule.getMatch_bdd());
 		int bdd_to_change = BDDACLWrapper.BDDFalse;
 		boolean inserted = false;
 		Iterator<Rule> it2 = affected_rules.iterator();
@@ -66,14 +88,14 @@ public abstract class Element {
 		while (it2.hasNext()) {
 			Rule item = it2.next();
 			if (item.getPriority() > rule.getPriority()) {
-				hit_bdd = bdd.diffTo(hit_bdd, item.getMatch_bdd());
+				hit_bdd = ops.diffTo(hit_bdd, item.getMatch_bdd());
 				if (hit_bdd == BDDACLWrapper.BDDFalse) {
 					return change_set;
 				}
 			}
 			else {
 				if(!inserted) {
-					bdd_to_change = bdd.ref(hit_bdd);
+					bdd_to_change = ops.ref(hit_bdd);
 					inserted = true;
 				}
 
@@ -81,12 +103,12 @@ public abstract class Element {
 					break;
 				}
 
-				int delta = bdd.and(item.getHit_bdd(), bdd_to_change);
+				int delta = ops.and(item.getHit_bdd(), bdd_to_change);
 				if (delta == BDDACLWrapper.BDDFalse) {
 					continue;
 				}
-				item.setHit_bdd(bdd.diffTo(item.getHit_bdd(), delta));
-				bdd_to_change = bdd.diffTo(bdd_to_change, delta);
+				item.setHit_bdd(ops.diffTo(item.getHit_bdd(), delta));
+				bdd_to_change = ops.diffTo(bdd_to_change, delta);
 				if (!item.getPort().equals(rule.getPort())) {
 					ChangeItem change_item = new ChangeItem(item.getPort(), rule.getPort(), delta);
 					change_set.add(change_item);
@@ -105,7 +127,7 @@ public abstract class Element {
 		// set bdd for the inserted rule
 		List<ChangeItem> change_set = new ArrayList<>();
 		
-		int hit_bdd = bdd.ref(rule.getMatch_bdd());
+		int hit_bdd = ops.ref(rule.getMatch_bdd());
 		int bdd_to_change = BDDACLWrapper.BDDFalse;
 		Rule default_rule = affected_rules.getLast();
 		boolean inserted = false;
@@ -116,25 +138,25 @@ public abstract class Element {
 			Rule item = it2.next();
 			if (item.getPriority() > rule.getPriority()) {
 				if (hit_bdd != BDDACLWrapper.BDDFalse) {
-					hit_bdd = bdd.diffTo(hit_bdd, item.getMatch_bdd());
+					hit_bdd = ops.diffTo(hit_bdd, item.getMatch_bdd());
 				}
 				cur_position++;
 			}
 			else {
 				if(!inserted) {
 					// fast check whether the default rule is the only rule affected
-					int temp = bdd.diff(hit_bdd, default_rule.getHit_bdd());
+					int temp = ops.diff(hit_bdd, default_rule.getHit_bdd());
 					if (temp == BDDACLWrapper.BDDFalse) {
-						default_rule.setHit_bdd(bdd.diffTo(default_rule.getHit_bdd(), hit_bdd));
+						default_rule.setHit_bdd(ops.diffTo(default_rule.getHit_bdd(), hit_bdd));
 						if (!default_rule.getPort().equals(rule.getPort())) {
 							ChangeItem change_item = new ChangeItem(default_rule.getPort(), rule.getPort(), hit_bdd);
 							change_set.add(change_item);
 						}
 						break;
 					}
-					bdd.deref(temp);
+					ops.deref(temp);
 					
-					bdd_to_change = bdd.ref(hit_bdd);
+					bdd_to_change = ops.ref(hit_bdd);
 					inserted = true;
 				}
 
@@ -142,12 +164,12 @@ public abstract class Element {
 					break;
 				}
 
-				int delta = bdd.and(item.getHit_bdd(), bdd_to_change);
+				int delta = ops.and(item.getHit_bdd(), bdd_to_change);
 				if (delta == BDDACLWrapper.BDDFalse) {
 					continue;
 				}
-				item.setHit_bdd(bdd.diffTo(item.getHit_bdd(), delta));
-				bdd_to_change = bdd.diffTo(bdd_to_change, delta);
+				item.setHit_bdd(ops.diffTo(item.getHit_bdd(), delta));
+				bdd_to_change = ops.diffTo(bdd_to_change, delta);
 				if (!item.getPort().equals(rule.getPort())) {
 					ChangeItem change_item = new ChangeItem(item.getPort(), rule.getPort(), delta);
 					change_set.add(change_item);
@@ -183,14 +205,14 @@ public abstract class Element {
 		for (Rule item : affected_rules) {
 			if (item.getPriority() < rule.getPriority()) heirs.add(item);
 		}
-		int hit_bdd = bdd.ref(rule.getHit_bdd());
+		int hit_bdd = ops.ref(rule.getHit_bdd());
 		Iterator<Rule> it2 = heirs.iterator();
 		while (it2.hasNext() && hit_bdd != BDDACLWrapper.BDDFalse){
 			Rule item = it2.next();
-			int delta = bdd.and(hit_bdd, item.getMatch_bdd());
+			int delta = ops.and(hit_bdd, item.getMatch_bdd());
 			if (delta != BDDACLWrapper.BDDFalse) {
-				item.setHit_bdd(bdd.orTo(item.getHit_bdd(), delta));
-				hit_bdd = bdd.diffTo(hit_bdd, delta);
+				item.setHit_bdd(ops.orTo(item.getHit_bdd(), delta));
+				hit_bdd = ops.diffTo(hit_bdd, delta);
 				
 				if (!item.getPort().equals(rule.getPort())) {
 					ChangeItem change_item = new ChangeItem(rule.getPort(), item.getPort(), delta);
@@ -203,13 +225,13 @@ public abstract class Element {
 			throw new BDDNotFalseException(hit_bdd);
 		}
 		
-		bdd.deref(rule.getHit_bdd());
+		ops.deref(rule.getHit_bdd());
 		return change_set;
 	}
 	
 	protected List<ChangeItem> identifyChangesRemove(Rule rule, LinkedList<Rule> affected_rules) throws Exception {
 		List<ChangeItem> change_set = new ArrayList<ChangeItem>();
-		int hit_bdd = bdd.ref(rule.getHit_bdd());
+		int hit_bdd = ops.ref(rule.getHit_bdd());
 		
 		// FaVe fork (INCREMENTAL_PLAN.md O6): the list is in EFFECTIVE order --
 		// priority descending, an equal-priority rule inserted later ahead of the
@@ -223,10 +245,10 @@ public abstract class Element {
 		}
 		while (it.hasNext() && hit_bdd != BDDACLWrapper.BDDFalse){
 			Rule item = it.next();
-			int delta = bdd.and(hit_bdd, item.getMatch_bdd());
+			int delta = ops.and(hit_bdd, item.getMatch_bdd());
 			if (delta != BDDACLWrapper.BDDFalse) {
-				item.setHit_bdd(bdd.orTo(item.getHit_bdd(), delta));
-				hit_bdd = bdd.diffTo(hit_bdd, delta);
+				item.setHit_bdd(ops.orTo(item.getHit_bdd(), delta));
+				hit_bdd = ops.diffTo(hit_bdd, delta);
 				
 				if (!item.getPort().equals(rule.getPort())) {
 					ChangeItem change_item = new ChangeItem(rule.getPort(), item.getPort(), delta);
@@ -239,11 +261,14 @@ public abstract class Element {
 			throw new BDDNotFalseException(hit_bdd);
 		}
 		
-		bdd.deref(rule.getHit_bdd());
+		ops.deref(rule.getHit_bdd());
 		return change_set;
 	}
 
 	public Set<Integer> updatePortPredicateMap(List<ChangeItem> change_set) throws Exception{
+		if (ndd != null) {
+			throw new IllegalStateException("an NDD network updates its ports itself (NddPorts.update)");
+		}
 		HashSet<Integer> moved_aps = new HashSet<Integer>();
 		if(change_set.isEmpty()) return moved_aps;
 		for(ChangeItem item : change_set) {
@@ -377,8 +402,29 @@ public abstract class Element {
 	}
 
 	public Set<String> getPorts() {
-		// TODO Auto-generated method stub
+		if (ndd != null) return ndd.ports(this);
 		return port_aps_raw.keySet();
+	}
+
+	/* FaVe fork: a port and its initial packet set (everything or nothing),
+	 * in whichever predicate map this element's network keeps. Upstream wrote
+	 * port_aps_raw inline at each of these sites. */
+	protected void initPort(String port, boolean all) {
+		if (ndd != null) {
+			ndd.initPort(this, port, all);
+			return;
+		}
+		HashSet<Integer> aps = new HashSet<Integer>();
+		if (all) aps.add(BDDACLWrapper.BDDTrue);
+		port_aps_raw.put(port, aps);
+	}
+
+	protected void ensurePort(String port) {
+		if (ndd != null) {
+			ndd.ensurePort(this, port);
+			return;
+		}
+		port_aps_raw.putIfAbsent(port, new HashSet<Integer>());
 	}
 
 	// FaVe fork (Phase C profiling): total port-predicate-map entries carried by this

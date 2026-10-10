@@ -128,6 +128,20 @@
 		         or/diff) is long-stable across it. Vendored in local-maven-repo/. -->
 		    <version>111</version>
 		</dependency>
+		<!-- FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §4, owner decision B): the NDD
+		     backend (package apkeep.ndd) runs APKeep's elements over the NDD
+		     library's per-field atoms. System scope: the jar is NOT shaded into
+		     apkeep's; at run time FaVe puts both jars on one classpath, apkeep's
+		     first (lib_apkeep.py), so JDD binds to the copy above exactly as before.
+		     Build ndd first (`mvn -f ../ndd/pom.xml -DskipTests package`). Declared
+		     AFTER JDD so the compile and test classpaths resolve jdd.* to 111 too. -->
+		<dependency>
+		    <groupId>org.ants</groupId>
+		    <artifactId>ndd</artifactId>
+		    <version>1.0.1</version>
+		    <scope>system</scope>
+		    <systemPath>${project.basedir}/../ndd/target/ndd-1.0.1-jar-with-dependencies.jar</systemPath>
+		</dependency>
 		<dependency>
             <groupId>org.jline</groupId>
             <artifactId>jline</artifactId>

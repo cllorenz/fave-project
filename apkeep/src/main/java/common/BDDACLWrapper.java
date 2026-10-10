@@ -181,6 +181,33 @@ public class BDDACLWrapper implements Serializable{
             //dstIPInnerField = AndInBatch(dstIPInner);
       }
       
+      /**
+       * FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §4): the field encoders of this
+       * class over ANOTHER engine's variables -- the NDD library's per-field
+       * BDD labels (apkeep.ndd.NddEncoder). Each Convert* method then builds the
+       * label of one field exactly as it builds that field's part of a BDD here,
+       * so NDD-APKeep and BDD-APKeep read every rule the same way. No variable
+       * is declared and no field cube is made: an NDD quantifies a field by its
+       * index. Only the per-field encoders are meaningful on an instance built
+       * this way; {@link #ConvertACLRuleFields} gives them per field.
+       */
+      public BDDACLWrapper(BDD engine, int[] protocol, int[] srcPort, int[] dstPort,
+                  int[] srcIP, int[] dstIP, int[] srcIP6, int[] dstIP6, int[] vlan,
+                  int relatedVar, int[] tcpFlags)
+      {
+            this.aclBDD = engine;
+            this.protocol = protocol;
+            this.srcPort = srcPort;
+            this.dstPort = dstPort;
+            this.srcIP = srcIP;
+            this.dstIP = dstIP;
+            this.srcIP6 = srcIP6;
+            this.dstIP6 = dstIP6;
+            this.vlan = vlan;
+            this.relatedVar = relatedVar;
+            this.tcpFlags = tcpFlags;
+      }
+
       public void createIPinIPPermutation()
       {
             push_perm = aclBDD.createPermutation(dstIP, dstIPInner);
@@ -1257,7 +1284,28 @@ public class BDDACLWrapper implements Serializable{
        * @param aclr - an acl rule
        * @return a bdd node representing this rule
        */
+      /** The field slots of {@link #ConvertACLRuleFields}. */
+      public static final int ACL_PROTO = 0, ACL_SPORT = 1, ACL_DPORT = 2, ACL_SRC = 3,
+                  ACL_DST = 4, ACL_VLAN = 5, ACL_RELATED = 6, ACL_FLAGS = 7;
+
       public int ConvertACLRule(ACLRule aclr)
+      {
+            int [] fields = ConvertACLRuleFields(aclr);
+            int tempnode = AndInBatch(fields);
+            //clean up internal nodes
+            DerefInBatch(fields);
+
+            return tempnode;
+      }
+
+      /**
+       * FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §4): {@link #ConvertACLRule}'s
+       * per-field parts, before they are AND-ed -- in the order of the ACL_*
+       * slots, each referenced. The source and destination slots are IPv6 when
+       * the rule's address contains ':' (see {@link ACLRule}), IPv4 otherwise.
+       * ConvertACLRule computes exactly these and conjoins them, as upstream did.
+       */
+      public int[] ConvertACLRuleFields(ACLRule aclr)
       {	
             /**
              *  protocol
@@ -1363,11 +1411,7 @@ public class BDDACLWrapper implements Serializable{
             //put them together
             int [] fields = {protocolNode,srcPortNode,dstPortNode,
                         srcIPNode,dstIPNode,vlanNode,relatedNode,tcpFlagsNode};
-            int tempnode = AndInBatch(fields);
-            //clean up internal nodes
-            DerefInBatch(fields);
-
-            return tempnode;
+            return fields;
       }
 
       /**
@@ -1601,7 +1645,9 @@ public class BDDACLWrapper implements Serializable{
 
       public int ConvertVLAN(int vlanId)
       {
-            return ConvertRange(new Range(vlanId, vlanId), vlan, vlanBits);
+            // FaVe fork: the width of the variables given, so the same encoder
+            // serves NDD's 16-bit VLAN field (vlanBits here, i.e. unchanged).
+            return ConvertRange(new Range(vlanId, vlanId), vlan, vlan.length);
       }
 
       /**

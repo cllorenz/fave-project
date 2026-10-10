@@ -28,15 +28,10 @@ public class ACLElement extends Element {
 		acl_rule.add(rule);
 		
 		// initialize the AP set for port deny
-		String deny_port = "deny";
-		HashSet<Integer> alltrue = new HashSet<Integer>();
-		alltrue.add(BDDACLWrapper.BDDTrue);
-		port_aps_raw.put(deny_port, alltrue);
+		initPort("deny", true);
 		
 		// initialize the AP set for port permit
-		String permit_port = "permit";
-		HashSet<Integer> allfalse = new HashSet<Integer>();
-		port_aps_raw.put(permit_port, allfalse);
+		initPort("permit", false);
 	}
 
 	@Override
@@ -44,14 +39,14 @@ public class ACLElement extends Element {
 		String[] tokens = rule.split(" ");
 		ACLRule r = new ACLRule(rule.substring(tokens[0].length() + tokens[1].length() + tokens[2].length() + 3));
 		
-		int match_bdd = apk.encodeACLBDD(r);
+		int match_bdd = enc.acl(r);
 		return new FilterRule(match_bdd, r);
 	}
 
 	@Override
 	public List<ChangeItem> insertOneRule(Rule rule) throws Exception {
 		List<ChangeItem> change_set = identifyChangesInsert(rule, acl_rule);
-		port_aps_raw.putIfAbsent(rule.getPort(), new HashSet<Integer>());
+		ensurePort(rule.getPort());
 		return change_set;
 	}
 
@@ -85,7 +80,7 @@ public class ACLElement extends Element {
 	}
 	
 	private void removeRule(int index) {
-		bdd.deref(acl_rule.get(index).getMatch_bdd());
+		ops.deref(acl_rule.get(index).getMatch_bdd());
 		acl_rule.remove(index);
 	}
 	@Override

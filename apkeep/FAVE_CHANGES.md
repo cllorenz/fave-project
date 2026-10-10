@@ -440,3 +440,87 @@ APKeep suite is unchanged):
 Tests: `fave/test/test_apkeep_incremental_core.py` (each fix against a build
 without the rule, on networks of a few elements), and through the adapter
 `fave/test/test_incremental_apkeep.py`.
+
+## 12. NDD-APKeep: the NDD backend  **[NEW]**
+
+APKEEP_INCREMENTAL_SCOPE.md §4 and steps 4–5, owner decision B (2026-10-10):
+**one core, two atom layers.** The NDD paper's APKeep(NDD) (Li et al., NSDI '25,
+App. A.1/F.2) is APKeep with its atomic-predicate maintenance replaced by NDD's.
+The authors' reference code (`../ndd/src/main/java/application/wan/ndd/verifier/`)
+is a separate code base built that way: `FieldNode` merges APKeep's forwarding and
+ACL elements and carries every method twice, once on NDDs and once on BDDs. That
+duplication is the evidence the element logic does not depend on the packet-set
+type. Rather than extend the reference (which has no delete, links, NAT, merge or
+re-check, and keys its FIB on IPv4), this fork's own elements run on either
+representation, and the atom layer is swapped beneath them.
+
+`Network(name, "ndd")` builds NDD-APKeep; `Network(name)` is unchanged.
+
+**Shared with BDD-APKeep (this fork):** the network, topology and links; the
+elements' rule lists, tries and change computation (`identifyChanges*`), rule
+identity, tie handling and the removal fixes of §11; the rule strings and their
+parser (`ACLRule`); the per-update loop check; footprints and `takeAffected`;
+the FaVe adapter and its refusals.
+
+**The seam** (behaviour-preserving for BDD; Java suite, the Stanford loop golden
+and the Python APKeep tests are unchanged):
+- `core/PredicateOps` -- the and/or/diff/not/ref operations the elements compute
+  change tuples with, in `BDDACLWrapper`'s reference discipline. `BddOps` makes
+  exactly upstream's calls on the network's engine.
+- `core/RuleEncoder` -- the header encodings the elements' `encodeOneRule` need
+  (destination/source prefix, ACL body, VLAN). `BddEncoder` makes exactly the
+  calls upstream made (prefixes through the APKeeper's cache).
+- `Element.bind(ops, enc, ndd)`, and `initPort`/`ensurePort` in place of the
+  inline `port_aps_raw` writes, so a port is created in whichever map the
+  network keeps.
+- `RewriteRule` keeps the field it writes by name; the BDD quantification cube is
+  resolved on use (it was resolved in the constructor through a static engine).
+- `BDDACLWrapper`: a constructor over another engine's variables, and
+  `ConvertACLRuleFields`, `ConvertACLRule`'s per-field parts before the AND
+  (which `ConvertACLRule` still computes and conjoins, in the same order).
+  `ConvertVLAN` encodes over the width of the variables it is given (12 here,
+  16 on NDD).
+
+**The NDD side (`apkeep/ndd/`):**
+- `NddEncoder` -- the same `BDDACLWrapper` field encoders run over the NDD
+  library's per-field variables, the fields assembled as NDD levels. The field
+  layout is `org.ants.jndd.fave.FaveFields`, shared with NDD-flood (NDD's tables
+  are process-global; `../ndd/FAVE_CHANGES.md` §10).
+- `NddPorts` -- the atom layer. Per port a molecule (`AtomizedNDD`) and the plain
+  predicate it stands for. Ported from the reference: a change tuple's cube
+  (`FieldNodeAP.update_ACL`) and the single-field case (`update_FW`); splitting
+  and the atom-to-holder map (`NetworkNDDAP.split_ap_multi_field`, `SplitMap`);
+  merging by re-atomizing every predicate (`NetworkNDDAP.UpdateFieldAP`) where
+  BDD-APKeep hard-merges, and every 1,500 updates (the reference's
+  `MERGE_ACL_NUMBER`). FaVe's: removal (a change tuple moved back -- the element
+  computes it); NAT rewrites, each new value kept as an atomized molecule and
+  applied by `exist` (paper App. F.3) in `NddRewrites`; a registry so a split or
+  re-atomization reaches every NDD network in the JVM (the from-zero oracle
+  builds a twin; atoms are global); `close()`; `checkInvariants()` (every
+  molecule equals its plain predicate, the holder map lists exactly the atoms
+  held); and `maybeCollect()`, which collects the atomized node table between
+  updates and between queries once it has doubled since the last collection
+  (`../ndd/FAVE_CHANGES.md` §11 -- without it dead molecules filled the heap).
+- `NddReachabilityChecker` and `NddLoopChecker` -- the BDD checkers' walks on
+  molecules. One packet universe: no ACL division (it exists to keep BDD atoms
+  from multiplying across fields, which per-field atoms avoid). A source seed is
+  the source's exact space, carried beside the molecule and intersected at
+  arrival -- Lever B for IPv4 as well as IPv6; it passes a NAT unchanged, as the
+  BDD checker's does.
+- `Network`: the backend flag, `nddPorts()`/`nddEncoder()`, the NDD per-rule
+  update (change tuples, `NddPorts.update`, the loop check on what moved,
+  re-atomization count), `recordFootprint` for the NDD checker, and condition
+  encoders for the FaVe query (`nddCondition`, `nddRelated`, `nddVlan`).
+  Footprints and `takeAffected` go through `PredicateOps` on both backends.
+
+**Build:** the fork compiles against the NDD fat jar (`pom.xml`, system scope,
+not shaded); `fave/test/apkeep_smoke.sh` builds it first.
+
+**Tests:** `src/test/java/apkeep/ndd/NddBackendDifferentialTest.java` -- random
+networks (a router ring with LPM routes; a packet filter with 5-tuple, VLAN,
+connection-state and TCP-flag rules; IPv6 source seeds; VLAN rewrites gating
+ACLs), rules inserted and deleted one at a time: after every update the
+invariants hold, and the host-to-host matrix equals a from-zero NDD build's and
+BDD-APKeep's. Non-vacuity is asserted (both outcomes occur), and a negative
+control shows one dropped rule changes the matrix. Also two networks sharing
+atoms, and re-atomization.

@@ -40,9 +40,7 @@ public class NATElement extends Element {
 		rewrite_rules.add(default_rule);
 		rule_map.put(default_rule.getPort(), default_rule);
 		
-		HashSet<Integer> alltrue = new HashSet<Integer>();
-		alltrue.add(BDDACLWrapper.BDDTrue);
-		port_aps_raw.put(default_rule.getPort(), alltrue);
+		initPort(default_rule.getPort(), true);
 	}
 	
 	public HashMap<Integer, HashSet<Integer>> getRewrite_table() {
@@ -119,8 +117,8 @@ public class NATElement extends Element {
 			long dst_prefix = Utility.IPStringToLong(tokens[5]);
 			int dst_prefixlen = Integer.valueOf(tokens[6]);
 			int vlan_id = Integer.valueOf(tokens[7]);
-			int match_bdd = apk.encodePrefixBDD(dst_prefix, dst_prefixlen);
-			int new_bdd = apkeep.core.APKeeper.bddengine.ConvertVLAN(vlan_id);
+			int match_bdd = enc.dstPrefix(dst_prefix, dst_prefixlen);
+			int new_bdd = enc.vlan(vlan_id);
 			// FaVe fork (INCREMENTAL_PLAN.md O6): the priority is the prefix
 			// length -- the route's own LPM rank -- not 65535 for every rule.
 			// With all rules tied, which of two overlapping rewrites won was
@@ -151,11 +149,10 @@ public class NATElement extends Element {
 			int head = 0;
 			for (int k = 0; k <= 7; k++) head += tokens[k].length() + 1;
 			common.ACLRule keyed_on = new common.ACLRule(rule.substring(head));
-			int match_bdd = apk.encodeACLBDD(keyed_on);
-			BDDACLWrapper bdd = apkeep.core.APKeeper.bddengine;
+			int match_bdd = enc.acl(keyed_on);
 			int rewrite_bdd = is_src
-					? bdd.encodeSrcIPPrefix(rewrite_prefix, rewrite_prefixlen)
-					: apk.encodePrefixBDD(rewrite_prefix, rewrite_prefixlen);
+					? enc.srcPrefix(rewrite_prefix, rewrite_prefixlen)
+					: enc.dstPrefix(rewrite_prefix, rewrite_prefixlen);
 			// FaVe fork (INCREMENTAL_PLAN.md O6): the priority is the one the
 			// matched rule carries in its own body -- its first-match rank in the
 			// table it rewrites for -- so of two overlapping rewrites on one port
@@ -171,8 +168,8 @@ public class NATElement extends Element {
 		long new_prefix = Utility.IPStringToLong(tokens[6]);
 		int new_prefixlen = Integer.valueOf(tokens[7]);
 
-		int old_bdd = apk.encodePrefixBDD(old_prefix, old_prefixlen);
-		int new_bdd = apk.encodePrefixBDD(new_prefix, new_prefixlen);
+		int old_bdd = enc.dstPrefix(old_prefix, old_prefixlen);
+		int new_bdd = enc.dstPrefix(new_prefix, new_prefixlen);
 
 		return new RewriteRule(old_bdd, new_bdd, new_ip, 65535);
 	}
@@ -181,7 +178,10 @@ public class NATElement extends Element {
 	public List<ChangeItem> insertOneRule(Rule rule) throws Exception {
 		List<ChangeItem> change_set = identifyChangesInsert(rule, rewrite_rules);
 		rule_map.put(rule.getPort(), rule);
-		port_aps_raw.putIfAbsent(rule.getPort(), new HashSet<Integer>());
+		ensurePort(rule.getPort());
+		// FaVe fork: an NDD network keeps each rewrite's new value atomized
+		// (apkeep.ndd.NddPorts), as the BDD one keeps its outputs registered.
+		if (ndd != null) ndd.addRewrite(this, rule.getPort(), (RewriteRule) rule);
 		return change_set;
 	}
 
@@ -215,7 +215,7 @@ public class NATElement extends Element {
 	}
 	
 	private void removeRule(int index) {
-		bdd.deref(rewrite_rules.get(index).getMatch_bdd());
+		ops.deref(rewrite_rules.get(index).getMatch_bdd());
 		rewrite_rules.remove(index);
 	}
 	

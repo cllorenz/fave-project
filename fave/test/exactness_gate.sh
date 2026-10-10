@@ -53,12 +53,14 @@ EXACT_TESTS=(
 rc=0
 step() { echo; echo "== exactness[$1] =="; }
 
-step "1/6 APKeep Java core unit tests"
-( cd "$ROOT/apkeep" && mvn -q -B test ) || { echo "Java unit tests FAILED"; rc=1; }
-
-step "1b/6 NDD engine jar (second backend, wl_up NDD parity test)"
+# The NDD jar first: APKeep's NDD backend (apkeep.ndd, NDD-APKeep) compiles
+# against it, so the APKeep build and its unit tests need it.
+step "1/6 NDD engine jar (NDD-flood, and the library NDD-APKeep compiles against)"
 ( cd "$ROOT/ndd" && mvn -q -B -DskipTests package ) \
     || { echo "NDD jar build FAILED"; rc=1; }
+
+step "1b/6 APKeep Java core unit tests"
+( cd "$ROOT/apkeep" && mvn -q -B test ) || { echo "Java unit tests FAILED"; rc=1; }
 
 step "2/6 bundled-Stanford loop golden pin"
 bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1

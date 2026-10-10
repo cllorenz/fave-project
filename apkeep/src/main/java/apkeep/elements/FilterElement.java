@@ -56,9 +56,7 @@ public class FilterElement extends Element {
         FilterRule rule = new FilterRule(BDDACLWrapper.BDDTrue, BDDACLWrapper.BDDTrue, DROP_PORT, -1);
         filter_rule.add(rule);
 
-        HashSet<Integer> alltrue = new HashSet<Integer>();
-        alltrue.add(BDDACLWrapper.BDDTrue);
-        port_aps_raw.put(DROP_PORT, alltrue);
+        initPort(DROP_PORT, true);
     }
 
     @Override
@@ -67,14 +65,14 @@ public class FilterElement extends Element {
         // strip "<op> <type> <device> " -> the ACLRule substring; the permitDeny
         // slot of that ACLRule carries the out_port (ACCEPT) or __drop__ (DROP).
         ACLRule r = new ACLRule(rule.substring(tokens[0].length() + tokens[1].length() + tokens[2].length() + 3));
-        int match_bdd = apk.encodeACLBDD(r);
+        int match_bdd = enc.acl(r);
         return new FilterRule(match_bdd, r);
     }
 
     @Override
     public List<ChangeItem> insertOneRule(Rule rule) throws Exception {
         List<ChangeItem> change_set = identifyChangesInsert(rule, filter_rule);
-        port_aps_raw.putIfAbsent(rule.getPort(), new HashSet<Integer>());
+        ensurePort(rule.getPort());
         return change_set;
     }
 
@@ -107,7 +105,7 @@ public class FilterElement extends Element {
     }
 
     private void removeRule(int index) {
-        bdd.deref(filter_rule.get(index).getMatch_bdd());
+        ops.deref(filter_rule.get(index).getMatch_bdd());
         filter_rule.remove(index);
     }
 

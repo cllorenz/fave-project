@@ -47,6 +47,10 @@ public class Network {
 	 * The BDD data structure for encoding packet sets with Boolean formula
 	 */
 	public BDDACLWrapper bdd_engine;
+
+	/* FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §4): the operations the elements
+	 * compute change tuples with -- BddOps over bdd_engine here. */
+	protected PredicateOps ops;
 	
 	/*
 	 * The key data structure that handles the split and merge of predicates
@@ -57,12 +61,26 @@ public class Network {
 	private Checker checker;
 	
 	public Network(String network_name) {
+		this(network_name, "bdd");
+	}
+
+	/* FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §4, owner decision B): the
+	 * backend. "bdd" is upstream APKeep. "ndd" is NDD-APKeep -- the same
+	 * elements and change tuples, APKeep's atom layer replaced by NDD's
+	 * (apkeep.ndd.NddPorts) -- with one packet universe: no ACL division,
+	 * which exists to keep BDD atoms from multiplying across fields, the
+	 * blow-up NDD's per-field atoms avoid. */
+	private final boolean ndd_mode;
+	private apkeep.ndd.NddPorts ndd_ports;
+	private apkeep.ndd.NddEncoder ndd_enc;
+	private apkeep.ndd.NddLoopChecker ndd_checker;
+
+	public Network(String network_name, String backend) {
 		name = network_name;
 		division_activated = false;
 		
 		topology = new HashMap<>();
 		elements = new HashMap<>();
-		bdd_engine = new BDDACLWrapper();
 		
 		fwd_apk = null;
 		acl_apk = null;
@@ -70,11 +88,65 @@ public class Network {
 		acl_node_names = new HashSet<>();
 		nat_element_names = new HashSet<>();
 		
+		if (backend.equals("ndd")) {
+			ndd_mode = true;
+			bdd_engine = null;
+			ops = apkeep.ndd.NddOps.INSTANCE;
+			ndd_enc = new apkeep.ndd.NddEncoder();
+			ndd_ports = new apkeep.ndd.NddPorts();
+			ndd_checker = new apkeep.ndd.NddLoopChecker(this);
+			return;
+		}
+		if (!backend.equals("bdd")) {
+			throw new IllegalArgumentException("backend must be bdd or ndd, not " + backend);
+		}
+		ndd_mode = false;
+		bdd_engine = new BDDACLWrapper();
+		ops = new BddOps(bdd_engine);
+		
 		new HashMap<>();
 
 		Element.setBDDWrapper(bdd_engine);
 		
 		checker = new Checker(this);
+	}
+
+	public boolean isNdd() {
+		return ndd_mode;
+	}
+
+	/** NDD-APKeep: a compliance check's condition -- the packet space of an
+	 *  ACL rule body, or its complement -- as a referenced NDD (the BDD
+	 *  backend's caller encodes through bdd_engine directly). */
+	public int nddCondition(String aclRuleBody, boolean negated) {
+		int n = ndd_enc.acl(new common.ACLRule(aclRuleBody));
+		if (!negated) return n;
+		int c = ops.not(n);
+		ops.deref(n);
+		return c;
+	}
+
+	public int nddRelated(int related) {
+		return ndd_enc.related(related);
+	}
+
+	public int nddVlan(int vlan) {
+		return ndd_enc.vlan(vlan);
+	}
+
+	public apkeep.ndd.NddPorts nddPorts() {
+		return ndd_ports;
+	}
+
+	public apkeep.ndd.NddEncoder nddEncoder() {
+		return ndd_enc;
+	}
+
+	/** FaVe fork: release what this network holds in process-global tables.
+	 *  An NDD network leaves the registry its atoms' splits reach (NddPorts);
+	 *  a BDD network's engine is its own, so there is nothing to do. */
+	public void close() {
+		if (ndd_mode && ndd_ports != null) ndd_ports.close();
 	}
 	
 	public void initializeNetwork(ArrayList<String> l1_links,
@@ -120,6 +192,13 @@ public class Network {
 	 */
 	private void initializeAPK()
 	{
+		if (ndd_mode) {
+			for(Element e : elements.values()) {
+				e.bind(ops, ndd_enc, ndd_ports);
+				e.initialize();
+			}
+			return;
+		}
 		fwd_apk = new APKeeper(bdd_engine);
 		if(division_activated) acl_apk = new APKeeper(bdd_engine);
 
@@ -131,6 +210,10 @@ public class Network {
 			else {
 				e.setAPC(fwd_apk);
 			}
+			// FaVe fork (APKEEP_INCREMENTAL_SCOPE.md §4): the element computes
+			// on this network's BDD engine, encoding through its own APKeeper.
+			e.bind(ops, new BddEncoder(division_activated && e instanceof ACLElement
+					? acl_apk : fwd_apk), null);
 			
 			e.initialize();
 		}
@@ -245,7 +328,7 @@ public class Network {
 		// Parameters.USE_DIVISION) to keep ACLs in the forwarding universe so a
 		// VLAN rewrite (NAT) and VLAN admission (ACL) compose. Import guarded so
 		// existing callers (src-IP ACLs, wl_ifi) keep division by default.
-		division_activated = apkeep.utils.Parameters.USE_DIVISION;
+		division_activated = !ndd_mode && apkeep.utils.Parameters.USE_DIVISION;
 		for(String device : device_acls.keySet()) {
 			for(String aclname : device_acls.get(device)) {
 				String element = device+"_"+aclname;
@@ -374,6 +457,7 @@ public class Network {
 	 * ordering is preserved rather than changed.
 	 */
 	private void refreshRewriteTables() throws Exception {
+		if (ndd_mode) return;   // NddPorts keeps rewrite values atomized itself
 		if (nat_element_names.isEmpty()) return;
 		boolean changed = true;
 		while (changed) {
@@ -386,6 +470,7 @@ public class Network {
 	}
 
 	public int getAPNum() {
+		if (ndd_mode) return org.ants.jndd.diagram.AtomizedNDD.getAtomsCount();
 		if(division_activated) {
 			return fwd_apk.getAPNum()+acl_apk.getAPNum();
 		}
@@ -439,6 +524,7 @@ public class Network {
 	 *  network in the same JVM, and without this the live network would
 	 *  continue on the oracle's BDD table. Called on every entry point. */
 	public void activate() {
+		if (ndd_mode) return;   // NDD's tables are process-global; nothing to point
 		Element.setBDDWrapper(bdd_engine);
 		APKeeper.bddengine = bdd_engine;
 	}
@@ -456,6 +542,10 @@ public class Network {
 			eva.setInsertFlag(true);
 			hardMergeAPBatch();
 			eva.setInsertAP(getAPNum());
+		}
+		if (ndd_mode) {
+			updateRuleNdd(eva, op, type, device, rule);
+			return;
 		}
 		/*
 		 * Updating PPM
@@ -483,6 +573,47 @@ public class Network {
 		eva.printUpdateResults(getAPNum());
 	}
 	
+	/** NDD-APKeep's per-rule update: upstream's steps on NddPorts -- change
+	 *  tuples from the element, the atom layer's move, APKeep's loop check on
+	 *  what moved, then the merge, which for NDD is a periodic re-atomization
+	 *  (apkeep.ndd.NddPorts#countUpdate). */
+	private void updateRuleNdd(Evaluator eva, String op, String type, String device, String rule) throws Exception {
+		String element_name = type.equals("nat") ? device+"_"+rule.split(" ")[3] : device;
+		Element e = elements.get(element_name);
+		if (e == null) {
+			throw new ElementNotFoundException(element_name);
+		}
+		Rule r = e.encodeOneRule(rule);
+		eva.startUpdate();
+		List<ChangeItem> change_set = new ArrayList<>();
+		if (op.equals("+")) {
+			change_set = e.insertOneRule(r);
+		}
+		else if (op.equals("-")) {
+			change_set = e.removeOneRule(r);
+		}
+		if (tracking) {
+			for (ChangeItem item : change_set) {
+				changed_elements.add(element_name);
+				changed_deltas.add(ops.ref(item.getDelta()));
+			}
+		}
+		if (op.equals("-")) ops.deref(r.getMatch_bdd());
+		org.ants.jndd.diagram.AtomizedNDD moved = ndd_ports.update(e, change_set);
+		eva.midUpdate();
+		if (!moved.isFalse()) {
+			// upstream's argument: the rule's device, also for a NAT rule
+			// (updateRule above passes `device`, not the NAT element)
+			ndd_checker.checkProperty(device, moved);
+			eva.addLoops(ndd_checker.getLoops());
+		}
+		org.ants.jndd.diagram.AtomizedNDD.deref(moved);
+		ndd_ports.countUpdate();
+		apkeep.ndd.NddPorts.maybeCollect();   // between updates: all in use is referenced
+		eva.endUpdate();
+		eva.printUpdateResults(getAPNum());
+	}
+
 	private Set<Integer> updateRule(Evaluator eva, String op, String type, String device, String rule) throws Exception{
 		String element_name = null;
 		if(type.equals("nat")) {
@@ -525,12 +656,12 @@ public class Network {
 		if (tracking) {
 			for (ChangeItem item : change_set) {
 				changed_elements.add(element_name);
-				changed_deltas.add(bdd_engine.ref(item.getDelta()));
+				changed_deltas.add(ops.ref(item.getDelta()));
 			}
 		}
 		// The rule a "-" encodes is only a probe to find the stored rule with;
 		// its match holds a reference of its own (APKeeper.encodePrefixBDD).
-		if (op.equals("-")) bdd_engine.deref(r.getMatch_bdd());
+		if (op.equals("-")) ops.deref(r.getMatch_bdd());
 
 		/*
 		 * Step 3. Updating predicates
@@ -553,6 +684,7 @@ public class Network {
 	}
 	
 	private void softMergeAPBatch() throws Exception {
+		if (ndd_mode) return;
 		long _pt = System.nanoTime();                                   // Phase C timer
 		if(fwd_apk.isMergeable()) {
 			fwd_apk.tryMergeAPBatch();
@@ -564,6 +696,11 @@ public class Network {
 	}
 
 	private void hardMergeAPBatch() throws Exception {
+		if (ndd_mode) {
+			// the reference re-atomizes where APKeep hard-merges (UpdateFieldAP)
+			apkeep.ndd.NddPorts.reatomize();
+			return;
+		}
 		long _pt = System.nanoTime();                                   // Phase C timer
 		fwd_apk.tryMergeAPBatch();
 		if (acl_apk != null) {
@@ -633,7 +770,7 @@ public class Network {
 		activate();
 		tracking = on;
 		if (!on) {
-			for (int d : changed_deltas) bdd_engine.deref(d);
+			for (int d : changed_deltas) ops.deref(d);
 			changed_elements.clear();
 			changed_deltas.clear();
 			changed_ports.clear();
@@ -650,11 +787,11 @@ public class Network {
 		if (aps == null) return u;
 		for (int ap : aps) {
 			if (ap == BDDACLWrapper.BDDTrue) {
-				bdd_engine.deref(u);
+				ops.deref(u);
 				return BDDACLWrapper.BDDTrue;
 			}
-			int next = bdd_engine.or(u, ap);
-			bdd_engine.deref(u);
+			int next = ops.or(u, ap);
+			ops.deref(u);
 			u = next;
 		}
 		return u;
@@ -675,9 +812,9 @@ public class Network {
 			int a = union(checker.fpAcl.get(e));
 			int[] old = fp.elements.get(e);
 			if (old != null) {
-				int f2 = bdd_engine.or(old[0], f), a2 = bdd_engine.or(old[1], a);
-				bdd_engine.deref(old[0]); bdd_engine.deref(old[1]);
-				bdd_engine.deref(f); bdd_engine.deref(a);
+				int f2 = ops.or(old[0], f), a2 = ops.or(old[1], a);
+				ops.deref(old[0]); ops.deref(old[1]);
+				ops.deref(f); ops.deref(a);
 				f = f2; a = a2;
 			}
 			fp.elements.put(e, new int[] {f, a});
@@ -689,12 +826,43 @@ public class Network {
 		}
 	}
 
+	/** NDD-APKeep's {@link #recordFootprint(String, ReachabilityChecker)}:
+	 *  the same footprint, its molecules turned into plain NDDs (atoms do not
+	 *  survive later splits and re-atomizations, as AP ids do not). */
+	public void recordFootprint(String key, apkeep.ndd.NddReachabilityChecker checker) {
+		if (!tracking || checker.fpFwd == null) return;
+		Footprint fp = footprints.computeIfAbsent(key, k -> new Footprint());
+		Set<String> names = new HashSet<>(checker.fpFwd.keySet());
+		names.addAll(checker.fpAcl.keySet());
+		for (String e : names) {
+			org.ants.jndd.diagram.AtomizedNDD m = checker.fpFwd.get(e);
+			int f = m == null ? PredicateOps.FALSE
+					: ops.ref(org.ants.jndd.diagram.AtomizedNDD.atomizedToNDD(m));
+			Integer acl = checker.fpAcl.get(e);
+			int a = acl == null ? PredicateOps.FALSE : ops.ref(acl);
+			int[] old = fp.elements.get(e);
+			if (old != null) {
+				int f2 = ops.or(old[0], f), a2 = ops.or(old[1], a);
+				ops.deref(old[0]); ops.deref(old[1]);
+				ops.deref(f); ops.deref(a);
+				f = f2; a = a2;
+			}
+			fp.elements.put(e, new int[] {f, a});
+			element_keys.computeIfAbsent(e, k -> new HashSet<>()).add(key);
+		}
+		for (PositionTuple pt : checker.fpPorts) {
+			fp.ports.add(pt);
+			port_keys.computeIfAbsent(pt, k -> new HashSet<>()).add(key);
+		}
+		checker.releaseFootprint();
+	}
+
 	private void dropFootprint(String key) {
 		Footprint fp = footprints.remove(key);
 		if (fp == null) return;
 		for (Map.Entry<String, int[]> entry : fp.elements.entrySet()) {
-			bdd_engine.deref(entry.getValue()[0]);
-			bdd_engine.deref(entry.getValue()[1]);
+			ops.deref(entry.getValue()[0]);
+			ops.deref(entry.getValue()[1]);
 			Set<String> keys = element_keys.get(entry.getKey());
 			if (keys != null) keys.remove(key);
 		}
@@ -705,9 +873,9 @@ public class Network {
 	}
 
 	private boolean meets(int a, int b) {
-		int both = bdd_engine.and(a, b);
+		int both = ops.and(a, b);
 		boolean hit = both != BDDACLWrapper.BDDFalse;
-		bdd_engine.deref(both);
+		ops.deref(both);
 		return hit;
 	}
 
@@ -728,7 +896,7 @@ public class Network {
 					if (meets(delta, fp[0]) || meets(delta, fp[1])) out.add(key);
 				}
 			}
-			bdd_engine.deref(delta);
+			ops.deref(delta);
 		}
 		for (PositionTuple pt : changed_ports) {
 			Set<String> keys = port_keys.get(pt);
