@@ -1,0 +1,11 @@
+--- /home/ubuntu/fave-project/apkeep/src/main/java/apkeep/ndd/NddPorts.java	2026-10-10 13:27:25.438420821 +0200
++++ apkeep/src/main/java/apkeep/ndd/NddPorts.java	2026-10-10 20:36:50.950499849 +0200
+@@ -130,7 +130,7 @@
+ 	}
+ 
+ 	public void initPort(Element e, String port, boolean all) {
+-		Map<String, Holder> m = ports.computeIfAbsent(e.getName(), k -> new LinkedHashMap<>());
++		Map<String, Holder> m = ports.computeIfAbsent(e.getName(), k -> new HashMap<>());
+ 		Holder old = m.get(port);
+ 		if (old != null) {
+ 			setMolecule(old, all ? AtomizedNDD.getAtomizedTrue() : AtomizedNDD.getAtomizedFalse());

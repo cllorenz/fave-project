@@ -1,0 +1,11 @@
+workload       s         bdd  ndd-old ndd-hash   diff   diff   verd
+                                                h~bdd  o~bdd  h=bdd
+wl_example     s1        166      166      166      0      0   True
+wl_example     s2         53       54       53      0      1   True
+wl_example     s3        112      116      112      0     10   True
+wl_airtel1     s1       3306     3698     3306      0     36   True
+wl_airtel1     s2       4166     4300     4166      0     36   True
+wl_airtel1     s3      10124    10086    10124      0    108   True
+wl_ifi         s1       1864     2254     2254      7      7   True
+wl_ifi         s2       2662     1648     1648     18     18   True
+wl_ifi         s3       5636     5772     5636      0     18   True

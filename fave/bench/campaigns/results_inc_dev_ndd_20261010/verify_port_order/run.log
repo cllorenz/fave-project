@@ -1,0 +1,19 @@
+{"repetition": 1, "outcome": "measured", "completed_updates": 44, "wall_s": 1.928}
+wl_example s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 8, "wall_s": 1.828}
+wl_example s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 20, "wall_s": 1.982}
+wl_example s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 20.037}
+wl_airtel1 s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 21.241}
+wl_airtel1 s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 168, "wall_s": 110.055}
+wl_airtel1 s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 2.037}
+wl_ifi s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 56, "wall_s": 2.013}
+wl_ifi s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 132, "wall_s": 2.336}
+wl_ifi s3 rc=0
+DONE
