@@ -242,10 +242,91 @@ APKeep suite unchanged):
 **Not covered.** `wl_cloud`: BDD-APKeep takes 3.24 h to *build* it (V5), so no
 stream runs there; NAT under updates is tested on small networks instead.
 Packet-filter pipelines (tier C) refuse what changes their structure. NDD
-(steps 4–5) is untouched: NDD-flood refuses updates.
+(steps 4–5): §8 — NDD-APKeep takes the same updates; NDD-flood still refuses
+them.
 
 **Costs to state with every number:** per update on the full path, one
 whole-model translation, charged to `t_update` — 1–5 ms on `wl_example`/
 `wl_ifi`, 0.18 s on `wl_up`, 0.5–0.65 s on `wl_airtel1` (39,600 strings); on the
 FIB path a median of 6 ms on `wl_airtel1` (158 updates, engine included). The
 update-mode build has more elements than the default one.
+
+## 8. What was built (2026-10-10): NDD-APKeep
+
+Steps 4–5, **owner decision B** (2026-10-10): one core, two atom layers, as §4
+proposed — but with the seam where the reference code shows it to be. The
+reference (`ndd/.../application/wan/ndd/verifier/`) is not an atom layer under
+APKeep's elements: its `FieldNode` merges APKeep's forwarding and ACL elements
+and carries each method twice, once on NDDs and once on BDDs (`updateFWRuleBatch`
+/ `updateFWRuleBatchBDD`, `InsertACLRule` / `InsertACLRuleBDD`), identical but
+for the packet-set type. So the element logic is representation-free, and the
+fork's own elements now run on either: their change computation goes through a
+small `PredicateOps` interface, their rule encodings through `RuleEncoder`, and
+an NDD network keeps its port predicates in `apkeep.ndd.NddPorts` instead of
+APKeep's `APKeeper`. Details and file list: `apkeep/FAVE_CHANGES.md` §12.
+
+**Provenance, to be stated wherever NDD-APKeep is reported:**
+
+| part | whose |
+|---|---|
+| network, topology, elements, change tuples, rule identity, ties, loop check | APKeep (the fork; §2, §7) |
+| atom layer on insert: per-field atoms, molecules, splitting, the atom-to-port map, re-atomization as the merge | the NDD authors' reference, ported (`FieldNodeAP.update_ACL`/`update_FW`, `NetworkNDDAP.split_ap_multi_field`, `SplitMap`, `UpdateFieldAP`) |
+| removal, links, NAT rewrites (atomized new value, `exist` — the paper's App. F.3, which the reference does not wire), footprints and the selective re-check, several networks per JVM, collecting dead molecules, the re-atomization schedule during updates | FaVe |
+
+**One packet universe.** No ACL division: it exists to stop BDD atomic
+predicates multiplying across fields, which per-field atoms avoid, and the
+reference has none. A source seed is the source's exact space, intersected at
+arrival — what BDD-APKeep does for an IPv6 source (Lever B), here for IPv4 too.
+
+**From zero, check by check** (`fave/test/test_ndd_apkeep.py`; indicative
+dev runs, one repetition, this machine):
+
+| workload | checks | violations | NDD-APKeep | NDD-flood | BDD-APKeep |
+|---|---:|---:|---|---|---|
+| `wl_example` | 10 | 0 | = | = | = |
+| `wl_ifi` | 299 | 27 | = | = | = |
+| `wl_airtel1` / `wl_airtel2` | 256 each | 0 | = (17 s / 15 s) | = | = |
+| `wl_cloud` | 71 | 57 | = (9 s) | = | 3.24 h build (V5), not run |
+| `wl_stanford` (faithful) | 240 | 75 | = (7 s) | = | did not finish in 24 h (V5) |
+| `wl_i2` (faithful) | 72 | 11 | = (312 s) | = | did not finish in 24 h (V5) |
+| `wl_up` | 18,811 | 0 | = (46 s) | = | = |
+
+**Against the reference** (`fave/test/test_ndd_apkeep_reference.py`): the
+authors' `NetworkNDDAP`, through its own entry point, and NDD-APKeep build
+`wl_airtel1`'s 39,600 routes (as the adapter translates them) in two JVMs. All
+261 element ports carry the same destination set — 451,974 maximal prefixes,
+compared canonically — every molecule equals its predicate on both sides, and
+both end with 16 destination atoms. Build: 17.9 s reference (one batch), 17.1 s
+NDD-APKeep (rule by rule). Insertions and destination FIBs only: all the
+reference implements (§1). To run it at all, its field set-up was adapted to
+the int-node core (`ndd/FAVE_CHANGES.md` §9).
+
+**Updates** (`fave/test/test_incremental_apkeep.py`, every BDD-APKeep stream on
+NDD-APKeep too): selective == full after every update, full == from-zero at
+checkpoints, on `wl_example` S1 (the same 6 adapter refusals as BDD) and
+S2+S3, `wl_ifi` S1 and S2+S3, `wl_airtel1` S2 on the FIB path; `wl_ifi` S2+S3
+changes the same verdicts as NetPlumber update by update; and a **`wl_cloud`**
+S2+S3 stream (5%: 504 updates, 618 verdict changes, none refused), NATs under
+updates on the workload BDD-APKeep cannot build in a test. The Java side (`NddBackendDifferentialTest`) checks the molecule
+invariants after every insertion and deletion on random networks, against
+from-zero NDD and BDD builds.
+
+**Defects found on the way:**
+- **NDD's atomization mixed up fields** (a library bug, also in the reference's
+  path): equal-width fields share label variables, so one prefix is one label
+  id as a source and as a destination, and the label-to-atoms map was not keyed
+  by field. A molecule could then hold another field's atoms — or collapse to
+  "everything". On `wl_cloud` (SNAT source prefixes that are also destinations)
+  this broke 43,636 molecule invariants at the 1,500th rule, while the verdicts
+  still agreed with NDD-flood; a second network in the JVM then answered
+  `wl_ifi` with 39 violations instead of 27. Fixed in the library
+  (`ndd/FAVE_CHANGES.md` §12); the parity test now asserts the invariants.
+- **Dead molecules filled the heap**: NDD collects its atomized node table only
+  when full (8M nodes), and each node holds atom-id sets. NDD-APKeep collects
+  between updates and between queries (`ndd/FAVE_CHANGES.md` §11).
+
+**Open:** BDD-APKeep's and NDD-APKeep's source seeds both pass a NAT
+unchanged (exact only while nothing rewrites the source — the adapter seeds no
+such source); with an oracle twin in the JVM, its build's re-atomization also
+re-atomizes the network under test (same predicates, new atom ids — no effect
+on answers, and timed runs carry no oracle, O3). `wl_berkeley` not run.
