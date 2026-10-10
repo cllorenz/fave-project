@@ -1,0 +1,11 @@
+--- /home/ubuntu/fave-project/apkeep/src/main/java/apkeep/core/Network.java	2026-10-10 13:28:01.544928536 +0200
++++ src/main/java/apkeep/core/Network.java	2026-10-10 21:05:40.767031889 +0200
+@@ -893,7 +893,7 @@
+ 				for (String key : keys) {
+ 					if (out.contains(key)) continue;
+ 					int[] fp = footprints.get(key).elements.get(e);
+-					if (meets(delta, fp[0]) || meets(delta, fp[1])) out.add(key);
++					if (!isNdd() && (meets(delta, fp[0]) || meets(delta, fp[1]))) out.add(key);
+ 				}
+ 			}
+ 			ops.deref(delta);

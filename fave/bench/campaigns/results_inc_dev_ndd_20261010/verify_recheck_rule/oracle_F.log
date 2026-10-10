@@ -1,0 +1,18 @@
+.wl_cloud S2+S3 on NDD-APKeep: {'updates': 504, 'verdict_changes': 618, 'rechecked': 10402, 'refused': 0}
+......
+=============================== warnings summary ===============================
+fave/test/test_incremental_apkeep.py: 993 warnings
+  /home/ubuntu/fave-project/fave/devices/probe.py:103: DeprecationWarning: Probe paths feed NetPlumber's LEGACY probe-condition mechanism, which is guarded off by default (-DLEGACY_CHECKS). Compliance is decided by NetPlumber::check_compliance, a forward analysis over the reachability trees that never consults a probe's filter or test condition.
+    "filter_path" : self.filter_path.to_json(),
+
+fave/test/test_incremental_apkeep.py: 993 warnings
+  /home/ubuntu/fave-project/fave/devices/probe.py:109: DeprecationWarning: Probe paths feed NetPlumber's LEGACY probe-condition mechanism, which is guarded off by default (-DLEGACY_CHECKS). Compliance is decided by NetPlumber::check_compliance, a forward analysis over the reachability trees that never consults a probe's filter or test condition.
+    "test_path" : self.test_path.to_json()
+
+fave/test/test_incremental_apkeep.py: 17 warnings
+  /home/ubuntu/fave-project/fave/netplumber/adapter.py:1309: DeprecationWarning: Probe paths feed NetPlumber's LEGACY probe-condition mechanism, which is guarded off by default (-DLEGACY_CHECKS). Compliance is decided by NetPlumber::check_compliance, a forward analysis over the reachability trees that never consults a probe's filter or test condition.
+    for pathlet in model.test_path.to_json()['pathlets']:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 2003 warnings in 468.47s (0:07:48)
+rc=0

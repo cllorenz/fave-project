@@ -1,0 +1,137 @@
+.FFFFFF
+=================================== FAILURES ===================================
+_________________ TestIncrementalNddAPKeep.test_wl_cloud_s2_s3 _________________
+
+self = <fave.test.test_incremental_apkeep.TestIncrementalNddAPKeep testMethod=test_wl_cloud_s2_s3>
+
+    def test_wl_cloud_s2_s3(self):
+        # NATs rewriting addresses under updates, on the workload BDD-APKeep
+        # takes 3.24 h to build (V5); NDD-APKeep builds it in seconds.
+>       stats = run(self, self.make, _workload(self, 'bench/wl_cloud'),
+                    s2_and_s3(fraction=0.05), every=25, refusals=True)
+
+test/test_incremental_apkeep.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test/incremental_oracle.py:79: in run
+    test.assertEqual(
+E   AssertionError: {'! s[491 chars]31': False, '! s=source.dc0_leaf1_host1 && EF [4497 chars]alse} != {'! s[491 chars]31': True, '! s=source.dc0_leaf1_host1 && EF p[4502 chars]alse}
+E   Diff is 6843 characters long. Set self.maxDiff to None to see it. : bench/wl_cloud, update 19 ('delete', ('core.dc4_core', 'core.dc4_core.1', 4)): selective re-verification missed a change
+______ TestIncrementalNddAPKeep.test_wl_example_s1_oracle_at_every_update ______
+
+self = <fave.test.test_incremental_apkeep.TestIncrementalNddAPKeep testMethod=test_wl_example_s1_oracle_at_every_update>
+
+    def test_wl_example_s1_oracle_at_every_update(self):
+>       stats = run(self, self.make, _workload(self, 'bench/wl_example'), s1,
+                    every=1, refusals=True)
+
+test/test_incremental_apkeep.py:80: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test/incremental_oracle.py:79: in run
+    test.assertEqual(
+E   AssertionError: {'s=s[189 chars]et': False, 's=source.office && EF p=probe.dmz[450 chars]alse} != {'s=s[189 chars]et': True, 's=source.office && EF p=probe.dmz [448 chars]alse}
+E   Diff is 1065 characters long. Set self.maxDiff to None to see it. : bench/wl_example, update 2 ('delete', ('pgf', 'pgf.routing', 131070)): selective re-verification missed a change
+________________ TestIncrementalNddAPKeep.test_wl_example_s2_s3 ________________
+
+self = <fave.test.test_incremental_apkeep.TestIncrementalNddAPKeep testMethod=test_wl_example_s2_s3>
+
+    def test_wl_example_s2_s3(self):
+        # Split per ingress port for updates, the demultiplexed switches dmz
+        # and office refuse nothing; they refused 10 of these 30 updates while
+        # their elements were named by classes of ports.
+>       stats = run(self, self.make, _workload(self, 'bench/wl_example'),
+                    s2_and_s3(), every=5, refusals=True)
+
+test/test_incremental_apkeep.py:95: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test/incremental_oracle.py:79: in run
+    test.assertEqual(
+E   AssertionError: {'s=s[48 chars]:1': False, 's=source.internet && EF p=probe.d[591 chars]alse} != {'s=s[48 chars]:1': True, 's=source.internet && EF p=probe.dm[589 chars]alse}
+E   Diff is 1104 characters long. Set self.maxDiff to None to see it. : bench/wl_example, update 2 ('delete', ('pgf', 'pgf.routing', 2)): selective re-verification missed a change
+___________________ TestIncrementalNddAPKeep.test_wl_ifi_s1 ____________________
+
+self = <fave.test.test_incremental_apkeep.TestIncrementalNddAPKeep testMethod=test_wl_ifi_s1>
+
+    def test_wl_ifi_s1(self):
+>       stats = run(self, self.make, _workload(self, 'bench/wl_ifi'), s1, every=20,
+                    refusals=True)
+
+test/test_incremental_apkeep.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test/incremental_oracle.py:79: in run
+    test.assertEqual(
+E   AssertionError: {'s=s[13468 chars]et': False, 's=source.staff_2.ifi && EF p=prob[3572 chars]True} != {'s=s[13468 chars]et': True, 's=source.staff_2.ifi && EF p=probe[3569 chars]alse}
+E   Diff is 18955 characters long. Set self.maxDiff to None to see it. : bench/wl_ifi, update 3 ('delete', ('staff_2.ifi', 'staff_2.ifi.1', 65535)): selective re-verification missed a change
+__________________ TestIncrementalNddAPKeep.test_wl_ifi_s2_s3 __________________
+
+self = <fave.test.test_incremental_apkeep.TestIncrementalNddAPKeep testMethod=test_wl_ifi_s2_s3>
+
+    def test_wl_ifi_s2_s3(self):
+>       stats = run(self, self.make, _workload(self, 'bench/wl_ifi'), s2_and_s3(),
+                    every=10, refusals=True)
+
+test/test_incremental_apkeep.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test/incremental_oracle.py:79: in run
+    test.assertEqual(
+E   AssertionError: {'s=s[13468 chars]et': False, 's=source.staff_2.ifi && EF p=prob[3572 chars]True} != {'s=s[13468 chars]et': True, 's=source.staff_2.ifi && EF p=probe[3571 chars]True}
+E   Diff is 18160 characters long. Set self.maxDiff to None to see it. : bench/wl_ifi, update 1 ('delete', ('ifi', 'ifi.acl_out', 65524)): selective re-verification missed a change
+________________ TestNddAgreesWithNetPlumber.test_wl_ifi_s2_s3 _________________
+
+self = <fave.test.test_incremental_apkeep.TestNddAgreesWithNetPlumber testMethod=test_wl_ifi_s2_s3>
+
+    def test_wl_ifi_s2_s3(self):
+        from util.in_process_driver import InProcessFaVe
+        prefix = _workload(self, 'bench/wl_ifi')
+        checks = inc.load_checks(prefix + '/checks.json')
+        changes = []
+        for make in (self.make, lambda: lib_adapter.NetPlumberLibAdapter(
+                logging.getLogger("test_incremental_apkeep"))):
+            engine = make()
+            per_update = []
+            with InProcessFaVe(engine) as fave:
+                fave.replay(prefix)
+                engine.track_affected(True)
+                cache = inc.VerdictCache(fave, engine, checks)
+                cache.full()
+                stream = s2_and_s3()(inc.model_rules(fave), inc.model_links(fave))
+                engine.take_affected()
+                deleted, down = set(), set()
+                for update in stream:
+                    inc.apply(engine, update, deleted, down)
+                    cache.selective(engine.take_affected())
+                    per_update.append(sorted(cache.last_changes))
+            changes.append(per_update)
+        self.assertGreater(sum(map(len, changes[0])), 0)
+>       self.assertEqual(changes[0], changes[1])
+E       AssertionError: Lists differ: [[], [], [], [], [], [('! s=source.Internet[45884 chars], []] != [[('s=source.staff_2.ifi && EF p=probe.Inte[54246 chars], []]
+E       
+E       First differing element 0:
+E       []
+E       [('s=source.staff_2.ifi && EF p=probe.Internet', False, True)]
+E       
+E       Diff is 60908 characters long. Set self.maxDiff to None to see it.
+
+test/test_incremental_apkeep.py:187: AssertionError
+=============================== warnings summary ===============================
+fave/test/test_incremental_apkeep.py: 117 warnings
+  /home/ubuntu/fave-project/fave/devices/probe.py:103: DeprecationWarning: Probe paths feed NetPlumber's LEGACY probe-condition mechanism, which is guarded off by default (-DLEGACY_CHECKS). Compliance is decided by NetPlumber::check_compliance, a forward analysis over the reachability trees that never consults a probe's filter or test condition.
+    "filter_path" : self.filter_path.to_json(),
+
+fave/test/test_incremental_apkeep.py: 117 warnings
+  /home/ubuntu/fave-project/fave/devices/probe.py:109: DeprecationWarning: Probe paths feed NetPlumber's LEGACY probe-condition mechanism, which is guarded off by default (-DLEGACY_CHECKS). Compliance is decided by NetPlumber::check_compliance, a forward analysis over the reachability trees that never consults a probe's filter or test condition.
+    "test_path" : self.test_path.to_json()
+
+fave/test/test_incremental_apkeep.py: 17 warnings
+  /home/ubuntu/fave-project/fave/netplumber/adapter.py:1309: DeprecationWarning: Probe paths feed NetPlumber's LEGACY probe-condition mechanism, which is guarded off by default (-DLEGACY_CHECKS). Compliance is decided by NetPlumber::check_compliance, a forward analysis over the reachability trees that never consults a probe's filter or test condition.
+    for pathlet in model.test_path.to_json()['pathlets']:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED test/test_incremental_apkeep.py::TestIncrementalNddAPKeep::test_wl_cloud_s2_s3
+FAILED test/test_incremental_apkeep.py::TestIncrementalNddAPKeep::test_wl_example_s1_oracle_at_every_update
+FAILED test/test_incremental_apkeep.py::TestIncrementalNddAPKeep::test_wl_example_s2_s3
+FAILED test/test_incremental_apkeep.py::TestIncrementalNddAPKeep::test_wl_ifi_s1
+FAILED test/test_incremental_apkeep.py::TestIncrementalNddAPKeep::test_wl_ifi_s2_s3
+FAILED test/test_incremental_apkeep.py::TestNddAgreesWithNetPlumber::test_wl_ifi_s2_s3
+6 failed, 1 passed, 251 warnings in 108.82s (0:01:48)
+rc=1

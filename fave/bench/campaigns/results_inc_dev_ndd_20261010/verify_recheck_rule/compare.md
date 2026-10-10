@@ -1,0 +1,29 @@
+| workload | stream | rule | re-checked | per update, share of checks | verdict changes = current | inside current, updates | t_recheck median ms | t_total median ms |
+|---|---|---|---:|---:|---|---:|---:|---:|
+| wl_example | s1 | current | 166 | 0.377 | True | 44 of 44 | 1.05 | 1.33 |
+| wl_example | s1 | F | 142 | 0.323 | True | 44 of 44 | 0.54 | 1.28 |
+| wl_example | s2 | current | 54 | 0.675 | True | 8 of 8 | 2.63 | 7.58 |
+| wl_example | s2 | F | 48 | 0.600 | True | 8 of 8 | 2.04 | 6.75 |
+| wl_example | s3 | current | 116 | 0.580 | True | 20 of 20 | 1.93 | 6.49 |
+| wl_example | s3 | F | 116 | 0.580 | True | 20 of 20 | 2.0 | 6.36 |
+| wl_ifi | s1 | current | 2254 | 0.038 | True | 200 of 200 | 0.02 | 0.68 |
+| wl_ifi | s1 | F | 1824 | 0.031 | True | 200 of 200 | 0.02 | 0.65 |
+| wl_ifi | s2 | current | 1648 | 0.098 | True | 56 of 56 | 2.13 | 3.44 |
+| wl_ifi | s2 | F | 1510 | 0.090 | True | 56 of 56 | 1.97 | 3.49 |
+| wl_ifi | s3 | current | 5772 | 0.146 | True | 132 of 132 | 1.28 | 2.73 |
+| wl_ifi | s3 | F | 5772 | 0.146 | True | 132 of 132 | 1.29 | 2.75 |
+| wl_airtel1 | s1 | current | 3698 | 0.072 | True | 200 of 200 | 1.32 | 2.69 |
+| wl_airtel1 | s1 | F | 3698 | 0.072 | True | 200 of 200 | 1.31 | 2.69 |
+| wl_airtel1 | s2 | current | 4300 | 0.084 | True | 200 of 200 | 1.77 | 3.32 |
+| wl_airtel1 | s2 | F | 4090 | 0.080 | True | 200 of 200 | 1.87 | 3.4 |
+| wl_airtel1 | s3 | current | 10086 | 0.235 | True | 168 of 168 | 2.46 | 548.59 |
+| wl_airtel1 | s3 | F | 10086 | 0.235 | True | 168 of 168 | 2.32 | 551.36 |
+| wl_cloud | s1 | current | 5330 | 0.375 | True | 200 of 200 | 62.65 | 80.12 |
+| wl_cloud | s1 | F | 5330 | 0.375 | True | 200 of 200 | 75.61 | 93.79 |
+| wl_cloud | s1 | V | 5330 | 0.375 | True | 200 of 200 | 74.03 | 92.73 |
+| wl_cloud | s2 | current | 5181 | 0.365 | True | 200 of 200 | 63.71 | 83.28 |
+| wl_cloud | s2 | F | 4218 | 0.297 | True | 200 of 200 | 46.27 | 65.29 |
+| wl_cloud | s2 | V | 5181 | 0.365 | True | 200 of 200 | 62.01 | 82.47 |
+| wl_cloud | s3 | current | 4540 | 0.320 | True | 200 of 200 | 60.14 | 78.58 |
+| wl_cloud | s3 | F | 4540 | 0.320 | True | 200 of 200 | 58.59 | 76.67 |
+| wl_cloud | s3 | V | 4540 | 0.320 | True | 200 of 200 | 59.67 | 77.99 |

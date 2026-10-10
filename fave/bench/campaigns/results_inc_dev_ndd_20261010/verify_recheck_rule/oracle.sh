@@ -1,0 +1,4 @@
+v=$1
+cd /home/ubuntu/fave-project/fave
+FAVE_EXP_APKEEP_JAR=/tmp/claude-1000/-home-ubuntu-fave-project/02e0768e-d2d5-45e4-aa50-34e1db067075/scratchpad/recheck/$v/apkeep/target/apkeep-1.0.0.jar FAVE_EXP_LOG=/tmp/claude-1000/-home-ubuntu-fave-project/02e0768e-d2d5-45e4-aa50-34e1db067075/scratchpad/recheck/hook_$v.log PYTHONPATH=/tmp/claude-1000/-home-ubuntu-fave-project/02e0768e-d2d5-45e4-aa50-34e1db067075/scratchpad/recheck/hook:.   /home/ubuntu/fave-project/.venv/bin/python3 -m pytest -q -p no:cacheprovider -s   "test/test_incremental_apkeep.py::TestIncrementalNddAPKeep" "test/test_incremental_apkeep.py::TestNddAgreesWithNetPlumber"   > /tmp/claude-1000/-home-ubuntu-fave-project/02e0768e-d2d5-45e4-aa50-34e1db067075/scratchpad/recheck/oracle_$v.log 2>&1
+echo "rc=$?" >> /tmp/claude-1000/-home-ubuntu-fave-project/02e0768e-d2d5-45e4-aa50-34e1db067075/scratchpad/recheck/oracle_$v.log

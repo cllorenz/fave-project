@@ -1,0 +1,42 @@
+{
+ "batch": 1,
+ "build_and_first_check_s": 1.0020143199944869,
+ "checks": 10,
+ "checks_file": "bench/wl_example/checks.json",
+ "checks_sha256": "0417ecd58347aca51cc37f4b4d22af1a38b4862a30a0edd4a2db511957d1fb54",
+ "configuration": {
+  "engine": "ndd-apkeep",
+  "faithful_vlan": true,
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/apkeep 7b71bff4 + XJTU-NetVerify/NDD c8414b43 atom layer (apkeep/FAVE_CHANGES.md \u00a712)"
+ },
+ "engine": "ndd-apkeep",
+ "engine_commit": "219661416f4281c18100334ae019f9090493396d 2026-10-10 + None",
+ "files": null,
+ "fraction": 0.2,
+ "git_head": "2aa0674d20f6720b3a27f578331594ec3d50c4b8",
+ "initial_verdicts": {
+  "! s=source.dmz && EF p=probe.internet && f=related:0": false,
+  "! s=source.dmz && EF p=probe.office && f=related:0": false,
+  "! s=source.internet && EF p=probe.office && f=related:0": false,
+  "s=source.dmz && EF p=probe.internet && f=related:1": false,
+  "s=source.dmz && EF p=probe.office && f=related:1": false,
+  "s=source.internet && EF p=probe.dmz && f=related:0 && f=protocol:tcp && f=port:80": false,
+  "s=source.internet && EF p=probe.office && f=related:1": false,
+  "s=source.office && EF p=probe.dmz && f=related:0 && f=protocol:tcp && f=port:22": false,
+  "s=source.office && EF p=probe.dmz && f=related:0 && f=protocol:tcp && f=port:80": false,
+  "s=source.office && EF p=probe.internet": false
+ },
+ "limit_updates": 200,
+ "links": 10,
+ "oracle": null,
+ "rss_after_build_mb": 1892.5,
+ "rules": 22,
+ "seed": 1,
+ "started": "2026-10-10T19:13:53.098104+00:00",
+ "stream": "s1",
+ "stream_sha256": "303f8f9b0d3b699c7b1ccbddd12afa254224ff3c8ce3bbfd1c837ea661d59fd5",
+ "updates": 44,
+ "what": "incremental stream, raw records (INCREMENTAL_PLAN.md \u00a75, \u00a77)",
+ "workload": "bench/wl_example"
+}

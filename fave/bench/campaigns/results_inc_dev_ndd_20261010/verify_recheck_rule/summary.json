@@ -1,0 +1,329 @@
+{
+ "cells": [
+  {
+   "changed": 0,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.0,
+   "rechecked": 3698,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 9768.6,
+    "first_batch": 9791.8,
+    "last_batch": 9752.6,
+    "max": 9911.4
+   },
+   "selectivity": 0.0722265625,
+   "stream": "s1",
+   "t_recheck_ms_median": 1.31,
+   "t_total_ms": {
+    "max": 206.15,
+    "median": 2.69,
+    "p90": 3.56,
+    "p99": 5.08
+   },
+   "t_update_ms_median": 1.32,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 0,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.0,
+   "rechecked": 4090,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 10180.7,
+    "first_batch": 9508.3,
+    "last_batch": 9239.7,
+    "max": 9508.3
+   },
+   "selectivity": 0.0798828125,
+   "stream": "s2",
+   "t_recheck_ms_median": 1.87,
+   "t_total_ms": {
+    "max": 44.88,
+    "median": 3.4,
+    "p90": 6.46,
+    "p99": 38.21
+   },
+   "t_update_ms_median": 1.6,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 1804,
+   "completed": "168 of 168",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.17886178861788618,
+   "rechecked": 10086,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 9601.6,
+    "first_batch": 9635.4,
+    "last_batch": 9608.4,
+    "max": 9639.6
+   },
+   "selectivity": 0.23451450892857142,
+   "stream": "s3",
+   "t_recheck_ms_median": 2.32,
+   "t_total_ms": {
+    "max": 636.74,
+    "median": 551.36,
+    "p90": 575.3,
+    "p99": 598.08
+   },
+   "t_update_ms_median": 547.63,
+   "workload": "wl_airtel1"
+  },
+  {
+   "changed": 8,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.00150093808630394,
+   "rechecked": 5330,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 5045.3,
+    "first_batch": 5094.6,
+    "last_batch": 9815.4,
+    "max": 9815.4
+   },
+   "selectivity": 0.37535211267605634,
+   "stream": "s1",
+   "t_recheck_ms_median": 75.61,
+   "t_total_ms": {
+    "max": 213.72,
+    "median": 93.79,
+    "p90": 119.79,
+    "p99": 157.83
+   },
+   "t_update_ms_median": 17.99,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 15,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.0035561877667140826,
+   "rechecked": 4218,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 5043.0,
+    "first_batch": 5043.7,
+    "last_batch": 9064.9,
+    "max": 9064.9
+   },
+   "selectivity": 0.2970422535211268,
+   "stream": "s2",
+   "t_recheck_ms_median": 46.27,
+   "t_total_ms": {
+    "max": 194.39,
+    "median": 65.29,
+    "p90": 134.2,
+    "p99": 184.06
+   },
+   "t_update_ms_median": 17.79,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 326,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.07180616740088105,
+   "rechecked": 4540,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 5075.6,
+    "first_batch": 5076.2,
+    "last_batch": 9350.8,
+    "max": 9350.8
+   },
+   "selectivity": 0.31971830985915495,
+   "stream": "s3",
+   "t_recheck_ms_median": 58.59,
+   "t_total_ms": {
+    "max": 207.51,
+    "median": 76.67,
+    "p90": 160.65,
+    "p99": 204.99
+   },
+   "t_update_ms_median": 18.16,
+   "workload": "wl_cloud"
+  },
+  {
+   "changed": 14,
+   "completed": "44 of 44",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.09859154929577464,
+   "rechecked": 142,
+   "refused": 6,
+   "rss_mb": {
+    "after_build": 1892.5,
+    "first_batch": 1892.5,
+    "last_batch": 2003.8,
+    "max": 2003.8
+   },
+   "selectivity": 0.32272727272727275,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.54,
+   "t_total_ms": {
+    "max": 71.48,
+    "median": 1.28,
+    "p90": 5.66,
+    "p99": 71.48
+   },
+   "t_update_ms_median": 0.41,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 4,
+   "completed": "8 of 8",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.08333333333333333,
+   "rechecked": 48,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1885.5,
+    "first_batch": 1887.6,
+    "last_batch": 1891.2,
+    "max": 1891.2
+   },
+   "selectivity": 0.6,
+   "stream": "s2",
+   "t_recheck_ms_median": 2.04,
+   "t_total_ms": {
+    "max": 21.88,
+    "median": 6.75,
+    "p90": 8.25,
+    "p99": 21.88
+   },
+   "t_update_ms_median": 4.46,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 48,
+   "completed": "20 of 20",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.41379310344827586,
+   "rechecked": 116,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1891.3,
+    "first_batch": 1896.6,
+    "last_batch": 1939.8,
+    "max": 1939.8
+   },
+   "selectivity": 0.58,
+   "stream": "s3",
+   "t_recheck_ms_median": 2.0,
+   "t_total_ms": {
+    "max": 41.79,
+    "median": 6.36,
+    "p90": 23.02,
+    "p99": 41.79
+   },
+   "t_update_ms_median": 4.27,
+   "workload": "wl_example"
+  },
+  {
+   "changed": 81,
+   "completed": "200 of 200",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.044407894736842105,
+   "rechecked": 1824,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1887.9,
+    "first_batch": 1911.7,
+    "last_batch": 1982.7,
+    "max": 1982.7
+   },
+   "selectivity": 0.030501672240802677,
+   "stream": "s1",
+   "t_recheck_ms_median": 0.02,
+   "t_total_ms": {
+    "max": 26.46,
+    "median": 0.65,
+    "p90": 4.22,
+    "p99": 17.05
+   },
+   "t_update_ms_median": 0.63,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 126,
+   "completed": "56 of 56",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.08344370860927153,
+   "rechecked": 1510,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1882.6,
+    "first_batch": 1900.8,
+    "last_batch": 1978.5,
+    "max": 1982.5
+   },
+   "selectivity": 0.09018155757286192,
+   "stream": "s2",
+   "t_recheck_ms_median": 1.97,
+   "t_total_ms": {
+    "max": 37.64,
+    "median": 3.49,
+    "p90": 14.93,
+    "p99": 27.21
+   },
+   "t_update_ms_median": 1.38,
+   "workload": "wl_ifi"
+  },
+  {
+   "changed": 606,
+   "completed": "132 of 132",
+   "ended_by": "completed",
+   "engine": "ndd-apkeep",
+   "outcome": "measured",
+   "precision": 0.104989604989605,
+   "rechecked": 5772,
+   "refused": 0,
+   "rss_mb": {
+    "after_build": 1887.3,
+    "first_batch": 1903.8,
+    "last_batch": 2072.0,
+    "max": 2072.0
+   },
+   "selectivity": 0.14624505928853754,
+   "stream": "s3",
+   "t_recheck_ms_median": 1.29,
+   "t_total_ms": {
+    "max": 38.69,
+    "median": 2.75,
+    "p90": 12.89,
+    "p99": 29.74
+   },
+   "t_update_ms_median": 1.34,
+   "workload": "wl_ifi"
+  }
+ ],
+ "cross_engine": []
+}

@@ -1,0 +1,7 @@
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 28.149}
+2026-10-10T19:22:02Z cells wl_cloud s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 25.822}
+2026-10-10T19:22:28Z cells wl_cloud s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 25.922}
+2026-10-10T19:22:54Z cells wl_cloud s3 rc=0
+DONE

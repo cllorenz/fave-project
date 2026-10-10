@@ -1,0 +1,3 @@
+wl_ifi updates 56 sample mismatches 0 checkpoints 2 selective==full True {'[]'} full==zero {'[]'}
+wl_airtel1 updates 200 sample mismatches 0 checkpoints 4 selective==full True {'[]'} full==zero {'[]'}
+wl_cloud updates 200 sample mismatches 0 checkpoints 4 selective==full True {'[]'} full==zero {'[]'}

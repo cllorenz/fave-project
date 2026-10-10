@@ -2,7 +2,7 @@
 
 PROTOCOL.txt was committed (e3e9010e) before any cell ran. Indicative only:
 limit_class dev, one repetition, this machine; nothing here is reportable.
-Raw records: `cells/`, `oracle/`, and the P4 check in `verify_port_order/`; tables generated from them: `table.md`,
+Raw records: `cells/`, `oracle/`, the P4 check in `verify_port_order/`, and the re-check rule check in `verify_recheck_rule/`; tables generated from them: `table.md`,
 `summary.json` (`bench/incremental_table.py`). All 33 timed cells and 3 oracle
 runs completed (`run.log`, every rc=0).
 
@@ -102,12 +102,105 @@ difference between the backends rather than between walk orders.
   (selectivity 0.32-0.38; NetPlumber 0.001-0.026), and the re-check dominates
   t_total (median 60-64 ms of 78-83 ms). The APKeep footprint design (§4,
   shared with BDD-APKeep) counts a change as affecting a check when it meets
-  either the forwarded space or the source seed that arrived at the element,
-  and with an unconstrained seed every change at a visited element meets it.
+  either the forwarded space or the source seed that arrived at the element.
+  The seed constrains only the source address, so it meets every change that
+  does not constrain the source -- whether the seed is a prefix or
+  unconstrained (corrected 2026-10-10; this said "with an unconstrained seed").
   Coarse, sound, and the same rule BDD-APKeep uses; wl_cloud is the first
-  workload where it costs this much, because BDD-APKeep never ran it.
+  workload where it costs this much, because BDD-APKeep never ran it. Tested
+  below ("The re-check rule"): dropping the seed side is sound but does not
+  narrow `wl_cloud` much; the footprint itself is the bottleneck.
 - **`wl_airtel1` S3 (link updates) costs ~0.55 s per update on both APKeep
   engines** -- the adapter's shadow re-translation of the whole model, not the
   engine (t_recheck ~2.4 ms).
 - NDD-APKeep's per-update costs are within a factor of ~1.5 of BDD-APKeep's on
   every stream both ran.
+
+## The re-check rule: forwarded side only (checked 2026-10-10)
+
+**Question.** `Network.takeAffected` re-checks a check when a change `δ` at
+element `e` meets either side of the check's footprint at `e`: the forwarded
+set that arrived there, or the source seed that arrived there. On NDD-APKeep
+no update can change the seed. It is fixed by the query and only intersected
+on arrival at the target, and ACLs, forwarding and NAT rules all act on the
+forwarded set. So the seed test should be redundant, and testing the forwarded
+side alone should stay sound. Two questions: is that so in practice, and what
+does it buy?
+
+**Variants**, each a one-line change in `takeAffected`, built outside the tree
+(the repo and its jars untouched), and loaded through the in-memory jar
+redirect (`verify_recheck_rule/sitecustomize.py`, as for P4). The redirect log
+confirms each run used its variant. BDD-APKeep keeps the current rule in all
+three.
+- **F** (`F.diff`): NDD-APKeep tests the forwarded side only.
+- **N** (`N.diff`, negative control): NDD-APKeep ignores rule changes entirely.
+  Only link changes still trigger a re-check.
+- **V** (`V.diff`, reference point): NDD-APKeep re-checks every check whose
+  footprint contains `e`, with no packet-set test at all.
+
+**Soundness.** The NDD-APKeep oracle tests
+(`test_incremental_apkeep.py::TestIncrementalNddAPKeep` and
+`::TestNddAgreesWithNetPlumber`; `oracle.sh`) give:
+- **F:** all 7 pass (`oracle_F.log`), including the `wl_cloud` S2+S3 stream
+  with NATs under updates (504 updates, 618 verdict changes, 10,402 re-checks
+  against 11,412 under the current rule).
+- **N:** 6 of 7 fail (`oracle_N.log`), so the oracle catches a rule that misses
+  changes. The one N passes, `test_wl_airtel1_fib_path`, carries no verdict
+  change (as `wl_airtel1` S2 in this calibration), so no rule can fail it.
+
+F's three oracle cells (`oracle/`, settings as this calibration's
+`oracle/`; checked by `oracle_check.py`, output `oracle_check.txt`) report no
+sample mismatch on any update, and selective == full == from-zero at every
+checkpoint, on `wl_ifi`, `wl_airtel1` and `wl_cloud` S2. In every timed cell,
+F's verdict changes equal the current rule's on every update, and F's
+re-check set lies inside the current rule's on every update.
+
+**What it buys** (`compare.py` -> `compare.md`; F's own table, generated:
+`table.md`, `summary.json`). Re-checks summed over the stream:
+
+| workload | stream | current rule | F | V |
+|---|---|---:|---:|---:|
+| `wl_example` | S1 | 166 | 142 (-14%) | |
+| | S2 | 54 | 48 (-11%) | |
+| | S3 | 116 | 116 | |
+| `wl_ifi` | S1 | 2,254 | 1,824 (-19%) | |
+| | S2 | 1,648 | 1,510 (-8%) | |
+| | S3 | 5,772 | 5,772 | |
+| `wl_airtel1` | S1 | 3,698 | 3,698 | |
+| | S2 | 4,300 | 4,090 (-5%) | |
+| | S3 | 10,086 | 10,086 | |
+| `wl_cloud` | S1 | 5,330 | 5,330 | 5,330 |
+| | S2 | 5,181 | 4,218 (-19%) | 5,181 |
+| | S3 | 4,540 | 4,540 | 4,540 |
+
+- **S3 cannot change**: a link update re-checks by the ports a walk left by,
+  not by `δ`.
+- **`wl_cloud` S2**: share of checks re-checked per update 0.365 -> 0.297;
+  median t_recheck 63.7 -> 46.3 ms, t_total 83.3 -> 65.3 ms. NetPlumber: 0.003.
+- **Timings elsewhere**: within run-to-run noise. On `wl_cloud` S1 the median
+  t_recheck went 62.7 -> 75.6 ms with the identical re-check set (V: 74.0), so
+  differences of that size between single repetitions mean nothing here.
+
+**What V shows.** On all three `wl_cloud` streams, the current rule re-checks
+exactly what V does: every check whose walk visited the changed element. The
+seed side, as predicted, makes the packet-set test vacuous there. F takes the
+seed out, and on S1 and S3 even the forwarded side meets every change at a
+visited element.
+
+So most of the coarseness is in the footprint, not in the test applied to it.
+A likely reason, not verified: the walk starts from the whole packet space and
+explores every branch until it finds a witness. The forwarded set recorded at
+an element is therefore everything that reached it from the source, for any
+destination, not just the traffic that could reach the probe. Narrowing that
+further would take a different footprint, for instance one restricted to what
+can reach the probe, rather than a different test.
+
+**Not tested:** BDD-APKeep's counterpart (test the side the changed element
+acts on: the seed side for an ACL under the split, the forwarded side
+otherwise, both for a NAT); and testing `δ` against the forwarded set
+intersected with the seed (finer, but sound only while nothing between `e` and
+the probe rewrites the source).
+
+**Owner decision, open:** whether to adopt F for NDD-APKeep (and its BDD
+counterpart). It is sound by the checker's semantics and by the oracle, and
+small; but on `wl_cloud` it helps S2 only, by a fifth.
