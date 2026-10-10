@@ -1,0 +1,55 @@
+PROTOCOL -- incremental axis, INDICATIVE measurement of the selectable footprints
+Declared 2026-10-10, BEFORE any cell of this run. Not edited afterwards.
+APKEEP_INCREMENTAL_SCOPE.md §9; ../results_inc_dev_ndd_20261010/FINDINGS.md
+("The re-check rule"). Runs on this branch are indicative -- limit_class dev,
+one repetition, the machine as the memory cap.
+
+WHO AND UNDER WHAT MANDATE
+  Executed by a Claude session at the owner's request of 2026-10-10: "build A
+  and B1 as selectable variants but not as default; write it up". A = the
+  witness footprint ('witness'), B1 = the dead-end rule ('dead-ends').
+  Nothing here is reportable.
+
+WHAT IS BEING RUN  (run.sh in this directory)
+  Engines   apkeep (BDD-APKeep) and ndd-apkeep (NDD-APKeep); on wl_cloud
+            ndd-apkeep only (BDD-APKeep takes 3.24 h to build it, V5).
+  Modes     default (none), witness, dead-ends, witness+dead-ends
+            (--footprint; one cell directory per mode: cells_<mode>/).
+  Workloads wl_example, wl_ifi, wl_airtel1, wl_cloud.
+  Streams   S1, S2 (fraction 0.2, seed 1), S3 -- each its FIRST 200 updates
+            (--limit-updates 200). Batch 1. The calibration's settings.
+  Timed cells: 4 modes x (3 workloads x 3 streams x 2 engines + 3 wl_cloud)
+            = 84, no oracle in them.
+  Oracle runs: S2 on wl_ifi, wl_airtel1, wl_cloud, NDD-APKeep,
+            witness+dead-ends, --oracle-sample 50 --oracle-every 50: 3, untimed.
+  The default mode is re-run here, not taken from the calibration, so all four
+  modes share the code and the session.
+
+STOPPING RULES (incremental_cell.py defaults, the indicative ones)
+  limit_class dev; limit_wall 86400 s; limit_rss = the machine's memory;
+  memory_floor 1024 MB; per-update limit 3600 s; one repetition.
+
+PREDICTIONS -- declared now, checked in FINDINGS.md afterwards
+  Re-checks are counted as the cells record them (`rechecked`, check lines),
+  summed over the stream; "fewer" is against the default mode of the same
+  engine, workload and stream in this run.
+  P1  Every mode changes the same verdicts as the default on every update of
+      every stream (the modes change which checks are asked, never an answer).
+  P2  The three oracle runs pass (sample, selective == full, full == from-zero).
+  P3  witness+dead-ends re-checks no more than the default on every stream of
+      both engines.
+  P4  witness cuts NDD-APKeep's re-checks on wl_cloud S1 and S2 by at least 25%
+      each (in the calibration 55-56% of re-checked source-probe pairs there
+      were reachable at the time; a witness should drop most of them).
+  P5  witness cuts wl_airtel1 S3 (link updates) by at least 30% on both
+      engines (a reachable check then watches only its path's links; 64% of
+      re-checked pairs there were reachable).
+  P6  dead-ends cuts wl_ifi S2 by at least 20% on both engines (83-90% of
+      wl_ifi's re-checked pairs are unreachable checks, and S2's deletions
+      move packets into ACL denies and drop sinks).
+  P7  No mode raises a cell's median t_recheck by more than 1.5x over the
+      default (building a witness is one packet per reachable query).
+
+WHAT WOULD MAKE THIS RUN WORTHLESS
+  A harness crash or an `error` outcome on a cell: recorded, not hidden, and
+  the cell re-run once after the cause is understood.
