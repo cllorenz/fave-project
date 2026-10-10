@@ -233,7 +233,12 @@ def from_zero(make_engine: Callable[[], Any], prefix: str, checks: List[Check],
         like.prepare_twin(engine)
     with InProcessFaVe(_Withholding(engine, set(deleted), set(down))) as fave:
         fave.replay(prefix, files=files)
-        return VerdictCache(fave, engine, checks).full()
+        verdicts = VerdictCache(fave, engine, checks).full()
+    # the oracle's engine is never used again: an engine holding shared state
+    # (an NDD-APKeep network) lets go of it
+    if hasattr(engine, 'release'):
+        engine.release()
+    return verdicts
 
 
 # --- the model and the streams --------------------------------------------------

@@ -750,7 +750,18 @@ class APKeepAdapter(AbstractVerificationEngine):
     UPSTREAMS = {
         'bdd': 'XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)',
         'ndd': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)',
+        # APKeep's elements and change tuples (the apkeep fork) over the NDD
+        # paper's atom layer, ported from its reference APKeep(NDD) in the NDD
+        # repository -- the NSDI'25 paper's App. A.1 construction.
+        'ndd-apkeep': 'XJTU-NetVerify/apkeep 7b71bff4 + XJTU-NetVerify/NDD c8414b43 '
+                      'atom layer (apkeep/FAVE_CHANGES.md §12)',
     }
+
+    #: the engines that are APKeep: one network, its elements, its updates
+    #: and footprints -- with BDD atomic predicates, or with NDD's per-field
+    #: atoms (APKEEP_INCREMENTAL_SCOPE.md §4, owner decision B). Every path
+    #: below that drives `self._lib` serves both.
+    APKEEP_ENGINES = ('bdd', 'ndd-apkeep')
 
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
                  faithful_vlan: bool = True, engine: str = 'ndd',
@@ -763,8 +774,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         # (LibNDD), which drops APKeep's atomic-predicate cross-product. The NDD
         # engine currently covers the single-universe forwarding case (wl_up: no
         # ACL/NAT); _build() guards this and raises otherwise.
-        if engine not in ('bdd', 'ndd'):
-            raise ValueError("engine must be 'bdd' or 'ndd', got %r" % engine)
+        #
+        # 'ndd-apkeep' is NDD-APKeep: APKeep itself (LibAPKeep) on its NDD
+        # backend, so it takes every path 'bdd' takes. 'ndd' is NDD-flood, a
+        # different engine (no atoms, no updates) kept as a differential oracle.
+        if engine not in ('bdd', 'ndd', 'ndd-apkeep'):
+            raise ValueError("engine must be 'bdd', 'ndd' or 'ndd-apkeep', got %r" % engine)
         self._engine = engine
         if _shadow:
             # Translates only (`_shadow_translation`): no engine behind it.
@@ -777,7 +792,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             self._lib = None
             self._ndd_fwd_mode = False   # pure-+fwd -> AtomForwarding path
         else:
-            self._lib = LibAPKeep()
+            self._lib = LibAPKeep(backend='ndd' if engine == 'ndd-apkeep' else 'bdd')
             self._ndd = None
         # --- updates after the build (INCREMENTAL_PLAN.md §6.2, O2) ----------
         # Every model-construction call, in order, so a SHADOW adapter can
@@ -2059,7 +2074,7 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _build(self) -> None:
         if self._built:
             return
-        if self._tracking and self._engine == 'bdd':
+        if self._tracking and self._engine in self.APKEEP_ENGINES:
             self._for_updates = True
             self._frozen_ipv6 |= self._ipv6_fib_devices
         t = self._translate()
@@ -3524,7 +3539,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         raise UpdateRefused("APKeepAdapter: " + message)
 
     def _require_updatable(self, op: str) -> None:
-        if self._engine != 'bdd':
+        if self._engine not in self.APKEEP_ENGINES:
             self._refuse('engine', "%s: the NDD-flood engine builds from zero "
                          "and takes no updates (APKEEP_INCREMENTAL_SCOPE.md)" % op)
         if not self._built:
@@ -3875,4 +3890,13 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._probes.pop(node, None)
 
     def stop(self) -> None:
-        pass
+        self.release()
+
+    def release(self) -> None:
+        """ Let go of the engine's network for good. An NDD-APKeep network
+        is registered with the NDD atoms every network in the JVM shares, so
+        each later split would keep rewriting a discarded one; the from-zero
+        oracle (`util.incremental.from_zero`) builds a fresh network at every
+        checkpoint and releases it here. Idempotent; nothing to do for BDD. """
+        if self._lib is not None:
+            self._lib.close()

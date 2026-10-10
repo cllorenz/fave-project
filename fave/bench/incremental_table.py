@@ -46,7 +46,7 @@ sys.path.insert(0, os.path.abspath(
 from bench.incremental_compare import compare
 from bench.incremental_report import load_cell, summarize
 
-_ENGINES = ('netplumber', 'veriflow', 'apkeep')
+_ENGINES = ('netplumber', 'veriflow', 'apkeep', 'ndd-apkeep')
 
 
 def _ms(q, key):

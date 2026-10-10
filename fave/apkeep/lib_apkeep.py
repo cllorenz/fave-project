@@ -94,13 +94,27 @@ class LibAPKeep:
     instance maps to one network per process.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, backend: str = 'bdd') -> None:
+        """ `backend` 'bdd' is BDD-APKeep (upstream's atomic predicates);
+        'ndd' is NDD-APKeep -- the same network, elements and change tuples
+        with NDD's per-field atoms (APKEEP_INCREMENTAL_SCOPE.md §4). Its jar
+        dependency is the NDD fat jar, which `_ensure_jvm` puts on the
+        classpath when built. """
+        if backend not in ('bdd', 'ndd'):
+            raise ValueError("backend must be 'bdd' or 'ndd', got %r" % backend)
+        if backend == 'ndd' and not os.path.isfile(_NDD_JAR):
+            raise RuntimeError(
+                "NDD-APKeep needs the NDD jar: %s (run fave/test/ndd_build.sh)"
+                % _NDD_JAR)
+        self.backend = backend
         _ensure_jvm()
         self._APKeep = jpype.JClass("apkeep.main.APKeep")
         self._Network = jpype.JClass("apkeep.core.Network")
         self._Evaluator = jpype.JClass("apkeep.utils.Evaluator")
         self._ArrayList = jpype.JClass("java.util.ArrayList")
-        self._ReachabilityChecker = jpype.JClass("apkeep.checker.ReachabilityChecker")
+        self._ReachabilityChecker = jpype.JClass(
+            "apkeep.ndd.NddReachabilityChecker" if backend == 'ndd'
+            else "apkeep.checker.ReachabilityChecker")
         self._PositionTuple = jpype.JClass("common.PositionTuple")
         self._APKeeper = jpype.JClass("apkeep.core.APKeeper")
         self._net: Any = None
@@ -182,7 +196,7 @@ class LibAPKeep:
         # division for the NAT-free src-IP ACL path (wl_ifi). (P7b)
         params.USE_DIVISION = nats_map is None
 
-        self._net = self._Network(name)
+        self._net = self._Network(name, self.backend)
         # initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats,
         #                   device_filters)
         self._net.initializeNetwork(links, devices, acls_map, None, nats_map, filters_set)
@@ -253,6 +267,17 @@ class LibAPKeep:
         checker = self._ReachabilityChecker(self._net)
         src = self._PositionTuple(src_device, src_port)
         dst = self._PositionTuple(dst_device, dst_port)
+        if self.backend == 'ndd':
+            # The same questions, encoded by the network's NDD encoder.
+            if related is not None:
+                checker.setRelatedHeader(self._net.nddRelated(jpype.JInt(int(related))))
+            for rule_string, negated in (conditions or []):
+                tokens = rule_string.split(' ')
+                head = len(tokens[0]) + len(tokens[1]) + len(tokens[2]) + 3
+                checker.andArrivalHeader(self._net.nddCondition(
+                    jpype.JString(rule_string[head:]), jpype.JBoolean(bool(negated))))
+            conditions = None
+            related = None
         if related is not None:
             checker.setRelatedHeader(
                 self._APKeeper.bddengine.ConvertRelated(jpype.JInt(int(related)))
@@ -280,7 +305,9 @@ class LibAPKeep:
         # VLAN (wl_stanford probes only accept vlan=0). Uses the 5-arg checker
         # overload; the source seed defaults to the full space when unconstrained.
         if target_vlan is not None:
-            vlan_bdd = self._APKeeper.bddengine.ConvertVLAN(jpype.JInt(target_vlan))
+            vlan_bdd = (self._net.nddVlan(jpype.JInt(target_vlan))
+                        if self.backend == 'ndd' else
+                        self._APKeeper.bddengine.ConvertVLAN(jpype.JInt(target_vlan)))
             prefix = 0 if src_prefix is None else src_prefix
             plen = 0 if src_prefix is None else src_len
             return bool(checker.isReachable(
@@ -323,6 +350,12 @@ class LibAPKeep:
         """ The footprint keys an update since the last call can have
         affected (`Network.takeAffected`). """
         return [str(key) for key in self._net.takeAffected()]
+
+    def close(self) -> None:
+        """ Release what the network holds in process-global tables -- an
+        NDD-APKeep network leaves the registry its atoms' splits reach. """
+        if self._net is not None:
+            self._net.close()
 
     def loops_found(self) -> int:
         """ Loops APKeep's default check found in updates since the build. """

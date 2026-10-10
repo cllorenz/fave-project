@@ -86,11 +86,14 @@ sys.path.insert(0, os.path.abspath(
 from bench.cell_run import engine_commit
 from util import incremental as inc
 
-ENGINES = ('netplumber', 'veriflow', 'apkeep')
+#: 'apkeep' is BDD-APKeep (the name the first records carry); 'ndd-apkeep' is
+#: NDD-APKeep, the same APKeep with NDD's atoms (APKEEP_INCREMENTAL_SCOPE.md §4)
+ENGINES = ('netplumber', 'veriflow', 'apkeep', 'ndd-apkeep')
 STREAMS = ('s1', 's2', 's3')
 
 #: the engine's source tree, for `engine_commit`
-_TREES = {'netplumber': 'net_plumber', 'veriflow': 'veriflow_fr', 'apkeep': 'apkeep'}
+_TREES = {'netplumber': ('net_plumber',), 'veriflow': ('veriflow_fr',),
+          'apkeep': ('apkeep',), 'ndd-apkeep': ('apkeep', 'ndd')}
 
 _PAGE_MB = resource.getpagesize() / (1024.0 * 1024.0)
 
@@ -101,11 +104,13 @@ def make_engine(name):
     if name == 'netplumber':
         from netplumber.lib_adapter import NetPlumberLibAdapter
         return lambda: NetPlumberLibAdapter(log)
-    if name == 'apkeep':
-        # BDD-APKeep: the engine that takes updates (APKEEP_INCREMENTAL_SCOPE.md);
-        # NDD-flood builds from zero only.
+    if name in ('apkeep', 'ndd-apkeep'):
+        # BDD-APKeep, or NDD-APKeep -- APKeep's own network with NDD's atoms;
+        # both take updates (APKEEP_INCREMENTAL_SCOPE.md). NDD-flood builds from
+        # zero only.
         from apkeep.adapter import APKeepAdapter
-        return lambda: APKeepAdapter(log, engine='bdd')
+        apkeep_engine = 'bdd' if name == 'apkeep' else 'ndd-apkeep'
+        return lambda: APKeepAdapter(log, engine=apkeep_engine)
     from veriflow.adapter import VeriFlowAdapter
     return lambda: VeriFlowAdapter(log)
 
@@ -191,7 +196,11 @@ def run(args):
         'git_head': subprocess.run(['git', 'rev-parse', 'HEAD'],
                                    capture_output=True, text=True,
                                    check=False).stdout.strip(),
-        'engine_commit': engine_commit(_TREES[args.engine]),
+        # NDD-APKeep is two trees, the fork and the NDD library it runs on
+        'engine_commit': (engine_commit(_TREES[args.engine][0])
+                          if len(_TREES[args.engine]) == 1 else
+                          ' + '.join(str(engine_commit(tree))
+                                     for tree in _TREES[args.engine])),
     }
     engine = make()
     from util.in_process_driver import InProcessFaVe

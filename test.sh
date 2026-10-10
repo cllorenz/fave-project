@@ -134,6 +134,8 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_incremental_netplumber.py # INCREMENTAL_PLAN.md M1: update streams on NetPlumber, selective re-check == full == from-zero; skips if libnetplumber unbuilt
     test/test_incremental_veriflow.py  # the same on VeriFlow-FR, affected checks from walk footprints; skips if libveriflow_fr unbuilt
     test/test_incremental_run.py       # bench/incremental_run.py, the M1 development driver, on both engines
+    test/test_apkeep_incremental_core.py  # APKeep's update path in Java: each removal fix against a build without the rule (BDD)
+    test/test_packet_filter_out_iface.py  # `-o` means the routed egress (owner decision A1): NetPlumber, VeriFlow-FR and APKeep agree from zero
     test/test_apkeep_wl_ifi.py   # APKeepAdapter driven by the real wl_ifi models (P4); skips if unavailable
     test/test_apkeep_i2.py       # APKeep scale validation on wl_i2 (77k dst-IP routes, P5); skips if unavailable
     test/test_apkeep_stanford.py # APKeep on wl_stanford (in/mid/out HSA, out-stage collapse, P7); skips if unavailable
@@ -224,6 +226,11 @@ FAVE_NDD_TESTS=(
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs
     test/test_revisit_router_on_a_stick.py # Q4 / TODO item 33: a packet passing one table twice -- VeriFlow-FR(state) and ad6 right; NetPlumber and APKeep defects pinned (starts NDD too)
+    # NDD-APKeep (APKEEP_INCREMENTAL_SCOPE.md §4): APKeep with NDD's atoms, in
+    # the same process as BDD-APKeep and NDD-flood -- hence this group.
+    test/test_ndd_apkeep.py      # NDD-APKeep from zero == NDD-flood (== BDD-APKeep where it finishes), check by check
+    test/test_ndd_apkeep_reference.py # NDD-APKeep's atom layer vs the authors' reference APKeep(NDD) on wl_airtel1, per port (two subprocess JVMs)
+    test/test_incremental_apkeep.py # update streams on BDD- and NDD-APKeep, selective re-check == full == from-zero
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
@@ -356,20 +363,13 @@ run_integration() {
 
     # Build APKeep (+ CLI golden pin) BEFORE the fave pytest step, so the
     # libapkeep test (test_apkeep_lib) finds the jar; it skips otherwise.
-    echo "== integration: APKeep build + bundled-Stanford golden pin =="
+    #
+    # apkeep_smoke.sh builds the NDD engine jar first (fave/test/ndd_build.sh):
+    # APKeep's NDD backend (NDD-APKeep) compiles against it, and NDD-flood is
+    # that jar. Without it `apkeep.lib_ndd.available()` is false and the NDD
+    # tests would skip (or, under FAVE_REQUIRE_BACKENDS=1, fail the gate).
+    echo "== integration: NDD + APKeep build, bundled-Stanford golden pin =="
     bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1
-
-    # The NDD engine is a SECOND backend jar, built from its own pom -- apkeep_smoke.sh
-    # builds only the APKeep jar. Without it `apkeep.lib_ndd.available()` is false and
-    # both NDD tests would skip (or, under FAVE_REQUIRE_BACKENDS=1, fail the gate).
-    # Kept as a script rather than an inline `mvn`: fave/test/ndd_build.sh pins
-    # JAVA_HOME to java-11 exactly as apkeep_smoke.sh does (so both jars come from one
-    # toolchain), guards mvn/java/pom up front with a readable message instead of a raw
-    # Maven error, and asserts the jar actually appeared -- `mvn -q` can exit 0 having
-    # produced nothing usable. Being separately invocable also matters when rebuilding
-    # just this jar.
-    echo "== integration: NDD engine jar (for test_apkeep_ndd_*) =="
-    bash "$ROOT/fave/test/ndd_build.sh" || rc=1
 
     # Generate the wl_ifi benchmark inputs (gitignored artifacts) the APKeep
     # wl_ifi test consumes -- a clean checkout has none, and the integration tier
