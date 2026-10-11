@@ -1,6 +1,6 @@
 # VeriFlow-FR footprints — a scoping pass
 
-**Status: SCOPED; DECIDED 2026-10-11 (owner): all proposed parts — 4.1, 4.2, 4.3 and the concrete packet — built after the M2 packet-filter spike; 4.4 stays out. No code yet.** Asked for by the owner (decision C on
+**Status: BUILT 2026-10-11 (`647a97f3`; owner decision: all proposed parts, 4.4 out). Measured, indicative: `../fave/bench/campaigns/results_inc_dev_vf_footprints_20261011/FINDINGS.md`. Open for the owner: the default (§4.5) -- coarse until decided.** Asked for by the owner (decision C on
 the plan's question 3, 2026-10-11): before deciding whether VeriFlow-FR gets
 APKeep's witness and dead-end footprints, find out what that means for its walk,
 what it could save, and what it costs. **Owner:** Claas Lorenz. **Branch:**
