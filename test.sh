@@ -239,6 +239,7 @@ FAVE_NDD_TESTS=(
     # this order, so the longest one must not be the last to start. ~12 min on
     # 16 cores (TODO item 44); the rest take a few minutes together.
     test/test_incremental_apkeep.py # update streams on BDD- and NDD-APKeep, selective re-check == full == from-zero
+    test/test_incremental_m2_apkeep.py # M2's S4 on BDD- and NDD-APKeep, under the oracle
     test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs
@@ -250,7 +251,8 @@ FAVE_NDD_TESTS=(
 )
 # Members of FAVE_INTEGRATION_TESTS that REWRITE a shared workload's inputs:
 # both wl_cloud differentials regenerate bench/wl_cloud/*.json in their
-# setUpClass, and test_ndd_apkeep and test_incremental_apkeep read those files.
+# setUpClass, and test_ndd_apkeep, test_incremental_apkeep and
+# test_incremental_m2_apkeep read those files.
 # The tier runs them first, before anything else, so with FAVE_JOBS > 1 no
 # reader can meet a half-written file (TODO item 44).
 FAVE_REGENERATING_TESTS=(
