@@ -1,0 +1,34 @@
+M2 packet-filter spike (INCREMENTAL_PLAN.md §8 step 1) -- protocol, 2026-10-11
+==========================================================================
+
+Exploratory, dev, this machine; nothing here is a reportable result.
+
+Already run BEFORE this protocol was written (exploratory, recorded as such in
+FINDINGS.md, not scored): spike.py, 30 random edits, seed 1, on wl_up's
+api-web and wl_example's pgf rulesets, wl_up's pgf ruleset and wl_tum's
+tum-ruleset. They showed stable renumbering by alignment at the floor on all
+edits, no re-spacing.
+
+Question: can a modelling engine's output keep rule indices stable under
+single-rule firewall edits, so that one edit costs the engines O(1) rule
+changes instead of O(table)? Tool: spike.py (copied here), which compares
+today's dense indices with "stable renumbering by alignment" (per table: align
+the new rule list with the previously emitted one by content; matched rules
+keep their index; new ones take free indices between neighbours; a table
+without room is re-spaced as a whole, counted). Index budget: NetPlumber's
+_RULE_IDX_MAX = 2^20-1; initial spacing = budget / (2(n+1)).
+
+Runs declared now, with predictions:
+
+R1  long random stream: 500 edits, seed 2, wl_up pgf ruleset.
+    P1: stable == floor on >= 99% of edits; re-spacings <= 2.
+R2  adversarial: 200 inserts, all at the SAME line position, wl_up pgf.
+    P2: midpoint splitting exhausts a gap of ~250 after ~8 inserts, so
+        re-spacings >= 15 -- i.e. whole-table re-spacing is a real cost under
+        clustered inserts, and a LOCAL re-spacing (renumber a window) is needed.
+R3  a new state-checking rule (-m conntrack --ctstate ESTABLISHED -j ACCEPT)
+    inserted mid-chain, wl_up pgf, both chains once.
+    P3: the change is |reverse chain| + O(1) engine rules (a new shell), and
+        stable == floor.
+R4  same as R2 with local re-spacing (if built after R2): P4: re-spacings
+    of the whole table == 0 and max change per edit <= 2 * window.
