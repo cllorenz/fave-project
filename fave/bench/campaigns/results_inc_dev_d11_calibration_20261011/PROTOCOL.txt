@@ -1,0 +1,31 @@
+PROTOCOL -- incremental axis, dev CALIBRATION for sizing the D11 run
+Declared 2026-10-11, BEFORE any cell of this run. Not edited afterwards.
+INCREMENTAL_PLAN.md D11 (one indicative run of the whole grid after M2) and
+O4.5 (a calibration precedes a protocol). Code: updates at e96f6b89 + the lint
+gate commit a8e3c2b3 (no engine change). Indicative: dev, one repetition, this
+machine; it exists to project full-stream wall times, nothing else.
+
+WHO AND UNDER WHAT MANDATE
+  A Claude session executing INCREMENTAL_PLAN.md autonomously (owner away).
+
+WHAT IS BEING RUN  (run.sh)
+  The four workloads of the grid with no incremental record yet: wl_airtel2,
+  wl_up, wl_stanford, wl_i2 (stanford-json / i2-json with their file
+  overrides). Engines netplumber, veriflow (coarse, its default), apkeep (not
+  on wl_stanford / wl_i2: from-zero DNF in V5, "no cell" by D13), ndd-apkeep.
+  Streams S1, S2 (0.2, seed 1), S3: the FIRST 50 updates of each
+  (--limit-updates 50), batch 1, no oracle. APKeep at its default footprint
+  (witness + dead ends).
+  Concurrent: the integration test tier runs at the same time on this machine
+  (the same tree, read-only for both); the timings are for sizing only.
+
+STOPPING RULES  incremental_cell.py's dev defaults; limit_wall 7200 s per cell
+  here (a calibration cell that needs more is itself the finding).
+
+PREDICTIONS
+  C1  Every cell completes its 50 updates or is stopped by its wall limit;
+      none crashes.
+  C2  VeriFlow-FR (coarse) is the slowest engine per update on every one of
+      the four workloads, by at least 10x over NetPlumber on S1.
+  C3  No cell's build + first full check exceeds its V5 from-zero cost
+      (RESULTS.md §2) by more than 2x.
