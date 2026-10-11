@@ -269,6 +269,25 @@ class TestOracleRun(_Tmp):
                         "the failure stops the stream")
 
 
+class TestFootprintOption(unittest.TestCase):
+    """ --footprint: both modes by default on APKeep, 'coarse' for the coarse
+    footprint, recorded in head.json as the modes in effect. """
+
+    def test_parse(self):
+        self.assertEqual(incremental_run.parse_footprint('dead-ends,witness'),
+                         ('dead-ends', 'witness'))
+        self.assertEqual(incremental_run.parse_footprint('coarse'), ())
+        with self.assertRaises(Exception):
+            incremental_run.parse_footprint('witnesses')
+
+    def test_effective(self):
+        eff = incremental_run.effective_footprint
+        self.assertEqual(eff('ndd-apkeep', None), ['witness', 'dead-ends'])
+        self.assertEqual(eff('apkeep', ()), [])
+        self.assertEqual(eff('apkeep', ('dead-ends',)), ['dead-ends'])
+        self.assertEqual(eff('netplumber', None), [])
+
+
 class TestReadLines(unittest.TestCase):
     """ What a stopped run leaves must still be readable, and nothing else
     malformed may be read silently. """

@@ -55,6 +55,9 @@ _NDD_JAR = os.path.join(
 
 #: the selectable footprints (APKEEP_INCREMENTAL_SCOPE.md §9), in canonical order
 FOOTPRINT_MODES = ('witness', 'dead-ends')
+#: the footprints used unless asked otherwise (owner, 2026-10-11); () is the
+#: coarse footprint of §4, kept selectable to reproduce earlier results
+DEFAULT_FOOTPRINT = FOOTPRINT_MODES
 
 try:
     import jpype
@@ -97,7 +100,8 @@ class LibAPKeep:
     instance maps to one network per process.
     """
 
-    def __init__(self, backend: str = 'bdd', footprint: Tuple[str, ...] = ()) -> None:
+    def __init__(self, backend: str = 'bdd',
+                 footprint: Tuple[str, ...] = DEFAULT_FOOTPRINT) -> None:
         """ `backend` 'bdd' is BDD-APKeep (upstream's atomic predicates);
         'ndd' is NDD-APKeep -- the same network, elements and change tuples
         with NDD's per-field atoms (APKEEP_INCREMENTAL_SCOPE.md §4). Its jar
@@ -105,9 +109,10 @@ class LibAPKeep:
         classpath when built.
 
         `footprint` selects the finer footprints of
-        APKEEP_INCREMENTAL_SCOPE.md §9, none by default: 'witness' (a
+        APKEEP_INCREMENTAL_SCOPE.md §9, both by default: 'witness' (a
         reachable query's footprint is its witness path) and 'dead-ends' (an
-        unreachable query ignores changes into a dead end). """
+        unreachable query ignores changes into a dead end); () is the coarse
+        footprint of §4. They act only while the network tracks updates. """
         if backend not in ('bdd', 'ndd'):
             raise ValueError("backend must be 'bdd' or 'ndd', got %r" % backend)
         unknown = set(footprint) - set(FOOTPRINT_MODES)

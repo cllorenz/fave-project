@@ -99,8 +99,11 @@ _PAGE_MB = resource.getpagesize() / (1024.0 * 1024.0)
 
 
 def parse_footprint(text):
-    """ "witness,dead-ends" -> ('witness', 'dead-ends'); unknown modes refused. """
+    """ "witness,dead-ends" -> ('witness', 'dead-ends'); "coarse" -> () (the
+    coarse footprint); unknown modes refused. """
     from apkeep.lib_apkeep import FOOTPRINT_MODES
+    if text == 'coarse':
+        return ()
     modes = tuple(m for m in text.split(',') if m)
     unknown = [m for m in modes if m not in FOOTPRINT_MODES]
     if unknown:
@@ -109,7 +112,16 @@ def parse_footprint(text):
     return modes
 
 
-def make_engine(name, footprint=()):
+def effective_footprint(engine, footprint):
+    """ The footprint modes an engine runs with, as a list; [] when coarse or
+    not APKeep. """
+    from apkeep.lib_apkeep import DEFAULT_FOOTPRINT
+    if engine not in ('apkeep', 'ndd-apkeep'):
+        return []
+    return list(DEFAULT_FOOTPRINT if footprint is None else footprint)
+
+
+def make_engine(name, footprint=None):
     log = logging.getLogger("incremental_run")
     log.setLevel(logging.WARNING)
     if name == 'netplumber':
@@ -121,6 +133,7 @@ def make_engine(name, footprint=()):
         # zero only.
         from apkeep.adapter import APKeepAdapter
         apkeep_engine = 'bdd' if name == 'apkeep' else 'ndd-apkeep'
+        # footprint None: the adapter's default (both modes)
         return lambda: APKeepAdapter(log, engine=apkeep_engine, footprint=footprint)
     from veriflow.adapter import VeriFlowAdapter
     return lambda: VeriFlowAdapter(log)
@@ -187,7 +200,7 @@ def _oracle_sample(cache, checks, k, rng):
 
 
 def run(args):
-    make = (make_engine(args.engine, args.footprint) if args.footprint
+    make = (make_engine(args.engine, args.footprint) if args.footprint is not None
             else make_engine(args.engine))
     files = parse_files(args.files)
     checks_path = os.path.join(args.workload, args.checks)
@@ -201,8 +214,10 @@ def run(args):
         'workload': args.workload, 'engine': args.engine, 'files': files,
         'stream': args.stream, 'fraction': args.fraction, 'seed': args.seed,
         'batch': args.batch, 'limit_updates': args.limit_updates,
-        # the selectable footprints of APKEEP_INCREMENTAL_SCOPE.md §9; [] = default
-        'footprint': list(args.footprint),
+        # the footprints of APKEEP_INCREMENTAL_SCOPE.md §9 in effect; [] = the
+        # coarse footprint (and every record before 2026-10-11, when it was the
+        # default); a non-APKeep engine has none
+        'footprint': effective_footprint(args.engine, args.footprint),
         'oracle': ({'sample': args.oracle_sample, 'every': args.oracle_every,
                     'seed': args.oracle_seed} if oracle else None),
         'checks_file': checks_path, 'checks_sha256': sha256_file(checks_path),
@@ -335,12 +350,12 @@ def main(argv=None):
                              "every N updates (always at the end)")
     parser.add_argument('--oracle-seed', type=int, default=1)
     parser.add_argument('--cell-dir', required=True)
-    parser.add_argument('--footprint', type=parse_footprint, default=(),
-                        help="APKeep engines: finer footprints, comma-separated "
-                             "(witness, dead-ends; APKEEP_INCREMENTAL_SCOPE.md §9); "
-                             "default none")
+    parser.add_argument('--footprint', type=parse_footprint, default=None,
+                        help="APKeep engines: footprint modes, comma-separated "
+                             "(witness, dead-ends; APKEEP_INCREMENTAL_SCOPE.md §9), "
+                             "or 'coarse'; default both")
     args = parser.parse_args(argv)
-    if args.footprint and args.engine not in ('apkeep', 'ndd-apkeep'):
+    if args.footprint is not None and args.engine not in ('apkeep', 'ndd-apkeep'):
         parser.error("--footprint needs an APKeep engine")
     if args.batch < 1:
         parser.error("--batch must be at least 1")

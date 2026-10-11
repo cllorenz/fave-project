@@ -51,7 +51,7 @@ from aggregator.aggregator_abstract import TraceLogger
 from rule.rule_model import Forward, Rewrite
 from devices.abstract_device import LPM
 
-from apkeep.lib_apkeep import LibAPKeep, available  # noqa: F401  (available re-exported)
+from apkeep.lib_apkeep import DEFAULT_FOOTPRINT, LibAPKeep, available  # noqa: F401  (available re-exported)
 
 _DST = 'packet.ipv4.destination'
 
@@ -765,7 +765,8 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
                  faithful_vlan: bool = True, engine: str = 'ndd',
-                 _shadow: bool = False, footprint: Tuple[str, ...] = ()) -> None:
+                 _shadow: bool = False,
+                 footprint: Optional[Tuple[str, ...]] = None) -> None:
         self.logger = logger
         # One shared adapter, two backend ENGINES (APKEEP_NDD_PLAN §2.5e). The
         # model construction below is engine-agnostic (it emits neutral "+ filter"
@@ -782,10 +783,13 @@ class APKeepAdapter(AbstractVerificationEngine):
             raise ValueError("engine must be 'bdd', 'ndd' or 'ndd-apkeep', got %r" % engine)
         self._engine = engine
         # The selectable footprints of APKEEP_INCREMENTAL_SCOPE.md §9 ('witness',
-        # 'dead-ends'); none by default. They change which checks an update
-        # reports, never an answer.
+        # 'dead-ends'); both by default on the APKeep engines, () for the
+        # coarse footprint of §4. They change which checks an update reports,
+        # never an answer.
         if footprint and engine not in self.APKEEP_ENGINES:
             raise ValueError("footprint modes need an APKeep engine, not %r" % engine)
+        if footprint is None:
+            footprint = DEFAULT_FOOTPRINT if engine in self.APKEEP_ENGINES else ()
         self._footprint = tuple(footprint)
         if _shadow:
             # Translates only (`_shadow_translation`): no engine behind it.
@@ -1038,7 +1042,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         stamp = self.provenance()
         stamp['engine'] = self._engine
         stamp['faithful_vlan'] = self._faithful_vlan
-        if self._footprint:
+        if self._engine in self.APKEEP_ENGINES:
+            # [] is the coarse footprint
             stamp['footprint'] = list(self._lib.footprint if self._lib else self._footprint)
         return stamp
 

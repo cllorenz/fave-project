@@ -49,7 +49,7 @@ from test.incremental_oracle import inputs_present, run, s1, s2_and_s3
 from util import incremental as inc
 
 
-def _maker(engine, footprint=()):
+def _maker(engine, footprint=None):
     def make():
         log = logging.getLogger("test_incremental_apkeep")
         log.setLevel(logging.ERROR)
@@ -153,20 +153,21 @@ class TestIncrementalNddAPKeep(TestIncrementalAPKeep):
                                                 for k, v in stats.items()})
 
 
-# The selectable footprints (APKEEP_INCREMENTAL_SCOPE.md §9) change which checks
-# an update reports, never an answer: every stream above, under the oracle, with
-# them on. 'witness' with 'dead-ends' on both engines; 'dead-ends' alone on
-# NDD-APKeep too, because it keeps a reachable query's explored footprint
-# apart from an unreachable one's, a path the pair never takes.
+# The footprints (APKEEP_INCREMENTAL_SCOPE.md §9) change which checks an update
+# reports, never an answer. The classes above run the default, witness with
+# dead-ends; here every stream, under the oracle, with the coarse footprint of
+# §4 -- the ablation's reference -- on both engines, and with 'dead-ends' alone
+# on NDD-APKeep, because it keeps a reachable query's explored footprint apart
+# from an unreachable one's, a path the pair never takes.
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
-class TestIncrementalAPKeepFinerFootprints(TestIncrementalAPKeep):
-    make = staticmethod(_maker('bdd', ('witness', 'dead-ends')))
+class TestIncrementalAPKeepCoarseFootprints(TestIncrementalAPKeep):
+    make = staticmethod(_maker('bdd', ()))
 
 
 @require_or_skip(ndd_available, "JPype, the APKeep jar or the NDD jar is unavailable")
-class TestIncrementalNddAPKeepFinerFootprints(TestIncrementalNddAPKeep):
-    make = staticmethod(_maker('ndd-apkeep', ('witness', 'dead-ends')))
+class TestIncrementalNddAPKeepCoarseFootprints(TestIncrementalNddAPKeep):
+    make = staticmethod(_maker('ndd-apkeep', ()))
 
 
 @require_or_skip(ndd_available, "JPype, the APKeep jar or the NDD jar is unavailable")

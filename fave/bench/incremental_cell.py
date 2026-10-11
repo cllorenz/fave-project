@@ -159,7 +159,8 @@ def main(argv=None):
     parser.add_argument('--oracle-every', type=int, default=0)
     parser.add_argument('--oracle-seed', type=int, default=1)
     parser.add_argument('--footprint', default=None,
-                        help="passed to incremental_run.py (witness, dead-ends)")
+                        help="passed to incremental_run.py (witness, dead-ends, "
+                             "or coarse; default both)")
     parser.add_argument('--limit-class', choices=('dev', 'v5'), default='dev')
     parser.add_argument('--limit-wall', type=float, default=86400.0)
     parser.add_argument('--limit-rss', type=int, default=None,

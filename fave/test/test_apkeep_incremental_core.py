@@ -50,7 +50,9 @@ def _fwd(port, prio, prefix='167772160', plen='8'):
 
 
 def _net(rules, filters=True):
-    lib = LibAPKeep()
+    # the coarse footprint of APKEEP_INCREMENTAL_SCOPE.md §4, which
+    # TestFootprints pins down; the default modes are tested below
+    lib = LibAPKeep(footprint=())
     lib.init_in_memory("t", _EDGES, None if filters else ['f'], None, None,
                        device_filters=['f'] if filters else None,
                        bdd_table_size=10_000)
@@ -196,7 +198,7 @@ class TestFootprints(unittest.TestCase):
         self.assertEqual(lib.take_affected(), ['to-a'])
 
     def test_a_change_where_the_walk_never_arrived_is_not(self):
-        lib = LibAPKeep()
+        lib = LibAPKeep(footprint=())
         lib.init_in_memory("t", _EDGES + ["dB 1 g 1", "g c dC 1"], None, None,
                            None, device_filters=['f', 'g'], bdd_table_size=10_000)
         lib.run([_filter('a', 5)])               # nothing ever leaves by b
@@ -212,7 +214,7 @@ class TestFootprints(unittest.TestCase):
         self.assertEqual(lib.take_affected(), ['to-a'])
 
     def test_a_link_the_walk_never_reached_is_not(self):
-        lib = LibAPKeep()
+        lib = LibAPKeep(footprint=())
         lib.init_in_memory("t", _EDGES + ["dB 1 x 1"], None, None, None,
                            device_filters=['f'], bdd_table_size=10_000)
         lib.run([_filter('a', 5)])
@@ -388,6 +390,25 @@ class TestFootprintModes(unittest.TestCase):
             self.skipTest("JPype or the APKeep jar is unavailable")
         with self.assertRaises(ValueError):
             LibAPKeep(footprint=('witnesses',))
+
+    def test_both_modes_by_default_coarse_on_request(self):
+        if not available():
+            self.skipTest("JPype or the APKeep jar is unavailable")
+        self.assertEqual(LibAPKeep().footprint, ('witness', 'dead-ends'))
+        self.assertEqual(LibAPKeep(footprint=()).footprint, ())
+
+    def test_the_adapter_defaults_to_both_modes_on_apkeep_only(self):
+        if not available():
+            self.skipTest("JPype or the APKeep jar is unavailable")
+        import logging
+        from apkeep.adapter import APKeepAdapter
+        log = logging.getLogger("test_apkeep_incremental_core")
+        stamp = APKeepAdapter(log, engine='bdd').configuration_stamp()
+        self.assertEqual(stamp['footprint'], ['witness', 'dead-ends'])
+        stamp = APKeepAdapter(log, engine='bdd', footprint=()).configuration_stamp()
+        self.assertEqual(stamp['footprint'], [])
+        with self.assertRaises(ValueError):
+            APKeepAdapter(log, engine='ndd', footprint=('witness',))
 
 
 if __name__ == '__main__':
