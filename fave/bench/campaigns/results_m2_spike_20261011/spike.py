@@ -124,7 +124,7 @@ class Stable:
         if self.local:
             out = self._emit_local(prev, keys)
             assert [i for i, _k in out] == sorted(i for i, _k in out)
-            assert len({i for i, _k in out}) == len(out) and out[-1][0] <= IDX_MAX
+            assert len({i for i, _k in out}) == len(out) and (not out or out[-1][0] <= IDX_MAX)
             self.prev[table] = out
             return out
         pk = [k for _i, k in prev]

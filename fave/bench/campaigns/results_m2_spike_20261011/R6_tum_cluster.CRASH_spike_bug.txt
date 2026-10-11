@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/campaigns/results_m2_spike_20261011/spike.py", line 235, in <module>
+    size, rows, respaced, windows, renumbered = run(path, n, seed, mode, local)
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/campaigns/results_m2_spike_20261011/spike.py", line 223, in run
+    st = stable.emit(t, [k for _i, k in new])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/campaigns/results_m2_spike_20261011/spike.py", line 127, in emit
+    assert len({i for i, _k in out}) == len(out) and out[-1][0] <= IDX_MAX
+                                                     ~~~^^^^
+IndexError: list index out of range

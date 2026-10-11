@@ -1,0 +1,5 @@
+ruleset tum-ruleset: 5108 engine rules in the filter tables, 200 edits, seed 6, mode cluster +local, whole-table re-spacings 0, local windows 39 (old rules moved 7810)
+  insert n=200  dense med/max    4590/   9620   stable med/max      1/   867   floor med/max      1/    14   gen 0.64s  align 0.021s (med)
+  all    n=200  dense med/max    4590/   9620   stable med/max      1/   867   floor med/max      1/    14   gen 0.64s  align 0.021s (med)
+  stable == floor on 162 of 200 edits
+  totals: dense 1099089, stable 15855, floor 269 engine-rule changes
