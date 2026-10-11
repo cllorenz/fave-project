@@ -1,0 +1,15 @@
+Default switch check (a53efbe5), declared before the run.
+
+Not a measurement: a check that the new default selects what it should.
+Two cells, same settings as ../run.sh (fraction 0.2, seed 1, 200 updates):
+  default/   wl_cloud ndd-apkeep s1, no --footprint
+  coarse/    wl_cloud ndd-apkeep s1, --footprint coarse
+
+Expected (check.py):
+  E1 default/: head.json footprint == ['witness', 'dead-ends'];
+     re-checks summed == 10, as ../cells_witness+dead-ends (and its
+     per-update re-check counts equal on every update).
+  E2 coarse/: head.json footprint == []; re-checks summed == 5,330, as
+     ../cells_default (the old default), per update equal.
+  E3 both: verdict changes equal those of ../cells_default on every update.
+Timings are not compared (another process runs the oracle tests meanwhile).
