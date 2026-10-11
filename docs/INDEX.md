@@ -1,6 +1,6 @@
 # Document index
 
-Twenty-one reference documents, ~23,500 lines. They are lab notebooks, not
+Twenty-four reference documents, ~24,500 lines. They are lab notebooks, not
 specifications: each records what was tried, what it cost, what was measured and
 what the owner decided, usually with a dated status header at the top. **Read the
 status header before the body** — several of these describe work that is finished,
@@ -8,7 +8,7 @@ and are kept because results and source comments cite them.
 
 Two documents live at the repository root instead, because that is where a reader
 looks for them first: [`../README.md`](../README.md) (what FaVe is, how to build and run it)
-and [`../TODO.md`](../TODO.md) (the live QA backlog, 3,081 lines, the most-churned file here).
+and [`../TODO.md`](../TODO.md) (the live QA backlog, 3,089 lines, the most-churned file here).
 
 Measurement **results** are not in this directory. They live beside the artifacts
 that produced them, under [`../fave/bench/campaigns/`](../fave/bench/campaigns/)
@@ -19,9 +19,9 @@ that produced them, under [`../fave/bench/campaigns/`](../fave/bench/campaigns/)
 | document | lines | what it is |
 |---|---:|---|
 | [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) | 986 | **The run book.** The measurements that are open and worth running, ordered so a session with no prior context can execute it top to bottom, unattended. Start here to run something. |
-| [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md) | 136 | **The accommodation registry.** Every way a tool was helped to run the suite, or a workload changed for it — what was done, what it costs, the evidence it is right. The write-up cites this for all of them. |
+| [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md) | 163 | **The accommodation registry.** Every way a tool was helped to run the suite, or a workload changed for it — what was done, what it costs, the evidence it is right. The write-up cites this for all of them. |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | 87 | How result directories and per-cell artifacts are named, what a run directory must carry, and why a committed result directory is never renamed. Read before starting a run. |
-| [`INCREMENTAL_PLAN.md`](INCREMENTAL_PLAN.md) | 391 | **The incremental axis (TODO item 31), PLAN.** Making updates work end to end — engines that report what a change affected, FaVe re-verifying only those checks — and measuring it. The owner's decisions of 2026-10-09 are its §4; open questions its §9. |
+| [`INCREMENTAL_PLAN.md`](INCREMENTAL_PLAN.md) | 512 | **The incremental axis (TODO item 31), PLAN. M1 built; the campaign waits on its protocol.** Making updates work end to end — engines that report what a change affected, FaVe re-verifying only those checks — and measuring it. The owner's decisions of 2026-10-09 are its §4 and §9; what is built, its §10. |
 
 ## The verification backends — one document per engine family
 
@@ -42,7 +42,8 @@ Read `APKEEP_BACKEND.md` first; these are the sub-tracks it refers to.
 |---|---:|---|
 | [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md) | 272 | The plan to preserve the BDD state and integrate NDD. Largely executed; the running record is the eval log below. |
 | [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md) | 801 | The NDD integration's running evaluation log. |
-| [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md) | 162 | **SCOPING, no code.** Making BDD-APKeep and NDD-APKeep (the NDD paper's system, not NDD-flood) incremental alike: what the reference code really does, workload tiers, design, a 7.5–12-week estimate, owner questions. |
+| [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md) | 467 | **BUILT, both engines.** Making BDD-APKeep and NDD-APKeep (the NDD paper's system, not NDD-flood) incremental alike: what the reference code really does, workload tiers, design, the estimate, owner questions (§1–§6); what was built (§7 BDD, §8 NDD, §9 footprints). |
+| [`APKEEP_FOOTPRINTS.md`](APKEEP_FOOTPRINTS.md) | 201 | **Default since 2026-10-11.** Which checks an APKeep update re-checks — the coarse, witness and dead-end footprints, defined with a soundness sketch each, caveats and evidence. Written to be lifted into a paper. |
 | [`APKEEP_BDD_BASELINE.md`](APKEEP_BDD_BASELINE.md) | 255 | The **frozen** BDD baseline — the published comparand and the differential oracle NDD must reproduce. |
 | [`BDD_MEASUREMENT_PLAN.md`](BDD_MEASUREMENT_PLAN.md) | 215 | The 56 h BDD campaign, written after a use-after-free invalidated the BDD half of the engine comparison. |
 | [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) | 226 | The soundness track: eliminating APKeep's reachability over-approximation on `wl_stanford`. |
@@ -63,7 +64,7 @@ engine implements it.
 
 | document | lines | status |
 |---|---:|---|
-| [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md) | 1,039 | **Built.** Making FaVe's implicit first-match contract explicit, so the declaration reaches the engines. |
+| [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md) | 1,066 | **Built.** Making FaVe's implicit first-match contract explicit, so the declaration reaches the engines. |
 | [`OUT_STAGE_PLAN.md`](OUT_STAGE_PLAN.md) | 766 | **Steps 0–5 done.** The `wl_stanford` out stage as a modelled device. Read its §3 first — the oracle it asked for showed no reachability question can observe the gap. |
 
 ## Workloads

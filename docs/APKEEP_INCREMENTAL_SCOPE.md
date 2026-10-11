@@ -1,6 +1,6 @@
 # BDD-APKeep and NDD-APKeep, incremental — a scoping pass
 
-**Status: steps 1–3 (BDD) BUILT, 2026-10-10 — see §7; steps 4–5 (NDD) open.**
+**Status: BUILT on both engines — BDD-APKeep 2026-10-10 (§7), NDD-APKeep 2026-10-10 (§8); footprints §9, witness + dead ends the default since 2026-10-11.**
 Answers `INCREMENTAL_PLAN.md` §9 O2
 after the owner's decision of 2026-10-09: *NDD-APKeep is the NSDI'25 NDD paper's
 system — APKeep's own core with its atom layer replaced by NDD — and BDD-APKeep

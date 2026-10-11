@@ -1,11 +1,14 @@
 # Incremental reverification — a plan
 
-**Status: M1 IN PROGRESS (2026-10-10). Nothing measured yet.** Decisions D1–D9
-are the owner's, taken in discussion on 2026-10-09 (§4), as are O1–O6 (§9).
-§10 records what is built: NetPlumber and VeriFlow-FR take updates, LPM routes
-included, and re-verify selectively, held to the oracle; the harness is done;
-APKeep is in progress, and every measurement waits on a protocol.
-**Owner:** Claas Lorenz. **Branch:** `updates`. **Tracks:** TODO item 31, "the
+**Status: M1 BUILT (2026-10-11); the campaign waits on its protocol.**
+Decisions D1–D9 are the owner's, taken in discussion on 2026-10-09 (§4), as are
+O1–O6 (§9). §10 records what is built: NetPlumber, VeriFlow-FR, BDD-APKeep and
+NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
+its witness + dead-ends footprint, the default since 2026-10-11); the harness is
+done. Only indicative (dev) calibrations have run (§10); no reportable
+measurement exists until a `PROTOCOL.txt` with predictions is written. M2 (§8)
+has not started.
+**Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
 
