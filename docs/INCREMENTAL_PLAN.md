@@ -364,6 +364,56 @@ Then **S4**: synthetic firewall edits — insert, delete or modify one rule at a
 sampled position — on `wl_up`, `wl_tum`, `wl_ifi`, `wl_cloud`, measured end to
 end from a configuration change to an updated verdict, which is TNSM'21's claim.
 
+### 8.1 M2 design after the spike (2026-10-11, autonomous; owner to confirm)
+
+The spike (`results_m2_spike_20261011/FINDINGS.md`) settled the mechanism;
+this is how it is built. Choices marked *(choice)* were taken without the owner
+and are listed for confirmation.
+
+1. **`util/stable_index.py`, a `StableIndexer`.** Per (device, table) it holds
+   the last emission `[(idx, content key)]` and emits a new rule list with
+   stable indices: alignment by content (`difflib`, no autojunk), matched
+   rules keep their index, a run of new rules spreads over its gap, and a run
+   that does not fit relabels the smallest window around it to half the
+   nominal spacing (the spike's R4c). The first emission spaces a table at
+   `budget / (2(n+1))`. Relabels are counted, never hidden. The content key
+   is (table, in-ports, match, actions); `raw_line_no`, which shifts with
+   every inserted line, is metadata no engine reads.
+2. **In the aggregator, opt-in** *(choice)*: `AggregatorService(...,
+   stable_indices=True)`, off by default, so every from-zero path (V5, ad6's
+   16-bit indices) stays byte-identical. It applies to device models that
+   arrive WHOLE (packet filter, host, ALG, router, switch-with-tables); switch
+   rules arriving as control-plane commands keep the indices their sender
+   chose.
+3. **Index budget per engine** *(choice)*: `max_rule_index()` on the engine
+   interface -- NetPlumber 2^20−1 (`_RULE_IDX_MAX`), APKeep 69,999 (router
+   ACL priority `70000 − idx`), VeriFlow-FR 2^40−1 (LPM priority
+   `plen·2^40 − idx`). The indexer spaces within it.
+4. **The diff** (owner's requirement 2): per (device, table), the old and new
+   emissions as `{idx: key}`; a rule whose index left, or whose key changed
+   under the same index, is deleted; one whose index is new, or whose key
+   changed, is inserted. Deletes go first (an engine must never see two rules
+   at one index). Cost: one alignment per table of the device re-sent.
+5. **Applied through the M1 engine calls** (`delete_rule`, `insert_rule`),
+   which already take one FaVe rule each; the aggregator's commented-out
+   deletion path stays as it is. A change the engines cannot take per rule --
+   a whole-translated table (`pre_routing`, `post_routing`), ports, wiring, a
+   table appearing or vanishing -- is refused (`UpdateRefused`) and counted;
+   none of S4's edits makes one.
+6. **The stored model** after an update is the new emission, so
+   `model_rules`, reporting and the next diff all see the indices the engines
+   hold (today `setdefault` keeps the FIRST model forever).
+7. **S4** (`incremental_run.py --stream s4`): a seeded stream of one-line
+   edits -- insert a copy of a rule line, delete one, modify one -- at a
+   position sampled over every rule line of the workload's editable configs
+   (`wl_up`: 136 packet filters; `wl_tum`: one; `wl_ifi`: the router's ACL
+   lines; `wl_cloud`: its switch rule lists, re-sent as a switch with its
+   table). Each edit regenerates the device through the same code the build
+   used and goes through the aggregator. Recorded per edit: `t_model`
+   (regenerate), `t_diff` (align + diff), `t_update` (engine), `t_recheck`,
+   the engine-rule changes and relabels. `t_total` is the sum -- a
+   configuration change to an updated verdict.
+
 ## 9. Open questions (recommendations, not decisions)
 
 - **O1. LPM priorities that leave room — DECIDED 2026-10-09.** NetPlumber's
