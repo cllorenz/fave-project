@@ -752,5 +752,33 @@ class TestPacketFilterGenerator(unittest.TestCase):
         self.assertEqual(result.to_json(), self.model.to_json())
 
 
+    def test_dropping_state_check(self):
+        """ A state-checking rule that DROPS (`ESTABLISHED -j DROP`) must give a
+            dropping state shell, not crash the generator: DROP is an empty
+            action list, and the shell code read its first action
+            (results_m2_spike_20261011/FINDINGS.md, F1).
+        """
+        iptables = '\n'.join([
+            'ip6tables -P FORWARD DROP',
+            'ip6tables -P INPUT DROP',
+            'ip6tables -P OUTPUT DROP',
+            'ip6tables -A FORWARD -d 2001:db8::0/64 -p tcp --dport 80 -j ACCEPT',
+            'ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j DROP',
+            'ip6tables -A FORWARD -d 2001:db8::0/64 -p tcp --dport 22 -j ACCEPT'
+        ])
+        _fd, iptables_file = tempfile.mkstemp()
+        with open(iptables_file, 'w') as tmp_file:
+            tmp_file.write(iptables + '\n')
+        result = generate(IP6TablesParser().parse(iptables_file), 'foo',
+                          '2001:db8::1', ['1', '2'])
+
+        shell = [r for r in result.tables['foo.forward_filter']
+                 if any(f.name == 'related' and f.value == '1' for f in r.match)]
+        # one shell rule per FORWARD rule (FORWARD is its own reverse chain)
+        self.assertEqual(len(shell), 3)
+        for rule in shell:
+            self.assertEqual(rule.actions, [Forward([])])
+
+
 if __name__ == '__main__':
     unittest.main()

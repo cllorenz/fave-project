@@ -486,7 +486,10 @@ def _derive_conditional_state_shells(
             in_ports = _adjust_ports(rule.in_ports, chain)
 
             if not any([f.value is None for f in match]):
-                first_action = state_checking_rule.actions[0]
+                # DROP is an empty action list (`_ast_to_rule`): a dropping
+                # state check gives a dropping shell, the branch below.
+                first_action = (state_checking_rule.actions[0]
+                                if state_checking_rule.actions else Forward([]))
                 assert isinstance(first_action, Forward)  # state-check rule forwards
                 actions: List[RuleAction] = [
                     Forward([])
