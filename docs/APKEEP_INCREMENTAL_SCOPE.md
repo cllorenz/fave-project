@@ -163,6 +163,16 @@ the paper claims and nobody here has measured.
    NDD library (with FaVe's changes, `ndd/FAVE_CHANGES.md`), FaVe's part is the
    verifier on it. That the verifier is not the authors' APKeep is what the name
    NDD-flood says; the stamp need not say it again.
+5. **Footprints — DECIDED 2026-10-11 (owner), §9:**
+   - **Default:** witness + dead ends, set in the adapter. The coarse footprint
+     stays selectable. The modes must be explainable in a paper:
+     `APKEEP_FOOTPRINTS.md`.
+   - **Campaign:** reports APKeep at the default, plus one ablation table
+     (coarse / witness / dead ends / both), `INCREMENTAL_PLAN.md`.
+   - **Port order:** left as is. The authors' code is not changed without good
+     reason; the finding and its remedies are recorded (§9, "Known
+     properties").
+   - **Testing the forwarded side only (F):** not adopted, kept documented (§9).
 
 ## 7. What was built (2026-10-10): BDD-APKeep takes updates
 
@@ -340,8 +350,10 @@ cut little. A variant that re-checks every check whose walk visited the changed
 element matched the current rule exactly on `wl_cloud`: the footprint itself
 was too wide, not the test applied to it
 (`fave/bench/campaigns/results_inc_dev_ndd_20261010/FINDINGS.md`, "The re-check
-rule"). The owner asked for the two redesigns below as selectable variants, not
-as the default.
+rule"). The owner asked for the two redesigns below as selectable variants; since
+2026-10-11 both are the default (§6.5). The account written for a paper --
+setting, assumptions, definitions, soundness sketches, caveats -- is
+`APKEEP_FOOTPRINTS.md`.
 
 **The idea.** "Reachable" is existential, so the two verdicts depend on
 different things. A reachable check depends only on its witness; changes
@@ -380,9 +392,18 @@ never applies to it.
 | footprint parts, change ports, the per-mode test, dead ends | `Network` (`Footprint.reached`/`hops`/`targets`, `changed_from`/`changed_to`, `takeAffected`, `deadEnd`) |
 | selection | `Network.setFootprintModes`; `LibAPKeep(footprint=...)`; `APKeepAdapter(footprint=...)` (in the configuration stamp); `incremental_run.py`/`incremental_cell.py --footprint witness,dead-ends` (in `head.json`) |
 
-Both modes are off by default, and the default footprint is unchanged (Java
-suite and Stanford loop golden unchanged; the default mode's re-run matches
-the calibration). `apkeep/FAVE_CHANGES.md` §13.
+The Java `Network` keeps both modes off. The default, both modes, is set in
+the adapter layer (`lib_apkeep.DEFAULT_FOOTPRINT`, on the APKeep engines),
+since 2026-10-11 (a53efbe5); `footprint=()` / `--footprint coarse` selects the
+coarse footprint of §4. `head.json` and the configuration stamp record the
+modes in effect, `[]` meaning coarse, as in every record before.
+The coarse footprint is unchanged: the Java suite and the Stanford loop golden
+are unchanged, and the coarse re-run matches the calibration. The modes act
+only while updates are tracked, so builds and the static campaign are
+unaffected. A switch check (`default_switch_check/` in the findings
+directory) confirms the new default gives both modes' counts and
+`--footprint coarse` the old ones, on `wl_cloud` S1. `apkeep/FAVE_CHANGES.md`
+§13.
 
 **Tests.** `OnePacketTest` (both backends: non-empty, inside the set, every
 variable decided, deterministic); `test_apkeep_incremental_core.py`
@@ -391,8 +412,8 @@ a split path holding the witness packet is reported; moves into the path are
 not; before a rewrite the arriving set counts; a dead end is watched for a
 link; a port that is the target is no dead end; reachable checks still see
 their packets dropped). In `test_incremental_apkeep.py`, every oracle stream
-runs with witness+dead-ends on both engines and with dead-ends alone on
-NDD-APKeep. Two negative controls built outside the tree each fail the unit
+runs at the default (witness+dead-ends) and with the coarse footprint on both
+engines, and with dead-ends alone on NDD-APKeep. Two negative controls built outside the tree each fail the unit
 tests and 4 or 5 of the 6 oracle tests: a witness test on the to-port instead
 of the from-port, and every port a dead end.
 
@@ -417,8 +438,30 @@ dead-ends contributes most on `wl_ifi` S1. One prediction missed: witness alone
 doubles the median re-check time on `wl_example` S1 (~0.5 -> ~1.1 ms), likely
 the cost of building witnesses on a network where a walk is as cheap.
 
-**Open (owner):** whether either mode, or both, becomes the default; and
-whether the campaign reports the modes as configurations of APKeep. Not built:
-inverting a rewrite to carry the witness packet before it, and per-probe
-backward sets for unreachable checks (B2), which the measurements now give
-less reason for.
+**Decided (owner, 2026-10-11, §6.5):** both modes are the default; the
+campaign reports the default plus an ablation. Not built: inverting a rewrite
+to carry the witness packet before it, and per-probe backward sets for
+unreachable checks (B2), which the measurements now give less reason for.
+
+**Known properties, recorded rather than changed (owner, 2026-10-11).**
+- **Port order.** The walk returns at its first witness, so a reachable
+  check's footprint -- coarse explored part or witness -- depends on the order
+  in which an element's ports are tried. BDD-APKeep iterates `port_aps_raw`, a
+  `HashMap`, in hash order. NDD-APKeep iterates the per-element map in
+  `NddPorts`, a `LinkedHashMap`, in insertion order. Both are reproducible run
+  to run. This verifiably explains the engines' different coarse re-check
+  counts on `wl_example` and `wl_airtel1`
+  (`results_inc_dev_ndd_20261010/FINDINGS.md`, P4). It never affects an
+  answer. Under witness the totals happened to agree on those workloads
+  (`APKEEP_FOOTPRINTS.md` §5). The authors' code stays as it is; two remedies
+  are ready if equal counts are ever needed:
+  - a `HashMap` in `NddPorts.initPort`: tested, the patch is
+    `verify_port_order/variant.diff`; BDD-APKeep's numbers stay;
+  - sorting the ports in both checkers: changes both engines' counts.
+- **Testing the forwarded side only (F).** Sound and small: 7/7 NDD-APKeep
+  oracle tests and three oracle cells pass, while its negative control fails
+  6 of 7. Measured against the coarse footprint, `wl_cloud` S2 drops 5,181 →
+  4,218 and other streams by 0–19% (`results_inc_dev_ndd_20261010/FINDINGS.md`,
+  "The re-check rule"; patch `verify_recheck_rule/F.diff`). It is not
+  measured on the default, where it could touch only the unreachable checks'
+  explored footprints. Not adopted: little to gain, one more rule to explain.

@@ -18,7 +18,7 @@ hop after the path's last rewrite, and a change counts only if it moves those
 packets out of the port the path uses. **dead-ends** -- an unreachable check
 ignores a change that only moves packets into a dead end (deny, the drop sink,
 an unlinked port that is not its target), and watches that port for a link.
-Both off by default.
+Both off by default when these cells ran; the default since 2026-10-11 (below).
 
 ## Predictions
 
@@ -120,11 +120,17 @@ both modes (1,589 / 1,121).
 - **Not covered by an oracle run with the modes on:** S1 and S3 timed cells
   (covered by P1 only), and BDD-APKeep's `wl_cloud` (not buildable here).
 
-## Owner decisions, open
+## Owner decisions, 2026-10-11
 
-- Whether to make witness, dead-ends, or both the default. They are sound by
-  construction and by every check above, and cut the re-checks by up to two
-  orders of magnitude; the cost is a witness per reachable re-check (P7) and
-  more code in the footprint path.
-- Whether the measurement campaign should report the modes as separate
-  configurations of APKeep (as here) or only the chosen default.
+- **Both modes are the default** (in the adapter; coarse on request,
+  `--footprint coarse`), on the evidence above. They must be explainable in a
+  paper: `docs/APKEEP_FOOTPRINTS.md`. In this directory, `cells_default/` is
+  therefore the *coarse* footprint, the default when these cells ran.
+- **The campaign reports APKeep at the default, plus one ablation table**
+  (coarse / witness / dead-ends / both), `docs/INCREMENTAL_PLAN.md`.
+
+**Switch check** (`default_switch_check/`, expectations committed before the
+run, ed45508d): on `wl_cloud` S1, the new default records
+`['witness', 'dead-ends']` and re-checks 10, as `cells_witness+dead-ends/`.
+`--footprint coarse` records `[]` and re-checks 5,330, as `cells_default/`.
+Per-update re-check counts and verdict changes are equal (`check.txt`, all held).

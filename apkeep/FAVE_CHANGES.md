@@ -528,8 +528,9 @@ atoms, and re-atomization.
 ## 13. Selectable footprints: witness and dead ends  **[NEW]**
 
 Two finer footprints for the selective re-check (`../docs/APKEEP_INCREMENTAL_SCOPE.md`
-§9), both OFF by default -- the default footprint, and every recorded number
-made with it, are unchanged. `Network.setFootprintModes(witness, deadEnds)`;
+§9), both OFF by default in `Network` -- the coarse footprint, and every
+recorded number made with it, are unchanged (FaVe's adapter turns both on
+since 2026-10-11, see "Default" below). `Network.setFootprintModes(witness, deadEnds)`;
 from Python `LibAPKeep(footprint=...)`, `APKeepAdapter(footprint=...)`,
 `bench/incremental_run.py --footprint witness,dead-ends`.
 
@@ -561,4 +562,10 @@ from Python `LibAPKeep(footprint=...)`, `APKeepAdapter(footprint=...)`,
 packet is non-empty, inside the set, decides every variable, deterministic);
 `fave/test/test_apkeep_incremental_core.py` (`Test[Ndd]WitnessFootprints`,
 `Test[Ndd]DeadEndFootprints`); `fave/test/test_incremental_apkeep.py` runs
-every oracle stream with the modes on (`*FinerFootprints`, `*DeadEnds`).
+every oracle stream at the default and with the coarse footprint
+(`*CoarseFootprints`), and with dead ends alone (`*DeadEnds`).
+
+**Default (2026-10-11).** Here, in `Network`, both modes stay off. FaVe's adapter
+turns both on by default (`fave/apkeep/lib_apkeep.py`, `DEFAULT_FOOTPRINT`), and
+selects the coarse footprint on request. `docs/APKEEP_FOOTPRINTS.md` is the
+account for a paper.

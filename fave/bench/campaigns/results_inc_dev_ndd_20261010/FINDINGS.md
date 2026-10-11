@@ -87,13 +87,16 @@ met by fewer, which is consistent with S2. This is the same seed-side coarseness
 as the `wl_cloud` observation below. Untested: confirming it would need a
 footprint that records the narrowed seed on NDD-APKeep.
 
-**Owner decision, open:** whether to equalise the order permanently. Two ways:
+**Owner decision, 2026-10-11: left as is.** The authors' code is not changed
+without good reason, and this is an inconvenience, not a defect. Two remedies
+are recorded in case equal counts are ever needed
+(`docs/APKEEP_INCREMENTAL_SCOPE.md` §9, "Known properties"):
 - **A `HashMap` in `NddPorts`, the change tested here.** BDD-APKeep and its
   recorded numbers stay as they are.
-- **Sorting the ports in both checkers.** FaVe owns the checkers. This changes
-  BDD-APKeep's recorded re-check counts.
+- **Sorting the ports in both checkers.** This changes BDD-APKeep's recorded
+  re-check counts.
 
-Either way, a remaining cross-engine difference in selectivity is then a
+Either way, a remaining cross-engine difference in selectivity would then be a
 difference between the backends rather than between walk orders.
 
 ## Observations not predicted
@@ -201,12 +204,13 @@ otherwise, both for a NAT); and testing `δ` against the forwarded set
 intersected with the seed (finer, but sound only while nothing between `e` and
 the probe rewrites the source).
 
-**Owner decision, open:** whether to adopt F for NDD-APKeep (and its BDD
-counterpart). It is sound by the checker's semantics and by the oracle, and
-small; but on `wl_cloud` it helps S2 only, by a fifth.
+**Owner decision, 2026-10-11: F not adopted, kept documented.** It is sound by
+the checker's semantics and by the oracle, but small: on `wl_cloud` it helps S2
+only, by a fifth. The patch stays here (`F.diff`).
 
 **Followed up (2026-10-10):** the footprint redesigns -- a witness footprint
 for reachable checks, a dead-end rule for unreachable ones -- built as
-selectable modes, off by default (`docs/APKEEP_INCREMENTAL_SCOPE.md` §9) and
+selectable modes (`docs/APKEEP_INCREMENTAL_SCOPE.md` §9; the default since
+2026-10-11) and
 measured in `../results_inc_dev_footprints_20261010/FINDINGS.md`: with both,
 `wl_cloud` S1 re-checks 5,330 -> 10, verdicts unchanged.
