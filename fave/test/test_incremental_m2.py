@@ -100,6 +100,41 @@ class TestS4NetPlumber(unittest.TestCase):
                 self.assertLessEqual(got['deleted'] + got['inserted'], 8, edit[:3])
 
 
+@require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
+class TestS4Harness(unittest.TestCase):
+    """ bench/incremental_run.py --stream s4: the records a cell keeps. """
+
+    def test_records_and_oracle(self):
+        import json, os
+        from bench import incremental_run
+        prefix = _workload(self, 'bench/wl_ifi')
+        with tempfile.TemporaryDirectory(prefix='s4_cell_') as cell:
+            rc = incremental_run.main([prefix, '--engine', 'netplumber', '--stream', 's4',
+                                       '--limit-updates', '12', '--oracle-sample', '10',
+                                       '--oracle-every', '6', '--cell-dir', cell])
+            self.assertEqual(rc, 0)
+            with open(os.path.join(cell, 'end.json')) as raw:
+                self.assertEqual(json.load(raw)['status'], 'completed')
+            with open(os.path.join(cell, 'updates.jsonl')) as raw:
+                records = [json.loads(line) for line in raw]
+            self.assertEqual(len(records), 12)
+            for r in records:
+                for field in ('t_model_s', 't_diff_s', 't_update_s', 't_recheck_s',
+                              'deleted', 'inserted', 'windows', 'rechecked', 'changed'):
+                    self.assertIn(field, r)
+                # one line edited: a rule, or a rule and what it replaces
+                self.assertLessEqual(r['deleted'] + r['inserted'], 4)
+            with open(os.path.join(cell, 'oracle.jsonl')) as raw:
+                full = [json.loads(line) for line in raw if '"full"' in line]
+            self.assertEqual(len(full), 2)
+
+    def test_batch_is_one(self):
+        from bench import incremental_run
+        with self.assertRaises(SystemExit):
+            incremental_run.main(['bench/wl_ifi', '--engine', 'netplumber', '--stream',
+                                  's4', '--batch', '2', '--cell-dir', '/nonexistent'])
+
+
 @require_or_skip(vf_available(), "libveriflow_fr is not built")
 class TestS4VeriFlow(unittest.TestCase):
 

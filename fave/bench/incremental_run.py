@@ -89,7 +89,7 @@ from util import incremental as inc
 #: 'apkeep' is BDD-APKeep (the name the first records carry); 'ndd-apkeep' is
 #: NDD-APKeep, the same APKeep with NDD's atoms (APKEEP_INCREMENTAL_SCOPE.md §4)
 ENGINES = ('netplumber', 'veriflow', 'apkeep', 'ndd-apkeep')
-STREAMS = ('s1', 's2', 's3')
+STREAMS = ('s1', 's2', 's3', 's4')
 
 #: the engine's source tree, for `engine_commit`
 _TREES = {'netplumber': ('net_plumber',), 'veriflow': ('veriflow_fr',),
@@ -332,6 +332,138 @@ def run(args):
     return 1 if failed else 0
 
 
+def run_s4(args):
+    """ S4 (INCREMENTAL_PLAN.md §8.1): seeded one-line configuration edits,
+    each re-sending its device through the aggregator with stable indices --
+    a configuration change to an updated verdict. One record per edit:
+    `t_model_s` (regenerate and send the device), `t_diff_s` (align and
+    diff), `t_update_s` (the engine's rule updates), `t_recheck_s`, the
+    engine-rule changes and relabels. A workload without checks (wl_tum)
+    records everything but the re-check. """
+    import tempfile
+    from util.barrier import BarrierError
+    from util.in_process_driver import InProcessFaVe
+    make = (make_engine(args.engine, args.footprint) if args.footprint is not None
+            else make_engine(args.engine))
+    checks_path = os.path.join(args.workload, args.checks)
+    checks = inc.load_checks(checks_path) if os.path.exists(checks_path) else []
+    oracle = args.oracle_sample > 0 and bool(checks)
+    n = args.limit_updates or 200
+    os.makedirs(args.cell_dir, exist_ok=True)
+    path = lambda name: os.path.join(args.cell_dir, name)
+    head = {
+        'what': 'S4 configuration edits, raw records (INCREMENTAL_PLAN.md §8.1)',
+        'workload': args.workload, 'engine': args.engine, 'stream': 's4',
+        'seed': args.seed, 'batch': 1, 'limit_updates': n, 'stable_indices': True,
+        'footprint': effective_footprint(args.engine, args.footprint),
+        'oracle': ({'sample': args.oracle_sample, 'every': args.oracle_every,
+                    'seed': args.oracle_seed} if oracle else None),
+        'checks_file': checks_path if checks else None,
+        'checks_sha256': sha256_file(checks_path) if checks else None,
+        'started': _now(),
+        'git_head': subprocess.run(['git', 'rev-parse', 'HEAD'],
+                                   capture_output=True, text=True,
+                                   check=False).stdout.strip(),
+        'engine_commit': (engine_commit(_TREES[args.engine][0])
+                          if len(_TREES[args.engine]) == 1 else
+                          ' + '.join(str(engine_commit(tree))
+                                     for tree in _TREES[args.engine])),
+    }
+    engine = make()
+    failed, done = None, 0
+    with tempfile.TemporaryDirectory(prefix='s4_') as work, \
+            InProcessFaVe(engine, stable_indices=True) as fave:
+        configs = inc.S4Configs(args.workload, work)
+        t0 = time.perf_counter()
+        fave.replay(configs.zero_prefix())
+        engine.track_affected(True)
+        cache = inc.VerdictCache(fave, engine, checks)
+        if checks:
+            cache.full()
+        head['build_and_first_check_s'] = time.perf_counter() - t0
+        head['rss_after_build_mb'] = rss_mb()
+        head['configuration'] = engine.configuration_stamp()
+        head['initial_verdicts'] = dict(cache.verdict)
+        head.update({'checks': len(checks), 'editable_rule_lines': len(configs.rule_lines()),
+                     'updates': n})
+        _write_json(path('head.json'), head)
+        engine.take_affected()
+
+        stream = _Lines(path('stream.jsonl'))
+        updates = _Lines(path('updates.jsonl'))
+        oracles = _Lines(path('oracle.jsonl')) if oracle else None
+        rng = random.Random(args.oracle_seed)
+        for pos, edit in enumerate(inc.stream_s4(configs, n, args.seed)):
+            op, dev, line, text = edit
+            stream.write({'pos': pos, 'op': op, 'device': configs.devices[dev][0],
+                          'line': line, 'text': text})
+            configs.apply(edit)
+            t_a = time.perf_counter()
+            try:
+                configs.resend(fave, dev)
+            except BarrierError as err:
+                # a refused edit leaves the engine and the stored model as they
+                # were, but the working copy edited: the stream cannot go on
+                failed = {'pos': pos, 'refused': str(err)}
+                break
+            t_b = time.perf_counter()
+            got = fave._agg.update_stats
+            affected = engine.take_affected()
+            rechecked = cache.selective(affected) if checks else []
+            t_c = time.perf_counter()
+            done = pos + 1
+            updates.write({
+                'b': pos, 'pos': pos, 'n': 1, 'ops': [op],
+                'device': configs.devices[dev][0],
+                't_model_s': (t_b - t_a) - got['t_diff_s'] - got['t_update_s'],
+                't_diff_s': got['t_diff_s'], 't_update_s': got['t_update_s'],
+                't_recheck_s': t_c - t_b,
+                'deleted': got['deleted'], 'inserted': got['inserted'],
+                'windows': got['windows'], 'moved': got['moved'],
+                'affected': (None if affected is None
+                             else sorted([s, p] for s, p in affected)),
+                'rechecked': len(rechecked),
+                'changed': [list(c) for c in cache.last_changes] if checks else [],
+                'rss_mb': rss_mb(), 'mono': time.monotonic(),
+            })
+            if not oracle:
+                continue
+            record = {'b': pos, 'done': done,
+                      'sample_mismatch': _oracle_sample(
+                          cache, checks, args.oracle_sample, rng)}
+            if (args.oracle_every and done % args.oracle_every == 0) or done == n:
+                t_o = time.perf_counter()
+                full = cache.ask(checks)
+                zero_engine = make()
+                zero_engine.track_affected(True)
+                with InProcessFaVe(zero_engine) as zero:
+                    zero.replay(configs.zero_prefix())
+                    expected = inc.VerdictCache(zero, zero_engine, checks).full()
+                if hasattr(zero_engine, 'release'):
+                    zero_engine.release()
+                record.update({
+                    'full': True,
+                    'selective_vs_full': sorted(
+                        l for l in full if full[l] != cache.verdict[l]),
+                    'full_vs_zero': sorted(
+                        l for l in full if full[l] != expected.get(l)),
+                    't_full_and_zero_s': time.perf_counter() - t_o})
+            oracles.write(record)
+            if (record['sample_mismatch'] or record.get('selective_vs_full')
+                    or record.get('full_vs_zero')):
+                failed = record
+                break
+        stream.close()
+        updates.close()
+        if oracles:
+            oracles.close()
+    _write_json(path('end.json'), {
+        'finished': _now(), 'completed_updates': done,
+        'status': ('refused' if failed and 'refused' in failed else
+                   'oracle_failed' if failed else 'completed')})
+    return 1 if failed else 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('workload', help="the workload directory, e.g. bench/wl_ifi")
@@ -369,7 +501,12 @@ def main(argv=None):
         parser.error("--batch must be at least 1")
     if args.oracle_every and not args.oracle_sample:
         parser.error("--oracle-every needs --oracle-sample")
-    rc = run(args)
+    if args.stream == 's4':
+        if args.batch != 1:
+            parser.error("S4 runs at batch 1: every edit is one device re-sent")
+        rc = run_s4(args)
+    else:
+        rc = run(args)
     if rc:
         print("THE ORACLE FAILED: see oracle.jsonl in %s" % args.cell_dir,
               file=sys.stderr)
