@@ -140,6 +140,20 @@ class TestCell(_Tmp):
             self.cell('netplumber', '--stream', 's3', name='once')
 
 
+class TestReportS4(unittest.TestCase):
+    """ An S4 edit's compared time includes the model and the diff (§8.1). """
+
+    def test_t_total_of_an_edit(self):
+        edit = {'t_model_s': 1.0, 't_diff_s': 0.5, 't_update_s': 0.25, 't_recheck_s': 0.125}
+        self.assertEqual(incremental_report.t_total(edit), 1.875)
+        plain = {'t_update_s': 0.25, 't_recheck_s': 0.125}
+        self.assertEqual(incremental_report.t_total(plain), 0.375)
+        times = incremental_report._times([edit])
+        self.assertEqual(times['t_total_s']['median'], 1.875)
+        self.assertEqual(times['t_model_s']['median'], 1.0)
+        self.assertNotIn('t_model_s', incremental_report._times([plain]))
+
+
 class TestCrossEngine(_Tmp):
 
     @require_or_skip(*_NP)

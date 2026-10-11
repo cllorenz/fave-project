@@ -113,12 +113,24 @@ def quantiles(values):
             'p90': at(0.90), 'p99': at(0.99), 'max': ordered[-1]}
 
 
+def t_total(b):
+    """ A batch's compared time (D2): update + re-check; for an S4 edit also
+    the model regenerated and the difference computed (INCREMENTAL_PLAN.md
+    §8.1, 7) -- a configuration change to an updated verdict. """
+    return (b['t_update_s'] + b['t_recheck_s']
+            + b.get('t_model_s', 0.0) + b.get('t_diff_s', 0.0))
+
+
 def _times(batches):
-    return {
-        't_total_s': quantiles([b['t_update_s'] + b['t_recheck_s'] for b in batches]),
+    out = {
+        't_total_s': quantiles([t_total(b) for b in batches]),
         't_update_s': quantiles([b['t_update_s'] for b in batches]),
         't_recheck_s': quantiles([b['t_recheck_s'] for b in batches]),
     }
+    if batches and 't_model_s' in batches[0]:
+        out['t_model_s'] = quantiles([b['t_model_s'] for b in batches])
+        out['t_diff_s'] = quantiles([b['t_diff_s'] for b in batches])
+    return out
 
 
 def _refusal_reasons(batches):
@@ -207,11 +219,10 @@ def summarize(cell, break_even_s=None, warmup=100):
     if head['batch'] == 1:
         out['times_by_op'] = {
             op: _times([b for b in batches if b['ops'] == [op]])
-            for op in ('insert', 'delete', 'link_down', 'link_up')
+            for op in ('insert', 'delete', 'link_down', 'link_up', 'modify')
             if any(b['ops'] == [op] for b in batches)}
     if break_even_s:
-        over = sum(1 for b in batches
-                   if b['t_update_s'] + b['t_recheck_s'] > break_even_s)
+        over = sum(1 for b in batches if t_total(b) > break_even_s)
         out['break_even'] = {'from_zero_s': break_even_s, 'batches_over': over,
                              'share': over / len(batches) if batches else None}
     return out
