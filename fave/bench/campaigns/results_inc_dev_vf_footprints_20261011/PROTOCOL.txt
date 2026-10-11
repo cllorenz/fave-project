@@ -1,0 +1,41 @@
+PROTOCOL -- incremental axis, INDICATIVE measurement of VeriFlow-FR's footprints
+Declared 2026-10-11, BEFORE any cell of this run. Not edited afterwards.
+VERIFLOW_FOOTPRINT_SCOPE.md §4-§5 (owner decision D12: all proposed parts);
+code 647a97f3 (engine, adapter, tests) and the harness flag after it. Runs on
+this branch are indicative -- limit_class dev, one repetition, the machine as
+the memory cap. Nothing here is reportable.
+
+WHO AND UNDER WHAT MANDATE
+  A Claude session executing INCREMENTAL_PLAN.md autonomously (owner away,
+  2026-10-11: "execute the plan autonomously").
+
+WHAT IS BEING RUN  (run.sh in this directory)
+  Engine    veriflow (VeriFlow-FR), its defaults (revisit=state, fields=4+10).
+  Modes     coarse, witness, dead-ends, witness+dead-ends (--footprint; one
+            cell directory per mode: cells_<mode>/).
+  Workloads wl_example, wl_ifi, wl_airtel1, wl_cloud.
+  Streams   S1, S2 (fraction 0.2, seed 1), S3 -- each its FIRST 200 updates
+            (--limit-updates 200). Batch 1. As in the APKeep footprint run.
+  Timed cells: 4 modes x 4 workloads x 3 streams = 48, no oracle in them.
+  Oracle runs: S2 on wl_ifi, wl_airtel1, wl_cloud, witness+dead-ends,
+            --oracle-sample 50 --oracle-every 50: 3, untimed.
+
+STOPPING RULES (incremental_cell.py defaults, the indicative ones)
+  limit_class dev; limit_wall 86400 s; limit_rss = the machine's memory;
+  memory_floor 1024 MB; per-update limit 3600 s; one repetition.
+
+PREDICTIONS -- declared now, checked in FINDINGS.md afterwards.
+  Re-checks = the cells' `rechecked`, summed over the stream; "coarse" is the
+  coarse cell of the same workload and stream in this run.
+  P1  Every mode changes the same verdicts as coarse on every update of every
+      stream.
+  P2  The three oracle runs pass (sample, selective == full, full == from-zero).
+  P3  witness+dead-ends re-checks no more than coarse on every stream.
+  P4  wl_airtel1 S1 and S2, witness+dead-ends: re-checks <= 1% of coarse, and
+      median t_recheck <= 10% of coarse.
+  P5  wl_ifi S1 and S2, witness+dead-ends: re-checks <= 40% of coarse.
+  P6  wl_airtel1 S3, witness alone: re-checks >= 30% below coarse.
+  P7  witness+dead-ends: median t_update <= 3x coarse on every stream (the
+      per-pair test runs in Python, per update).
+  P8  wl_airtel1 S1 and S2, witness+dead-ends: median t_total below coarse's.
+  P9  wl_ifi S1, dead-ends alone: re-checks <= 70% of coarse.
