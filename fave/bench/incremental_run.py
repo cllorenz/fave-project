@@ -210,8 +210,9 @@ def run(args):
             else make_engine(args.engine))
     files = parse_files(args.files)
     checks_path = os.path.join(args.workload, args.checks)
-    checks = inc.load_checks(checks_path)
-    oracle = args.oracle_sample > 0
+    # a workload without checks (wl_tum, D13) measures the updates alone
+    checks = inc.load_checks(checks_path) if os.path.exists(checks_path) else []
+    oracle = args.oracle_sample > 0 and bool(checks)
     os.makedirs(args.cell_dir, exist_ok=True)
     path = lambda name: os.path.join(args.cell_dir, name)
 
@@ -226,7 +227,8 @@ def run(args):
         'footprint': effective_footprint(args.engine, args.footprint),
         'oracle': ({'sample': args.oracle_sample, 'every': args.oracle_every,
                     'seed': args.oracle_seed} if oracle else None),
-        'checks_file': checks_path, 'checks_sha256': sha256_file(checks_path),
+        'checks_file': checks_path if checks else None,
+        'checks_sha256': sha256_file(checks_path) if checks else None,
         'started': _now(),
         'git_head': subprocess.run(['git', 'rev-parse', 'HEAD'],
                                    capture_output=True, text=True,
@@ -246,7 +248,8 @@ def run(args):
         # answers depended on (VeriFlow-FR's walk footprints) has it.
         engine.track_affected(True)
         cache = inc.VerdictCache(fave, engine, checks)
-        cache.full()
+        if checks:
+            cache.full()
         head['build_and_first_check_s'] = time.perf_counter() - t0
         head['rss_after_build_mb'] = rss_mb()
         head['configuration'] = engine.configuration_stamp()
@@ -283,7 +286,7 @@ def run(args):
                 each.append(time.perf_counter() - t_u)
             t_b = time.perf_counter()
             affected = engine.take_affected()
-            rechecked = cache.selective(affected)
+            rechecked = cache.selective(affected) if checks else []
             t_c = time.perf_counter()
             done = start + len(batch)
             updates.write({
@@ -294,7 +297,7 @@ def run(args):
                 'affected': (None if affected is None
                              else sorted([s, p] for s, p in affected)),
                 'rechecked': len(rechecked),
-                'changed': [list(c) for c in cache.last_changes],
+                'changed': [list(c) for c in cache.last_changes] if checks else [],
                 'refused': [[start + batch.index(u), reason]
                             for u, reason in refused],
                 'rss_mb': rss_mb(), 'mono': time.monotonic(),

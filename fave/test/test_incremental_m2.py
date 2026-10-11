@@ -128,6 +128,25 @@ class TestS4Harness(unittest.TestCase):
                 full = [json.loads(line) for line in raw if '"full"' in line]
             self.assertEqual(len(full), 2)
 
+    def test_a_workload_without_checks_records_its_updates(self):
+        # D13: wl_tum has no check set, so S1-S3 measure the updates alone
+        import json, os
+        from bench import incremental_run
+        if not inputs_present('bench/wl_tum', checks=False):
+            self.skipTest("bench/wl_tum inputs not generated")
+        with tempfile.TemporaryDirectory(prefix='tum_cell_') as cell:
+            rc = incremental_run.main(['bench/wl_tum', '--engine', 'netplumber',
+                                       '--stream', 's2', '--limit-updates', '3',
+                                       '--cell-dir', cell])
+            self.assertEqual(rc, 0)
+            with open(os.path.join(cell, 'head.json')) as raw:
+                head = json.load(raw)
+            self.assertEqual((head['checks'], head['checks_file']), (0, None))
+            with open(os.path.join(cell, 'updates.jsonl')) as raw:
+                records = [json.loads(line) for line in raw]
+            self.assertEqual(len(records), 3)
+            self.assertTrue(all(r['rechecked'] == 0 and r['t_update_s'] > 0 for r in records))
+
     def test_batch_is_one(self):
         from bench import incremental_run
         with self.assertRaises(SystemExit):
