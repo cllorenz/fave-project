@@ -85,13 +85,16 @@ Over R6's: dense 1,099,089, stable 15,855, floor 269.
   - NetPlumber's adapter uses `idx << 12`, so `idx ≤ 2^20−1` (`_RULE_IDX_MAX`).
   - APKeep's packet filters use `10,000,000 − idx`; its router ACLs use
     `70,000 − idx` (`apkeep/adapter.py:77`, `:119`).
-  - ad6 encodes indices in 16 bits (`ad6/translate.py:116`).
+  - ~~ad6 encodes indices in 16 bits (`ad6/translate.py:116`).~~ **Corrected
+    the same day:** that line is about transport ports; ad6 only sorts a
+    table by `idx` (`translate.py:764`), so it takes any integer.
   - VeriFlow-FR uses `−idx` (unbounded).
 
   So the spacing budget must come from the engine. Each adapter declares its
   largest usable index, and the indexer spaces within it.
-- **From-zero runs must not change.** V5's numbers and ad6's encoding assume the
-  generators' dense indices. So stable indexing is **opt-in** on the incremental
+- **From-zero runs must not change.** V5's numbers were measured on the
+  generators' dense indices (the ad6 reason first given here was wrong, see
+  above). So stable indexing is **opt-in** on the incremental
   path, and the default path stays byte-identical.
 - **The history already exists in the aggregator.** It keeps every device's model
   (`aggregator_service.py:794`). Aligning there keeps the generators, and the

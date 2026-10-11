@@ -380,15 +380,18 @@ and are listed for confirmation.
    is (table, in-ports, match, actions); `raw_line_no`, which shifts with
    every inserted line, is metadata no engine reads.
 2. **In the aggregator, opt-in** *(choice)*: `AggregatorService(...,
-   stable_indices=True)`, off by default, so every from-zero path (V5, ad6's
-   16-bit indices) stays byte-identical. It applies to device models that
+   stable_indices=True)`, off by default, so every from-zero path (V5's numbers) stays
+   byte-identical. It applies to device models that
    arrive WHOLE (packet filter, host, ALG, router, switch-with-tables); switch
    rules arriving as control-plane commands keep the indices their sender
    chose.
-3. **Index budget per engine** *(choice)*: `max_rule_index()` on the engine
-   interface -- NetPlumber 2^20−1 (`_RULE_IDX_MAX`), APKeep 69,999 (router
-   ACL priority `70000 − idx`), VeriFlow-FR 2^40−1 (LPM priority
-   `plen·2^40 − idx`). The indexer spaces within it.
+3. **Index budget per engine and table** *(choice)*: `max_rule_index(table)`
+   on the engine interface -- NetPlumber 2^20−1 (`_RULE_IDX_MAX`), APKeep
+   69,999 in ACL and HSA stage tables (priority `70000 − idx`), VeriFlow-FR
+   2^40−1 (LPM priority `plen·2^40 − idx`); ad6 only sorts by index. The
+   indexer spaces within it. A table's rules are aligned in INDEX order,
+   which is their priority -- not in list order, which differs in 138 of
+   `wl_up`'s 1,134 tables (`ad6/translate.py:711`).
 4. **The diff** (owner's requirement 2): per (device, table), the old and new
    emissions as `{idx: key}`; a rule whose index left, or whose key changed
    under the same index, is deleted; one whose index is new, or whose key
@@ -543,7 +546,7 @@ and are listed for confirmation.
 | 5c. NDD-APKeep | **done** — owner decision B: the fork's elements over NDD's per-field atoms (`APKEEP_INCREMENTAL_SCOPE.md` §8). From zero, check by check, equal to NDD-flood on all eight workloads with checks (and to BDD-APKeep where that finishes), including faithful `wl_stanford`/`wl_i2` and `wl_cloud`; per port equal to the authors' reference on `wl_airtel1`; every BDD-APKeep stream held to the oracle on NDD-APKeep too, plus `wl_cloud`. Found: an NDD library atomization bug (fields sharing label variables) and unbounded dead molecules | this branch |
 | 5d. Finer footprints | **done; the default since 2026-10-11** (owner; coarse selectable, ablation in §7; paper account `APKEEP_FOOTPRINTS.md`) — `witness` (a reachable check watches only its witness path, one packet per hop after the last rewrite) and `dead-ends` (an unreachable check ignores moves into a dead end), `APKEEP_INCREMENTAL_SCOPE.md` §9; held to the oracle on every stream with the modes on, both engines. Indicative: with both, `wl_cloud` S1 re-checks 5,330 → 10, `wl_airtel1` S1 → 0, verdicts unchanged ([findings](../fave/bench/campaigns/results_inc_dev_footprints_20261010/FINDINGS.md)). Port order left as is and F not adopted, both documented (`APKEEP_INCREMENTAL_SCOPE.md` §9) | this branch |
 | 6. harness | **done but the protocol** — raw per-batch records (`incremental_run.py`), a cell under stamped wall/RSS/per-update limits with repetitions (`incremental_cell.py`, the per-update limit as a stall guard in `cell_run.run_cell`), statistics only from the records (`incremental_report.py`), the cross-engine check (`incremental_compare.py`), the oracle run (`--oracle-sample k --oracle-every N`) | `5a518599`, this branch |
-| 7. M2 spike (§8 step 1) | **done 2026-10-11** ([findings](../fave/bench/campaigns/results_m2_spike_20261011/FINDINGS.md)) — stable indices need the last emission: a ruleset alone cannot say which rule "was" where. **Stable renumbering by alignment** (per table: align by content, matched rules keep their index, new runs take free indices, a full gap relabels the smallest window to half the nominal spacing) holds one firewall edit at or near the floor: 500 random edits on `wl_up` pgf all at the floor (2 engine rules, against a dense median of 2,521); 200 head-of-chain inserts 4,528 changes against 304,538. **Design taken (autonomous, for the owner to confirm):** the aligner lives in the AGGREGATOR, which already holds every device's model, so generators and router/switch models stay unchanged; it is OPT-IN on the incremental path (from-zero runs, V5 and ad6's 16-bit encoding untouched); its index budget is declared per engine (NetPlumber 2^20−1, APKeep ACL < 70,000). Found: an `ESTABLISHED -j DROP` rule crashed the generator (fixed, `3202461d`) | `dca21368`..`17e1b123` |
+| 7. M2 spike (§8 step 1) | **done 2026-10-11** ([findings](../fave/bench/campaigns/results_m2_spike_20261011/FINDINGS.md)) — stable indices need the last emission: a ruleset alone cannot say which rule "was" where. **Stable renumbering by alignment** (per table: align by content, matched rules keep their index, new runs take free indices, a full gap relabels the smallest window to half the nominal spacing) holds one firewall edit at or near the floor: 500 random edits on `wl_up` pgf all at the floor (2 engine rules, against a dense median of 2,521); 200 head-of-chain inserts 4,528 changes against 304,538. **Design taken (autonomous, for the owner to confirm):** the aligner lives in the AGGREGATOR, which already holds every device's model, so generators and router/switch models stay unchanged; it is OPT-IN on the incremental path (from-zero runs and V5's numbers untouched); its index budget is declared per engine (NetPlumber 2^20−1, APKeep ACL < 70,000). Found: an `ESTABLISHED -j DROP` rule crashed the generator (fixed, `3202461d`) | `dca21368`..`17e1b123` |
 
 Held to the oracle in `test_incremental_{netplumber,veriflow}.py` on
 `wl_example`, `wl_ifi` and `wl_cloud`: after every update, selective equals full
