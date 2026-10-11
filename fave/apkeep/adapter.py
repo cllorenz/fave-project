@@ -3531,6 +3531,18 @@ class APKeepAdapter(AbstractVerificationEngine):
             other._frozen_split = self._frozen_split
             other._frozen_ipv6 = set(self._frozen_ipv6)
 
+    def max_rule_index(self, table: str) -> int:
+        """ INCREMENTAL_PLAN.md §8.1. A router ACL rule's priority is
+        `_ACL_PRIO_BASE - idx`, a packet-filter rule's `_FILTER_PRIO_BASE -
+        idx`; a FIB's is its prefix length, where the index is identity only.
+        The faithful wl_stanford/wl_i2 stage tables also use the ACL base, but
+        their element structure is frozen at build and updates to them are
+        refused (APKEEP_INCREMENTAL_SCOPE.md §7), so no stable index reaches
+        them. """
+        if table.endswith(('.acl_in', '.acl_out')):
+            return _ACL_PRIO_BASE - 1
+        return _FILTER_PRIO_BASE - 1
+
     def track_affected(self, on: bool) -> None:
         self._tracking = on
         if self._built and self._lib is not None:

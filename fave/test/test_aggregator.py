@@ -115,6 +115,112 @@ class TestSyncDiffAddModel(_AggregatorTestBase):
             self.assertIs(self.aggr.port_to_model[port], model)
 
 
+def _fw(rules, ports=('1', '2')):
+    """ A packet filter whose forward_filter holds `rules` (dport values), in
+    that order. """
+    from rule.rule_model import Forward, Match, Rule, RuleField
+    model = PacketFilterModel('fw', ports=list(ports))
+    model.tables['fw.forward_filter'] = [
+        Rule('fw', 'fw.forward_filter', i, in_ports=['fw.forward_filter_in'],
+             match=Match([RuleField('packet.upper.dport', str(d))]),
+             actions=[Forward(['fw.forward_filter_accept'])])
+        for i, d in enumerate(rules, start=1)]
+    return model
+
+
+class TestSyncStable(_AggregatorTestBase):
+    """ INCREMENTAL_PLAN.md §8.1: with stable_indices, a re-sent device reaches
+    the engine as the rules that changed; without, nothing changes. """
+
+    def _stable(self):
+        self.engine.max_rule_index.return_value = 1000
+        return AggregatorService({}, {}, engine=self.engine, reporter=self.reporter,
+                                 stable_indices=True)
+
+    def _ff(self, aggr):
+        return [(r.idx, r.match[0].value) for r in
+                sorted(aggr.models['fw'].tables['fw.forward_filter'], key=lambda r: r.idx)]
+
+    def test_off_by_default(self):
+        self.assertFalse(self.aggr.stable_indices)
+        self.aggr._sync_diff(_fw([10, 20]))
+        self.aggr._sync_diff(_fw([10, 15, 20]))
+        self.engine.insert_rule.assert_not_called()
+        self.engine.delete_rule.assert_not_called()
+
+    def test_first_send_is_spaced_and_added_whole(self):
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20, 30]))
+        self.engine.add_rules.assert_called_once()
+        # budget / (2(n+1)): half the range left for growth
+        self.assertEqual(self._ff(aggr), [(125, '10'), (250, '20'), (375, '30')])
+
+    def test_an_insert_is_one_engine_insert(self):
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20, 30]))
+        aggr._sync_diff(_fw([10, 15, 20, 30]))
+        self.engine.delete_rule.assert_not_called()
+        self.engine.insert_rule.assert_called_once()
+        rule = self.engine.insert_rule.call_args[0][0]
+        self.assertTrue(125 < rule.idx < 250)
+        self.assertEqual(aggr.update_stats['inserted'], 1)
+        self.assertEqual(self._ff(aggr)[0], (125, '10'))     # the others kept theirs
+
+    def test_a_delete_is_one_engine_delete(self):
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20, 30]))
+        aggr._sync_diff(_fw([10, 30]))
+        self.engine.delete_rule.assert_called_once_with('fw', 'fw.forward_filter', 250)
+        self.engine.insert_rule.assert_not_called()
+
+    def test_a_modify_deletes_before_it_inserts(self):
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20, 30]))
+        self.engine.reset_mock()
+        aggr._sync_diff(_fw([10, 21, 30]))
+        names = [c[0] for c in self.engine.mock_calls
+                 if c[0] in ('delete_rule', 'insert_rule')]
+        self.assertEqual(names, ['delete_rule', 'insert_rule'])
+
+    def test_what_the_engine_cannot_take_is_refused_untouched(self):
+        from aggregator.abstract_engine import UpdateRefused
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20]))
+        self.engine.reset_mock()
+        with self.assertRaises(UpdateRefused):
+            aggr._sync_diff(_fw([10, 15, 20], ports=('1', '2', '3')))
+        self.engine.insert_rule.assert_not_called()
+        self.engine.delete_rule.assert_not_called()
+        # the stored model and its indices are unchanged by a refusal
+        self.assertEqual(self._ff(aggr), [(166, '10'), (332, '20')])
+
+    def test_a_switch_filled_by_commands_is_re_sent_as_its_difference(self):
+        from rule.rule_model import Rule, Match, RuleField
+        from devices.switch import SwitchModel
+        aggr = self._stable()
+        aggr._sync_diff(SwitchModel('s1', ports=['1']))
+        rules = [Rule('s1', 's1.1', i, match=Match([RuleField('packet.upper.dport', str(i))]))
+                 for i in (1, 2, 3)]
+        aggr._sync_diff(SwitchCommand('s1', 'add_rules', rules))
+        self.engine.reset_mock()
+        whole = SwitchModel('s1', ports=['1'])
+        whole.tables['s1.1'] = [rules[0], rules[2]]          # rule 2 removed
+        aggr._sync_diff(whole)
+        # the engine held the commanded indices: one delete, nothing re-added
+        self.engine.delete_rule.assert_called_once_with('s1', 's1.1', 2)
+        self.engine.insert_rule.assert_not_called()
+
+    def test_a_switch_command_keeps_its_own_indices(self):
+        from rule.rule_model import Rule
+        aggr = self._stable()
+        from devices.switch import SwitchModel
+        aggr._sync_diff(SwitchModel('s1', ports=['1']))
+        self.engine.reset_mock()
+        aggr._sync_diff(SwitchCommand('s1', 'add_rules', [Rule('s1', 's1.1', 7)]))
+        self.engine.insert_rule.assert_not_called()
+        self.engine.add_rules.assert_called_once()
+
+
 class TestSyncDiffCommands(_AggregatorTestBase):
     """ Control-plane commands take the short-circuit branches in _sync_diff. """
 

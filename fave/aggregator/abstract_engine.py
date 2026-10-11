@@ -149,6 +149,14 @@ class AbstractVerificationEngine(object):
         raise UpdateRefused(
             "%s: set_link is not implemented" % type(self).__name__)
 
+    def max_rule_index(self, table: str) -> int:
+        """ The largest FaVe rule index this engine takes in `table` -- the
+        budget stable indices are spaced in (INCREMENTAL_PLAN.md §8.1). The
+        default is NetPlumber's, the tightest of the engines: its adapter
+        shifts the index left by 12 bits for the negation expansions
+        (`_RULE_IDX_MAX`). """
+        return 2**20 - 1
+
     def track_affected(self, on: bool) -> None:
         """ Start or stop recording what updates affect. A no-op for an
         engine that cannot record it; `take_affected` then returns None. """

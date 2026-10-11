@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import random
 
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple
@@ -339,3 +340,172 @@ def apply(engine: Any, update: Update, deleted: Set[RuleKey],
     else:
         raise ValueError("unknown update %r" % (op,))
     return True
+
+
+# --- S4: configuration edits through the aggregator (INCREMENTAL_PLAN.md §8.1) --
+
+#: device types whose configuration is a file of rule lines, and how a line of
+#: it is recognised as a RULE: iptables appends (`-A`), Cisco ACL entries
+_S4_RULE_LINE = {
+    'packet_filter': lambda line: ' -A ' in line,
+    'host': lambda line: ' -A ' in line,
+    'application_layer_gateway': lambda line: ' -A ' in line,
+    'router': lambda line: line.startswith('access-list '),
+}
+
+
+def _config_index(device: List[Any]) -> int:
+    """ Where a topology.json device entry keeps its configuration path. """
+    return {'packet_filter': 4, 'host': 4, 'application_layer_gateway': 4,
+            'router': 3}[device[1]]
+
+
+def _flip(line: str) -> Optional[str]:
+    """ S4's modify: the line with its action inverted; None if it has none
+    to invert, or if it is a state-checking iptables rule (an `ESTABLISHED`
+    rule's action decides a whole state shell -- a structural edit, not a
+    rule edit). """
+    if 'ESTABLISHED' in line:
+        return None
+    for a, b in ((' -j ACCEPT', ' -j DROP'), (' -j DROP', ' -j ACCEPT'),
+                 (' permit ', ' deny '), (' deny ', ' permit ')):
+        if a in line:
+            return line.replace(a, b, 1)
+    return None
+
+
+def _flip_route(entry: List[Any]) -> Optional[List[Any]]:
+    """ S4's modify for a switch rule (a routes.json entry): a forwarding rule
+    becomes a drop; a drop has nothing to invert. """
+    if not entry[4]:
+        return None
+    return entry[:4] + [[]] + entry[5:]
+
+
+class S4Configs:
+    """ The editable configurations of a workload, edited one rule at a time:
+    a working copy of every rule FILE its topology names (`devices` points at
+    the copies), and, for a workload of switches (wl_cloud), every switch's
+    rule list from routes.json -- a switch's configuration is its table, kept
+    in table order and numbered by position when sent, as a generator would. """
+
+    def __init__(self, prefix: str, workdir: str) -> None:
+        with open(os.path.join(prefix, 'topology.json')) as raw:
+            self.devices = json.load(raw)['devices']
+        self.prefix, self.workdir = prefix, workdir
+        self.lines: Dict[int, List[Any]] = {}
+        for n, device in enumerate(self.devices):
+            if device[1] not in _S4_RULE_LINE:
+                continue
+            i = _config_index(device)
+            with open(device[i]) as raw:
+                self.lines[n] = raw.read().split('\n')
+            device[i] = os.path.join(workdir, 'config_%d' % n)
+            self._write(n)
+        #: switch device index -> its table, when the workload has no rule files
+        self.switches: Dict[int, List[List[Any]]] = {}
+        self._routes: List[List[Any]] = []
+        if not self.lines and os.path.exists(os.path.join(prefix, 'routes.json')):
+            with open(os.path.join(prefix, 'routes.json')) as raw:
+                self._routes = json.load(raw)
+            index = {d[0]: n for n, d in enumerate(self.devices) if d[1] == 'switch'}
+            for entry in self._routes:
+                if entry[0] in index:
+                    self.switches.setdefault(index[entry[0]], []).append(entry)
+            for table in self.switches.values():
+                table.sort(key=lambda e: e[2])
+
+    def _write(self, n: int) -> None:
+        with open(self.devices[n][_config_index(self.devices[n])], 'w') as out:
+            out.write('\n'.join(self.lines[n]))
+
+    def rule_lines(self) -> List[Tuple[int, int]]:
+        """ (device, line) of every rule line, in topology then file order. """
+        if self.switches:
+            return [(n, i) for n in sorted(self.switches)
+                    for i in range(len(self.switches[n]))]
+        return [(n, i) for n in sorted(self.lines)
+                for i, line in enumerate(self.lines[n])
+                if _S4_RULE_LINE[self.devices[n][1]](line)]
+
+    def text(self, n: int, i: int) -> Any:
+        return self.switches[n][i] if self.switches else self.lines[n][i]
+
+    def flip(self, n: int, i: int) -> Any:
+        return _flip_route(self.switches[n][i]) if self.switches else _flip(self.lines[n][i])
+
+    def switch_table(self, n: int) -> List[List[Any]]:
+        """ A switch's rule list, numbered by position (index 1, 2, ...). """
+        return [e[:2] + [k] + e[3:] for k, e in enumerate(self.switches[n], start=1)]
+
+    def resend(self, fave: Any, n: int) -> None:
+        """ Send device `n`, as edited, through `fave` (an InProcessFaVe). """
+        if self.switches:
+            fave.resend_switch(self.devices[n][0], self.switch_table(n))
+        else:
+            fave.resend_device(self.devices[n])
+
+    def apply(self, edit: Tuple[str, int, int, str]) -> int:
+        """ Apply one edit to the working copy; returns its device index. """
+        op, n, i, text = edit
+        target = self.switches[n] if self.switches else self.lines[n]
+        if op == 'insert':
+            target.insert(i, text)
+        elif op == 'delete':
+            del target[i]
+        elif op == 'modify':
+            target[i] = text
+        else:
+            raise ValueError("unknown S4 edit %r" % (op,))
+        if not self.switches:
+            self._write(n)
+        return n
+
+    def zero_prefix(self) -> str:
+        """ A workload directory of the CURRENT configurations, for a
+        from-zero build: the workload's own files, and a topology.json whose
+        devices point at the working copies. """
+        zero = os.path.join(self.workdir, 'zero')
+        os.makedirs(zero, exist_ok=True)
+        own = {'topology.json'} | ({'routes.json'} if self.switches else set())
+        for name in os.listdir(self.prefix):
+            if name not in own and not os.path.exists(os.path.join(zero, name)):
+                os.symlink(os.path.abspath(os.path.join(self.prefix, name)),
+                           os.path.join(zero, name))
+        with open(os.path.join(self.prefix, 'topology.json')) as raw:
+            topo = json.load(raw)
+        topo['devices'] = self.devices
+        with open(os.path.join(zero, 'topology.json'), 'w') as out:
+            json.dump(topo, out)
+        if self.switches:
+            edited = {self.devices[n][0] for n in self.switches}
+            routes = [e for e in self._routes if e[0] not in edited]
+            for n in sorted(self.switches):
+                routes.extend(self.switch_table(n))
+            with open(os.path.join(zero, 'routes.json'), 'w') as out:
+                json.dump(routes, out)
+        return zero
+
+
+def stream_s4(configs: S4Configs, n: int, seed: int) -> Iterator[Tuple[str, int, int, str]]:
+    """ S4: `n` one-line configuration edits, each drawn AFTER the previous one
+    was applied (positions shift): insert a copy of a rule line before a rule
+    line of the same device, delete a rule line, or invert one's action.
+    Position uniform over all rule lines of the workload. The caller applies
+    each edit (`configs.apply`) before drawing the next. """
+    rng = random.Random(seed)
+    for _ in range(n):
+        lines = configs.rule_lines()
+        op = rng.choice(('insert', 'delete', 'modify'))
+        dev, i = rng.choice(lines)
+        if op == 'insert':
+            same = [j for d, j in lines if d == dev]
+            yield ('insert', dev, i, copy.deepcopy(configs.text(dev, rng.choice(same))))
+        elif op == 'delete' and sum(1 for d, _j in lines if d == dev) > 1:
+            yield ('delete', dev, i, '')
+        else:
+            flipped = configs.flip(dev, i)
+            if flipped is None:
+                yield ('insert', dev, i, copy.deepcopy(configs.text(dev, i)))
+            else:
+                yield ('modify', dev, i, flipped)

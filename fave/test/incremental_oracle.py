@@ -29,10 +29,10 @@ from test.backend_gate import require_or_skip
 from util import incremental as inc
 
 
-def inputs_present(prefix):
+def inputs_present(prefix, checks=True):
     return all(os.path.exists(os.path.join(prefix, name)) for name in (
-        'topology.json', 'routes.json', 'policies.json', 'sources.json',
-        'checks.json'))
+        'topology.json', 'routes.json', 'policies.json', 'sources.json')
+        + (('checks.json',) if checks else ()))
 
 
 def s2_and_s3(fraction=0.2, seed=1):
@@ -179,3 +179,55 @@ def moved_routes(test, make, prefix, checks_path, files=None, source=None,
             engine.insert_rule(late)
         test.assertEqual(cache.ask(checks), before)
         return len(routes)
+
+
+def run_s4(test, make, prefix, n, seed, every):
+    """ S4 under the oracle (INCREMENTAL_PLAN.md §8.1): `n` seeded one-line
+    configuration edits, each re-sending its device through the aggregator
+    with stable indices, so the engine gets the rules that changed. After
+    EVERY edit the selective re-verification must equal a full one; at every
+    `every`-th edit and the last, the full verdicts must equal a from-zero
+    build of the edited configurations (stable indices off -- the oracle
+    shares no code path with what it checks but the generators). Returns the
+    run's counts, including the engine-rule changes the edits caused. """
+    import tempfile
+    from util.in_process_driver import InProcessFaVe
+    checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
+    engine = make()
+    stats = {'edits': 0, 'verdict_changes': 0, 'rechecked': 0,
+             'engine_rules': 0, 'windows': 0}
+    with tempfile.TemporaryDirectory(prefix='s4_') as work, \
+            InProcessFaVe(engine, stable_indices=True) as fave:
+        configs = inc.S4Configs(prefix, work)
+        fave.replay(configs.zero_prefix())
+        engine.track_affected(True)
+        cache = inc.VerdictCache(fave, engine, checks)
+        previous = cache.full()
+        engine.take_affected()
+        for k, edit in enumerate(inc.stream_s4(configs, n, seed), start=1):
+            configs.resend(fave, configs.apply(edit))
+            got = fave._agg.update_stats
+            stats['engine_rules'] += got['deleted'] + got['inserted']
+            stats['windows'] += got['windows']
+            stats['rechecked'] += len(cache.selective(engine.take_affected()))
+            full = cache.ask(checks)
+            test.assertEqual(cache.verdict, full,
+                             "%s, edit %d %s: selective re-verification missed "
+                             "a change" % (prefix, k, edit[:3]))
+            stats['verdict_changes'] += sum(
+                1 for line in full if full[line] != previous[line])
+            previous = full
+            if k % every == 0 or k == n:
+                zero_engine = make()
+                zero_engine.track_affected(True)
+                with InProcessFaVe(zero_engine) as zero:
+                    zero.replay(configs.zero_prefix())
+                    expected = inc.VerdictCache(zero, zero_engine, checks).full()
+                if hasattr(zero_engine, 'release'):
+                    zero_engine.release()
+                test.assertEqual(full, expected,
+                                 "%s, edit %d %s: the incremental engine disagrees "
+                                 "with a from-zero build of the edited "
+                                 "configurations" % (prefix, k, edit[:3]))
+            stats['edits'] = k
+    return stats

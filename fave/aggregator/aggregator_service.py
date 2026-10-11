@@ -30,6 +30,7 @@ import json
 import logging
 import sys
 import argparse
+import copy
 import time
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -66,8 +67,20 @@ from devices.probe import ProbeModel
 from topology.topology import LinksModel, TopologyCommand
 
 from reporting.reporter import Reporter
+from aggregator.abstract_engine import UpdateRefused
+from util.stable_index import StableIndexer, diff as stable_diff, key as stable_key
 
 from rule.rule_model import RuleField
+
+#: device models that arrive WHOLE -- the ones stable indices apply to
+#: (INCREMENTAL_PLAN.md §8.1); a switch's control-plane commands keep the
+#: indices their sender chose
+_WHOLE_DEVICE_TYPES = ('packet_filter', 'snapshot_packet_filter',
+                       'application_layer_gateway', 'switch', 'router')
+
+#: tables an engine translates as a whole (util/incremental._WHOLE_TABLES)
+_WHOLE_TABLES = ('.pre_routing', '.post_routing')
+
 
 def _has_asyncore_socks(socks: Dict[Any, Any]) -> bool:
     return socks != {} and all(v is not None for v in socks.values())
@@ -210,7 +223,8 @@ class AggregatorService(AbstractAggregator):
             self, socks: Dict[Any, Any], asyncore_socks: Dict[Any, Any],
             mapping: Optional[Any] = None,
             engine: Optional[Any] = None, reporter: Optional[Any] = None,
-            backend: str = BACKEND_NETPLUMBER, **backend_options: Any
+            backend: str = BACKEND_NETPLUMBER, stable_indices: bool = False,
+            **backend_options: Any
     ) -> None:
         self.queue: Queue[Any] = Queue()
         self.models: Dict[str, Any] = {}
@@ -243,6 +257,20 @@ class AggregatorService(AbstractAggregator):
         # produce) a verdict -- see reporting/reporter.py's
         # `_backend_checks_anomalies`.
         self.backend = backend
+        # INCREMENTAL_PLAN.md §8.1: OPT-IN stable indices. Off, every path is
+        # as it was (V5's numbers were measured on the generators' indices).
+        # On, a device model that arrives whole is re-numbered against its last
+        # emission, and a re-sent device reaches the engine as the rules that
+        # changed (`_sync_stable`).
+        self.stable_indices = stable_indices
+        self._indexer: Optional[StableIndexer] = (
+            StableIndexer(self.verification_engine.max_rule_index)
+            if stable_indices else None)
+        #: per-device-update counts of the stable path, for the S4 driver
+        self.update_stats: Dict[str, Any] = {}
+        #: (node, table) a control-plane command has filled -- a packet
+        #: filter's routing table, a switch's flow table (§8.1)
+        self._commanded: set = set()
         # XXX: make log file configurable
         #
         # AD6_PLAN.md §9.28: the log tail is net_plumber's stdout, so it is
@@ -615,6 +643,13 @@ class AggregatorService(AbstractAggregator):
         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             AggregatorService.LOGGER.debug('worker: synchronize model')
 
+        # §8.1: decided on the message as it ARRIVED -- a switch command below
+        # turns `model` into the stored switch, whose type is 'switch' too
+        whole = (model.type in _WHOLE_DEVICE_TYPES or (
+            model.type == 'topology_command' and model.mtype in _WHOLE_DEVICE_TYPES
+            and model.command == 'add'))
+        commanded = model.type in ["switch_command", 'state_command', 'relay_command']
+
 
         # handle minor model changes (e.g. updates by the control plane)
         if model.type in ["switch_command", 'state_command', 'relay_command']:
@@ -751,6 +786,10 @@ class AggregatorService(AbstractAggregator):
 
             return
 
+        if self._indexer is not None and whole:
+            self._sync_stable(model)
+            return
+
 
         if model.node in self.models:
             # calculate items to remove and items to add
@@ -793,6 +832,102 @@ class AggregatorService(AbstractAggregator):
 
         self.models.setdefault(model.node, model)
 
+        if self._indexer is not None and commanded:
+            # §8.1: a control-plane command changed the device rule by rule,
+            # at the indices its sender chose; what the engine now holds is the
+            # stored model, and the next whole re-send is diffed against that
+            for table, rules in self.models[model.node].tables.items():
+                if rules:
+                    self._commanded.add((model.node, table))
+                self._indexer.seed(model.node, table, rules)
+
+
+    def _sync_stable(self, model: Any) -> None:
+        """ INCREMENTAL_PLAN.md §8.1: a device model that arrived WHOLE, with
+        stable indices. New: every table is spaced in its index budget and the
+        model added as before. Re-sent: every table is re-numbered against its
+        last emission and the ENGINE gets the difference -- the rules whose
+        index left or whose content changed are deleted, the new ones
+        inserted, deletes first. What the engines cannot take rule by rule (a
+        table appearing or vanishing, other ports or wiring, a whole-translated
+        table that changed) is refused before anything is touched. """
+        indexer = self._indexer
+        assert indexer is not None
+        node = model.node
+        old = self.models.get(node)
+        # a table's order is its INDEX order (the index is the priority), not
+        # the list order the model happens to carry (ad6/translate.py:711)
+        ordered = {t: sorted(rules, key=lambda r: r.idx) for t, rules in model.tables.items()}
+        if old is not None:
+            # A table the control plane filled (a packet filter's routing
+            # table, from routes.json) arrives EMPTY in a whole re-send of the
+            # device's configuration, which does not own it: it keeps the
+            # commanded rules. Re-sent WITH rules (a switch whose table is its
+            # configuration, S4 on wl_cloud), it is diffed like any other.
+            for table in ordered:
+                if not ordered[table] and (node, table) in self._commanded:
+                    ordered[table] = sorted(old.tables[table], key=lambda r: r.idx)
+
+        if old is None:
+            model.tables = {t: indexer.emit(node, t, rules) for t, rules in ordered.items()}
+            self._validate_declared_tables(model)
+            self._add_model(model)
+            self.models[node] = model
+            self.update_stats = {'node': node, 'new': True}
+            return
+
+        if set(ordered) != set(old.tables):
+            raise UpdateRefused("%s: the re-sent model has other tables (%s)" % (
+                node, sorted(set(ordered) ^ set(old.tables))))
+        if model.ports != old.ports or model.wiring != old.wiring:
+            raise UpdateRefused("%s: the re-sent model has other ports or wiring" % node)
+        for table in ordered:
+            if table.endswith(_WHOLE_TABLES) and \
+                    [stable_key(r) for r in ordered[table]] != \
+                    [k for _i, k in indexer.last(node, table) or []]:
+                raise UpdateRefused("%s: %s is translated as a whole and changed"
+                                    % (node, table))
+
+        t0 = time.perf_counter()
+        windows, moved = indexer.stats['windows'], indexer.stats['moved']
+        deletes: List[Tuple[str, int]] = []
+        inserts: List[Any] = []
+        for table, rules in ordered.items():
+            if indexer.last(node, table) is None:
+                # never emitted here: a switch table its control plane filled
+                # rule by rule -- the engine holds the stored rules as they are
+                indexer.seed(node, table, old.tables[table])
+            prev = indexer.last(node, table)
+            emitted = indexer.emit(node, table, rules)
+            gone, new = stable_diff(prev, emitted)
+            deletes.extend((table, idx) for idx in gone)
+            inserts.extend(new)
+            model.tables[table] = emitted
+
+        t1 = time.perf_counter()
+        for table, idx in deletes:
+            self.verification_engine.delete_rule(node, table, idx)
+        if inserts:
+            # the declared-LPM check over what is added, as for any batch
+            added = copy.copy(model)
+            added.tables = {}
+            for rule in inserts:
+                added.tables.setdefault(rule.tid, []).append(rule)
+            self._validate_declared_tables(added)
+        for rule in inserts:
+            self.verification_engine.insert_rule(rule)
+        t2 = time.perf_counter()
+
+        model.table_semantics = dict(model.table_semantics)
+        self.models[node] = model
+        self.update_stats = {
+            'node': node, 'new': False,
+            'deleted': len(deletes), 'inserted': len(inserts),
+            'windows': indexer.stats['windows'] - windows,
+            'moved': indexer.stats['moved'] - moved,
+            # align + diff, and the engine's updates (INCREMENTAL_PLAN.md §8.1, 7)
+            't_diff_s': t1 - t0, 't_update_s': t2 - t1,
+        }
 
     def _align_ports_for_probe(self, model: Any) -> None:
         if model.test_path is None: return

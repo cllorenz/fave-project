@@ -583,6 +583,11 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             if (a, b) in ir.links:
                 ir.links.remove((a, b))
 
+    def max_rule_index(self, table: str) -> int:
+        """ §8.1: priorities are `-idx`, and in a declared-LPM table
+        `plen·2^40 − idx` (O1), so an index stays below 2^40. """
+        return 2**40 - 1
+
     def track_affected(self, on: bool) -> None:
         self._tracking = on
         if not on:

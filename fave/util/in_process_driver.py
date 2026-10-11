@@ -63,7 +63,7 @@ class InProcessFaVe:
         # engine now holds the built network + compliance results
     """
 
-    def __init__(self, engine: Any) -> None:
+    def __init__(self, engine: Any, stable_indices: bool = False) -> None:
         # Import here so merely importing this module does not drag in the whole
         # aggregator/bench stack (and its native deps) for callers that only
         # want the class symbol.
@@ -73,8 +73,11 @@ class InProcessFaVe:
         # not exist here. The handler only touches the reporter on 'report'
         # commands, which we never send.
         reporter = SimpleNamespace(daemon=False, start=lambda: None)
+        # `stable_indices`: INCREMENTAL_PLAN.md §8.1 -- re-sent devices reach
+        # the engine as the rules that changed (the S4 path); off by default
         self._agg = AggregatorService(
-            {}, {}, mapping=None, engine=engine, reporter=reporter
+            {}, {}, mapping=None, engine=engine, reporter=reporter,
+            stable_indices=stable_indices
         )
         self.engine = engine
 
@@ -87,6 +90,8 @@ class InProcessFaVe:
         barrier.publish_owner(self._barrier_dir)
 
         self._patched: List[Any] = []
+        self._guard: Optional[str] = None
+        self._guarded_sends = 0
         self._install_transport()
 
         self._worker = threading.Thread(target=self._agg._handler)
@@ -104,7 +109,16 @@ class InProcessFaVe:
             def close(self) -> None:
                 pass
 
+        driver = self
+
         def _send(_conn: Any, data: str) -> None:
+            # `resend_device`: the device's message carries a barrier, so a
+            # refusal reaches the caller instead of only the log
+            if driver._guard is not None:
+                msg = json.loads(data)
+                msg['barrier'] = driver._guard
+                driver._guarded_sends += 1
+                data = json.dumps(msg)
             agg.queue.put(data)
 
         def _connect(*_a: Any, **_k: Any) -> Any:
@@ -186,6 +200,51 @@ class InProcessFaVe:
         self._agg.queue.join()
         # `_handler` releases in a `finally` BEFORE its `task_done()`, so the
         # join above already guarantees this resolves on the first poll.
+        barrier.wait(guard, directory=self._barrier_dir)
+
+    def resend_device(self, device: List[Any]) -> None:
+        """ Re-send ONE device, as `replay` sends it -- a `topology.json`
+        entry [name, type, ...] whose config path may point at an edited copy
+        -- and block until the aggregator has applied it. With
+        `stable_indices`, the engine then gets the rules that changed
+        (INCREMENTAL_PLAN.md §8.1, S4). Barrier-guarded like
+        `check_compliance`: a refusal or failure raises `BarrierError` with
+        the aggregator's message. """
+        from util.bench_utils import _DEVICES
+        guard = barrier.arm(self._barrier_dir)
+        self._guard, self._guarded_sends = guard, 0
+        try:
+            _DEVICES[device[1]](*device, use_unix=False, interweave=True)
+        finally:
+            self._guard = None
+        if self._guarded_sends != 1:
+            raise RuntimeError("resend_device: %d messages for one device, "
+                               "expected one" % self._guarded_sends)
+        self._agg.queue.join()
+        barrier.wait(guard, directory=self._barrier_dir)
+
+    def resend_switch(self, name: str, entries: List[List[Any]]) -> None:
+        """ Re-send switch `name` WHOLE with the rules `entries` (routes.json
+        entries [node, table, idx, fields, commands, in_ports], built into
+        rules exactly as `devices/switch.py` builds a command's) -- S4 on a
+        workload whose rules are switch tables (wl_cloud). Its ports, wiring
+        and declarations are the stored model's. Barrier-guarded. """
+        import copy as _copy
+        from devices.switch import _commands_to_actions, _fields_to_match
+        from rule.rule_model import Match, Rule
+        from topology.topology import TopologyCommand
+        model = _copy.deepcopy(self._agg.models[name])
+        table = name + '.1'
+        model.tables[table] = [
+            Rule(node, table, int(idx), [p for p in in_ports if p],
+                 Match(_fields_to_match(';'.join(fields))),
+                 _commands_to_actions(','.join(commands)))
+            for node, _t, idx, fields, commands, in_ports in entries]
+        msg = TopologyCommand(name, 'add', model=model).to_json()
+        guard = barrier.arm(self._barrier_dir)
+        msg['barrier'] = guard
+        self._agg.queue.put(json.dumps(msg))
+        self._agg.queue.join()
         barrier.wait(guard, directory=self._barrier_dir)
 
     # -- lifecycle ------------------------------------------------------------
