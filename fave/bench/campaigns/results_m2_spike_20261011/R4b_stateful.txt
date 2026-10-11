@@ -1,0 +1,6 @@
+ruleset pgf.uni-potsdam.de-ruleset: 2056 engine rules in the filter tables, 3 edits, seed 4, mode stateful +local, whole-table re-spacings 0, local windows 3 (old rules moved 509)
+  state:FORWARD n=  1  dense med/max    2045/   2045   stable med/max   2035/  2035   floor med/max   1021/  1021   gen 0.15s  align 0.007s (med)
+  state:INPUT n=  1  dense med/max       8/      8   stable med/max      6/     6   floor med/max      4/     4   gen 0.13s  align 0.005s (med)
+  state:OUTPUT n=  1  dense med/max       9/      9   stable med/max      5/     5   floor med/max      3/     3   gen 0.13s  align 0.005s (med)
+  all    n=  3  dense med/max       9/   2045   stable med/max      6/  2035   floor med/max      4/  1021   gen 0.13s  align 0.005s (med)
+  stable == floor on 0 of 3 edits

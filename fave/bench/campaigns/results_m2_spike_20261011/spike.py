@@ -46,15 +46,85 @@ def spacing(n):
 
 class Stable:
     """ stable renumbering by alignment, per table """
-    def __init__(self):
+    def __init__(self, local=False):
         self.prev = {}          # table -> [(idx, key)]
-        self.respaced = 0
+        self.respaced = 0       # whole-table re-spacings
+        self.local = local      # R4: re-space a window around a full gap
+        self.windows = 0        # local re-spacings
+        self.renumbered = 0     # old rules moved by local re-spacing
+
+    def _emit_local(self, prev, keys):
+        """ R4: assign each new rule its old index or None, then give every run
+        of Nones room by renumbering the smallest window of neighbours that
+        leaves at least `minstep` between consecutive indices. """
+        pk = [k for _i, k in prev]
+        ops = difflib.SequenceMatcher(None, pk, keys, autojunk=False).get_opcodes()
+        slots = []
+        for tag, i1, i2, j1, j2 in ops:
+            if tag == 'equal':
+                slots.extend(prev[i][0] for i in range(i1, i2))
+            else:
+                slots.extend([None] * (j2 - j1))
+        n = len(slots)
+        # R4a used spacing(n) // 16: a window relabelled to just above that
+        # fails again on the next insert at the same spot (R4a_*.txt). R4b
+        # restores half the nominal spacing, so a relabelled window takes
+        # ~log2(spacing/2) more inserts before the next relabel.
+        minstep = max(1, spacing(n) // (16 if os.environ.get('SPIKE_MINSTEP') == '16' else 2))
+        j = 0
+        while j < n:
+            if slots[j] is not None:
+                j += 1
+                continue
+            a = j
+            while j < n and slots[j] is None:
+                j += 1
+            b = j                                   # run [a, b) has no index
+            left, right = a, b                      # window [left, right)
+            # R4c: relabel only when the run does not fit its gap at all;
+            # then widen the window until it can be spread at `minstep`.
+            lo = slots[a - 1] if a > 0 else 0
+            hi = slots[b] if b < n else IDX_MAX + 1
+            if os.environ.get('SPIKE_TRIGGER') != 'target' and hi - lo - 1 >= b - a:
+                step = (hi - lo) / (b - a + 1)
+                for x in range(a, b):
+                    slots[x] = int(lo + step * (x - a + 1))
+                continue
+            while True:
+                while right < n and slots[right] is None:   # absorb a later run
+                    right += 1
+                lo = slots[left - 1] if left > 0 else 0
+                hi = slots[right] if right < n else IDX_MAX + 1
+                if (hi - lo) // (right - left + 1) >= minstep:
+                    break
+                if left == 0 and right == n:
+                    lo, hi = 0, IDX_MAX + 1
+                    break
+                if left > 0 and (right == n or (a - left) <= (right - b)):
+                    left -= 1
+                else:
+                    right += 1
+            moved = sum(1 for x in range(left, right) if slots[x] is not None)
+            if moved:
+                self.windows += 1
+                self.renumbered += moved
+            step = (hi - lo) / (right - left + 1)
+            for x in range(left, right):
+                slots[x] = int(lo + step * (x - left + 1))
+            j = right
+        return list(zip(slots, keys))
 
     def emit(self, table, keys):
         prev = self.prev.get(table)
         if prev is None:
             g = spacing(len(keys))
             out = [(g * (i + 1), k) for i, k in enumerate(keys)]
+            self.prev[table] = out
+            return out
+        if self.local:
+            out = self._emit_local(prev, keys)
+            assert [i for i, _k in out] == sorted(i for i, _k in out)
+            assert len({i for i, _k in out}) == len(out) and out[-1][0] <= IDX_MAX
             self.prev[table] = out
             return out
         pk = [k for _i, k in prev]
@@ -104,11 +174,11 @@ def mutate(line, rnd):
     return line + ' -p tcp' if ' -p ' not in line else line.replace(' -j ', ' --dport 4711 -j ', 1)
 
 
-def run(path, n_edits, seed):
+def run(path, n_edits, seed, mode='random', local=False):
     lines = [l.rstrip('\n') for l in open(path) if l.strip() and not l.startswith('#')]
     rnd = random.Random(seed)
     tables = model_tables(lines)
-    stable = Stable()
+    stable = Stable(local)
     dense_prev = {t: [(r.idx, key(r)) for r in rs] for t, rs in tables.items()}
     stable_prev = {t: stable.emit(t, [key(r) for r in rs]) for t, rs in tables.items()}
     size = sum(len(v) for v in dense_prev.values())
@@ -117,7 +187,22 @@ def run(path, n_edits, seed):
         rule_pos = [i for i, l in enumerate(lines) if ' -A ' in l]
         op = rnd.choice(['insert', 'delete', 'modify'])
         pos = rnd.choice(rule_pos)
-        if op == 'insert':
+        if mode == 'cluster':          # R2: every insert at one fixed line
+            op, pos = 'insert', rule_pos[len(rule_pos) // 2]
+        if mode == 'top':              # R5: -I CHAIN 1, a random chain
+            chain = rnd.choice(['INPUT', 'OUTPUT', 'FORWARD'])
+            in_chain = [i for i in rule_pos if (' -A %s ' % chain) in lines[i]]
+            op, pos = 'insert', (in_chain[0] if in_chain else rule_pos[0])
+        if mode == 'stateful':         # R3: a new state-checking rule mid-chain
+            chain = ['INPUT', 'OUTPUT', 'FORWARD'][e % 3]
+            in_chain = [i for i in rule_pos if (' -A %s ' % chain) in lines[i]]
+            if not in_chain:
+                continue
+            pos = in_chain[len(in_chain) // 2]
+            prefix = lines[pos].split(' -A ')[0]
+            lines.insert(pos, '%s -A %s -m conntrack --ctstate ESTABLISHED -j ACCEPT' % (prefix, chain))
+            op = 'state:' + chain
+        elif op == 'insert':
             src = lines[rnd.choice(rule_pos)]
             chain = lines[pos].split(' -A ')[1].split()[0]
             src = src.split(' -A ')[0] + ' -A ' + chain + ' ' + ' '.join(src.split(' -A ')[1].split()[1:])
@@ -140,15 +225,19 @@ def run(path, n_edits, seed):
             dense_prev[t], stable_prev[t] = new, st
         t_align = time.perf_counter() - t0
         rows.append((op, d, s, fl, t_gen, t_align))
-    return size, rows, stable.respaced
+    return size, rows, stable.respaced, stable.windows, stable.renumbered
 
 
 if __name__ == '__main__':
     path, n, seed = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-    size, rows, respaced = run(path, n, seed)
-    print('ruleset %s: %d engine rules in the filter tables, %d edits, seed %d, re-spacings %d'
-          % (os.path.basename(path), size, n, seed, respaced))
-    for op in ('insert', 'delete', 'modify', 'all'):
+    mode = sys.argv[4] if len(sys.argv) > 4 else 'random'
+    local = len(sys.argv) > 5 and sys.argv[5] == 'local'
+    size, rows, respaced, windows, renumbered = run(path, n, seed, mode, local)
+    print('ruleset %s: %d engine rules in the filter tables, %d edits, seed %d, mode %s%s, '
+          'whole-table re-spacings %d, local windows %d (old rules moved %d)'
+          % (os.path.basename(path), size, n, seed, mode, ' +local' if local else '',
+             respaced, windows, renumbered))
+    for op in sorted({r[0] for r in rows}) + ['all']:
         sel = [r for r in rows if op == 'all' or r[0] == op]
         if not sel:
             continue
@@ -158,3 +247,5 @@ if __name__ == '__main__':
               '   gen %.2fs  align %.3fs (med)'
               % (op, len(sel), med(1), mx(1), med(2), mx(2), med(3), mx(3), med(4), med(5)))
     print('  stable == floor on %d of %d edits' % (sum(r[2] == r[3] for r in rows), len(rows)))
+    print('  totals: dense %d, stable %d, floor %d engine-rule changes'
+          % tuple(sum(r[i] for r in rows) for i in (1, 2, 3)))

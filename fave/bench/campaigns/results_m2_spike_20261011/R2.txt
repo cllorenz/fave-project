@@ -1,0 +1,4 @@
+ruleset pgf.uni-potsdam.de-ruleset: 2056 engine rules in the filter tables, 200 edits, seed 3, re-spacings 23
+  insert n=200  dense med/max    3356/   6095   stable med/max      2/  7289   floor med/max      2/  1184   gen 0.11s  align 0.006s (med)
+  all    n=200  dense med/max    3356/   6095   stable med/max      2/  7289   floor med/max      2/  1184   gen 0.11s  align 0.006s (med)
+  stable == floor on 177 of 200 edits

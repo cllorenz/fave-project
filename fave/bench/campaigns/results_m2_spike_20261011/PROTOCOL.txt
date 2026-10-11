@@ -32,3 +32,15 @@ R3  a new state-checking rule (-m conntrack --ctstate ESTABLISHED -j ACCEPT)
         stable == floor.
 R4  same as R2 with local re-spacing (if built after R2): P4: re-spacings
     of the whole table == 0 and max change per edit <= 2 * window.
+
+Addendum (2026-10-11, before R5/R6 ran; R2-R4 outcomes are in R*.txt). R4 was
+run in three variants: R4a (window target spacing/16), R4b (target spacing/2
+used also as the TRIGGER -- a bug of design, kept for the record), R4c (trigger:
+the run does not fit its gap; target: spacing/2). R4c is the candidate.
+
+R5  head-of-chain inserts (iptables -I CHAIN 1 practice): 200 inserts, each at
+    the first rule line of a random chain, wl_up pgf, R4c.
+    P5: whole-table re-spacings 0; median change == floor; old rules moved in
+        total <= 20,000 (R4c's cluster run moved 14,799).
+R6  R4c cluster run on wl_tum's tum-ruleset (5,108 engine rules), 200 inserts.
+    P6: median change == floor; local windows <= 60.

@@ -1,0 +1,6 @@
+ruleset pgf.uni-potsdam.de-ruleset: 2056 engine rules in the filter tables, 500 edits, seed 2, mode random +local, whole-table re-spacings 0, local windows 0 (old rules moved 0)
+  delete n=170  dense med/max    2951/   4078   stable med/max      2/     2   floor med/max      2/     2   gen 0.10s  align 0.006s (med)
+  insert n=160  dense med/max    3034/   4068   stable med/max      2/     2   floor med/max      2/     2   gen 0.10s  align 0.006s (med)
+  modify n=170  dense med/max       4/      4   stable med/max      4/     4   floor med/max      4/     4   gen 0.10s  align 0.006s (med)
+  all    n=500  dense med/max    2521/   4078   stable med/max      2/     4   floor med/max      2/     4   gen 0.10s  align 0.006s (med)
+  stable == floor on 500 of 500 edits
