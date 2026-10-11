@@ -1095,6 +1095,27 @@ then applied to one of the two halves.
 - **The general point:** a gate whose verdict depends on the caller's cwd will be read wrong,
   and the reading is as likely to be a false red as a false green.
 
+### 44. The `integration` tier takes ~1 h 23 min — speed it up — OPEN (owner, 2026-10-11)
+- [ ] **Measure first:** per-test durations of both pytest groups (`--durations=0`), so
+  the fix aims at measured costs, not at the guess below.
+- [ ] **Then cut the wall time**, keeping every test in some gate (see *Fix*).
+- **Finding (2026-10-11, `ai` at `6eeec530`, 16 cores, 62 GB, `FAVE_REQUIRE_BACKENDS=1`):**
+  `RESULT: integration PASSED` after ~83 min. The bison-dependent group: 512 passed, 4
+  skipped in 12 min 41 s. The own-JVM group (`FAVE_NDD_TESTS`): 67 passed in **69 min 36 s**,
+  in one process at ~12 GB RSS and ~1.6 cores. Most of that group's time went into
+  `test_incremental_apkeep.py` (sat on it for well over 30 min), whose streams include
+  `wl_cloud` -- observed from the progress line, **not timed per test**. The tier grew
+  with the incremental axis (item 31): its oracle streams were added there in M1. A gate
+  that takes over an hour is run less often, and a red result arrives an hour late.
+- **Fix (options, not decided):** (a) run the two pytest groups in parallel -- they are
+  separate processes already, and memory allows it; (b) split `FAVE_NDD_TESTS` into
+  several processes (one JVM each, as JPype requires -- see the comment above
+  `FAVE_NDD_TESTS` in `test.sh`), e.g. one per incremental stream; (c) move the heaviest
+  oracle streams (`wl_cloud`) behind an opt-in, as `VERIFLOW_FULL_DIFFERENTIAL=1` does for
+  `wl_i2`, and into a slower tier that still runs somewhere -- a test moved out of every
+  job is item 42's defect again; (d) cache generated workload inputs between runs.
+  Whichever is chosen, the bound on any opt-in must be stated where the test is.
+
 ---
 
 ## Medium priority — structural improvements
