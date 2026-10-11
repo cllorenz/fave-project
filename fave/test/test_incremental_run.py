@@ -291,6 +291,10 @@ class TestFootprintOption(unittest.TestCase):
         self.assertEqual(eff('apkeep', ()), [])
         self.assertEqual(eff('apkeep', ('dead-ends',)), ['dead-ends'])
         self.assertEqual(eff('netplumber', None), [])
+        # VeriFlow-FR: coarse unless asked (VERIFLOW_FOOTPRINT_SCOPE.md §4.5),
+        # in the adapter's order
+        self.assertEqual(eff('veriflow', None), [])
+        self.assertEqual(eff('veriflow', ('dead-ends', 'witness')), ['witness', 'dead-ends'])
 
 
 class TestReadLines(unittest.TestCase):

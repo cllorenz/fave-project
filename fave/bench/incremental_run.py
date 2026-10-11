@@ -114,8 +114,13 @@ def parse_footprint(text):
 
 def effective_footprint(engine, footprint):
     """ The footprint modes an engine runs with, as a list; [] when coarse or
-    not APKeep. """
+    NetPlumber. APKeep's default is both modes (owner, 2026-10-11);
+    VeriFlow-FR's is coarse until the owner decides
+    (VERIFLOW_FOOTPRINT_SCOPE.md §4.5). """
     from apkeep.lib_apkeep import DEFAULT_FOOTPRINT
+    if engine == 'veriflow':
+        # in the adapter's order, which is what its stamp records
+        return [m for m in ('witness', 'dead-ends') if m in (footprint or ())]
     if engine not in ('apkeep', 'ndd-apkeep'):
         return []
     return list(DEFAULT_FOOTPRINT if footprint is None else footprint)
@@ -136,7 +141,8 @@ def make_engine(name, footprint=None):
         # footprint None: the adapter's default (both modes)
         return lambda: APKeepAdapter(log, engine=apkeep_engine, footprint=footprint)
     from veriflow.adapter import VeriFlowAdapter
-    return lambda: VeriFlowAdapter(log)
+    # footprint None: VeriFlow-FR's default, the coarse footprint
+    return lambda: VeriFlowAdapter(log, footprint=tuple(footprint or ()))
 
 
 def build_stream(kind, rules, links, fraction, seed):
@@ -351,12 +357,14 @@ def main(argv=None):
     parser.add_argument('--oracle-seed', type=int, default=1)
     parser.add_argument('--cell-dir', required=True)
     parser.add_argument('--footprint', type=parse_footprint, default=None,
-                        help="APKeep engines: footprint modes, comma-separated "
-                             "(witness, dead-ends; APKEEP_INCREMENTAL_SCOPE.md §9), "
-                             "or 'coarse'; default both")
+                        help="APKeep engines and VeriFlow-FR: footprint modes, "
+                             "comma-separated (witness, dead-ends; "
+                             "APKEEP_INCREMENTAL_SCOPE.md §9, "
+                             "VERIFLOW_FOOTPRINT_SCOPE.md §4), or 'coarse'; "
+                             "default both on APKeep, coarse on VeriFlow-FR")
     args = parser.parse_args(argv)
-    if args.footprint is not None and args.engine not in ('apkeep', 'ndd-apkeep'):
-        parser.error("--footprint needs an APKeep engine")
+    if args.footprint is not None and args.engine not in ('apkeep', 'ndd-apkeep', 'veriflow'):
+        parser.error("--footprint needs an APKeep engine or VeriFlow-FR")
     if args.batch < 1:
         parser.error("--batch must be at least 1")
     if args.oracle_every and not args.oracle_sample:
