@@ -1,6 +1,6 @@
 # Incremental reverification — a plan
 
-**Status: M1 BUILT (2026-10-11); the campaign waits on its protocol.**
+**Status: M1 BUILT (2026-10-11); M2 next, then the campaign (D10).**
 Decisions D1–D9 are the owner's, taken in discussion on 2026-10-09 (§4), as are
 O1–O6 (§9). §10 records what is built: NetPlumber, VeriFlow-FR, BDD-APKeep and
 NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
@@ -138,6 +138,12 @@ TNSM'21 measures only build-from-zero plus one verification.
   measures runtime state tracking, which TNSM'21 replaced.
 - **D9. Two milestones.** M1, the engine layer, first; M2, the FaVe layer —
   the owner's three stability requirements (§8) plus aggregator deletion.
+- **D10. M2 before the campaign (owner, 2026-10-11).** M1 is built, but its
+  campaign waits: M2 is done first, starting with the packet-filter spike
+  (§8), and the campaign then covers both milestones, S4 included. It runs on
+  **another machine** (64 GB, enough cores) — so the tree here is not frozen
+  for it, and the calibration that precedes its protocol (O4.5) is repeated
+  there: the dev calibrations on this machine size nothing on that one.
 
 ## 5. What is measured, per update
 
