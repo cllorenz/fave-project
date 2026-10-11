@@ -1,0 +1,3 @@
+default  footprint=['witness', 'dead-ends'] re-checked=10 (want 10) per-update equal=True verdicts equal=True -> held
+coarse   footprint=[] re-checked=5330 (want 5330) per-update equal=True verdicts equal=True -> held
+all held
