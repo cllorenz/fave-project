@@ -152,6 +152,12 @@ TNSM'21 measures only build-from-zero plus one verification.
   calibrations, are what the grid is cut by. Under its own `PROTOCOL.txt` with
   predictions, which decides whether cells run in parallel and whether the O3
   oracle runs are part of it. Order: M2 → this run → the campaign elsewhere.
+- **D12. VeriFlow-FR's footprint: scope first (owner, 2026-10-11).** All three
+  engines' footprints are FaVe's design, and only APKeep's is refined, so
+  `t_total` would partly measure FaVe's effort per engine. Before deciding
+  whether VeriFlow-FR gets witness and dead ends, a scoping pass:
+  [`VERIFLOW_FOOTPRINT_SCOPE.md`](VERIFLOW_FOOTPRINT_SCOPE.md). Whatever is
+  decided lands before the D11 run.
 
 ## 5. What is measured, per update
 
