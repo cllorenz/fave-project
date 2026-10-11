@@ -1,0 +1,4 @@
+{"elapsed_s": 1.0, "peak_rss_mb": 100, "rss_by_process_mb": {"python3": 100}, "available_mb": 62425, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 61.6, "peak_rss_mb": 261, "rss_by_process_mb": {"python3": 261}, "available_mb": 62318, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 122.2, "peak_rss_mb": 284, "rss_by_process_mb": {"python3": 278}, "available_mb": 62327, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 135.6, "peak_rss_mb": 286, "status": "completed", "limit_tripped": "none"}

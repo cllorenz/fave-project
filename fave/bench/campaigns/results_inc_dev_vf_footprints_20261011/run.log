@@ -1,0 +1,103 @@
+{"repetition": 1, "outcome": "measured", "completed_updates": 44, "wall_s": 0.314}
+2026-10-11T12:57:19Z cells_coarse wl_example s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 8, "wall_s": 0.214}
+2026-10-11T12:57:20Z cells_coarse wl_example s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 20, "wall_s": 0.214}
+2026-10-11T12:57:20Z cells_coarse wl_example s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 0.364}
+2026-10-11T12:57:20Z cells_coarse wl_ifi s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 56, "wall_s": 0.414}
+2026-10-11T12:57:21Z cells_coarse wl_ifi s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 132, "wall_s": 0.665}
+2026-10-11T12:57:21Z cells_coarse wl_ifi s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 124.28}
+2026-10-11T12:59:26Z cells_coarse wl_airtel1 s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 123.513}
+2026-10-11T13:01:29Z cells_coarse wl_airtel1 s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 168, "wall_s": 83.11}
+2026-10-11T13:02:53Z cells_coarse wl_airtel1 s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 38.512}
+2026-10-11T13:03:31Z cells_coarse wl_cloud s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 20.699}
+2026-10-11T13:03:52Z cells_coarse wl_cloud s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 23.775}
+2026-10-11T13:04:16Z cells_coarse wl_cloud s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 44, "wall_s": 0.264}
+2026-10-11T13:04:16Z cells_witness wl_example s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 8, "wall_s": 0.214}
+2026-10-11T13:04:16Z cells_witness wl_example s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 20, "wall_s": 0.214}
+2026-10-11T13:04:17Z cells_witness wl_example s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 0.414}
+2026-10-11T13:04:17Z cells_witness wl_ifi s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 56, "wall_s": 0.414}
+2026-10-11T13:04:18Z cells_witness wl_ifi s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 132, "wall_s": 0.615}
+2026-10-11T13:04:18Z cells_witness wl_ifi s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 124.566}
+2026-10-11T13:06:23Z cells_witness wl_airtel1 s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 123.621}
+2026-10-11T13:08:27Z cells_witness wl_airtel1 s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 168, "wall_s": 83.993}
+2026-10-11T13:09:51Z cells_witness wl_airtel1 s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 12.487}
+2026-10-11T13:10:03Z cells_witness wl_cloud s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 10.105}
+2026-10-11T13:10:13Z cells_witness wl_cloud s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 18.989}
+2026-10-11T13:10:32Z cells_witness wl_cloud s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 44, "wall_s": 0.264}
+2026-10-11T13:10:33Z cells_dead-ends wl_example s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 8, "wall_s": 0.214}
+2026-10-11T13:10:33Z cells_dead-ends wl_example s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 20, "wall_s": 0.214}
+2026-10-11T13:10:33Z cells_dead-ends wl_example s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 0.364}
+2026-10-11T13:10:34Z cells_dead-ends wl_ifi s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 56, "wall_s": 0.414}
+2026-10-11T13:10:34Z cells_dead-ends wl_ifi s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 132, "wall_s": 0.615}
+2026-10-11T13:10:35Z cells_dead-ends wl_ifi s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 122.734}
+2026-10-11T13:12:38Z cells_dead-ends wl_airtel1 s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 122.607}
+2026-10-11T13:14:40Z cells_dead-ends wl_airtel1 s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 168, "wall_s": 83.676}
+2026-10-11T13:16:04Z cells_dead-ends wl_airtel1 s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 31.113}
+2026-10-11T13:16:35Z cells_dead-ends wl_cloud s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 18.041}
+2026-10-11T13:16:53Z cells_dead-ends wl_cloud s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 21.87}
+2026-10-11T13:17:15Z cells_dead-ends wl_cloud s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 44, "wall_s": 0.264}
+2026-10-11T13:17:16Z cells_witness+dead-ends wl_example s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 8, "wall_s": 0.214}
+2026-10-11T13:17:16Z cells_witness+dead-ends wl_example s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 20, "wall_s": 0.214}
+2026-10-11T13:17:16Z cells_witness+dead-ends wl_example s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 0.364}
+2026-10-11T13:17:16Z cells_witness+dead-ends wl_ifi s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 56, "wall_s": 0.414}
+2026-10-11T13:17:17Z cells_witness+dead-ends wl_ifi s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 132, "wall_s": 0.565}
+2026-10-11T13:17:18Z cells_witness+dead-ends wl_ifi s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 3.035}
+2026-10-11T13:17:21Z cells_witness+dead-ends wl_airtel1 s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 3.099}
+2026-10-11T13:17:24Z cells_witness+dead-ends wl_airtel1 s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 168, "wall_s": 61.028}
+2026-10-11T13:18:25Z cells_witness+dead-ends wl_airtel1 s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 0.615}
+2026-10-11T13:18:26Z cells_witness+dead-ends wl_cloud s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 1.679}
+2026-10-11T13:18:27Z cells_witness+dead-ends wl_cloud s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 11.012}
+2026-10-11T13:18:38Z cells_witness+dead-ends wl_cloud s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 56, "wall_s": 1.128}
+2026-10-11T13:18:40Z oracle wl_ifi s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 135.569}
+2026-10-11T13:20:55Z oracle wl_airtel1 s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 200, "wall_s": 41.31}
+2026-10-11T13:21:37Z oracle wl_cloud s2 rc=0
+2026-10-11T13:21:37Z DONE
