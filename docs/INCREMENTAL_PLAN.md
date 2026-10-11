@@ -156,8 +156,11 @@ TNSM'21 measures only build-from-zero plus one verification.
   engines' footprints are FaVe's design, and only APKeep's is refined, so
   `t_total` would partly measure FaVe's effort per engine. Before deciding
   whether VeriFlow-FR gets witness and dead ends, a scoping pass:
-  [`VERIFLOW_FOOTPRINT_SCOPE.md`](VERIFLOW_FOOTPRINT_SCOPE.md). Whatever is
-  decided lands before the D11 run.
+  [`VERIFLOW_FOOTPRINT_SCOPE.md`](VERIFLOW_FOOTPRINT_SCOPE.md). **Decided the
+  same day:** all proposed parts (witness, dead ends, per-pair reporting, the
+  concrete packet), built after the M2 packet-filter spike and before the D11
+  run; a per-target re-walk stays out. Order: M2 spike → VeriFlow-FR footprints
+  → rest of M2 → D11 run → campaign.
 
 ## 5. What is measured, per update
 

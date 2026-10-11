@@ -21,7 +21,7 @@ that produced them, under [`../fave/bench/campaigns/`](../fave/bench/campaigns/)
 | [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) | 986 | **The run book.** The measurements that are open and worth running, ordered so a session with no prior context can execute it top to bottom, unattended. Start here to run something. |
 | [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md) | 163 | **The accommodation registry.** Every way a tool was helped to run the suite, or a workload changed for it — what was done, what it costs, the evidence it is right. The write-up cites this for all of them. |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | 87 | How result directories and per-cell artifacts are named, what a run directory must carry, and why a committed result directory is never renamed. Read before starting a run. |
-| [`INCREMENTAL_PLAN.md`](INCREMENTAL_PLAN.md) | 532 | **The incremental axis (TODO item 31), PLAN. M1 built; M2 next, then the campaign.** Making updates work end to end — engines that report what a change affected, FaVe re-verifying only those checks — and measuring it. The owner's decisions of 2026-10-09 are its §4 and §9; what is built, its §10. |
+| [`INCREMENTAL_PLAN.md`](INCREMENTAL_PLAN.md) | 535 | **The incremental axis (TODO item 31), PLAN. M1 built; M2 next, then the campaign.** Making updates work end to end — engines that report what a change affected, FaVe re-verifying only those checks — and measuring it. The owner's decisions of 2026-10-09 are its §4 and §9; what is built, its §10. |
 
 ## The verification backends — one document per engine family
 
@@ -33,7 +33,7 @@ has no design document of its own; the other three families each have one.
 | [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md) | 1,877 | **INTEGRATED.** Atomic-predicate verifier, two engines (BDD-APKeep and NDD-flood) behind one adapter. Faithful-VLAN model is the default. No open defect in §10. |
 | [`AD6_PLAN.md`](AD6_PLAN.md) | 7,671 | **Built.** A generic SAT/QBF model checker as a backend, first-party. The largest document here — use its section numbers, which source comments cite directly. |
 | [`VERIFLOW_PLAN.md`](VERIFLOW_PLAN.md) | 1,121 | **V1–V4 done.** VeriFlow-FR, an *independent reimplementation* — explicitly not "VeriFlow", and no result from it is reported as VeriFlow's (§9, D2). |
-| [`VERIFLOW_FOOTPRINT_SCOPE.md`](VERIFLOW_FOOTPRINT_SCOPE.md) | 185 | **SCOPING, no code.** Whether VeriFlow-FR's incremental footprint gets APKeep's witness and dead ends: what its walk does today, the best case from the calibration records (`wl_airtel1` S1/S2: every update re-walks every source for no verdict change), a design with soundness sketches, an estimate, owner questions. |
+| [`VERIFLOW_FOOTPRINT_SCOPE.md`](VERIFLOW_FOOTPRINT_SCOPE.md) | 185 | **DECIDED, not built: all parts, after the M2 spike.** Whether VeriFlow-FR's incremental footprint gets APKeep's witness and dead ends: what its walk does today, the best case from the calibration records (`wl_airtel1` S1/S2: every update re-walks every source for no verdict change), a design with soundness sketches, an estimate, owner questions. |
 
 ## APKeep in depth
 
