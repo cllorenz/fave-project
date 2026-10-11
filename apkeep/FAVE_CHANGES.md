@@ -569,3 +569,38 @@ every oracle stream at the default and with the coarse footprint
 turns both on by default (`fave/apkeep/lib_apkeep.py`, `DEFAULT_FOOTPRINT`), and
 selects the coarse footprint on request. `docs/APKEEP_FOOTPRINTS.md` is the
 account for a paper.
+
+## 14. Footprint unions: memoized and balanced  **[INFRA]**
+
+A footprint turns the AP ids a query saw at each element into one BDD
+(`Network.union`). Doing that one AP at a time, once per (source, probe) pair,
+kept BDD-APKeep's first full check on `wl_up` from ending: the D11 sizing
+calibration (`fave/bench/campaigns/results_inc_dev_d11_calibration_20261011/`)
+stopped it at 7,200 s with no update made, while the from-zero cell takes
+380 s (`RESULTS.md` §2). Every one of `wl_up`'s 18,811 pairs is unreachable,
+so each records its whole flood, and the unions of near-full sets (up to
+13,988 of 14,561 forwarding APs) were 97% of the union time.
+
+- **Memo** (`union_memo`): a union is kept by its AP set's content while the
+  APs stand; every query of one source floods the same elements with the same
+  sets. Cleared by `updateRule` (the next rule update may split or merge APs,
+  and an id then names another predicate) and by `setTracking(false)`. Each
+  entry holds one reference; a hit hands the caller its own.
+- **Balanced** (`unionOf`): the APs are ORed pairwise as a tree instead of into
+  one growing accumulator. The same BDD.
+
+Nothing a query answers or a footprint contains changes: the result is the same
+BDD. On `wl_up` (first 10 S1 deletes, this machine) build + first check went
+from > 7,200 s to 1,292 s (memo) and 869 s (both); a re-check of 23 pairs after
+an update from 650 s to 280 s.
+
+**Tried and dropped:** the complement of the missing APs, for a set holding
+more than half of its universe (`getAPExp(BDDTrue)` minus the set, then NOT).
+On `wl_up` it overflowed JDD's fixed node stack (`6 * num_vars + 1`) in
+`not_rec`, and with a hand-built complement (`mk` over a memoized walk) later
+in `or_rec`; the cause is not understood, so it is not in.
+
+**Tests:** the Java suite and the APKeep incremental tests
+(`fave/test/test_apkeep_incremental_core.py`, `test_incremental_apkeep.py`,
+`test_incremental_m2_apkeep.py`), whose oracle compares the selective re-check
+with a full one after every update.

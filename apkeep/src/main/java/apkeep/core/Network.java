@@ -532,6 +532,7 @@ public class Network {
 
 	public void updateRule(Evaluator eva, String rule) throws Exception {
 		activate();
+		clearUnionMemo();
 		apkeep.utils.BuildProfiler.rulesApplied++;   // Phase C: build-progress denominator
 		Logger.logDebugInfo(rule);
 		String[] tokens = rule.split(" ");
@@ -825,6 +826,7 @@ public class Network {
 			changed_to.clear();
 			changed_ports.clear();
 			for (String key : new ArrayList<>(footprints.keySet())) dropFootprint(key);
+			clearUnionMemo();
 		}
 	}
 
@@ -832,19 +834,49 @@ public class Network {
 		return tracking;
 	}
 
+	/* FaVe fork: union() by content, while the APs stand. Every query of one
+	 * source floods the same elements with the same AP sets, so without it a
+	 * full check re-ORs them once per (source, probe) pair -- on wl_up (18,811
+	 * unreachable pairs) that, not the build, kept the first check from ending
+	 * in hours. An AP id means the same predicate only until the next rule
+	 * update splits or merges APs, so updateRule and setTracking(false) clear
+	 * it. Each entry holds one reference; a hit hands the caller its own. */
+	private final Map<Set<Integer>, Integer> union_memo = new HashMap<>();
+
+	private void clearUnionMemo() {
+		for (int u : union_memo.values()) ops.deref(u);
+		union_memo.clear();
+	}
+
 	private int union(Set<Integer> aps) {
-		int u = BDDACLWrapper.BDDFalse;
-		if (aps == null) return u;
-		for (int ap : aps) {
-			if (ap == BDDACLWrapper.BDDTrue) {
-				ops.deref(u);
-				return BDDACLWrapper.BDDTrue;
-			}
-			int next = ops.or(u, ap);
-			ops.deref(u);
-			u = next;
-		}
+		if (aps == null) return BDDACLWrapper.BDDFalse;
+		Integer known = union_memo.get(aps);
+		if (known != null) return ops.ref(known);
+		int u = unionOf(aps);
+		union_memo.put(new HashSet<>(aps), ops.ref(u));
 		return u;
+	}
+
+	/* Pairwise, as a balanced tree: ORing APs one by one into an accumulator
+	 * rebuilds the growing accumulator once per AP, while a tree's ORs are of
+	 * like-sized operands (the APs are disjoint). The result is the same BDD. */
+	private int unionOf(Set<Integer> aps) {
+		if (aps.contains(BDDACLWrapper.BDDTrue)) return BDDACLWrapper.BDDTrue;
+		int[] level = new int[aps.size()];
+		int n = 0;
+		for (int ap : aps) level[n++] = ops.ref(ap);
+		if (n == 0) return BDDACLWrapper.BDDFalse;
+		while (n > 1) {
+			int m = 0;
+			for (int i = 0; i + 1 < n; i += 2) {
+				level[m++] = ops.or(level[i], level[i + 1]);
+				ops.deref(level[i]);
+				ops.deref(level[i + 1]);
+			}
+			if (n % 2 == 1) level[m++] = level[n - 1];
+			n = m;
+		}
+		return level[0];
 	}
 
 	/** Add what `checker`'s last query depended on to `key`'s footprint. A key
