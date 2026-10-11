@@ -144,6 +144,14 @@ TNSM'21 measures only build-from-zero plus one verification.
   **another machine** (64 GB, enough cores) — so the tree here is not frozen
   for it, and the calibration that precedes its protocol (O4.5) is repeated
   there: the dev calibrations on this machine size nothing on that one.
+- **D11. One indicative run of the whole grid, after M2 is built (owner,
+  2026-10-11).** Every experiment of the campaign (O4's grid: all workloads,
+  engines and streams S1–S4, batch sizes included) runs **once** on this
+  machine, `limit_class=dev`, before the campaign. It replaces a projection of
+  the campaign's size: its numbers, not an extrapolation from 200-update
+  calibrations, are what the grid is cut by. Under its own `PROTOCOL.txt` with
+  predictions, which decides whether cells run in parallel and whether the O3
+  oracle runs are part of it. Order: M2 → this run → the campaign elsewhere.
 
 ## 5. What is measured, per update
 
