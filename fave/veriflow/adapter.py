@@ -61,6 +61,12 @@ def available() -> bool:
     return libveriflow_fr is not None
 
 
+#: The selectable footprints of VERIFLOW_FOOTPRINT_SCOPE.md §4, as on APKeep
+#: (APKEEP_FOOTPRINTS.md). None is on by default: the owner decides the default
+#: after the evidence (§4.5).
+FOOTPRINT_MODES = ('witness', 'dead-ends')
+
+
 class DidNotFinish(Exception):
     """ A check could not be answered within the declared budget (VERIFLOW_PLAN.md
     Q22): reported as such, never as "no violation". Carries where it stopped. """
@@ -96,7 +102,9 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
 
     def __init__(self, logger: Any = None, invert_lpm: bool = False,
                  slicing: str = "device", budget: int = 0,
-                 revisit: str = "state", fields: str = "4+10") -> None:
+                 revisit: str = "state", fields: str = "4+10",
+                 footprint: Tuple[str, ...] = (),
+                 witness_point: bool = True) -> None:
         if slicing not in ("device", "network"):
             raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
         if revisit not in ("path", "state"):
@@ -107,8 +115,21 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             raise RuntimeError(
                 "libveriflow_fr is not built; run "
                 "veriflow_fr/python/build_libveriflow_fr.sh")
+        unknown = [m for m in footprint if m not in FOOTPRINT_MODES]
+        if unknown:
+            raise ValueError("unknown footprint mode(s) %s; known: %s"
+                             % (unknown, ', '.join(FOOTPRINT_MODES)))
         Translator.__init__(self, invert_lpm=invert_lpm)
         self.logger = logger
+        #: VERIFLOW_FOOTPRINT_SCOPE.md §4: () is the coarse footprint (a source's
+        #: explored walk; a hit re-checks every probe of it). 'witness': a
+        #: delivered (source, probe) watches one path (§4.1); 'dead-ends': an
+        #: undelivered one ignores changes that send packets nowhere (§4.2).
+        #: Either mode reports (source, probe) pairs (§4.3).
+        self.footprint = tuple(m for m in FOOTPRINT_MODES if m in footprint)
+        #: §4.1: carry one concrete packet per hop (True), or test the hop's
+        #: whole packet set (False -- coarser, kept for tests and the ablation)
+        self.witness_point = witness_point
         self.slicing = slicing
         self.budget = budget
         #: Q4 (owner, 2026-09-30): "state", the thesis's rule, by default --
@@ -141,6 +162,19 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self._sets_of: Dict[Tuple[str, Tuple[Any, ...]], List[str]] = {}
         #: sources whose checks an update since the last take_affected can affect
         self._pending: Set[str] = set()
+        # -- the finer footprints (VERIFLOW_FOOTPRINT_SCOPE.md §4) ----------------
+        #: per (source, condition key): the probe tables its walks delivered
+        #: at, and the probes ever checked with it (a selective re-check asks
+        #: a subset, so this only grows)
+        self._delivered: Dict[Tuple[str, Tuple[Any, ...]], Set[int]] = {}
+        self._probes_of: Dict[Tuple[str, Tuple[Any, ...]], Set[str]] = {}
+        #: per key, per probe table: the witness of a delivery and the tables
+        #: its hops cross
+        self._witness: Dict[Tuple[str, Tuple[Any, ...]], Dict[int, Tuple[Any, Set[int]]]] = {}
+        #: per key, per probe name: ports a dead end left unlinked (§4.2)
+        self._watch: Dict[Tuple[str, Tuple[Any, ...]], Dict[str, Set[int]]] = {}
+        #: (source, probe) pairs an update since the last take_affected can affect
+        self._pending_pairs: Set[Tuple[str, str]] = set()
         #: (node, tid, idx) -> engine rule ids, and id -> rule; built on the
         #: first update so a build from zero does none of this work
         self._rids: Optional[Dict[Tuple[str, str, int], List[int]]] = None
@@ -160,6 +194,9 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         instead of this one doing it by hand and the others not at all. """
         stamp = self.provenance()
         stamp.update({"vf_fields": self.fields,
+                      # VERIFLOW_FOOTPRINT_SCOPE.md §4.5; [] is the coarse one
+                      "footprint": list(self.footprint),
+                      "witness_point": self.witness_point,
                       "vf_revisit": self.revisit, "vf_slicing": self.slicing,
                       "vf_budget": self.budget,
                       # MEASUREMENT_RUN_PLAN.md §5.4's guardrail. It reached
@@ -232,7 +269,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         # Each distinct (source, condition) is one query; each distinct query
         # SET is answered once, for every start of every source that has it.
         keys: Dict[Tuple[str, Tuple[Any, ...]], List[str]] = {}
-        for checks in rules.values():
+        for dst, checks in rules.items():
             for src, negated, cond in checks:
                 if negated is False and any(f.negated for f in cond):
                     raise Unsupported(
@@ -241,6 +278,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                         "reachability under each is stronger than the question "
                         "-- refused, as NetPlumber refuses it (Q17)" % src)
                 key = (src, tuple((f.name, str(f.value), f.negated) for f in cond))
+                if self._tracking:
+                    self._probes_of.setdefault(key, set()).add(dst)
                 if key in keys:
                     continue
                 if src not in ir.generators:
@@ -256,6 +295,13 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             for qs in sets:
                 by_set.setdefault(qs, []).append(key)
         delivered: Dict[Tuple[str, Tuple[Any, ...]], Set[int]] = {k: set() for k in keys}
+        witness = self._tracking and 'witness' in self.footprint
+        if self._tracking and self.footprint:
+            # every set of every key asked is walked below: what was recorded
+            # for these keys is replaced, not merged
+            for key in keys:
+                self._witness[key] = {}
+                self._watch.pop(key, None)
         for qs, owners in by_set.items():
             starts: List[Tuple[int, int]] = []
             owner_of: List[Tuple[str, Tuple[Any, ...]]] = []
@@ -268,12 +314,19 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             else:
                 walked = self.net.local_deliveries(
                     qs, starts, self.budget, self.revisit == "state", self._scan,
-                    self._tracking)
+                    self._tracking, witness)
                 (answers, finished, stopped_at, predicted, single, local_ecs, hops,
                  per_table) = walked[:8]
                 if self._tracking:
                     for key in owners:
                         self._footprints[(key, qs)] = walked[8]
+                if witness:
+                    # the first path found per (key, delivered table) is its witness
+                    for key, per_table_w in zip(owner_of, walked[9]):
+                        mine = self._witness[key]
+                        for table, w in per_table_w.items():
+                            if table not in mine:
+                                mine[table] = (w, w.tables())
                 self.work.append((owners[0][0], local_ecs, hops))
                 if not finished:
                     names = {v: k for k, v in ir.tables.items()}
@@ -283,6 +336,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                                        [(names.get(t, str(t)), n) for t, n in top])
             for key, tables in zip(owner_of, answers):
                 delivered[key].update(tables)
+        if self._tracking:
+            self._delivered.update(delivered)
 
         for dst, checks in rules.items():
             if dst not in ir.probes:
@@ -335,9 +390,105 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                     self._pending.add(src)
                     break
 
-    def _affects_rule(self, rule: IrRule) -> None:
-        self._affects(lambda fp: self.net.footprint_hits_rule(
-            fp, rule.table, rule.in_port, rule.match))
+    def _affects_rule(self, rule: IrRule, inserted: bool) -> None:
+        """ Mark what a rule update can affect: an insert is judged with the
+        rule loaded, a deletion before it is unloaded (its fall-through needs
+        it, and the footprint from BEFORE the deletion). """
+        if not self._tracking:
+            return
+        if not self.footprint:
+            self._affects(lambda fp: self.net.footprint_hits_rule(
+                fp, rule.table, rule.in_port, rule.match))
+            return
+        net, ir = self.net, self.ir
+        assert ir is not None
+        witness, dead_ends = 'witness' in self.footprint, 'dead-ends' in self.footprint
+        inserted_fate = None
+        for key, sets in self._sets_of.items():
+            src = key[0]
+            if src in self._pending:
+                continue
+            fps = [self._footprints.get((key, qs)) for qs in sets]
+            if any(fp is None for fp in fps):
+                self._pending.add(src)            # unknown is affected
+                continue
+            explored = [fp for fp in fps if net.footprint_hits_rule(
+                fp, rule.table, rule.in_port, rule.match)]
+            delivered = self._delivered.get(key, set())
+            witnesses = self._witness.get(key, {})
+            fate = None
+            for probe in self._probes_of.get(key, ()):
+                pair = (src, probe)
+                if pair in self._pending_pairs:
+                    continue
+                table = ir.probes[probe]
+                if witness and table in delivered and table in witnesses:
+                    # §4.1: only a rule that moves the witness's packet
+                    w, tables = witnesses[table]
+                    hit = rule.table in tables and net.witness_hits_rule(
+                        w, rule.table, rule.in_port, rule.match, self.witness_point)
+                elif not explored:
+                    hit = False
+                elif dead_ends and table not in delivered:
+                    # §4.2: a change that sends the packets nowhere cannot
+                    # open a path to this probe
+                    if fate is None:
+                        if inserted:
+                            if inserted_fate is None:
+                                inserted_fate = net.rule_fate(rule.id)
+                            fate = inserted_fate
+                        else:
+                            opens, consumed, unlinked = False, set(), set()
+                            for fp in explored:
+                                o, c, u = net.delete_fate(fp, rule.id)
+                                opens, consumed, unlinked = opens or o, consumed | c, unlinked | u
+                            fate = (opens, consumed, unlinked)
+                    opens, consumed, unlinked = fate
+                    hit = opens or table in consumed
+                    if not hit and unlinked:
+                        self._watch.setdefault(key, {}).setdefault(probe, set()).update(unlinked)
+                else:
+                    hit = True
+                if hit:
+                    self._pending_pairs.add(pair)
+
+    def _affects_link(self, port: int, up: bool) -> None:
+        """ Mark what a link update on `port` can affect: with a witness a
+        delivered pair only by a link going DOWN on its path; with dead ends an
+        undelivered one only by a link coming UP on a port its walk emitted on
+        or a dead end left unlinked (§4.1, §4.2). """
+        if not self._tracking:
+            return
+        if not self.footprint:
+            self._affects(lambda fp: fp.hits_port(port))
+            return
+        assert self.ir is not None
+        witness, dead_ends = 'witness' in self.footprint, 'dead-ends' in self.footprint
+        for key, sets in self._sets_of.items():
+            src = key[0]
+            if src in self._pending:
+                continue
+            fps = [self._footprints.get((key, qs)) for qs in sets]
+            if any(fp is None for fp in fps):
+                self._pending.add(src)
+                continue
+            explored = any(fp.hits_port(port) for fp in fps)
+            delivered = self._delivered.get(key, set())
+            witnesses = self._witness.get(key, {})
+            watch = self._watch.get(key, {})
+            for probe in self._probes_of.get(key, ()):
+                pair = (src, probe)
+                if pair in self._pending_pairs:
+                    continue
+                table = self.ir.probes[probe]
+                if witness and table in delivered and table in witnesses:
+                    hit = not up and witnesses[table][0].hits_port(port)
+                elif dead_ends and table not in delivered:
+                    hit = up and (explored or port in watch.get(probe, ()))
+                else:
+                    hit = explored or port in watch.get(probe, ())
+                if hit:
+                    self._pending_pairs.add(pair)
 
     def insert_rule(self, rule: Any) -> None:
         ir = self._require_built('insert_rule')
@@ -375,10 +526,12 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self._updated = True
         self._rids[key] = []
         for ir_rule, port in translated:
-            self._affects_rule(ir_rule)
             self.net.load_rule(ir_rule.id, ir_rule.table, ir_rule.priority,
                                ir_rule.in_port, ir_rule.match, ir_rule.out_ports,
                                ir_rule.consume, ir_rule.rewrites)
+            # after loading: an insert's fate (§4.2) is the loaded rule's; the
+            # footprint test does not depend on the network
+            self._affects_rule(ir_rule, inserted=True)
             ir.rules.append(ir_rule)
             ir.origin[ir_rule.id] = (rule.node, rule.tid, rule.idx, port)
             self._rule_by_id[ir_rule.id] = ir_rule
@@ -395,7 +548,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self._updated = True
         for rid in rids:
             # judged against the footprint from BEFORE the deletion
-            self._affects_rule(self._rule_by_id.pop(rid))
+            self._affects_rule(self._rule_by_id.pop(rid), inserted=False)
             self.net.unload_rule(rid)
             del ir.origin[rid]
         gone = set(rids)
@@ -421,7 +574,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         if sport not in ir.ports:
             raise UpdateRefused("VeriFlowAdapter: set_link from unknown port %s" % sport)
         a, b = ir.ports[sport], ir.ports[dport]
-        self._affects(lambda fp: fp.hits_port(a))
+        self._affects_link(a, up)
         if up:
             self.net.add_link(a, b)
             ir.links.append((a, b))
@@ -434,17 +587,23 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self._tracking = on
         if not on:
             self._footprints, self._sets_of, self._pending = {}, {}, set()
+            self._delivered, self._probes_of, self._witness = {}, {}, {}
+            self._watch, self._pending_pairs = {}, set()
 
     def take_affected(self) -> Optional[Set[Tuple[str, str]]]:
-        """ The (source, probe) pairs of every source marked since the last
-        call -- a source's walk delivers to every probe, so a change to it can
-        move any of them. None (re-verify everything) when not tracking, or
-        under network-wide slicing, which records no footprint. """
+        """ The (source, probe) pairs an update since the last call can affect:
+        with the coarse footprint every pair of every source marked -- a
+        source's walk delivers to every probe, so a change to it can move any
+        of them; with a footprint mode, the pairs marked one by one (§4.3),
+        plus every pair of a source with no footprint yet. None (re-verify
+        everything) when not tracking, or under network-wide slicing, which
+        records no footprint. """
         if not self._tracking or self.slicing != "device" or self.ir is None:
             return None
         self._affects(lambda _fp: False)   # sources with no footprint yet
         pending, self._pending = self._pending, set()
-        return {(src, probe) for src in pending for probe in self.ir.probes}
+        pairs, self._pending_pairs = self._pending_pairs, set()
+        return {(src, probe) for src in pending for probe in self.ir.probes} | pairs
 
     def clear_results(self) -> None:
         self._results = []

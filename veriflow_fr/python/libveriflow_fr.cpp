@@ -94,19 +94,24 @@ class PyNetwork {
   // path rule.
   // `scan`: V3b's per-field scan flags (empty: plain slicing).
   // `footprint` (INCREMENTAL_PLAN.md §6.3): also return what the walk
-  // depended on, as a ninth element.
+  // depended on, as a ninth element; `witness` (VERIFLOW_FOOTPRINT_SCOPE.md
+  // §4.1, needs `footprint`): also, per start, {table: Witness} as a tenth.
   py::tuple local_deliveries(const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
                              uint64_t budget, bool state,
                              const std::vector<bool> &scan,
-                             bool footprint) const {
+                             bool footprint, bool witness) const {
     LocalResult r;
     {
       py::gil_scoped_release release;
       r = vf::local_deliveries(net_, range, starts, budget,
                                state ? Revisit::STATE : Revisit::PATH, scan,
-                               footprint);
+                               footprint || witness, witness);
     }
+    if (witness)
+      return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
+                            r.single_table, r.local_ecs, r.hops, r.per_table,
+                            r.footprint, r.witnesses);
     if (footprint)
       return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
                             r.single_table, r.local_ecs, r.hops, r.per_table,
@@ -118,6 +123,20 @@ class PyNetwork {
   bool footprint_hits_rule(const Footprint &fp, uint32_t table, int64_t in_port,
                            const std::string &match) const {
     return vf::footprint_hits_rule(net_, fp, table, in_port, match);
+  }
+
+  bool witness_hits_rule(const Witness &w, uint32_t table, int64_t in_port,
+                         const std::string &match, bool use_point) const {
+    return vf::witness_hits_rule(net_, w, table, in_port, match, use_point);
+  }
+
+  // §4.2 as (opens, consumed_at tables, unlinked ports)
+  static py::tuple fate_tuple(const Fate &f) {
+    return py::make_tuple(f.opens, f.consumed_at, f.unlinked);
+  }
+  py::tuple rule_fate(uint64_t id) const { return fate_tuple(vf::rule_fate(net_, id)); }
+  py::tuple delete_fate(const Footprint &fp, uint64_t id) const {
+    return fate_tuple(vf::delete_fate(net_, fp, id));
   }
 
   void unload_rule(uint64_t id) { net_.unload_rule(id); }
@@ -189,6 +208,16 @@ PYBIND11_MODULE(libveriflow_fr, m) {
         return n;
       });
 
+  py::class_<Witness>(m, "Witness")
+      .def("hits_port", &Witness::hits_port)
+      .def_readonly("has_point", &Witness::has_point)
+      .def("hops", [](const Witness &w) { return w.hops.size(); })
+      .def("tables", [](const Witness &w) {
+        std::set<uint32_t> t;
+        for (const Hop &h : w.hops) t.insert(h.table);
+        return t;
+      });
+
   py::class_<PyNetwork>(m, "Network")
       .def(py::init<const std::vector<std::pair<std::string, unsigned>> &>())
       .def("add_table", &PyNetwork::add_table)
@@ -201,10 +230,14 @@ PYBIND11_MODULE(libveriflow_fr, m) {
            py::arg("consume"), py::arg("rewrites") = std::vector<std::pair<size_t, std::string>>())
       .def("local_deliveries", &PyNetwork::local_deliveries, py::arg("range"),
            py::arg("starts"), py::arg("budget"), py::arg("state"),
-           py::arg("scan") = std::vector<bool>(), py::arg("footprint") = false)
+           py::arg("scan") = std::vector<bool>(), py::arg("footprint") = false,
+           py::arg("witness") = false)
       .def("remove_rule", &PyNetwork::remove_rule)
       .def("unload_rule", &PyNetwork::unload_rule)
       .def("footprint_hits_rule", &PyNetwork::footprint_hits_rule)
+      .def("witness_hits_rule", &PyNetwork::witness_hits_rule)
+      .def("rule_fate", &PyNetwork::rule_fate)
+      .def("delete_fate", &PyNetwork::delete_fate)
       .def("affected_ecs", &PyNetwork::affected_ecs)
       .def("decide_point", &PyNetwork::decide_point)
       .def("deliveries", &PyNetwork::deliveries)

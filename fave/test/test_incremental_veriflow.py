@@ -45,10 +45,14 @@ from veriflow.adapter import VeriFlowAdapter, available
 from util import incremental as inc
 
 
-def _make():
+def _make(footprint=(), witness_point=True):
     log = logging.getLogger("test_incremental_veriflow")
     log.setLevel(logging.WARNING)
-    return VeriFlowAdapter(log)
+    return VeriFlowAdapter(log, footprint=footprint, witness_point=witness_point)
+
+
+def _maker(footprint, witness_point=True):
+    return lambda: _make(footprint, witness_point)
 
 
 @require_or_skip(available(), "libveriflow_fr is not built")
@@ -76,6 +80,59 @@ class TestIncrementalVeriFlow(unittest.TestCase):
     def test_wl_cloud_s2(self):
         run(self, _make, self._workload('bench/wl_cloud'),
             lambda rules, _links: inc.stream_s2(rules, 0.05, seed=1), every=25)
+
+
+# The finer footprints (VERIFLOW_FOOTPRINT_SCOPE.md §4) change which checks an
+# update reports, never an answer: every stream above, under the same oracle,
+# with both modes on; each mode alone on the streams it narrows most; and the
+# witness on whole hop sets instead of one packet (the coarser variant).
+@require_or_skip(available(), "libveriflow_fr is not built")
+class TestIncrementalVeriFlowFootprints(unittest.TestCase):
+
+    _workload = TestIncrementalVeriFlow._workload
+    BOTH = ('witness', 'dead-ends')
+
+    def test_wl_example_s1_oracle_at_every_update(self):
+        run(self, _maker(self.BOTH), self._workload('bench/wl_example'), s1, every=1)
+
+    def test_wl_example_s2_s3(self):
+        run(self, _maker(self.BOTH), self._workload('bench/wl_example'), s2_and_s3(), every=5)
+
+    def test_wl_ifi_s1(self):
+        run(self, _maker(self.BOTH), self._workload('bench/wl_ifi'), s1, every=20)
+
+    def test_wl_ifi_s2_s3(self):
+        run(self, _maker(self.BOTH), self._workload('bench/wl_ifi'), s2_and_s3(), every=10)
+
+    def test_wl_cloud_s2(self):
+        run(self, _maker(self.BOTH), self._workload('bench/wl_cloud'),
+            lambda rules, _links: inc.stream_s2(rules, 0.05, seed=1), every=25)
+
+    def test_witness_alone_wl_ifi_s2_s3(self):
+        run(self, _maker(('witness',)), self._workload('bench/wl_ifi'), s2_and_s3(), every=10)
+
+    def test_dead_ends_alone_wl_ifi_s1(self):
+        run(self, _maker(('dead-ends',)), self._workload('bench/wl_ifi'), s1, every=20)
+
+    def test_witness_on_hop_sets_wl_ifi_s2_s3(self):
+        run(self, _maker(self.BOTH, witness_point=False), self._workload('bench/wl_ifi'),
+            s2_and_s3(), every=10)
+
+    def test_the_modes_report_fewer_rechecks_than_coarse(self):
+        prefix = self._workload('bench/wl_ifi')
+        coarse = run(self, _maker(()), prefix, s2_and_s3(), every=1000)
+        both = run(self, _maker(self.BOTH), prefix, s2_and_s3(), every=1000)
+        self.assertEqual(coarse['verdict_changes'], both['verdict_changes'])
+        self.assertLess(both['rechecked'], coarse['rechecked'])
+
+    def test_an_unknown_mode_is_refused(self):
+        with self.assertRaises(ValueError):
+            _make(('witnesses',))
+
+    def test_the_modes_are_stamped(self):
+        self.assertEqual(_make(self.BOTH).configuration_stamp()['footprint'],
+                         ['witness', 'dead-ends'])
+        self.assertEqual(_make().configuration_stamp()['footprint'], [])
 
 
 @require_or_skip(available(), "libveriflow_fr is not built")

@@ -176,6 +176,58 @@ struct Slicer {
   std::set<std::tuple<uint32_t, int64_t, Box, std::vector<Box>>> visited46;
   // INCREMENTAL_PLAN.md §6.3: where to record what this walk depended on.
   Footprint *fp = nullptr;
+  // VERIFLOW_FOOTPRINT_SCOPE.md §4.1: this start's witnesses, and the hops of
+  // the path being walked (pushed before a hop recurses, popped after).
+  std::map<uint32_t, Witness> *wit = nullptr;
+  std::vector<Hop> hops;
+
+  // A concrete packet of `set` minus `excl` (its lowest corner), or false.
+  static bool pick(const Box &set, const std::vector<Box> &excl, Box &point) {
+    std::vector<Box> parts = materialise(set, excl);
+    if (parts.empty()) return false;
+    point.clear();
+    for (const Interval &i : parts[0]) point.push_back({i.lo, i.lo});
+    return true;
+  }
+
+  // Record the path on `hops` as the witness of delivery at `table`, once per
+  // start, and carry one concrete packet back from the consuming hop: before a
+  // hop, the packet keeps the next hop's value on every field the hop's rule
+  // does not rewrite, and takes any value of the hop's set on the ones it does
+  // (VeriFlow-FR's rewrites set a field to a constant, so that is a pre-image).
+  void record_witness(uint32_t table) {
+    if (!wit || wit->count(table)) return;
+    Witness w;
+    w.hops = hops;
+    w.has_point = true;
+    for (size_t k = w.hops.size(); k-- > 0;) {
+      Hop &h = w.hops[k];
+      Box point;
+      if (k + 1 == w.hops.size()) {
+        if (!pick(h.set, h.excl, point)) { w.has_point = false; break; }
+      } else {
+        const Box &next = w.hops[k + 1].point;
+        const Rule &r = net.rule(h.rule);
+        Box b = h.set;
+        bool ok = true;
+        for (size_t f = 0; f < b.size() && ok; ++f) {
+          bool rewritten = false;
+          for (const auto &rw : r.rewrites) rewritten = rewritten || rw.first == f;
+          if (rewritten) continue;
+          ok = b[f].lo <= next[f].lo && next[f].lo <= b[f].hi;
+          b[f] = {next[f].lo, next[f].lo};
+        }
+        std::vector<Box> ex;
+        for (const Box &x : h.excl)
+          if (ok && meets(x, b)) ex.push_back(meet(x, b));
+        if (!ok || !pick(b, ex, point)) { w.has_point = false; break; }
+      }
+      h.point = point;
+    }
+    if (!w.has_point)
+      for (Hop &h : w.hops) h.point.clear();
+    (*wit)[table] = std::move(w);
+  }
 
   struct Abort {};
 
@@ -260,6 +312,7 @@ struct Slicer {
       for (uint64_t p : r.out_ports) {
         if (arrival != ANY_PORT && (int64_t)p == arrival) continue;
         if (fp) fp->ports.insert(p);
+        if (wit) hops.back().port = (int64_t)p;
         for (uint64_t to : net.links_from(p))
           walk46(net.port_table(to), (int64_t)to, set.first, set.second, path, out);
       }
@@ -337,11 +390,14 @@ struct Slicer {
           if (meets(x, share)) share_excl.push_back(meet(x, share));
         if (!nonempty(share, share_excl)) continue;  // it would serve only the excluded
         const Rule &r = net.rule(id);
+        if (wit) hops.push_back(Hop{table, arrival, share, share_excl, id, -1, {}});
         if (r.consume) {
           out.insert(table);
+          record_witness(table);
         } else if (!r.out_ports.empty()) {
           forward46(arrival, r, share, share_excl, path, out);
         }
+        if (wit) hops.pop_back();
         if (share == ec) break;           // it covers the EC: nothing is left
         rest.push_back(share);            // a finer rule: its share is excluded
       }
@@ -431,8 +487,10 @@ struct Slicer {
           in = iv[f].lo <= ec[f].lo && ec[f].lo <= iv[f].hi;
         if (in) { best = &net.rule(id); break; }
       }
+      if (best && wit) hops.push_back(Hop{table, arrival, ec, {}, best->id, -1, {}});
       if (best && best->consume) {
         out.insert(table);
+        record_witness(table);
       } else if (best) {
         Box next = ec;
         for (const auto &rw : best->rewrites) next[rw.first] = rw.second;
@@ -442,10 +500,12 @@ struct Slicer {
         for (uint64_t p : best->out_ports) {
           if (arrival != ANY_PORT && (int64_t)p == arrival) continue;
           if (fp) fp->ports.insert(p);
+          if (wit) hops.back().port = (int64_t)p;
           for (uint64_t to : net.links_from(p))
             walk(net.port_table(to), (int64_t)to, next, path, out);
         }
       }
+      if (best && wit) hops.pop_back();
       size_t f = box.size();
       bool done = true;
       while (f > 0) {
@@ -474,9 +534,10 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
                              uint64_t budget, Revisit revisit,
                              const std::vector<bool> &scan,
-                             bool record_footprint) {
+                             bool record_footprint, bool record_witness) {
   LocalResult res;
   res.delivered.resize(starts.size());
+  if (record_witness) res.witnesses.resize(starts.size());
   const Box box = box_of(net, range);
   const bool v3b = std::find(scan.begin(), scan.end(), true) != scan.end();
   if (v3b) {
@@ -495,12 +556,14 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
       }
     }
   }
-  Slicer s{net, budget, res, nullptr, revisit, {}, v3b ? scan : std::vector<bool>(), {}};
+  Slicer s{net, budget, res, nullptr, revisit, {}, v3b ? scan : std::vector<bool>(), {}, nullptr, nullptr, {}};
   if (record_footprint) s.fp = &res.footprint;
   try {
     for (size_t i = 0; i < starts.size(); ++i) {
       s.visited.clear();
       s.visited46.clear();
+      s.hops.clear();
+      if (record_witness) s.wit = &res.witnesses[i];
       std::vector<uint32_t> path;
       if (v3b) {
         s.walk46(starts[i].first, starts[i].second, box, {}, path, res.delivered[i]);
@@ -527,13 +590,66 @@ bool footprint_hits_rule(const Network &net, const Footprint &fp, uint32_t table
   return false;
 }
 
+bool witness_hits_rule(const Network &net, const Witness &w, uint32_t table,
+                       int64_t in_port, const std::string &match, bool use_point) {
+  const Box rule = box_of(net, match);
+  for (const Hop &h : w.hops) {
+    if (h.table != table) continue;
+    // the walk's own candidate test: IN_PORT is a matched field (Q7)
+    if (in_port != ANY_PORT && (h.arrival == ANY_PORT || in_port != h.arrival)) continue;
+    if (Slicer::meets(rule, use_point && w.has_point ? h.point : h.set)) return true;
+  }
+  return false;
+}
+
+Fate rule_fate(const Network &net, uint64_t id) {
+  const Rule &r = net.rule(id);
+  Fate f;
+  if (r.consume) {
+    f.consumed_at.insert(r.table);
+    return f;
+  }
+  for (uint64_t p : r.out_ports) {
+    if (net.links_from(p).empty())
+      f.unlinked.insert(p);
+    else
+      f.opens = true;
+  }
+  return f;
+}
+
+Fate delete_fate(const Network &net, const Footprint &fp, uint64_t id) {
+  Fate f;
+  const Rule &r = net.rule(id);
+  auto it = fp.states.find(r.table);
+  if (it == fp.states.end()) return f;
+  const Box rule = net.rule_intervals(id);
+  for (const auto &state : it->second) {
+    const int64_t arrival = state.first;
+    if (r.in_port != ANY_PORT && (arrival == ANY_PORT || r.in_port != arrival)) continue;
+    if (!Slicer::meets(rule, state.second)) continue;
+    const Box handed = Slicer::meet(rule, state.second);   // the packets it frees
+    for (uint64_t c : net.table_candidates(r.table, handed)) {
+      if (c == id) continue;
+      const Rule &o = net.rule(c);
+      if (o.in_port != ANY_PORT && (arrival == ANY_PORT || o.in_port != arrival)) continue;
+      // only a rule BELOW the deleted one can take its packets
+      const bool below = o.priority < r.priority ||
+          (o.priority == r.priority && net.insertion_seq(c) > net.insertion_seq(id));
+      if (!below || !Slicer::meets(net.rule_intervals(c), handed)) continue;
+      f.add(rule_fate(net, c));
+    }
+  }
+  return f;
+}
+
 bool may_carry(const Network &net, const std::string &range,
                std::pair<uint32_t, int64_t> start, size_t field, u128 to_value) {
   LocalResult res;
   bool carries = false;
   Slicer s{net, 0, res, [&](uint32_t, const Box &b) {
              if (b[field].lo <= to_value && to_value <= b[field].hi) carries = true;
-           }, Revisit::PATH, {}, {}, {}};
+           }, Revisit::PATH, {}, {}, {}, nullptr, nullptr, {}};
   std::vector<uint32_t> path;
   std::set<uint32_t> out;
   s.walk(start.first, start.second, box_of(net, range), path, out);

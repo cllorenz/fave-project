@@ -124,6 +124,50 @@ struct Footprint {
   bool hits_port(uint64_t port) const { return ports.count(port) > 0; }
 };
 
+// VERIFLOW_FOOTPRINT_SCOPE.md §4.1: one path by which a start's packets were
+// consumed at a table -- the WITNESS a reachable check keeps instead of the
+// whole walk. A hop is a table the path crossed, the packets that took the
+// hop's rule there (`set` minus `excl`), the rule, the port the path left by
+// (-1 at the consuming hop) and one concrete packet of the path (`point`, one
+// value per field): a rule update can move the path only if it is a candidate
+// at a hop and its match meets the hop's packets.
+struct Hop {
+  uint32_t table = 0;
+  int64_t arrival = ANY_PORT;
+  std::vector<Interval> set;
+  std::vector<std::vector<Interval>> excl;   // V3b: excluded from `set`
+  uint64_t rule = 0;
+  int64_t port = -1;
+  std::vector<Interval> point;               // empty when `has_point` is false
+};
+
+struct Witness {
+  std::vector<Hop> hops;
+  // false if no concrete packet could be carried back through the rewrites;
+  // the hops' sets then stand in for it (a superset, so still sound)
+  bool has_point = false;
+  bool hits_port(uint64_t port) const {
+    for (const Hop &h : hops)
+      if (h.port >= 0 && (uint64_t)h.port == port) return true;
+    return false;
+  }
+};
+
+// §4.2: where the packets a rule takes can still go. `opens`: some out-port is
+// linked; `consumed_at`: the table, if the rule consumes; `unlinked`: its
+// out-ports with no link, which a dead end must watch for a link coming up.
+// A rule that forwards nowhere has none of the three: a dead end.
+struct Fate {
+  bool opens = false;
+  std::set<uint32_t> consumed_at;
+  std::set<uint64_t> unlinked;
+  void add(const Fate &o) {
+    opens = opens || o.opens;
+    consumed_at.insert(o.consumed_at.begin(), o.consumed_at.end());
+    unlinked.insert(o.unlinked.begin(), o.unlinked.end());
+  }
+};
+
 struct LocalResult {
   std::vector<std::set<uint32_t>> delivered;  // per start: where packets arrive
   bool finished = true;       // false: the budget was exceeded (did not finish)
@@ -134,6 +178,9 @@ struct LocalResult {
   uint64_t hops = 0;          // (table, arrival, set) states expanded
   std::map<uint32_t, uint64_t> per_table;  // local ECs sliced, per table
   Footprint footprint;        // filled only when asked for (record_footprint)
+  // per start, per table delivered at: the first path found there (§4.1);
+  // filled only when asked for (record_witness)
+  std::vector<std::map<uint32_t, Witness>> witnesses;
 };
 
 // Bulk checks the thesis's way: device by device. At each table a packet set
@@ -161,12 +208,27 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
                              uint64_t budget = 0, Revisit revisit = Revisit::PATH,
                              const std::vector<bool> &scan = {},
-                             bool record_footprint = false);
+                             bool record_footprint = false,
+                             bool record_witness = false);
 
 // Whether a rule (table, in_port, match) could be a candidate at any state of
 // `fp` -- i.e. whether inserting or deleting it can change that walk.
 bool footprint_hits_rule(const Network &net, const Footprint &fp, uint32_t table,
                          int64_t in_port, const std::string &match);
+
+// §4.1: whether a rule (table, in_port, match) could move a witness's path --
+// it is a candidate at a hop and meets the hop's concrete packet (`use_point`
+// and the witness has one) or the hop's set.
+bool witness_hits_rule(const Network &net, const Witness &w, uint32_t table,
+                       int64_t in_port, const std::string &match, bool use_point);
+
+// §4.2: the fate of the packets rule `id` (loaded) takes.
+Fate rule_fate(const Network &net, uint64_t id);
+
+// §4.2: the fate of the packets that deleting rule `id` (still loaded) hands
+// to the next candidates, at every state of `fp` the rule meets: the union of
+// those candidates' fates. Packets no candidate matches end there (nothing).
+Fate delete_fate(const Network &net, const Footprint &fp, uint64_t id);
 
 // T §4.5, VLAN isolation: can a packet of `range` from `start`, on some path,
 // come to carry `to_value` in `field` (e.g. a VLAN it must not leak into)? The
