@@ -161,6 +161,17 @@ TNSM'21 measures only build-from-zero plus one verification.
   concrete packet), built after the M2 packet-filter spike and before the D11
   run; a per-target re-walk stays out. Order: M2 spike → VeriFlow-FR footprints
   → rest of M2 → D11 run → campaign.
+- **D13. The grid's workloads (owner, 2026-10-11)**, for the D11 run and the
+  campaign. S1–S3 at batch 1 and S2 at batches 10/100/all on: `wl_example`,
+  `wl_ifi`, `wl_cloud`, `wl_airtel1`, **`wl_airtel2`** (kept by the owner against
+  my recommendation; smoke-run 2026-10-11, 10 S2 updates on NetPlumber and
+  VeriFlow-FR, oracle equal throughout), `wl_up`, `wl_stanford`, `wl_i2`; all
+  four incremental engines, except BDD-APKeep on `wl_stanford`/`wl_i2`, recorded
+  as **no cell** (from-zero DNF in V5). `wl_tum`: `t_update` only (no checks).
+  S4 (M2): `wl_ifi`, `wl_cloud`, `wl_up`, `wl_tum` (§8). **Not run:** ad6 and
+  NDD-flood (no incremental path; a per-update rebuild is their V5 from-zero
+  cost, which the break-even share already cites); `wl_berkeley` (may join the
+  campaign as a size point after the D11 numbers).
 
 ## 5. What is measured, per update
 
