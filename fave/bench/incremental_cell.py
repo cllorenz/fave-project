@@ -107,6 +107,10 @@ def outcome(measured, end):
     prefix), the environment's kill is `interrupted` (re-run). """
     if end and end.get('status') == 'oracle_failed':
         return 'oracle_failed'
+    if end and end.get('status') == 'refused':
+        # S4: an edit the engine could not take; the stream stops there and
+        # reports its prefix, like a limit -- a result, not a crash
+        return 'refused'
     return cell_metrics.outcome(measured['status'], measured['status'] == 'completed')
 
 
