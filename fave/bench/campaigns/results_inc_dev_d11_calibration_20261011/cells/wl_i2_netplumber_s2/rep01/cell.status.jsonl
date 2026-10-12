@@ -1,0 +1,3 @@
+{"elapsed_s": 1.0, "peak_rss_mb": 153, "rss_by_process_mb": {"python3": 155}, "available_mb": 58593, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 61.7, "peak_rss_mb": 1697, "rss_by_process_mb": {"python3": 1698}, "available_mb": 57080, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 71.0, "peak_rss_mb": 1776, "status": "completed", "limit_tripped": "none"}

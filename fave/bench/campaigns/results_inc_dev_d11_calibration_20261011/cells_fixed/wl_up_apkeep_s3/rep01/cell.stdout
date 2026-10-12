@@ -1,0 +1,39 @@
+worker: task failed:
+Traceback (most recent call last):
+  File "BDD.java", line 452, in jdd.bdd.BDD.or_rec
+Exception: Java Exception
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/aggregator/aggregator_service.py", line 486, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/aggregator/aggregator_service.py", line 384, in _dispatch
+    self.verification_engine.check_compliance(rules)
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/apkeep/adapter.py", line 3487, in check_compliance
+    reachable = self._lib.is_reachable(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/apkeep/lib_apkeep.py", line 318, in is_reachable
+    self._net.recordFootprint(footprint_key, checker)
+java.lang.java.lang.StackOverflowError: java.lang.StackOverflowError
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/bench/incremental_run.py", line 520, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/bench/incremental_run.py", line 512, in main
+    rc = run(args)
+         ^^^^^^^^^
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/bench/incremental_run.py", line 289, in run
+    rechecked = cache.selective(affected) if checks else []
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/util/incremental.py", line 170, in selective
+    fresh = self.ask(todo)
+            ^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/util/incremental.py", line 150, in ask
+    self.fave.check_compliance(rules)
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/util/in_process_driver.py", line 203, in check_compliance
+    barrier.wait(guard, directory=self._barrier_dir)
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/util/barrier.py", line 296, in wait
+    raise BarrierError("FaVe failed to handle the request: %s" % error)
+util.barrier.BarrierError: FaVe failed to handle the request: java.lang.StackOverflowError: java.lang.StackOverflowError

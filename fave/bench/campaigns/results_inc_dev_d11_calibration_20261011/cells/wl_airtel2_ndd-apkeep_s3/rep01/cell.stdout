@@ -1,0 +1,48 @@
+worker: task failed:
+Traceback (most recent call last):
+  File "ClassLoader.java", line 526, in java.lang.ClassLoader.loadClass
+java.lang.java.lang.ClassNotFoundException: java.lang.ClassNotFoundException: apkeep.checker.Witness$Hop
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "NddReachabilityChecker.java", line 154, in apkeep.ndd.NddReachabilityChecker.isReachable
+Exception: Java Exception
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 486, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 384, in _dispatch
+    self.verification_engine.check_compliance(rules)
+  File "/home/ubuntu/fave-project/fave/apkeep/adapter.py", line 3493, in check_compliance
+    reachable = self._lib.is_reachable(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/apkeep/lib_apkeep.py", line 315, in is_reachable
+    answer = self._ask(checker, src, dst, src_prefix, src_len, target_vlan,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/apkeep/lib_apkeep.py", line 347, in _ask
+    return bool(checker.isReachable(src, dst))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+java.lang.java.lang.NoClassDefFoundError: java.lang.NoClassDefFoundError: apkeep/checker/Witness$Hop
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/incremental_run.py", line 517, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/incremental_run.py", line 509, in main
+    rc = run(args)
+         ^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/incremental_run.py", line 249, in run
+    cache.full()
+  File "/home/ubuntu/fave-project/fave/util/incremental.py", line 159, in full
+    self.verdict = self.ask(self.checks)
+                   ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/util/incremental.py", line 150, in ask
+    self.fave.check_compliance(rules)
+  File "/home/ubuntu/fave-project/fave/util/in_process_driver.py", line 203, in check_compliance
+    barrier.wait(guard, directory=self._barrier_dir)
+  File "/home/ubuntu/fave-project/fave/util/barrier.py", line 296, in wait
+    raise BarrierError("FaVe failed to handle the request: %s" % error)
+util.barrier.BarrierError: FaVe failed to handle the request: java.lang.NoClassDefFoundError: java.lang.NoClassDefFoundError: apkeep/checker/Witness$Hop

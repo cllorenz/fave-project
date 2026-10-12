@@ -1,0 +1,7 @@
+{"elapsed_s": 1.0, "peak_rss_mb": 149, "rss_by_process_mb": {"python3": 149}, "available_mb": 44221, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 61.8, "peak_rss_mb": 1665, "rss_by_process_mb": {"python3": 1665}, "available_mb": 42445, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 122.5, "peak_rss_mb": 2179, "rss_by_process_mb": {"python3": 2179}, "available_mb": 41850, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 183.5, "peak_rss_mb": 2443, "rss_by_process_mb": {"python3": 2444}, "available_mb": 41619, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 243.7, "peak_rss_mb": 2832, "rss_by_process_mb": {"python3": 2832}, "available_mb": 41682, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 303.7, "peak_rss_mb": 3225, "rss_by_process_mb": {"python3": 3225}, "available_mb": 41281, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 340.2, "peak_rss_mb": 3253, "status": "completed", "limit_tripped": "none"}

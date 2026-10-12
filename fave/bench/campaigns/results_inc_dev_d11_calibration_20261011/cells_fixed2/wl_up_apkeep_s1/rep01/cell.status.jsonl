@@ -1,0 +1,24 @@
+{"elapsed_s": 1.0, "peak_rss_mb": 154, "rss_by_process_mb": {"python3": 155}, "available_mb": 47057, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 61.1, "peak_rss_mb": 1363, "rss_by_process_mb": {"python3": 1363}, "available_mb": 40529, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 122.0, "peak_rss_mb": 1438, "rss_by_process_mb": {"python3": 1438}, "available_mb": 40061, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 182.9, "peak_rss_mb": 1446, "rss_by_process_mb": {"python3": 1446}, "available_mb": 42280, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 243.8, "peak_rss_mb": 1573, "rss_by_process_mb": {"python3": 1573}, "available_mb": 41510, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 304.6, "peak_rss_mb": 1609, "rss_by_process_mb": {"python3": 1609}, "available_mb": 41144, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 365.4, "peak_rss_mb": 1626, "rss_by_process_mb": {"python3": 1618}, "available_mb": 41072, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 426.3, "peak_rss_mb": 1626, "rss_by_process_mb": {"python3": 1621}, "available_mb": 39773, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 487.2, "peak_rss_mb": 1799, "rss_by_process_mb": {"python3": 1799}, "available_mb": 39436, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 547.9, "peak_rss_mb": 2186, "rss_by_process_mb": {"python3": 2186}, "available_mb": 35934, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 608.8, "peak_rss_mb": 2224, "rss_by_process_mb": {"python3": 2224}, "available_mb": 35875, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 669.7, "peak_rss_mb": 2914, "rss_by_process_mb": {"python3": 2914}, "available_mb": 35712, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 730.6, "peak_rss_mb": 2918, "rss_by_process_mb": {"python3": 2918}, "available_mb": 33257, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 791.4, "peak_rss_mb": 2920, "rss_by_process_mb": {"python3": 2920}, "available_mb": 38248, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 852.2, "peak_rss_mb": 3800, "rss_by_process_mb": {"python3": 3800}, "available_mb": 44233, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 913.0, "peak_rss_mb": 3854, "rss_by_process_mb": {"python3": 3844}, "available_mb": 42445, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 973.7, "peak_rss_mb": 3854, "rss_by_process_mb": {"python3": 3844}, "available_mb": 41850, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 1034.6, "peak_rss_mb": 3854, "rss_by_process_mb": {"python3": 3844}, "available_mb": 41619, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 1095.4, "peak_rss_mb": 3854, "rss_by_process_mb": {"python3": 3844}, "available_mb": 41682, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 1156.2, "peak_rss_mb": 3854, "rss_by_process_mb": {"python3": 3844}, "available_mb": 41281, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 1216.9, "peak_rss_mb": 3854, "rss_by_process_mb": {"python3": 3844}, "available_mb": 41627, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 1277.7, "peak_rss_mb": 3854, "rss_by_process_mb": {"python3": 3844}, "available_mb": 41627, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 1338.7, "peak_rss_mb": 3854, "rss_by_process_mb": {"python3": 3841}, "available_mb": 40348, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 1358.0, "peak_rss_mb": 3854, "status": "completed", "limit_tripped": "none"}

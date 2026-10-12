@@ -1,0 +1,1 @@
+SKIPPED (declared 2026-10-11T18:58:07Z): wl_up apkeep s3 on the tree's code at 87b18e82 would stop at its 7,200 s limit before its first update, as s1 did (cells/wl_up_apkeep_s1: did_not_finish, 0 updates). The cause is fixed on m2 (d8318633, apkeep footprint unions); this cell runs again on the fixed code after the merge, as cells_fixed/wl_up_apkeep_s3.

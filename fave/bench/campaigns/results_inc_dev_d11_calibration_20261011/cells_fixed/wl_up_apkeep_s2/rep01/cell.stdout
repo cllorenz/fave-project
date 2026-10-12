@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "Network.java", line 790, in apkeep.core.Network.applyUpdates
+Exception: Java Exception
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/bench/incremental_run.py", line 520, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/bench/incremental_run.py", line 512, in main
+    rc = run(args)
+         ^^^^^^^^^
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/bench/incremental_run.py", line 285, in run
+    inc.apply(engine, update, deleted, down, refused)
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/util/incremental.py", line 322, in apply
+    apply(engine, update, deleted, down)
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/util/incremental.py", line 329, in apply
+    engine.delete_rule(*what)
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/apkeep/adapter.py", line 3857, in delete_rule
+    self._replace_table(op, node, batch, tid, [r for r in rows if r.idx != idx])
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/apkeep/adapter.py", line 3820, in _replace_table
+    self._apply_translation(op, models, self._down)
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/apkeep/adapter.py", line 3649, in _apply_translation
+    self._lib.update(updates)
+  File "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/apkeep/lib_apkeep.py", line 358, in update
+    self._net.applyUpdates(java_rules)
+apkeep.exception.apkeep.exception.BDDNotFalseException: apkeep.exception.BDDNotFalseException: BDD 4496942 should be completely transferred

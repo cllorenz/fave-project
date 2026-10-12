@@ -1,0 +1,2 @@
+{"elapsed_s": 1.0, "peak_rss_mb": 241, "rss_by_process_mb": {"python3": 243}, "available_mb": 58540, "status": "running", "aggregator_log_bytes": 284, "tasks_completed": {}}
+{"elapsed_s": 8.1, "peak_rss_mb": 896, "status": "completed", "limit_tripped": "none"}

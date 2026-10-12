@@ -1,0 +1,64 @@
+{
+ "argv": [
+  "/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/fave-m2/fave/bench/incremental_run.py",
+  "bench/wl_up",
+  "--engine",
+  "apkeep",
+  "--stream",
+  "s2",
+  "--fraction",
+  "0.2",
+  "--seed",
+  "1",
+  "--batch",
+  "1",
+  "--checks",
+  "checks.json",
+  "--cell-dir",
+  "/home/ubuntu/fave-project/fave/bench/campaigns/results_inc_dev_d11_calibration_20261011/cells_fixed/wl_up_apkeep_s2/rep01",
+  "--limit-updates",
+  "50"
+ ],
+ "completed_updates": 36,
+ "limit_class": "dev",
+ "limit_rss_mb": 64294,
+ "limit_tripped": "none",
+ "limit_update_s": 3600.0,
+ "limit_wall_s": 7200.0,
+ "machine": {
+  "cores": 16,
+  "kernel": "7.0.0-31-generic",
+  "node": "5fdf45bfc27e",
+  "ram_mb": 64294,
+  "swap_mb": 0
+ },
+ "measured": {
+  "deadline_stop": null,
+  "exit": 1,
+  "least_available_mb": 48176,
+  "limit_tripped": "none",
+  "memory_stop": null,
+  "orphans_killed": [],
+  "peak_rss_by_process_mb": {
+   "python3": 4080
+  },
+  "peak_rss_mb": 4080,
+  "peak_swap_by_process_mb": {
+   "python3": 0
+  },
+  "peak_swap_used_mb": 0,
+  "status": "error",
+  "status_trail": "cell.status.jsonl",
+  "swap_pages": {
+   "pswpin": 0,
+   "pswpout": 0
+  },
+  "swap_used_at_start_mb": 0,
+  "wall_s": 1828.65
+ },
+ "memory_floor_mb": 1024,
+ "outcome": "error",
+ "repetition": 1,
+ "repetitions": 1,
+ "what": "incremental cell (INCREMENTAL_PLAN.md O3, O4)"
+}

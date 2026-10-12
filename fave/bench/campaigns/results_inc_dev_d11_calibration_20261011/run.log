@@ -1,0 +1,103 @@
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 4.112}
+2026-10-11T13:25:41Z wl_airtel2 netplumber s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 6.383}
+2026-10-11T13:25:47Z wl_up netplumber s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 33.013}
+2026-10-11T13:26:21Z wl_airtel2 veriflow s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 1201.544}
+2026-10-11T13:46:22Z wl_up veriflow s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 4.005}
+2026-10-11T13:46:26Z wl_airtel2 apkeep s1 rc=0
+{"repetition": 1, "outcome": "interrupted", "completed_updates": 0, "wall_s": 5950.834}
+2026-10-11T15:26:13Z runner killed by the session tool's background time limit during wl_up apkeep s1 (5951 s, no update yet); its record kept under interrupted/, the runner restarted detached
+{"repetition": 1, "outcome": "did_not_finish", "completed_updates": 0, "wall_s": 7200.225}
+2026-10-11T17:26:13Z wl_up apkeep s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 18.483}
+2026-10-11T17:26:32Z wl_airtel2 ndd-apkeep s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 78.393}
+2026-10-11T17:27:50Z wl_up ndd-apkeep s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 3.705}
+2026-10-11T17:27:54Z wl_stanford netplumber s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 72.517}
+2026-10-11T17:29:07Z wl_i2 netplumber s1 rc=0
+2026-10-11T18:58:07Z declared: wl_up apkeep s2/s3 skipped on the old code (SKIPPED.txt in their dirs); re-run on the fixed code after the merge
+{"repetition": 1, "outcome": "did_not_finish", "completed_updates": 34, "wall_s": 7200.464}
+2026-10-11T19:29:07Z wl_stanford veriflow s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 6407.831}
+2026-10-11T21:15:55Z wl_i2 veriflow s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 15.036}
+2026-10-11T21:16:10Z wl_stanford ndd-apkeep s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 351.184}
+2026-10-11T21:22:01Z wl_i2 ndd-apkeep s1 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 4.214}
+2026-10-11T21:22:06Z wl_airtel2 netplumber s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 14.065}
+2026-10-11T21:22:20Z wl_up netplumber s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 33.3}
+2026-10-11T21:22:53Z wl_airtel2 veriflow s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 1532.501}
+2026-10-11T21:48:26Z wl_up veriflow s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 4.216}
+2026-10-11T21:48:30Z wl_airtel2 apkeep s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 20.017}
+2026-10-11T21:48:50Z wl_airtel2 ndd-apkeep s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 464.505}
+2026-10-11T21:56:35Z wl_up ndd-apkeep s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 8.054}
+2026-10-11T21:56:43Z wl_stanford netplumber s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 71.018}
+2026-10-11T21:57:54Z wl_i2 netplumber s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 5111.885}
+2026-10-11T23:23:06Z wl_stanford veriflow s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 6042.059}
+2026-10-12T01:03:48Z wl_i2 veriflow s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 14.961}
+2026-10-12T01:04:03Z wl_stanford ndd-apkeep s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 354.523}
+2026-10-12T01:09:58Z wl_i2 ndd-apkeep s2 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 4.268}
+2026-10-12T01:10:02Z wl_airtel2 netplumber s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 7.86}
+2026-10-12T01:10:10Z wl_up netplumber s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 14.541}
+2026-10-12T01:10:24Z wl_airtel2 veriflow s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 6731.092}
+2026-10-12T03:02:36Z wl_up veriflow s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 29.995}
+2026-10-12T03:03:06Z wl_airtel2 apkeep s3 rc=0
+{"repetition": 1, "outcome": "error", "completed_updates": 0, "wall_s": 18.388}
+2026-10-12T03:03:25Z wl_airtel2 ndd-apkeep s3 rc=0
+# DECLARED 2026-10-12T05:20Z: cells_fixed/ (m2 d8318633) wl_up apkeep s2/s3 ended in `error` from a defect in
+# that commit (Network.unionOf released its own result; fixed in m2 a850ad11, FAVE_CHANGES.md §14). Re-run as
+# cells_fixed2/ (run_fixed2.sh): three cells in parallel, alongside this sequential run.
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 2174.792}
+2026-10-12T03:39:40Z wl_up ndd-apkeep s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 16.623}
+2026-10-12T03:39:57Z wl_stanford netplumber s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 340.154}
+2026-10-12T03:45:37Z wl_i2 netplumber s3 rc=0
+# CORRECTION 2026-10-12T04:58Z: the DECLARED note above is stamped "05:20Z"; that was local time (CEST). It was
+# written at about 03:20Z, between the wl_airtel2 ndd-apkeep s3 and wl_up ndd-apkeep s3 lines, where it stands.
+# DECLARED 2026-10-12T04:58Z -- THE APKEEP JAR THIS RUN USED WAS NOT ALWAYS THE DECLARED CODE.
+# The session's m2 worktree had apkeep/target as a symlink to this tree's apkeep/target (set up 2026-10-11T13:03Z
+# to share build outputs). Every `mvn package` there (from 2026-10-11T15:44Z: m2 work in progress, the memo
+# commit d8318633, DEBUG-gated diagnostic builds that are inert unless FAVE_APKEEP_DEBUG=1, and finally a850ad11
+# at 2026-10-12T03:11:47Z) replaced the jar this run loads. The ndd jar and both C++ .so files were not rebuilt
+# (last built 2026-10-11T13:25Z, before the run; m2 changes no source behind them).
+#   clean (JVM started before 15:44Z): wl_airtel2 apkeep s1; wl_up apkeep s1 (its restart at 15:26Z).
+#   NOT the declared code (12 cells): ndd-apkeep s1 on wl_airtel2, wl_up, wl_stanford, wl_i2; apkeep s2 and
+#   ndd-apkeep s2 on wl_airtel2; ndd-apkeep s2 on wl_up, wl_stanford, wl_i2; apkeep s3 and ndd-apkeep s3 on
+#   wl_airtel2; ndd-apkeep s3 on wl_up.
+#   wl_airtel2 ndd-apkeep s3 `error` (NoClassDefFoundError apkeep/checker/Witness$Hop, 0 updates) is this build
+#   replacing the jar under a running JVM -- an artefact of the session, not an engine finding.
+# Remedy: the link is replaced by the worktree's own target; this tree's jar is rebuilt from its own source
+# (updates); the 12 cells are re-run on it into cells_jar_rerun/ after this run ends. Their records in cells/ stay.
+{"repetition": 1, "outcome": "did_not_finish", "completed_updates": 38, "wall_s": 7200.83}
+2026-10-12T05:45:38Z wl_stanford veriflow s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 5052.35}
+2026-10-12T07:09:50Z wl_i2 veriflow s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 18.13}
+2026-10-12T07:10:09Z wl_stanford ndd-apkeep s3 rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 335.969}
+2026-10-12T07:15:45Z wl_i2 ndd-apkeep s3 rc=0
+2026-10-12T07:15:45Z DONE

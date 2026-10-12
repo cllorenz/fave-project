@@ -1,0 +1,7 @@
+{"repetition": 1, "outcome": "measured", "completed_updates": 50, "wall_s": 1993.085}
+2026-10-11T21:31:39Z wl_up apkeep s1 rc=0 (m2 d8318633, worktree)
+{"repetition": 1, "outcome": "error", "completed_updates": 36, "wall_s": 1828.65}
+2026-10-11T22:02:07Z wl_up apkeep s2 rc=0 (m2 d8318633, worktree)
+{"repetition": 1, "outcome": "error", "completed_updates": 2, "wall_s": 1229.529}
+2026-10-11T22:22:37Z wl_up apkeep s3 rc=0 (m2 d8318633, worktree)
+2026-10-11T22:22:37Z DONE
