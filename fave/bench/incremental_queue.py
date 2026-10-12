@@ -24,8 +24,10 @@ RESUMABLE -- for the D11 run (INCREMENTAL_PLAN.md §4), which is too large to
 run one cell at a time.
 
 `bench/cell_queue.py`'s rule, for incremental cells: a cell whose result is a
-measurement or a DECLARED limit (`deadline`, `memory`) is done and skipped on a
-restart; one that was `interrupted`, or left no result, is run again. A cell
+measurement or a DECLARED limit (outcome `did_not_finish`: its wall or memory
+limit stopped it) is done and skipped on a restart; one that was `interrupted`,
+or left no result, is run again, its old directory first moved to
+`_interrupted/` (kept, never deleted: `incremental_cell.py` never overwrites). A cell
 that ended in `error` or `oracle_failed` is NOT re-run: a crash is a finding to
 be looked at, never retried into a number -- it is listed at the end.
 
@@ -55,7 +57,7 @@ from typing import Any, Dict, List, Optional
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 #: outcomes that are a result: skipped on a restart
-DONE = ('measured', 'deadline', 'memory', 'refused')
+DONE = ('measured', 'did_not_finish', 'refused')
 #: outcomes that are a finding: not re-run, listed
 FLAGGED = ('error', 'oracle_failed')
 _OWN = ('name', 'workload', 'engine', 'stream', 'mem_mb', 'est_h')
@@ -89,6 +91,18 @@ def command(cell: Dict[str, Any], out_dir: str, python: str) -> List[str]:
     return argv
 
 
+def retire(out_dir: str, name: str) -> Optional[str]:
+    """ Move a cell's unfinished directory (interrupted, or no result) to
+    `_interrupted/<name>.<time>`, so the cell can run again. """
+    d = os.path.join(out_dir, name)
+    if not os.path.exists(d):
+        return None
+    away = os.path.join(out_dir, '_interrupted', '%s.%s' % (name, time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())))
+    os.makedirs(os.path.dirname(away), exist_ok=True)
+    os.rename(d, away)
+    return away
+
+
 def plan(cells: List[Dict[str, Any]], out_dir: str) -> List[Dict[str, Any]]:
     """ The cells still to run, longest first. """
     todo = []
@@ -114,11 +128,7 @@ def run(cells: List[Dict[str, Any]], out_dir: str, jobs: int, budget: int,
                 if used + int(cell['mem_mb']) <= budget or not running:
                     # (a cell larger than the budget runs alone)
                     todo.remove(cell)
-                    d = os.path.join(out_dir, cell['name'])
-                    if os.path.exists(d) and state(d) is None:
-                        # interrupted earlier with no result: start afresh
-                        import shutil
-                        shutil.rmtree(d)
+                    retire(out_dir, cell['name'])
                     os.makedirs(out_dir, exist_ok=True)
                     handle = open(os.path.join(out_dir, cell['name'] + '.log'), 'w')
                     proc = subprocess.Popen(command(cell, out_dir, python), cwd=os.path.dirname(HERE),

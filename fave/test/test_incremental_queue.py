@@ -51,13 +51,28 @@ class TestQueue(unittest.TestCase):
             json.dump({'outcome': outcome}, handle)
 
     def test_results_and_findings_are_not_rerun_interruptions_are(self):
-        for name, outcome in (('m', 'measured'), ('d', 'deadline'), ('mem', 'memory'),
+        # the outcomes incremental_cell.py writes (bench/cell_metrics.py OUTCOMES);
+        # a wall or memory limit is `did_not_finish`
+        for name, outcome in (('m', 'measured'), ('dnf', 'did_not_finish'), ('r', 'refused'),
                               ('e', 'error'), ('o', 'oracle_failed'), ('i', 'interrupted')):
             self._result(name, outcome)
         os.makedirs(os.path.join(self.out, 'half'))      # died with no result
-        cells = [_cell(n) for n in ('m', 'd', 'mem', 'e', 'o', 'i', 'half', 'new')]
+        cells = [_cell(n) for n in ('m', 'dnf', 'r', 'e', 'o', 'i', 'half', 'new')]
         self.assertEqual(sorted(c['name'] for c in q.plan(cells, self.out)),
                          ['half', 'i', 'new'])
+
+    def test_done_outcomes_are_ones_a_cell_writes(self):
+        from bench import cell_metrics
+        for outcome in q.DONE + q.FLAGGED:
+            self.assertIn(outcome, cell_metrics.OUTCOMES + ('oracle_failed', 'refused'))
+
+    def test_an_unfinished_cell_is_moved_aside_not_deleted(self):
+        self._result('i', 'interrupted')
+        away = q.retire(self.out, 'i')
+        self.assertFalse(os.path.exists(os.path.join(self.out, 'i')))
+        self.assertTrue(os.path.exists(os.path.join(away, 'rep01', 'cell.json')))
+        self.assertTrue(away.startswith(os.path.join(self.out, '_interrupted', 'i.')))
+        self.assertIsNone(q.retire(self.out, 'new'))
 
     def test_longest_first(self):
         cells = [_cell('a', est_h=1), _cell('b', est_h=5), _cell('c')]
