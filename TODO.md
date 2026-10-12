@@ -1218,6 +1218,60 @@ then applied to one of the two halves.
     Typecheck is green. GitLab's Docker image was not rebuilt here.
   - **What unpinned still allows:** a new pylint release can turn the gate red. When it does,
     every environment sees it on the same day, and the version is in the gate's first line.
+
+### 47. The `fast` coverage floor has never been met as CI measures it, and the number measures the import graph — OPEN (found 2026-10-12)
+- **Finding:** CI's `fast` job gates on `COVERAGE=1 COVERAGE_MIN=78 bash test.sh fast`
+  (`ci.yml:94`). Measured the way that job sees the tree (a `git archive` export and a venv
+  holding `requirements.txt` only, i.e. `./test.sh fast --clean`), with each commit's own
+  `test.sh`:
+
+  | commit | date | statements | missed | coverage | tests |
+  |---|---|---:|---:|---:|---|
+  | `578b6541` (floor restored to 78) | 2026-10-01 | 18,411 | 4,687 | **74.54%** | 769 passed, 6 errors (item 37) |
+  | `3bdcfe5d` | 2026-10-02 | 18,906 | 4,731 | 74.98% | 804 passed |
+  | `8fa71fb5` | 2026-10-06 | 21,295 | 6,122 | 71.25% | 861 passed |
+  | `29fdadd9` | 2026-10-09 | 22,529 | 6,672 | 70.38% | 3 failed (item 45) |
+  | `0df6965d` | 2026-10-10 | 23,684 | 7,492 | 68.37% | 3 failed |
+  | `49e5e466` | 2026-10-12 | 23,405 | 7,286 | **68.87%** | 922 passed |
+
+  The `ci.yml` comment's **77.79%** was measured in a working tree, which has generated
+  inputs and native packages, so more tests run there. Under CI's conditions the floor of 78
+  was out of reach on the day it was restored. **So the coverage step of CI's `fast` job
+  has most likely failed on every run since 2026-10-01.** That is not observed, because this
+  sandbox cannot reach CI.
+- **Why the number moves, measured:**
+  - **The denominator is the fast tests' import graph.** There is no coverage config, so a
+    module counts only if some fast test imports it. Between `3bdcfe5d` and today the total
+    grew by 4,499 statements, 2,555 of them missed. The largest single step is
+    `fave/apkeep/adapter.py` (1,651 statements, 1,465 missed) plus
+    `fave/veriflow/adapter.py` (255 / 224). They entered when `test_backend_provenance.py`
+    (`d834ec4d`, 2026-10-02) and `test_vlan_guardrail.py` (`6084dec0`, 2026-10-08) began
+    importing them for class constants and one method. That is legitimate, but it costs
+    about 6 points, for code that the `integration` tier exercises. The rest is mostly new
+    `bench/` harness scripts.
+  - **Test code counts as covered code:** 8,531 of 23,405 statements, at 95.65%. Without it,
+    fast's coverage of the code under test is **53.51%**. The headline figure is inflated, and
+    it is also dampened by the size of the suite.
+  - **Working tree and clean checkout differ**, so a floor set from a local run is wrong for
+    CI. `./test.sh fast --clean` (item 45) reproduces CI's view.
+- **Today's clean report, by scope:**
+
+  | counted | statements | coverage |
+  |---|---:|---:|
+  | as today: whatever is imported, tests included | 23,405 | 68.87% |
+  | minus test code | 14,874 | 53.51% |
+  | minus test code, the native-backed adapters (`fave/apkeep/`, `veriflow/adapter.py`) and vendored `ad6/` | 10,274 | 69.78% |
+  | … and minus `fave/bench/` | 6,312 | 70.55% |
+
+- [ ] **Declare the fast tier's coverage scope** in a coverage config: which code it is
+  responsible for, and whether modules in scope that no fast test imports count as 0%. The
+  alternative is to keep the current behaviour, where the import graph decides.
+- [ ] **Re-set the floor once, from `fast --clean`**, the measurement CI makes, and record why:
+  78 was never measured under CI's conditions. Then ratchet as before. Owner's call, given
+  the file's own rule that the floor is never lowered.
+- **Deferred:** coverage of fast and integration combined. The integration tier already uploads
+  coverage, but merging the two waits for item 44's refactor of that tier.
+
 ---
 
 ## Medium priority — structural improvements
