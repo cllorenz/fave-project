@@ -1,0 +1,77 @@
+PROTOCOL -- incremental axis, D11: one indicative run of the whole grid (dev)
+Declared 2026-10-12, BEFORE any cell of this run. Not edited afterwards.
+INCREMENTAL_PLAN.md D11 (every experiment of the campaign grid once, on this
+machine, after M2), D13 (the workloads), §7 (streams, batches, the APKeep
+ablation), O3.3 (the oracle subset). Code: updates at ca7a4b56 (M2 merged:
+the queue runner, S4 in the harness, the memoized footprint unions with the
+unionOf fix a850ad11). apkeep jar built from that commit, sha256 prefix b3fa50d43a70f1a7.
+Indicative: limit_class dev, one repetition, this machine. It sizes and
+shapes the campaign that D10 runs on another machine; nothing here is
+reportable as a campaign number.
+
+WHO AND UNDER WHAT MANDATE
+  A Claude session executing INCREMENTAL_PLAN.md autonomously (owner away;
+  on 2026-10-12 told to continue with the plan).
+
+WHAT IS BEING RUN  (queue.json, made by make_queue.py from projections.json,
+rates.json and peaks.json, which project.py makes from the dev records incl.
+the D11 calibration; all committed here)
+  A  S1, S2 (0.2, seed 1), S3 at batch 1; every grid workload x engine of D13
+     (BDD-APKeep: no cell on wl_stanford, wl_i2); wl_tum: t_update only.
+  B  S2 at batch 10, 100 and the whole stream.
+  C  S4 (1000 edits) on wl_ifi, wl_cloud, wl_up, wl_tum.
+  D  the footprint ablation, S1-S3 at batch 1: APKeep and NDD-APKeep coarse,
+     witness, dead-ends (both = the A cell); VeriFlow-FR witness, dead-ends,
+     both (coarse = the A cell).
+  E  the oracle subset: S2 and S4 under the oracle (sample of 50 checks after
+     every update; a full check and a from-zero build at spaced checkpoints,
+     chosen so that about three fit inside the wall cap, and at the stream's end).
+  Default footprints: APKeep and NDD-APKeep witness + dead ends; VeriFlow-FR
+  coarse (its default until the owner decides); NetPlumber its own.
+  433 cells: 448 by D13 and §7, less 15 (below).
+
+LEFT OUT, AND A LONGER CAP
+  BDD-APKeep on wl_cloud: its V5 build from zero took 3.24 h (RESULTS.md §3),
+  more than the cap, so its cells would record no update. Its three A cells
+  run with a 6 h cap; its 15 B, C, D and E cells are not run, as each would
+  repeat a build the cap stops. The A cells' per-update rate sizes them for
+  the campaign.
+
+HOW
+  bench/incremental_queue.py --jobs 8 --mem-budget 48000 (run.sh): in parallel,
+  longest projected first; per cell an RSS limit, mem_mb = 1.3x the largest
+  peak RSS of a dev cell of that workload x engine (peaks.json; oracle cells
+  1.6x when no oracle cell was recorded; with no record 12 GB for NDD-APKeep,
+  8 GB for BDD-APKeep, 4 GB otherwise; at least 2 GB). Simulated with the
+  projections: about 55 h of wall time. Cells share the machine: per-update timings carry the
+  interference of up to seven neighbours; that is accepted for an indicative
+  run, and P7 measures it.
+  Nothing else of this session runs on this machine meanwhile, and the tree
+  (sources and build outputs) is not touched until the run ends.
+
+STOPPING RULES
+  limit_wall 7200 s per cell (21600 s for the three cells above). A cell it stops is `did_not_finish` with its
+  per-update records up to then: the partial stream IS the indicative number.
+  The other dev limits as incremental_cell.py sets them: limit_update 3600 s
+  without a completed batch, counted from the first update on. A batch-"all"
+  cell whose single batch takes longer is `did_not_finish` by it.
+  A crash (`error`) or an oracle mismatch (`oracle_failed`) is a finding: it is
+  not re-run, and it is looked at before the campaign protocol is written.
+
+PREDICTIONS
+  P1  No cell ends in `error`, and no oracle cell ends in `oracle_failed`.
+  P2  Between 90 and 150 cells are stopped by their wall cap
+      (`did_not_finish`); none is stopped by its memory limit.
+  P3  Every E cell records at least one full checkpoint (selective = full =
+      from zero) before it ends.
+  P4  The queue finishes within 72 h of wall time.
+  P5  Ablation: where the cells of one engine x workload x stream completed
+      their streams, the re-checks summed under witness + dead ends are no
+      more than under coarse, nor under either mode alone.
+  P6  Batching: for every workload x engine whose S2 cells at batch 1 and at
+      batch "all" both completed, the summed t_recheck at "all" is no more
+      than at batch 1.
+  P7  Interference: on wl_example, wl_ifi, wl_airtel1 and wl_cloud, the A
+      cells' median t_total lies within 0.5x-2x of the latest earlier dev
+      record of the same workload x engine x stream x footprint, for at least
+      90% of the pairs that have one.
