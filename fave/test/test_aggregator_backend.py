@@ -307,9 +307,15 @@ class TestTheNoVlanGuardrailIsRefusedWhereItWouldDoNothing(unittest.TestCase):
     def test_they_are_still_BUILDABLE_faithfully(self):
         # The refusal is about the flag, not the backend: the default arm
         # goes on working, which is every other cell in the campaign.
-        for backend in (BACKEND_NETPLUMBER, BACKEND_VERIFLOW, BACKEND_AD6):
+        for backend in (BACKEND_NETPLUMBER, BACKEND_AD6):
             with self.subTest(backend=backend):
                 self.assertIsNotNone(build_engine(backend, _LOG))
+        # Through the stub, as every other VeriFlow-FR case here: the real
+        # adapter needs libveriflow_fr, which the fast tier does not build
+        # (TODO item 45). It raises unless build_engine got past the refusal
+        # and returned the adapter it constructed.
+        with self.subTest(backend=BACKEND_VERIFLOW):
+            self.assertIsNotNone(_build_veriflow())
 
     def test_the_default_is_faithful_so_nothing_has_to_ask(self):
         # `faithful_vlan=True` is the signature default; a caller that

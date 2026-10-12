@@ -1159,9 +1159,13 @@ then applied to one of the two halves.
     `/tmp/claude-1000/gated.json`, an earlier sandbox's path that `f11b46da` committed. It
     really starts a cell (about 2 s) and left `gated.json`, `.aggregator.log` and
     `.status.jsonl` there on every run. It now writes into a `mkdtemp` directory.
-- [ ] **`veriflow`: decide the tier.** Either move the subtest to `integration` (where its
-  footprint puts it), or skip it when the library is not available, as `backend_gate` does
-  elsewhere.
+- [x] **`veriflow`: neither move it nor skip it** — DONE 2026-10-12. The subtest now goes
+  through `_build_veriflow`, the stub every other VeriFlow-FR case in the module already uses.
+  It raises unless `build_engine` got past the refusal and returned the adapter it
+  constructed, which is everything the test claims. A skip would have repeated item 42's
+  defect, because this module runs only in `fast`. Checked with `libveriflow_fr` removed (31
+  passed), and against a mutation where `build_engine` refuses VeriFlow-FR with no flag set
+  (fails).
 - [ ] **Re-measure on a pristine export** with a requirements-only venv, and expect
   `0 failed`.
 
