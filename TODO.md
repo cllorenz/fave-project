@@ -1150,9 +1150,15 @@ then applied to one of the two halves.
   its own `wl_up/checks.json` and a `wl_tum/` without one. That is how it already handles
   `AGGREGATOR_LOG` and `REPORT`, and the test no longer has to `chdir`. The assertion is
   unchanged. Checked that it bites: with the written `checks.json` left empty, the test fails.
-- [ ] **`apkeep`: let the test tell the two refusals apart.** Options: the guard exits with a
-  code other than 2, or the test asserts on the refusal message instead of the exit code, or
-  the test stubs `missing_child_imports`. The guard itself is right and stays.
+- [x] **`apkeep`: let the test tell the two refusals apart** — DONE 2026-10-12, by stubbing
+  `missing_child_imports` to `[]`, as `test_main_refuses_before_a_result_is_written` already
+  does. The test is about the ad6 gate, and the guard has its own tests. The guard's exit
+  code stays 2, argparse's refusal. Checked with a venv that has no `jpype`: it passes, and a
+  stub reporting `jpype` missing fails both subtests.
+  - **Also fixed in the same test:** it wrote its cell to the hard-coded
+    `/tmp/claude-1000/gated.json`, an earlier sandbox's path that `f11b46da` committed. It
+    really starts a cell (about 2 s) and left `gated.json`, `.aggregator.log` and
+    `.status.jsonl` there on every run. It now writes into a `mkdtemp` directory.
 - [ ] **`veriflow`: decide the tier.** Either move the subtest to `integration` (where its
   footprint puts it), or skip it when the library is not available, as `backend_gate` does
   elsewhere.

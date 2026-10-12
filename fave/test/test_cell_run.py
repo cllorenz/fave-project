@@ -352,21 +352,32 @@ class TestTheCommandEachBackendGets(unittest.TestCase):
         # declared defaults that are stamped either way: --apkeep-engine,
         # --vf-fields. ad6 is the one whose silent defaults change the
         # encoding.
-        for backend, extra in (('apkeep', ['--apkeep-engine', 'ndd']),
-                               ('veriflow', ['--vf-fields', '4+10'])):
-            with self.subTest(backend=backend):
-                parser_ok = True
-                try:
-                    cell_run.main(['wl_ifi', '--backend', backend] + extra
-                                  + ['--limit-class', 'v5',
-                                     '--limit-wall', '0.01',
-                                     '--out', '/tmp/claude-1000/gated.json'])
-                except SystemExit as exit_:
-                    parser_ok = exit_.code != 2        # 2 is argparse's refusal
-                except Exception:                      # pylint: disable=broad-except
-                    pass                               # a run failure is fine
-                self.assertTrue(parser_ok,
-                                "%s was gated; only ad6 should be" % backend)
+        #
+        # The interpreter guard refuses through argparse too, so it exits 2
+        # when this interpreter lacks a backend's child imports -- jpype for
+        # apkeep, which requirements.txt cannot pin -- and was read as the gate
+        # (TODO item 45). It is tested on its own below; stubbed here.
+        out = os.path.join(tempfile.mkdtemp(prefix='gated_'), 'gated.json')
+        real = cell_run.missing_child_imports
+        cell_run.missing_child_imports = lambda backend, find_spec=None: []
+        try:
+            for backend, extra in (('apkeep', ['--apkeep-engine', 'ndd']),
+                                   ('veriflow', ['--vf-fields', '4+10'])):
+                with self.subTest(backend=backend):
+                    parser_ok = True
+                    try:
+                        cell_run.main(['wl_ifi', '--backend', backend] + extra
+                                      + ['--limit-class', 'v5',
+                                         '--limit-wall', '0.01',
+                                         '--out', out])
+                    except SystemExit as exit_:
+                        parser_ok = exit_.code != 2    # 2 is argparse's refusal
+                    except Exception:                  # pylint: disable=broad-except
+                        pass                           # a run failure is fine
+                    self.assertTrue(parser_ok,
+                                    "%s was gated; only ad6 should be" % backend)
+        finally:
+            cell_run.missing_child_imports = real
 
     def test_a_cell_without_a_declared_deadline_is_refused(self):
         # Zero would read as "no deadline" to the sampling loop, and the result
