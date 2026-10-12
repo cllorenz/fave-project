@@ -1157,6 +1157,32 @@ then applied to one of the two halves.
 - [ ] **Re-measure on a pristine export** with a requirements-only venv, and expect
   `0 failed`.
 
+### 46. The lint gate's verdict depends on the pylint version: GitLab red, GitHub green — OPEN (found 2026-10-12)
+- **Finding:** `bash fave/test/lint_test.sh` at `7f9ff616` with Ubuntu 24.04's **pylint 3.0.3 /
+  astroid 3.0.2** (what the `Dockerfile:40` apt line and `.yolobox.toml` install) gives
+  `skipped 2, ok 16, style-only 311, and failed 1`. The one error is two `E1133
+  not-an-iterable` findings on
+  `bench/campaigns/results_inc_dev_footprints_20261010/compare.py:25`. With **pylint 4.1.3**
+  (what `ci.yml:115`'s unpinned `pip install pylint` resolves to today) the same file has **no**
+  error-class finding. So GitLab's `lint_fave` job, which runs inside the Docker image
+  (`.gitlab-ci.yml:29`), is red, and GitHub's `lint` job is green. **Neither run was observed**:
+  this is measured locally with both versions.
+- **The finding is a false positive.** `load()` returns a list or `None`, and the line before
+  line 25 is `if us is None or base is None: ...; continue`. pylint 3.0's inference does not
+  narrow across that `continue`.
+- **Red since `f9aa6c78` (2026-10-10)**, which committed the script. It is the only failing file.
+  It is a measurement artifact inside a committed result directory, which CONVENTIONS.md says
+  is never rewritten. That rules out the usual fix (item 38's: change the code so the linter
+  can follow it).
+- **Scope question raised along the way:** `lint_test.sh` lints `bench/campaigns/results_*/`.
+  That is 11 `.py` files today, all one-off analysis scripts frozen with their run.
+- [ ] **Decide the scope:** exclude `results_*/` from the gate (a frozen artifact cannot respond
+  to a finding), or keep linting them and accept an inline `# pylint: disable` as the one
+  permitted edit to an artifact.
+- [ ] **Decide the version:** pin pylint in `ci.yml` and in the Dockerfile to the same version,
+  or accept that the two gates can disagree. Item 35 resolved the same kind of drift for pip
+  dependencies, and pylint was left out of it.
+
 ---
 
 ## Medium priority — structural improvements
