@@ -90,6 +90,11 @@ AGGREGATOR_LOG = '/dev/shm/np/aggregator.log'
 #: be asked afterwards how many it reported.
 INV_LOG = '/dev/shm/np/inv.log'
 REPORT = 'report.md'
+#: Where `read_verdict` finds a workload's `checks.json` and `SOURCE.json`:
+#: relative, as every cell runs from fave/. A module constant like the two
+#: above, so a test can point it at inputs it wrote instead of at generated
+#: ones a clean checkout does not have (TODO item 45).
+BENCH = 'bench'
 
 _TASK = re.compile(r'completed task check_compliance in ([0-9.e+-]+) seconds')
 _REPORT = re.compile(r'completed task report in ([0-9.e+-]+) seconds')
@@ -499,7 +504,7 @@ def read_verdict(workload, out_dir, stem, gc_log):
     `completed task check_compliance` in the log is how a six-hour run was once
     read as "0 violations" (`AD6_PLAN.md` §9.34.3).
     """
-    prefix = 'bench/%s' % workload
+    prefix = os.path.join(BENCH, workload)
     found = {}
 
     if os.path.exists(AGGREGATOR_LOG):

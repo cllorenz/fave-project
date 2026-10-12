@@ -651,10 +651,12 @@ class TestTheQueueResumes(unittest.TestCase):
         and it appears exactly once in all 51 phase A logs across all six
         engine configurations.
         """
-        prev_log, prev_report = cell_run.AGGREGATOR_LOG, cell_run.REPORT
+        prev = (cell_run.AGGREGATOR_LOG, cell_run.REPORT, cell_run.BENCH)
         log = os.path.join(self.dir, 'aggregator.log')
         report = os.path.join(self.dir, 'report.md')
-        cell_run.AGGREGATOR_LOG, cell_run.REPORT = log, report
+        bench = os.path.join(self.dir, 'bench')
+        cell_run.AGGREGATOR_LOG, cell_run.REPORT, cell_run.BENCH = (
+            log, report, bench)
         with open(report, 'w') as handle:
             handle.write('# Report\n\n## Compliance Check\n'
                          'No compliance violations have been found.\n')
@@ -665,12 +667,14 @@ class TestTheQueueResumes(unittest.TestCase):
                     'worker: completed task %s in 0.1 seconds.\n' % t
                     for t in lines))
 
-        # `read_verdict` resolves `bench/<workload>/checks.json` RELATIVELY, as
-        # every cell does, so the test has to stand where a cell stands --
-        # whatever directory pytest was started from.
-        prev_cwd = os.getcwd()
-        os.chdir(os.path.dirname(os.path.dirname(
-            os.path.abspath(cell_run.__file__))))
+        # The two workloads as `read_verdict` tells them apart: wl_up has a
+        # `checks.json`, wl_tum none. Written here, not read from bench/: the
+        # real wl_up/checks.json is generated, so on a clean checkout wl_up
+        # looked checkless and the guard below failed (TODO item 45).
+        os.makedirs(os.path.join(bench, 'wl_tum'))
+        os.makedirs(os.path.join(bench, 'wl_up'))
+        with open(os.path.join(bench, 'wl_up', 'checks.json'), 'w') as handle:
+            json.dump([{'source': 'a', 'probe': 'b'}], handle)
         try:
             # wl_tum on NETPLUMBER, trimmed from the real log: it alone runs
             # check_anomalies, and it runs no check_compliance here.
@@ -709,8 +713,7 @@ class TestTheQueueResumes(unittest.TestCase):
             self.assertFalse(cell_run.read_verdict(
                 'wl_tum', self.dir, 'c', '/x')['verdict_valid'])
         finally:
-            os.chdir(prev_cwd)
-            cell_run.AGGREGATOR_LOG, cell_run.REPORT = prev_log, prev_report
+            cell_run.AGGREGATOR_LOG, cell_run.REPORT, cell_run.BENCH = prev
 
     def test_the_invariant_events_are_preserved_and_counted(self):
         """ `inv.log` is EVIDENCE and was being discarded.

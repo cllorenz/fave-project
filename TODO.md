@@ -1144,10 +1144,12 @@ then applied to one of the two halves.
   reads that as the gate. Installing `JPype1` makes it pass, which only hides the collision.
 - **The `veriflow` subtest** calls the real `build_engine(BACKEND_VERIFLOW)`, which raises from
   `VeriFlowAdapter.__init__` when `libveriflow_fr` is not built (`veriflow/adapter.py:107`).
-- [ ] **`wl_up`: give the test the fact it needs instead of a generated file.** For example, the
-  test writes its own `checks.json` into a temporary prefix, as it already does for the
-  log and the report, or `read_verdict` takes the checks path as a parameter. Either way the
-  assertion stays as strong.
+- [x] **`wl_up`: give the test the fact it needs instead of a generated file** — DONE
+  2026-10-12. `read_verdict` resolves workloads under a module constant `cell_run.BENCH`
+  (default `'bench'`, so cells are unchanged), and the test points it at a temporary tree with
+  its own `wl_up/checks.json` and a `wl_tum/` without one. That is how it already handles
+  `AGGREGATOR_LOG` and `REPORT`, and the test no longer has to `chdir`. The assertion is
+  unchanged. Checked that it bites: with the written `checks.json` left empty, the test fails.
 - [ ] **`apkeep`: let the test tell the two refusals apart.** Options: the guard exits with a
   code other than 2, or the test asserts on the refusal message instead of the exit code, or
   the test stubs `missing_child_imports`. The guard itself is right and stays.
