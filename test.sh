@@ -573,8 +573,6 @@ apt_purpose() {
             echo "ad6_encoding_bench Axis 0/1 (modern-CDCL comparison + Tseitin equisatisfiability self-check)" ;;
         pandoc|texlive-latex-base|texlive-latex-recommended|texlive-fonts-recommended|lmodern|inkscape)
             echo "bench (report.md -> report.pdf conversion)" ;;
-        pylint)
-            echo "lint gate (fave/test/lint_test.sh)" ;;
         python3-coverage)
             echo "COVERAGE=1 runs" ;;
         python3-daemon)
@@ -769,6 +767,7 @@ run_doctor() {
     check_import "pytest"      pytest                      "" "-> pip install -r requirements.txt   [every tier]" || rc=1
     check_import "coverage"    coverage                     "" "-> pip install -r requirements.txt   [COVERAGE=1]" || rc=1
     check_import "mypy"        mypy                         "" "-> pip install -r requirements.txt   [typecheck gate]" || rc=1
+    check_import "pylint"      pylint                       "" "-> pip install -r requirements.txt   [lint gate]" || rc=1
     check_import "lxml"        lxml.etree                   "" "-> pip install -r requirements.txt   [fast: the ad6 translator/bridge tests]" || rc=1
     check_import "pycosat"     pycosat                      "" "-> pip install pycosat==0.6.6        [integration: test_ad6_translate; SOURCE build, needs python3-dev]" || rc=1
     check_import "python-sat"  pysat.solvers                "" "-> pip install -r requirements.txt   [fast: ad6/fave_bridge.py imports it at module level]" || rc=1

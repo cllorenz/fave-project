@@ -42,6 +42,22 @@ export TMP=$(mktemp -d -p /tmp pylint.XXXXXX)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # -> fave/
 cd "$HERE"
 
+# WHICH pylint, by the resolver test.sh and typecheck_test.sh use: the project's
+# venv, where requirements.txt puts it, unless $PYTHON or an active
+# $VIRTUAL_ENV says otherwise. It used to be whatever `pylint` PATH found -- the
+# apt package's frozen 3.0.3 in the Docker image and a sandbox, pip's latest in
+# CI -- and the two disagreed on the same tree (TODO item 46). Exported, because
+# lint_file runs in xargs' child shells.
+FAVE_PYTHON_ROOT="$(cd "$HERE/.." && pwd)"
+. "$FAVE_PYTHON_ROOT/resolve_python.sh"
+resolve_python pylint
+export PYTHON
+if ! "$PYTHON" -m pylint --version >/dev/null 2>&1; then
+    echo "lint: pylint is not installed for $PYTHON (pip install -r requirements.txt)" >&2
+    exit 2
+fi
+echo "lint: $("$PYTHON" -m pylint --version | head -1) ($PYTHON)"
+
 export RCFILE="$HERE/.pylintrc"
 
 # Specific files to skip, by exact path relative to the fave/ directory.
@@ -73,7 +89,7 @@ lint_file() {
         fi
     done
 
-    PYTHONPATH=. pylint --rcfile="$RCFILE" --disable="$NONGATING" "$PYFILE" > $LOG 2>&1
+    PYTHONPATH=. "$PYTHON" -m pylint --rcfile="$RCFILE" --disable="$NONGATING" "$PYFILE" > $LOG 2>&1
     RC=$?
 
     if [ $((RC & 32)) -ne 0 ] || [ $((RC & 3)) -ne 0 ]; then

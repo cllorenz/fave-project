@@ -1178,7 +1178,7 @@ then applied to one of the two halves.
   command at `7f9ff616` reports exactly this item's 3 failures. It also gives item 42 its
   skip count for free. Asserting a budget on that count is still open there.
 
-### 46. The lint gate's verdict depends on the pylint version: GitLab red, GitHub green — OPEN (found 2026-10-12)
+### 46. The lint gate's verdict depends on the pylint version: GitLab red, GitHub green — FIXED 2026-10-12
 - **Finding:** `bash fave/test/lint_test.sh` at `7f9ff616` with Ubuntu 24.04's **pylint 3.0.3 /
   astroid 3.0.2** (what the `Dockerfile:40` apt line and `.yolobox.toml` install) gives
   `skipped 2, ok 16, style-only 311, and failed 1`. The one error is two `E1133
@@ -1202,10 +1202,22 @@ then applied to one of the two halves.
   `*/results_*/*`, which covers `bench/campaigns/` and `bench/deltanet/eval/`. Under pylint
   3.0.3 the gate goes from `ok 16, style-only 311, failed 1` to `ok 16, style-only 301,
   failed 0`, exit 0. That is exactly 11 fewer files.
-- [ ] **Decide the version:** pin pylint in `ci.yml` and in the Dockerfile to the same version,
-  or accept that the two gates can disagree. Item 35 resolved the same kind of drift for pip
-  dependencies, and pylint was left out of it.
-
+- [x] **Decide the version** — DECIDED 2026-10-12 (owner): from pip, unpinned, like mypy. DONE:
+  - `requirements.txt` lists `pylint`. CI's lint job installs requirements only (the extra
+    `pylint` on its pip line is gone). The Dockerfile pip-installs it into `/opt/venv`
+    instead of the apt package. `fave/setup.sh` drops the apt package, and so does the local, gitignored `.yolobox.toml`.
+  - The doctor checks `pylint` as a pip import, and its `apt_purpose` entry is gone (the apt
+    list is read from the Dockerfile).
+  - `lint_test.sh` now runs `$PYTHON -m pylint` through `resolve_python.sh`, as
+    `typecheck_test.sh` does, and prints the version it used. It used to call whatever
+    `pylint` was on `PATH`, so the venv's version was not even the one a local run got. With
+    no pylint for the resolved interpreter it exits 2 and says how to install it.
+  - **Measured:** the gate under the project venv (4.1.3) and under a fresh requirements-only
+    venv (4.1.3, CI's view) both give `ok 16, style-only 301, failed 0`. `./test.sh fast
+    --clean` builds the new requirements venv from wheels and passes (922 passed, 3 skipped).
+    Typecheck is green. GitLab's Docker image was not rebuilt here.
+  - **What unpinned still allows:** a new pylint release can turn the gate red. When it does,
+    every environment sees it on the same day, and the version is in the gate's first line.
 ---
 
 ## Medium priority — structural improvements

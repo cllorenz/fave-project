@@ -37,7 +37,6 @@ RUN apt-get $APT_CONFS install python3-dev
 RUN apt-get $APT_CONFS install python3-daemon
 RUN apt-get $APT_CONFS install python3-pip
 RUN apt-get $APT_CONFS install python3-venv
-RUN apt-get $APT_CONFS install pylint
 RUN apt-get $APT_CONFS install inkscape
 RUN apt-get $APT_CONFS install pandoc
 # Minimal LaTeX for pandoc -> PDF reports (plain markdown: no tables/images/math,
@@ -92,6 +91,10 @@ RUN pip3 install filelock==3.29.4
 RUN pip3 install pyparsing==3.3.2
 RUN pip3 install cachetools==7.1.4
 RUN pip3 install dd==0.6.0
+# The lint gate's pylint, from pip and unpinned as in requirements.txt -- not
+# the apt package, whose frozen 3.0.3 disagreed with CI's pip pylint on the
+# same tree (TODO item 46).
+RUN pip3 install pylint
 # pybison is a NATIVE build (needs flex/bison/m4 above); pin it so the parser it
 # compiles at runtime is reproducible. --no-binary is load-bearing, not
 # belt-and-braces: PyPI now ships a prebuilt cp312 manylinux wheel, and pip

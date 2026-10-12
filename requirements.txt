@@ -57,3 +57,11 @@ pytest==9.1.1
 # Intentionally UNPINNED: prefer newer mypy's improved checking over version
 # stability; fix the code if a new release surfaces a real problem.
 mypy
+
+# --- lint gate (fave/test/lint_test.sh) ---
+# UNPINNED, as mypy and for the same reason (owner, 2026-10-12). What matters is
+# that every environment gets it from HERE: it used to be the apt package in the
+# Dockerfile, setup.sh and .yolobox.toml (pylint 3.0.3 on Ubuntu 24.04, frozen)
+# and pip's latest in CI, and the two gates disagreed on the same tree --
+# 3.0.3 red, 4.1.3 green (TODO item 46).
+pylint

@@ -51,7 +51,6 @@ if [ $? -eq 0 ]; then
     sudo apt-get $APT_CONFS install python3-daemon
     sudo apt-get $APT_CONFS install python3-pip
     sudo apt-get $APT_CONFS install python3-venv
-    sudo apt-get $APT_CONFS install pylint
     sudo apt-get $APT_CONFS install inkscape
     sudo apt-get $APT_CONFS install python3-coverage
     sudo apt-get $APT_CONFS install flex
