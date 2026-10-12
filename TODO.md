@@ -1116,6 +1116,47 @@ then applied to one of the two halves.
   job is item 42's defect again; (d) cache generated workload inputs between runs.
   Whichever is chosen, the bound on any opt-in must be stated where the test is.
 
+### 45. The `fast` tier fails three tests on a clean checkout — OPEN (found 2026-10-12)
+- **Finding:** on a pristine `git archive` export of `7f9ff616`, with a venv holding
+  `requirements.txt` and nothing else (exactly what CI's `fast` job installs, `ci.yml:34-35`),
+  `./test.sh fast` gives **3 failed, 921 passed, 3 skipped** (`policy_translator`: 215 passed).
+  All three are hard failures, not skips, so the job item 42 counts skips in should be red.
+  **Not observed on CI itself**, because this sandbox cannot reach it. Same family as items 34, 37
+  and 42: a `fast` test that depends on something outside `fast`'s footprint. The fourth variant
+  is that it **fails instead of skipping**.
+
+  | test | needs | since |
+  |---|---|---|
+  | `test_cell_run.py::TestTheQueueResumes::test_a_checkless_workload_has_a_valid_verdict` | gitignored `bench/wl_up/checks.json` | `2e998b65` (2026-10-06) |
+  | `test_aggregator_backend.py::TestTheNoVlanGuardrailIsRefusedWhereItWouldDoNothing::test_they_are_still_BUILDABLE_faithfully` (subtest `veriflow`) | native `libveriflow_fr` | `6084dec0` (2026-10-08) |
+  | `test_cell_run.py::TestTheCommandEachBackendGets::test_the_other_backends_are_not_gated` (subtest `apkeep`) | `jpype` | `314263ea` (2026-10-08) |
+
+- **The `wl_up` case inverts its own premise.** Its last assertion is that a workload *with*
+  checks still needs `check_compliance` (`test_cell_run.py:695`, guarding AD6_PLAN.md 9.34.3).
+  `read_verdict` learns that wl_up has checks only from `bench/wl_up/checks.json` (`cell_run.py:562`).
+  On a clean checkout that file is absent, so wl_up looks like `wl_tum` (checkless), the verdict
+  comes back valid, and `assertFalse` fails. Measured on the export: **fails** as shipped and
+  **passes** once a `checks.json` exists. In a working tree where `gen_wl_up_inputs.sh` has run, it
+  passes, which is why nobody saw it.
+- **The `apkeep` case is a collision between two correct pieces.** The test treats exit code 2
+  (argparse's refusal) as "gated". The interpreter guard added later (`cell_run.py:750-757`) also
+  refuses through `parser.error`, so it also exits 2 when `jpype` is missing, and the test
+  reads that as the gate. Installing `JPype1` makes it pass, which only hides the collision.
+- **The `veriflow` subtest** calls the real `build_engine(BACKEND_VERIFLOW)`, which raises from
+  `VeriFlowAdapter.__init__` when `libveriflow_fr` is not built (`veriflow/adapter.py:107`).
+- [ ] **`wl_up`: give the test the fact it needs instead of a generated file.** For example, the
+  test writes its own `checks.json` into a temporary prefix, as it already does for the
+  log and the report, or `read_verdict` takes the checks path as a parameter. Either way the
+  assertion stays as strong.
+- [ ] **`apkeep`: let the test tell the two refusals apart.** Options: the guard exits with a
+  code other than 2, or the test asserts on the refusal message instead of the exit code, or
+  the test stubs `missing_child_imports`. The guard itself is right and stays.
+- [ ] **`veriflow`: decide the tier.** Either move the subtest to `integration` (where its
+  footprint puts it), or skip it when the library is not available, as `backend_gate` does
+  elsewhere.
+- [ ] **Re-measure on a pristine export** with a requirements-only venv, and expect
+  `0 failed`.
+
 ---
 
 ## Medium priority — structural improvements
