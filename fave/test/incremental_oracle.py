@@ -45,7 +45,7 @@ def s1(rules, _links):
     return inc.stream_s1(rules)
 
 
-def run(test, make, prefix, stream_of, every, refusals=False):
+def run(test, make, prefix, stream_of, every, refusals=False, from_zero=True):
     """ Drive `stream_of(rules, links)` on a build of `prefix` by the engine
     `make()` returns, asserting the oracle: after EVERY update the selective
     re-verification leaves the cache equal to a full one; at every `every`-th
@@ -53,6 +53,10 @@ def run(test, make, prefix, stream_of, every, refusals=False):
     current model. With `refusals`, an update the engine refuses is counted in
     `stats['refused']` and leaves the model as it was. The stream must change a verdict (else the oracle is
     vacuous) and must ask fewer checks than a full re-check every time.
+
+    `from_zero=False` keeps the first half and drops the second: for a run
+    that varies only what the engine REPORTS as affected (a footprint mode),
+    whose engine state another run already holds to a from-zero build.
     Returns the run's counts. """
     from util.in_process_driver import InProcessFaVe
     checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
@@ -83,7 +87,7 @@ def run(test, make, prefix, stream_of, every, refusals=False):
             stats['verdict_changes'] += sum(
                 1 for line in full if full[line] != previous[line])
             previous = full
-            if n % every == 0 or n == len(stream):
+            if from_zero and (n % every == 0 or n == len(stream)):
                 test.assertEqual(
                     full, inc.from_zero(make, prefix, checks, deleted, down,
                                         like=engine),

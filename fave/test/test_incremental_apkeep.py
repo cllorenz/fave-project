@@ -76,9 +76,13 @@ class TestIncrementalAPKeep(unittest.TestCase):
     #: the engine under test; the *Ndd* subclass runs every test on NDD-APKeep
     make = staticmethod(_make)
 
+    #: whether the streams also compare against a from-zero build. On here, the
+    #: default footprint; off in the footprint ablations below (TODO item 44).
+    from_zero = True
+
     def test_wl_example_s1_oracle_at_every_update(self):
         stats = run(self, self.make, _workload(self, 'bench/wl_example'), s1,
-                    every=1, refusals=True)
+                    every=1, refusals=True, from_zero=self.from_zero)
         # S1 deletes in reverse model order, so each of pgf's three routes
         # loses its drop before its forwarding rule: a forwarding rule without
         # its drop, which APKeep's FIB cannot express and REFUSES (the model
@@ -93,17 +97,18 @@ class TestIncrementalAPKeep(unittest.TestCase):
         # and office refuse nothing; they refused 10 of these 30 updates while
         # their elements were named by classes of ports.
         stats = run(self, self.make, _workload(self, 'bench/wl_example'),
-                    s2_and_s3(), every=5, refusals=True)
+                    s2_and_s3(), every=5, refusals=True,
+                    from_zero=self.from_zero)
         self.assertEqual(stats['refused'], [])
 
     def test_wl_ifi_s1(self):
         stats = run(self, self.make, _workload(self, 'bench/wl_ifi'), s1, every=20,
-                    refusals=True)
+                    refusals=True, from_zero=self.from_zero)
         self.assertEqual(stats['refused'], [])
 
     def test_wl_ifi_s2_s3(self):
         stats = run(self, self.make, _workload(self, 'bench/wl_ifi'), s2_and_s3(),
-                    every=10, refusals=True)
+                    every=10, refusals=True, from_zero=self.from_zero)
         self.assertEqual(stats['refused'], [])
 
     def test_wl_airtel1_fib_path(self):
@@ -131,8 +136,9 @@ class TestIncrementalAPKeep(unittest.TestCase):
             self.assertEqual(dict(engine.update_paths), {'fib': len(stream)})
             full = cache.ask(checks)
             self.assertEqual(cache.verdict, full)
-        self.assertEqual(full, inc.from_zero(self.make, prefix, checks, deleted, down,
-                                             like=engine))
+        if self.from_zero:
+            self.assertEqual(full, inc.from_zero(self.make, prefix, checks, deleted,
+                                                 down, like=engine))
 
     # No wl_cloud stream: BDD-APKeep takes 3.24 h to BUILD it (V5,
     # bench/campaigns/RESULTS.md). Its rewrites -- NAT under updates -- are
@@ -148,7 +154,8 @@ class TestIncrementalNddAPKeep(TestIncrementalAPKeep):
         # NATs rewriting addresses under updates, on the workload BDD-APKeep
         # takes 3.24 h to build (V5); NDD-APKeep builds it in seconds.
         stats = run(self, self.make, _workload(self, 'bench/wl_cloud'),
-                    s2_and_s3(fraction=0.05), every=25, refusals=True)
+                    s2_and_s3(fraction=0.05), every=25, refusals=True,
+                    from_zero=self.from_zero)
         print("wl_cloud S2+S3 on NDD-APKeep:", {k: (len(v) if isinstance(v, list) else v)
                                                 for k, v in stats.items()})
 
@@ -159,20 +166,33 @@ class TestIncrementalNddAPKeep(TestIncrementalAPKeep):
 # §4 -- the ablation's reference -- on both engines, and with 'dead-ends' alone
 # on NDD-APKeep, because it keeps a reachable query's explored footprint apart
 # from an unreachable one's, a path the pair never takes.
+#
+# What they vary is what the engine REPORTS, not the state it holds, so they
+# keep the oracle's footprint half -- selective equals full after every
+# update, the soundness of the reported checks -- and leave the from-zero half
+# to the default classes, which hold the same engines' state to a rebuild on
+# the same streams. That half was most of these classes' cost: a fresh engine
+# and a full check every `every` updates, on 17 of the module's 28 streams,
+# three of them wl_cloud (TODO item 44, lever 2, owner 2026-10-12). Not
+# caught here any more: footprint RECORDING that corrupts engine state in a
+# non-default mode only.
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 class TestIncrementalAPKeepCoarseFootprints(TestIncrementalAPKeep):
     make = staticmethod(_maker('bdd', ()))
+    from_zero = False
 
 
 @require_or_skip(ndd_available, "JPype, the APKeep jar or the NDD jar is unavailable")
 class TestIncrementalNddAPKeepCoarseFootprints(TestIncrementalNddAPKeep):
     make = staticmethod(_maker('ndd-apkeep', ()))
+    from_zero = False
 
 
 @require_or_skip(ndd_available, "JPype, the APKeep jar or the NDD jar is unavailable")
 class TestIncrementalNddAPKeepDeadEnds(TestIncrementalNddAPKeep):
     make = staticmethod(_maker('ndd-apkeep', ('dead-ends',)))
+    from_zero = False
 
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")

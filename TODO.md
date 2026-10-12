@@ -1097,8 +1097,46 @@ then applied to one of the two halves.
 
 ### 44. The `integration` tier takes ~1 h 23 min — speed it up — OPEN (owner, 2026-10-11)
 - [ ] **Measure first:** per-test durations of both pytest groups (`--durations=0`), so
-  the fix aims at measured costs, not at the guess below.
-- [ ] **Then cut the wall time**, keeping every test in some gate (see *Fix*).
+  the fix aims at measured costs, not at the guess below. **Partly done 2026-10-12:**
+  `test_incremental_apkeep.py` alone (below). The other six own-JVM modules, the bison group
+  and the seven input generators are still untimed.
+- [ ] **Then cut the wall time**, keeping every test in some gate (see *Fix*). **Lever 2
+  DONE 2026-10-12** (below). Next candidate: separate processes, (b).
+- **Measured 2026-10-12** (`47dab858`, 16 cores, 62 GB, `FAVE_REQUIRE_BACKENDS=1`,
+  `test_incremental_apkeep.py` alone in one process, as the tier runs it): **38 passed in
+  63 min 58 s**, peak RSS 16.6 GB. This module is most of the own-JVM group's ~70 min.
+  - **It holds 28 oracle streams.** Five classes inherit the same streams: BDD and NDD at
+    the default footprint, BDD and NDD coarse, NDD dead-ends. `wl_cloud` is defined on the
+    NDD class, so it runs in three of them. Each stream does a selective re-check **and a
+    full re-check of every check** after every update, plus a from-zero build every
+    `every` updates (`incremental_oracle.run`).
+  - **The three footprint-ablation classes took 3,292 s, 86% of the module.** The single
+    largest cost was not `wl_cloud` (about 230 s in each class) but `wl_airtel1_fib_path` on
+    NDD: 103 s at the default footprint, **955 s coarse and 1,441 s dead-ends**.
+- [x] **Lever 2: the from-zero comparison once per engine, not once per footprint** — DONE
+  2026-10-12 (owner).
+  - **What changed:** the footprint classes vary what an engine *reports*, not the state it
+    holds. So they keep the oracle's soundness half (selective equals full after every
+    update) and drop the from-zero half: `run(..., from_zero=False)`, and a class attribute
+    `from_zero` that the three ablation classes set to `False`. The default classes still
+    hold both engines' state to a rebuild on the same streams.
+  - **No longer caught:** footprint *recording* that corrupts engine state in a non-default
+    mode only.
+  - **Measured on the ablation classes, each in a fresh process (one sample each):** old
+    code 2,068 s, lever 2 **876 s (−58%)**. Per test: `wl_cloud` 240 → 113 s, `wl_example`
+    S1 (a rebuild after every update) 87 → 3 s, dead-ends `wl_airtel1` 1,029 → 490 s.
+  - **The whole module, one process as the tier runs it: 63 min 58 s → 35 min 9 s (−45%),
+    38 passed.** The default classes are unchanged (BDD 54 → 56 s, NDD 486 → 494 s).
+- **Found on the way: a test's time depends on what ran before it in the same JVM.** The
+  same old-code ablation classes took 3,292 s late in the module's process and 2,068 s in a
+  fresh one. The difference is nearly all coarse `wl_airtel1`: **104 s fresh, 955 s late**.
+  With lever 2 it is still 62 s fresh against 489 s late, and dead-ends 490 s against 726 s,
+  so about 660 s of the 35 minutes is this effect. That argues for (b) below more strongly
+  than the parallelism alone does. The cause is not investigated; the module's RSS grows to
+  16.6 GB, and accumulated JVM state is the obvious suspect.
+- **Also found: dead-ends alone is about 10× slower than coarse on `wl_airtel1`** (1,029 s
+  against 104 s with the old code, both fresh). It is not explained, and it matters beyond
+  the tests if the ablation table of INCREMENTAL_PLAN.md §7 runs this mode at scale.
 - **Finding (2026-10-11, `ai` at `6eeec530`, 16 cores, 62 GB, `FAVE_REQUIRE_BACKENDS=1`):**
   `RESULT: integration PASSED` after ~83 min. The bison-dependent group: 512 passed, 4
   skipped in 12 min 41 s. The own-JVM group (`FAVE_NDD_TESTS`): 67 passed in **69 min 36 s**,
