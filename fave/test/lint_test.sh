@@ -95,11 +95,17 @@ export -f lint_file
 
 # Lint everything except __init__.py, deprecated/, in-repo virtualenvs /
 # site-packages (a local .venv must not be linted), and the vendored Hassel trees.
+# Also not results_*/ (bench/campaigns/, bench/deltanet/eval/): the analysis
+# scripts committed with a run are part of its evidence and are never edited
+# (docs/CONVENTIONS.md), so a finding there could only be silenced, never
+# fixed -- and one pylint release flagged one that the next did not (TODO
+# item 46). Their correctness is the run's FINDINGS.md, not this gate.
 PYFILES=$(find . -name '*.py' -not -name '__init__.py' \
     -not -path './deprecated/*' \
     -not -path '*/.venv/*' \
     -not -path '*/venv/*' \
     -not -path '*/site-packages/*' \
+    -not -path '*/results_*/*' \
     -not -path '*/stanford-hassel/*' \
     -not -path '*/i2-hassel/*')
 

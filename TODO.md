@@ -1197,9 +1197,11 @@ then applied to one of the two halves.
   can follow it).
 - **Scope question raised along the way:** `lint_test.sh` lints `bench/campaigns/results_*/`.
   That is 11 `.py` files today, all one-off analysis scripts frozen with their run.
-- [ ] **Decide the scope:** exclude `results_*/` from the gate (a frozen artifact cannot respond
-  to a finding), or keep linting them and accept an inline `# pylint: disable` as the one
-  permitted edit to an artifact.
+- [x] **Decide the scope** — DECIDED 2026-10-12 (owner): exclude `results_*/` from the gate,
+  because a frozen artifact cannot respond to a finding. DONE: `lint_test.sh`'s `find` prunes
+  `*/results_*/*`, which covers `bench/campaigns/` and `bench/deltanet/eval/`. Under pylint
+  3.0.3 the gate goes from `ok 16, style-only 311, failed 1` to `ok 16, style-only 301,
+  failed 0`, exit 0. That is exactly 11 fewer files.
 - [ ] **Decide the version:** pin pylint in `ci.yml` and in the Dockerfile to the same version,
   or accept that the two gates can disagree. Item 35 resolved the same kind of drift for pip
   dependencies, and pylint was left out of it.
