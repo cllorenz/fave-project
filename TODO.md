@@ -1219,7 +1219,7 @@ then applied to one of the two halves.
   - **What unpinned still allows:** a new pylint release can turn the gate red. When it does,
     every environment sees it on the same day, and the version is in the gate's first line.
 
-### 47. The `fast` coverage floor has never been met as CI measures it, and the number measures the import graph — OPEN (found 2026-10-12)
+### 47. The `fast` coverage floor has never been met as CI measures it, and the number measures the import graph — SCOPE DECLARED 2026-10-12; raising coverage OPEN
 - **Finding:** CI's `fast` job gates on `COVERAGE=1 COVERAGE_MIN=78 bash test.sh fast`
   (`ci.yml:94`). Measured the way that job sees the tree (a `git archive` export and a venv
   holding `requirements.txt` only, i.e. `./test.sh fast --clean`), with each commit's own
@@ -1263,12 +1263,43 @@ then applied to one of the two halves.
   | minus test code, the native-backed adapters (`fave/apkeep/`, `veriflow/adapter.py`) and vendored `ad6/` | 10,274 | 69.78% |
   | … and minus `fave/bench/` | 6,312 | 70.55% |
 
-- [ ] **Declare the fast tier's coverage scope** in a coverage config: which code it is
-  responsible for, and whether modules in scope that no fast test imports count as 0%. The
-  alternative is to keep the current behaviour, where the import graph decides.
-- [ ] **Re-set the floor once, from `fast --clean`**, the measurement CI makes, and record why:
-  78 was never measured under CI's conditions. Then ratchet as before. Owner's call, given
-  the file's own rule that the floor is never lowered.
+- [x] **Declare the fast tier's coverage scope** — DONE 2026-10-12 (owner: scope A′).
+  `coverage-fast.ini` covers FaVe's library packages (`aggregator ad6 devices iptables
+  netplumber reporting rule topology util veriflow`) and `policy_translator/`, through
+  `source`, so a module counts whether a fast test imports it or not. It omits test code,
+  `deprecated/`, and the four modules that need a native build the tier cannot have
+  (`veriflow/adapter.py`, `iptables/parser.py`, `netplumber/lib_adapter.py`,
+  `netplumber/lib_transport.py`). `test.sh` applies it to `fast` and `fast --clean` only,
+  through `COVERAGE_RCFILE`. The integration tier keeps coverage's defaults, so the coverage
+  it uploads is unchanged.
+  - **Measured on `fast --clean`: 6,827 statements, 2,435 missed, 64.33%.** The working tree
+    now gives the same figure, where before the two differed.
+  - **The candidates, all from the same clean run with `source` declared** (modules not
+    imported count as 0%):
+
+    | scope | files | statements | coverage |
+    |---|---:|---:|---:|
+    | everything under `fave/` and `policy_translator/` | — | 23,874 | 31.07% |
+    | C: B plus `bench/wl_*` workload drivers | 192 | 13,876 | 51.16% |
+    | B: A plus the `bench/` harness (minus `wl_*`, `analysis/`) | 111 | 11,017 | 55.18% |
+    | A: the library packages and `policy_translator` | 73 | 7,153 | 62.09% |
+    | **A′: A minus the four native-only modules (chosen)** | 70 | 6,827 | **64.33%** |
+
+    The whole-tree figure is dominated by the vendored Hassel trees (5,300 statements at 0%),
+    the backend adapters (2,178 at 11%), the workload drivers and the `bench/` scripts.
+- [x] **The floor: kept at 78** — DECIDED 2026-10-12 (owner), not re-set. **CI's `fast` job
+  therefore fails its coverage step** until coverage within A′ rises from 64.33% to 78%. It
+  was already failing at 68.87% under the old measure. `ci.yml` and the README say so.
+  `COVERAGE=1 COVERAGE_MIN=78 ./test.sh fast --clean` reproduces the verdict
+  (`Coverage failure: total of 64 is less than fail-under=78`).
+- [ ] **Raise coverage within A′ to the floor** — LATER (owner). That is about 930 more covered
+  statements (78% of 6,827 is 5,325; 4,392 are covered today). The largest gaps:
+  `ad6/translate.py` (270 missed), `aggregator/aggregator_service.py` (232),
+  `netplumber/adapter.py` (173), `policy_translator/fpl_grammar.py` (158, at 0%),
+  `topology/topology.py` (121). Three modules are at 0% because nothing imports them:
+  `policy_translator/fpl_grammar.py` (`policy_builder` has its own parser),
+  `util/dynamic_distribution.py` (which lint already skips) and `util/parallel_utils.py`.
+  For those the first question is whether they are dead code or untested tools.
 - **Deferred:** coverage of fast and integration combined. The integration tier already uploads
   coverage, but merging the two waits for item 44's refactor of that tier.
 

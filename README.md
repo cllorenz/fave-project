@@ -191,6 +191,14 @@ on coverage (`coverage report --fail-under`): the tier fails if total coverage
 drops below the floor. CI runs the `fast` tier this way as a ratchet — bump the
 floor up as coverage rises, never down.
 
+The `fast` tier measures a declared scope, [`coverage-fast.ini`](coverage-fast.ini):
+FaVe's library packages and PolicyTranslator. Every module in it counts, whether
+a fast test imports it or not, and test code and native-only modules are left
+out. Other tiers keep coverage's defaults. `COVERAGE=1 COVERAGE_MIN=78 ./test.sh
+fast --clean` reproduces CI's verdict exactly. That scope measured 64.33% on
+2026-10-12, against a floor of 78 that is kept on purpose, so CI's `fast` job
+fails its coverage step until coverage is raised (TODO item 47).
+
 Set `FAVE_SKIP_AD6=1` to leave every ad6 test module (`fave/test/test_ad6_*.py`)
 out of every tier (`FAVE_SKIP_AD6=1 ./test.sh integration`). ad6 is the costly
 backend: its units are about half of `fast`'s runtime and its differentials

@@ -90,6 +90,18 @@ jobs:
       # slack, and the next regression of any size fails this job. That is what a
       # ratchet is for, but it means a red `fast` job here is a coverage
       # regression to fix, never a floor to lower.
+      #
+      # 2026-10-12, TODO item 47: THIS STEP IS EXPECTED TO FAIL, and the floor is
+      # kept at 78 on purpose (owner). Two corrections to the record above:
+      #   * The 77.79% was measured in a working tree. As this job sees the tree
+      #     (`./test.sh fast --clean` reproduces it), the floor's own commit
+      #     578b6541 measured 74.54%, so 78 was never met here.
+      #   * The figure measured the fast tests' IMPORT GRAPH, test code included.
+      #     The tier now measures a declared scope, coverage-fast.ini: FaVe's
+      #     library packages and PolicyTranslator, every module counted whether
+      #     imported or not, test code and native-only modules left out. That
+      #     scope measures 64.33% (6,827 statements). Raising it toward the floor
+      #     is the open work; the floor is not lowered to meet it.
       - name: Run fast tier (with coverage ratchet)
         run: COVERAGE=1 COVERAGE_MIN=78 bash test.sh fast
 

@@ -252,6 +252,14 @@ if [ "$COVERAGE" = "1" ]; then
     export COVERAGE_FILE="$ROOT/.coverage"
 fi
 
+# The fast tier's coverage SCOPE (coverage-fast.ini, TODO item 47): the code it
+# is responsible for, every module of it counted whether a test imports it or
+# not. Fast only -- the integration tier keeps coverage's defaults, and the
+# coverage it uploads with them. `$1` is the tree being measured.
+use_fast_coverage_scope() {
+    export COVERAGE_RCFILE="$1/coverage-fast.ini" FAVE_COVERAGE_ROOT="$1"
+}
+
 # ---- pytest plumbing --------------------------------------------------------
 
 # Echo a pytest invocation, optionally wrapped in coverage (parallel mode so
@@ -364,6 +372,7 @@ run_fast_clean() {
             PYTHON="$python"
             export PYTHON PYTEST_ADDOPTS="${PYTEST_ADDOPTS:-} -rs"
             [ "$COVERAGE" = "1" ] && export COVERAGE_FILE="$tree/.coverage"
+            use_fast_coverage_scope "$tree"
             rc=0
             run_fast "fast --clean" || rc=1
             # Against the export's data and interpreter, so here, not below.
@@ -947,6 +956,7 @@ case "$tier" in
             run_fast_clean || rc=1
             COVERAGE=0      # reported inside, against the export (above)
         else
+            use_fast_coverage_scope "$ROOT"
             run_fast || rc=1
         fi
         ;;
