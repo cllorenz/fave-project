@@ -1116,7 +1116,7 @@ then applied to one of the two halves.
   job is item 42's defect again; (d) cache generated workload inputs between runs.
   Whichever is chosen, the bound on any opt-in must be stated where the test is.
 
-### 45. The `fast` tier fails three tests on a clean checkout — OPEN (found 2026-10-12)
+### 45. The `fast` tier fails three tests on a clean checkout — FIXED 2026-10-12, and `fast --clean` added
 - **Finding:** on a pristine `git archive` export of `7f9ff616`, with a venv holding
   `requirements.txt` and nothing else (exactly what CI's `fast` job installs, `ci.yml:34-35`),
   `./test.sh fast` gives **3 failed, 921 passed, 3 skipped** (`policy_translator`: 215 passed).
@@ -1166,8 +1166,17 @@ then applied to one of the two halves.
   defect, because this module runs only in `fast`. Checked with `libveriflow_fr` removed (31
   passed), and against a mutation where `build_engine` refuses VeriFlow-FR with no flag set
   (fails).
-- [ ] **Re-measure on a pristine export** with a requirements-only venv, and expect
-  `0 failed`.
+- [x] **Re-measure on a pristine export** with a requirements-only venv — DONE 2026-10-12, by
+  the new `./test.sh fast --clean` at `8210d0de`: **922 passed, 3 skipped, 0 failed**. The three
+  skips are exactly item 42's open three.
+- [x] **Make the clean run a command, not a recipe** — DONE 2026-10-12 (owner).
+  `./test.sh fast --clean` exports the files git would commit (tracked plus untracked
+  non-ignored, as in the working tree) to a temporary directory and runs the tier there under
+  a venv holding `requirements.txt` alone. The venv is cached per hash of that file under
+  `~/.cache/fave/` and built atomically. Skip reasons are listed (`-rs`). It takes about 23 s
+  with the venv cached and about 32 s when building it. **Negative control:** the same
+  command at `7f9ff616` reports exactly this item's 3 failures. It also gives item 42 its
+  skip count for free. Asserting a budget on that count is still open there.
 
 ### 46. The lint gate's verdict depends on the pylint version: GitLab red, GitHub green — OPEN (found 2026-10-12)
 - **Finding:** `bash fave/test/lint_test.sh` at `7f9ff616` with Ubuntu 24.04's **pylint 3.0.3 /

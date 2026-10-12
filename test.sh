@@ -9,6 +9,10 @@
 # Usage:
 #   ./test.sh fast          Pure-Python unit tests, no native deps. Runs
 #                           natively in <1s. The inner-loop gate (run on save).
+#   ./test.sh fast --clean  The same tier as CI's `fast` job sees it: on an
+#                           export without gitignored artifacts, under a venv
+#                           holding requirements.txt only (see run_fast_clean).
+#                           Run before pushing a change to a fast-tier test.
 #   ./test.sh integration   NetPlumber C++ tests + bison-dependent FaVe tests.
 #                           Needs build + pybison, but NO running backend, so it
 #                           is deterministic -- suitable to gate merges.
@@ -302,6 +306,72 @@ run_fast() {
     fi
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt test "${ignores[@]}" ) || rc=1
 
+    return $rc
+}
+
+# `fast --clean`: the fast tier as CI's `fast` job sees it. That job runs on a
+# fresh checkout with `pip install -r requirements.txt` and nothing else, and a
+# working tree is never that: integration runs leave gitignored generated
+# inputs behind, and a developer's venv carries JPype1, pycosat, pybison. So a
+# fast test can depend on either and pass locally for weeks -- TODO item 45
+# found three failing on a clean checkout (one since 2026-10-06), and item 42
+# fifteen skipping there.
+#
+# The tree is exported from git's own view of it -- tracked files plus
+# untracked, non-ignored ones, as the working tree has them -- so uncommitted
+# edits and new test files are included and generated artifacts are not. The
+# interpreter is a venv holding requirements.txt alone, cached per hash of that
+# file under ${XDG_CACHE_HOME:-~/.cache}/fave/. Skip reasons are listed (-rs):
+# on a clean tree a skip is as much the finding as a failure.
+clean_venv() {
+    local req="$ROOT/requirements.txt" hash dir base="${XDG_CACHE_HOME:-$HOME/.cache}/fave"
+    hash="$(sha256sum "$req" | cut -c1-12)" || return 1
+    dir="$base/clean-venv-$hash"
+    if [ ! -x "$dir/bin/python3" ]; then
+        echo "== fast --clean: building a requirements-only venv ($dir) ==" >&2
+        mkdir -p "$base" || return 1
+        # Built aside and moved into place, so an interrupted build is never
+        # mistaken for a finished one on the next run.
+        rm -rf "$dir.partial"
+        python3 -m venv "$dir.partial" \
+            && "$dir.partial/bin/pip" install -q -r "$req" >&2 \
+            && mv "$dir.partial" "$dir" \
+            || { rm -rf "$dir.partial"; return 1; }
+    fi
+    echo "$dir/bin/python3"
+}
+
+run_fast_clean() {
+    local tree python rc=0
+    git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+        echo "fast --clean: $ROOT is not a git checkout; nothing to export" >&2
+        return 1
+    }
+    python="$(clean_venv)" || {
+        echo "fast --clean: could not build the requirements-only venv" >&2
+        return 1
+    }
+    tree="$(mktemp -d "${TMPDIR:-/tmp}/fave-clean.XXXXXX")" || return 1
+    # A tracked file deleted in the working tree is still listed; skip it, as
+    # a commit of the working tree would.
+    ( cd "$ROOT" && git ls-files -z --cached --others --exclude-standard \
+        | while IFS= read -r -d '' f; do if [ -e "$f" ]; then printf '%s\0' "$f"; fi; done \
+        | tar --null -T - -cf - ) | tar -xf - -C "$tree" || rc=1
+    if [ "$rc" -eq 0 ]; then
+        echo "== fast --clean: $tree, interpreter $python =="
+        (
+            ROOT="$tree"
+            PYTHON="$python"
+            export PYTHON PYTEST_ADDOPTS="${PYTEST_ADDOPTS:-} -rs"
+            [ "$COVERAGE" = "1" ] && export COVERAGE_FILE="$tree/.coverage"
+            rc=0
+            run_fast "fast --clean" || rc=1
+            # Against the export's data and interpreter, so here, not below.
+            coverage_report || rc=1
+            exit $rc
+        ) || rc=1
+    fi
+    rm -rf "$tree"
     return $rc
 }
 
@@ -863,11 +933,24 @@ run_doctor() {
 # ---- dispatch ---------------------------------------------------------------
 
 tier="${1:-}"
+option="${2:-}"
+if [ -n "$option" ] && [ "$tier $option" != "fast --clean" ]; then
+    echo "usage: $0 {fast [--clean]|smoke|integration|e2e|bench|all|doctor}" >&2
+    exit 2
+fi
 rc=0
 resolve_python
 resolve_net_plumber
 case "$tier" in
-    fast)        run_fast || rc=1 ;;
+    fast)
+        if [ "$option" = "--clean" ]; then
+            tier="fast --clean"
+            run_fast_clean || rc=1
+            COVERAGE=0      # reported inside, against the export (above)
+        else
+            run_fast || rc=1
+        fi
+        ;;
     smoke)       run_smoke || rc=1 ;;
     integration) run_integration || rc=1 ;;
     e2e)         run_e2e || rc=1 ;;
@@ -887,7 +970,7 @@ case "$tier" in
         ;;
     doctor)      run_doctor || rc=1 ;;
     *)
-        echo "usage: $0 {fast|smoke|integration|e2e|bench|all|doctor}" >&2
+        echo "usage: $0 {fast [--clean]|smoke|integration|e2e|bench|all|doctor}" >&2
         exit 2
         ;;
 esac

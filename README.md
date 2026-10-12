@@ -101,6 +101,7 @@ dependency footprint. The same command is used locally and by CI — CI only
 selects a tier, it never defines its own tests.
 
     $> ./test.sh fast          # pure-Python unit tests, no native deps (<1s)
+    $> ./test.sh fast --clean  # the same, as CI sees it: clean export, requirements-only venv
     $> ./test.sh integration   # NetPlumber C++ tests + bison-dependent FaVe tests (no live backend)
     $> ./test.sh e2e           # live-backend tests: test_rpc + smoke
     $> ./test.sh smoke         # just the smoke subset of e2e: example.sh + wl_example + wl_ifi
@@ -171,6 +172,16 @@ every change before pushing:
     $> . .venv/bin/activate
     $> pip install -r requirements.txt
     $> ./test.sh fast
+
+A working tree is not what CI's `fast` job sees. Integration runs leave
+gitignored generated inputs behind, and a developer's venv usually carries the
+native packages too (JPype1, pycosat, pybison), so a fast test can come to
+depend on either and still pass locally. `./test.sh fast --clean` runs the
+tier the way CI does. It uses an export of the files git would commit
+(uncommitted edits and new files included, ignored ones not), under a venv
+holding `requirements.txt` alone, which is cached in `~/.cache/fave/` per hash
+of that file. Skip reasons are listed too. Run it before pushing a change to
+a fast-tier test (TODO item 45: three such failures went unseen for days).
 
 The heavier tiers need the full native stack (compiled NetPlumber, `pybison`),
 as installed by `net_plumber/setup-ubuntu.sh` + `fave/setup.sh` or provided by
