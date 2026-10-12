@@ -860,7 +860,7 @@ public class Network {
 	/* Pairwise, as a balanced tree: ORing APs one by one into an accumulator
 	 * rebuilds the growing accumulator once per AP, while a tree's ORs are of
 	 * like-sized operands (the APs are disjoint). The result is the same BDD. */
-	private int unionOf(Set<Integer> aps) {
+	int unionOf(Set<Integer> aps) {   // package-private: UnionOfTest
 		if (aps.contains(BDDACLWrapper.BDDTrue)) return BDDACLWrapper.BDDTrue;
 		int[] level = new int[aps.size()];
 		int n = 0;
@@ -869,9 +869,13 @@ public class Network {
 		while (n > 1) {
 			int m = 0;
 			for (int i = 0; i + 1 < n; i += 2) {
-				level[m++] = ops.or(level[i], level[i + 1]);
-				ops.deref(level[i]);
-				ops.deref(level[i + 1]);
+				// read both operands first: at i == 0 the result goes into
+				// level[0], and dereferencing level[i] after that store would
+				// drop the result's reference and leak the operand's
+				int x = level[i], y = level[i + 1];
+				level[m++] = ops.or(x, y);
+				ops.deref(x);
+				ops.deref(y);
 			}
 			if (n % 2 == 1) level[m++] = level[n - 1];
 			n = m;

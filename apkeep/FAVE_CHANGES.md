@@ -600,7 +600,25 @@ On `wl_up` it overflowed JDD's fixed node stack (`6 * num_vars + 1`) in
 `not_rec`, and with a hand-built complement (`mk` over a memoized walk) later
 in `or_rec`; the cause is not understood, so it is not in.
 
-**Tests:** the Java suite and the APKeep incremental tests
+**Defect in the first version, fixed (2026-10-12).** `unionOf` stored the
+first pair's OR into `level[0]` and *then* dereferenced `level[0]` -- the new
+result instead of the operand. The union was handed out with no reference of
+its own (the operand leaked one), so a JDD gc between the union and its last
+use reclaimed a node a footprint still held. It surfaced as corruption far from
+the cause: in the calibration's fixed-code `wl_up` cells, S2 ended in
+`BDDNotFalseException` ("should be completely transferred", `Element`) after 36
+updates and S3 in a `StackOverflowError` in `or_rec`; without the memo, the
+first check overflowed JDD's node stack in `or_rec` after ~6,900 s. The
+complement attempt above may have met the same defect -- it was tried on top of
+the balanced union. Diagnosis: a small JDD table (50,000 nodes) on `wl_airtel2`
+S2 under the oracle reproduced it in about a minute, deterministically for a
+fixed `PYTHONHASHSEED` (5 of 8 seeds); a check forcing a gc and comparing each
+node's refcount with the references the fork's structures hold named the first
+unreferenced union. (A second network in the JVM -- the oracle's from-zero
+twin -- and thread interleaving were ruled out on the way.) `UnionOfTest` pins
+the accounting for sets of 1 to 9 APs and fails on the old loop.
+
+**Tests:** `UnionOfTest`, the Java suite, and the APKeep incremental tests
 (`fave/test/test_apkeep_incremental_core.py`, `test_incremental_apkeep.py`,
 `test_incremental_m2_apkeep.py`), whose oracle compares the selective re-check
 with a full one after every update.
