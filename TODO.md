@@ -1341,7 +1341,7 @@ then applied to one of the two halves.
 - **Deferred:** coverage of fast and integration combined. The integration tier already uploads
   coverage, but merging the two waits for item 44's refactor of that tier.
 
-### 48. A `fast`-tier test launches real benchmark cells: it writes `bench/wl_ifi/` and deletes shared logs — OPEN (found 2026-10-13)
+### 48. A `fast`-tier test launches real benchmark cells: it writes `bench/wl_ifi/` and deletes shared logs — FIXED 2026-10-13
 - **Finding:** `test_cell_run.py::test_the_other_backends_are_not_gated` checks that the ad6
   encoding gate (item 0a) leaves `apkeep` and `veriflow` alone. It does so by calling
   `cell_run.main(['wl_ifi', ...])` with `--limit-wall 0.01`. For each backend the call gets
@@ -1363,9 +1363,14 @@ then applied to one of the two halves.
   into the tree), and it overwrites inputs that the integration tier's generators made. Worse,
   it deletes another run's logs. A `./test.sh fast` started while a benchmark cell runs on the
   same machine removes that cell's aggregator log.
-- [ ] **Fix:** the guard is the last check in `main` before anything is deleted or spawned. So
-  the test can stub the guard with one that raises a sentinel. Reaching the guard proves the
-  gate let the backend through, and nothing runs. That is a test-only change.
+- [x] **Fix** — DONE 2026-10-13. The guard is the last check in `main` before anything is
+  deleted or spawned, so the test stubs it with one that raises a sentinel and asserts that
+  sentinel per backend. Reaching the guard proves the gate let the backend through, and
+  nothing runs. This is a test-only change.
+  - **Measured:** `./test.sh fast` (924 passed, 1 skipped) now writes no file in the tree or
+    under `/dev/shm/np`, by mtime against a marker. The module takes 5 s.
+  - **Negative control:** with the gate widened to `('ad6', 'apkeep')`, the `apkeep` subtest
+    fails and the `veriflow` one passes.
 
 ### 49. The `integration` tier never generates the `wl_example` inputs its own tests read — OPEN (found 2026-10-13)
 - **Finding:** seven integration modules read `bench/wl_example`'s generated model:

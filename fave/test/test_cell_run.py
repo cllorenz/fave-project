@@ -353,29 +353,31 @@ class TestTheCommandEachBackendGets(unittest.TestCase):
         # --vf-fields. ad6 is the one whose silent defaults change the
         # encoding.
         #
-        # The interpreter guard refuses through argparse too, so it exits 2
-        # when this interpreter lacks a backend's child imports -- jpype for
-        # apkeep, which requirements.txt cannot pin -- and was read as the gate
-        # (TODO item 45). It is tested on its own below; stubbed here.
-        out = os.path.join(tempfile.mkdtemp(prefix='gated_'), 'gated.json')
+        # The interpreter guard is the last check in `main` before anything is
+        # deleted or spawned, so reaching it is the proof the gate let the
+        # backend through. It raises here: a backend that got further ran a
+        # real wl_ifi cell, which regenerated bench/wl_ifi/ in the tree and
+        # deleted /dev/shm/np's logs first (TODO item 48). The guard's own
+        # refusal is tested below.
+        class PastTheGate(Exception):
+            pass
+
+        def guard(backend, find_spec=None):
+            raise PastTheGate(backend)
+
         real = cell_run.missing_child_imports
-        cell_run.missing_child_imports = lambda backend, find_spec=None: []
+        cell_run.missing_child_imports = guard
         try:
             for backend, extra in (('apkeep', ['--apkeep-engine', 'ndd']),
                                    ('veriflow', ['--vf-fields', '4+10'])):
                 with self.subTest(backend=backend):
-                    parser_ok = True
-                    try:
+                    with self.assertRaises(PastTheGate,
+                                           msg="%s was gated; only ad6 "
+                                               "should be" % backend):
                         cell_run.main(['wl_ifi', '--backend', backend] + extra
                                       + ['--limit-class', 'v5',
-                                         '--limit-wall', '0.01',
-                                         '--out', out])
-                    except SystemExit as exit_:
-                        parser_ok = exit_.code != 2    # 2 is argparse's refusal
-                    except Exception:                  # pylint: disable=broad-except
-                        pass                           # a run failure is fine
-                    self.assertTrue(parser_ok,
-                                    "%s was gated; only ad6 should be" % backend)
+                                         '--limit-wall', '60',
+                                         '--out', '/tmp/never-written.json'])
         finally:
             cell_run.missing_child_imports = real
 
