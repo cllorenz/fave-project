@@ -354,6 +354,16 @@ _S4_RULE_LINE = {
 }
 
 
+#: device types whose rule lines form named lists that the rest of the
+#: configuration refers to, and a line's list: a router's ACL number. A delete
+#: must leave every list one entry, or an interface's `ip access-group` names
+#: an ACL the router model no longer has (the D11 run's wl_ifi S4 cells,
+#: KeyError at edit 124). An iptables chain may become empty; it has a policy.
+_S4_RULE_LIST = {
+    'router': lambda line: line.split()[1],
+}
+
+
 def _config_index(device: List[Any]) -> int:
     """ Where a topology.json device entry keeps its configuration path. """
     return {'packet_filter': 4, 'host': 4, 'application_layer_gateway': 4,
@@ -431,6 +441,19 @@ class S4Configs:
     def text(self, n: int, i: int) -> Any:
         return self.switches[n][i] if self.switches else self.lines[n][i]
 
+    def deletable(self, n: int, i: int, lines: List[Tuple[int, int]]) -> bool:
+        """ Whether deleting rule line `i` of device `n` leaves the device a
+        rule, and the line's list (_S4_RULE_LIST) an entry; `lines` is
+        rule_lines(). """
+        same = [j for d, j in lines if d == n]
+        if len(same) < 2:
+            return False
+        key = None if self.switches else _S4_RULE_LIST.get(self.devices[n][1])
+        if key is None:
+            return True
+        mine = key(self.lines[n][i])
+        return sum(1 for j in same if key(self.lines[n][j]) == mine) > 1
+
     def flip(self, n: int, i: int) -> Any:
         return _flip_route(self.switches[n][i]) if self.switches else _flip(self.lines[n][i])
 
@@ -490,7 +513,9 @@ class S4Configs:
 def stream_s4(configs: S4Configs, n: int, seed: int) -> Iterator[Tuple[str, int, int, str]]:
     """ S4: `n` one-line configuration edits, each drawn AFTER the previous one
     was applied (positions shift): insert a copy of a rule line before a rule
-    line of the same device, delete a rule line, or invert one's action.
+    line of the same device, delete a rule line, or invert one's action. A
+    delete that would leave a device no rule, or a router ACL no entry, is
+    made a modify instead (as a delete of a device's last rule always was).
     Position uniform over all rule lines of the workload. The caller applies
     each edit (`configs.apply`) before drawing the next. """
     rng = random.Random(seed)
@@ -501,7 +526,7 @@ def stream_s4(configs: S4Configs, n: int, seed: int) -> Iterator[Tuple[str, int,
         if op == 'insert':
             same = [j for d, j in lines if d == dev]
             yield ('insert', dev, i, copy.deepcopy(configs.text(dev, rng.choice(same))))
-        elif op == 'delete' and sum(1 for d, _j in lines if d == dev) > 1:
+        elif op == 'delete' and configs.deletable(dev, i, lines):
             yield ('delete', dev, i, '')
         else:
             flipped = configs.flip(dev, i)

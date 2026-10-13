@@ -66,6 +66,39 @@ def _changed(test, stats):
                        "no edit changed a verdict: the oracle was not tested")
 
 
+class TestS4Stream(unittest.TestCase):
+    """ stream_s4 itself, without an engine: what its edits leave behind. """
+
+    def test_a_router_acl_keeps_an_entry(self):
+        # the D11 run's wl_ifi S4 cells (seed 1) crashed in the router model at
+        # edit 125: the deletes had removed all of access-list 103, which an
+        # interface still applies. A delete of an ACL's last entry is a modify.
+        prefix = _workload(self, 'bench/wl_ifi')
+        with tempfile.TemporaryDirectory(prefix='s4_') as work:
+            configs = inc.S4Configs(prefix, work)
+            ops = set()
+            for k, edit in enumerate(inc.stream_s4(configs, 1000, seed=1), start=1):
+                ops.add(edit[0])
+                lines = configs.lines[configs.apply(edit)]
+                applied = {l.split()[2] for l in lines if l.strip().startswith('ip access-group')}
+                defined = {l.split()[1] for l in lines if l.startswith('access-list ')}
+                self.assertLessEqual(applied, defined, "edit %d: %r" % (k, edit))
+            self.assertEqual(ops, {'insert', 'delete', 'modify'})
+
+    def test_deletable(self):
+        with tempfile.TemporaryDirectory(prefix='s4_') as work:
+            configs = inc.S4Configs.__new__(inc.S4Configs)
+            configs.switches = {}
+            configs.devices = [['r', 'router'], ['f', 'packet_filter']]
+            configs.lines = {0: ['access-list 1 permit ip any any', 'interface x',
+                                 'access-list 2 permit ip any any', 'access-list 2 deny ip any any'],
+                             1: ['-A FORWARD -j ACCEPT']}
+            lines = configs.rule_lines()
+            self.assertFalse(configs.deletable(0, 0, lines), "ACL 1's only entry")
+            self.assertTrue(configs.deletable(0, 2, lines), "one of ACL 2's two")
+            self.assertFalse(configs.deletable(1, 0, lines), "the filter's only rule")
+
+
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
 class TestS4NetPlumber(unittest.TestCase):
 
