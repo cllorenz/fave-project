@@ -56,6 +56,12 @@
 #              that merely construct an Ad6Adapter or call ad6's translator
 #              without solving (test_aggregator_backend, test_table_semantics,
 #              test_reporter_engine_results) are not ad6 tests and still run.
+#   FAVE_JOBS  How many of the integration tier's pytest processes run at once
+#              (default 1: one after another, output streamed). Each own-JVM
+#              module is a process of its own either way (run_pytest_units).
+#              Above 1, each process's output is printed when it finishes.
+#              Every JVM takes a quarter of RAM for its heap by default, so
+#              with N jobs set FAVE_JVM_XMX for N heaps to fit.
 
 set -uo pipefail
 
@@ -225,7 +231,14 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
 # `java.lang.OutOfMemoryError: Java heap space` (default JVM heap is ~1/4 of RAM;
 # ~4 GB on a 16 GB CI runner). A fresh JVM per engine is the robust split; raising
 # FAVE_JVM_XMX only moves the wall. Both are gated by FAVE_REQUIRE_BACKENDS.
+# Since 2026-10-13 each module below is a process of its own, not the list as
+# one: a module's JVM state cannot slow the next, and with FAVE_JOBS > 1 they
+# run side by side (run_pytest_units; TODO item 44).
 FAVE_NDD_TESTS=(
+    # Longest first: with FAVE_JOBS > 1 each module is a process, started in
+    # this order, so the longest one must not be the last to start. ~12 min on
+    # 16 cores (TODO item 44); the rest take a few minutes together.
+    test/test_incremental_apkeep.py # update streams on BDD- and NDD-APKeep, selective re-check == full == from-zero
     test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs
@@ -234,7 +247,15 @@ FAVE_NDD_TESTS=(
     # the same process as BDD-APKeep and NDD-flood -- hence this group.
     test/test_ndd_apkeep.py      # NDD-APKeep from zero == NDD-flood (== BDD-APKeep where it finishes), check by check
     test/test_ndd_apkeep_reference.py # NDD-APKeep's atom layer vs the authors' reference APKeep(NDD) on wl_airtel1, per port (two subprocess JVMs)
-    test/test_incremental_apkeep.py # update streams on BDD- and NDD-APKeep, selective re-check == full == from-zero
+)
+# Members of FAVE_INTEGRATION_TESTS that REWRITE a shared workload's inputs:
+# both wl_cloud differentials regenerate bench/wl_cloud/*.json in their
+# setUpClass, and test_ndd_apkeep and test_incremental_apkeep read those files.
+# The tier runs them first, before anything else, so with FAVE_JOBS > 1 no
+# reader can meet a half-written file (TODO item 44).
+FAVE_REGENERATING_TESTS=(
+    test/test_ad6_cloud_differential.py
+    test/test_apkeep_cloud_differential.py
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
@@ -270,6 +291,60 @@ pytest_cmd() {
     else
         echo "$PYTHON -m pytest"
     fi
+}
+
+# `run_pytest_units <unit>...` runs one pytest process per UNIT in fave/,
+# FAVE_JOBS of them at a time, and fails if any does. A unit is "label|files",
+# the files separated by spaces (no test path has one). One process is one JVM,
+# which JPype allows exactly once per process; an own-JVM module therefore gets
+# a unit of its own (TODO item 44).
+run_pytest_units() {
+    local jobs="${FAVE_JOBS:-1}" rc=0 pt unit label rest i start pid logdir
+    local -a files=() labels=() starts=()
+    pt="$(pytest_cmd)"
+    if ! [[ "$jobs" =~ ^[1-9][0-9]*$ ]]; then
+        echo "FAVE_JOBS must be a positive integer, not '$jobs'" >&2
+        return 2
+    fi
+    if [ "$jobs" -eq 1 ]; then
+        for unit in "$@"; do
+            IFS='|' read -r label rest <<< "$unit"
+            read -ra files <<< "$rest"
+            echo "== integration: $label =="
+            start=$SECONDS
+            ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${files[@]}" ) || rc=1
+            echo "   ($label: $(( SECONDS - start )) s)"
+        done
+        return $rc
+    fi
+
+    logdir="$(mktemp -d)"
+    local -A unit_of=()
+    # Print a finished unit's log whole, so parallel output never interleaves.
+    reap() {
+        local status=0 done_pid n
+        wait -n -p done_pid || status=$?
+        n="${unit_of[$done_pid]}"
+        echo "== integration: ${labels[$n]} (exit $status, $(( SECONDS - starts[n] )) s) =="
+        cat "$logdir/$n.log"
+        [ "$status" -eq 0 ] || rc=1
+        unset "unit_of[$done_pid]"
+    }
+    i=0
+    for unit in "$@"; do
+        IFS='|' read -r label rest <<< "$unit"
+        read -ra files <<< "$rest"
+        while [ "${#unit_of[@]}" -ge "$jobs" ]; do reap; done
+        labels[i]="$label"; starts[i]=$SECONDS
+        echo "   (started: $label)"
+        ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${files[@]}" ) > "$logdir/$i.log" 2>&1 &
+        pid=$!
+        unit_of[$pid]=$i
+        i=$(( i + 1 ))
+    done
+    while [ "${#unit_of[@]}" -gt 0 ]; do reap; done
+    rm -rf "$logdir"
+    return $rc
 }
 
 # Print the combined coverage report. If COVERAGE_MIN is set, gate on it
@@ -426,8 +501,7 @@ run_smoke() {
 }
 
 run_integration() {
-    local rc=0 pt
-    pt="$(pytest_cmd)"
+    local rc=0
 
     echo "== integration: NetPlumber C++ unit tests =="
     make -j -C "$ROOT/net_plumber/build" test || rc=1
@@ -517,21 +591,28 @@ run_integration() {
     echo "== integration: generate Delta-net workload inputs (for test_backend_differential) =="
     bash "$ROOT/fave/test/gen_deltanet_inputs.sh" || rc=1
 
-    local group
-    echo "== integration: fave bison-dependent tests (no backend) =="
+    # The pytest processes. First, alone, the modules that rewrite a shared
+    # workload's inputs (FAVE_REGENERATING_TESTS). Then, FAVE_JOBS at a time:
+    # the rest of the bison-dependent group in one process, and each own-JVM
+    # module in a process of its own -- a fresh JVM per module, which is also
+    # what JPype needs (see FAVE_NDD_TESTS).
+    local group regen=() units=() t
     mapfile -t group < <(without_ad6 "${FAVE_INTEGRATION_TESTS[@]}")
     note_ad6_skip "$(( ${#FAVE_INTEGRATION_TESTS[@]} - ${#group[@]} )) ad6 module(s) left out"
+    for t in "${group[@]}"; do
+        if [[ " ${FAVE_REGENERATING_TESTS[*]} " == *" $t "* ]]; then regen+=("$t"); fi
+    done
     # Never hand pytest an EMPTY list: with no paths it discovers everything.
-    [ "${#group[@]}" -gt 0 ] && { ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${group[@]}" ) || rc=1; }
-
-    # Own process so the opt-in is SCOPED: test_iptables_out_iface.py, in the
-    # group above, asserts that `-o` is refused by default (see
-
-    # Separate process => fresh JVM for the NDD engine (see FAVE_NDD_TESTS),
-    # which also needs the item 13a opt-in -- all three replay wl_up or wl_tum.
-    echo "== integration: NDD engine tests (own JVM) =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. \
-        $pt "${FAVE_NDD_TESTS[@]}" ) || rc=1
+    if [ "${#regen[@]}" -gt 0 ]; then
+        FAVE_JOBS=1 run_pytest_units "tests that regenerate shared inputs|${regen[*]}" || rc=1
+        mapfile -t group < <(for t in "${group[@]}"; do
+            [[ " ${regen[*]} " == *" $t "* ]] || printf '%s\n' "$t"; done)
+    fi
+    [ "${#group[@]}" -gt 0 ] && units+=("fave bison-dependent tests (no backend)|${group[*]}")
+    for t in "${FAVE_NDD_TESTS[@]}"; do
+        units+=("own JVM: ${t#test/}|$t")
+    done
+    run_pytest_units "${units[@]}" || rc=1
 
     return $rc
 }

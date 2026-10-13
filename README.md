@@ -207,6 +207,14 @@ when NetPlumber and NDD-flood disagree. The `RESULT` line says when it was
 set, so a partial run is not mistaken for a whole one; CI's gating jobs do not
 set it.
 
+`integration` runs its pytest processes one after another by default. Set
+`FAVE_JOBS=N` to run up to N at a time (`FAVE_JOBS=4 ./test.sh integration`).
+Each own-JVM module is a process of its own, and the bison-dependent group is
+one more. Every JVM takes a quarter of RAM for its heap by default, so set
+`FAVE_JVM_XMX` when N heaps would not fit. Measured on 16 cores and 62 GB: the
+tier takes 30 minutes by default and 15 with `FAVE_JOBS=4`, using at most about
+46 and 53 GB (TODO item 44).
+
 Alongside the test tiers there is a static type-checking gate that runs `mypy`
 over the typed modules and fails on any type error (`mypy` ships in
 `requirements.txt`, so the `fast`-tier venv already has it):

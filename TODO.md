@@ -1095,14 +1095,14 @@ then applied to one of the two halves.
 - **The general point:** a gate whose verdict depends on the caller's cwd will be read wrong,
   and the reading is as likely to be a false red as a false green.
 
-### 44. The `integration` tier takes ~1 h 23 min — speed it up — OPEN (owner, 2026-10-11)
+### 44. The `integration` tier takes ~1 h 23 min — speed it up — 30 min by default, 15 with `FAVE_JOBS=4` (2026-10-13); CI setting OPEN
 - [ ] **Measure first:** per-test durations of both pytest groups (`--durations=0`), so
   the fix aims at measured costs, not at the guess below. **Partly done 2026-10-12:**
   `test_incremental_apkeep.py` alone (below). The other six own-JVM modules, the bison group
   and the seven input generators are still untimed.
 - [ ] **Then cut the wall time**, keeping every test in some gate (see *Fix*). **Lever 2
-  DONE 2026-10-12** and **the engine leak FIXED 2026-10-13** (below). Next: separate
-  processes and running them in parallel, (a) and (b).
+  DONE 2026-10-12**, **the engine leak FIXED 2026-10-13**, and **(a) + (b) DONE
+  2026-10-13** (below). Left: whether CI uses `FAVE_JOBS`; (c) and (d) are not needed now.
 - **Measured 2026-10-12** (`47dab858`, 16 cores, 62 GB, `FAVE_REQUIRE_BACKENDS=1`,
   `test_incremental_apkeep.py` alone in one process, as the tier runs it): **38 passed in
   63 min 58 s**, peak RSS 16.6 GB. This module is most of the own-JVM group's ~70 min.
@@ -1177,6 +1177,41 @@ then applied to one of the two halves.
   - **Not affected:** campaign numbers. `cell_run.py` runs each cell in a process of its
     own, and `bench/incremental_run.py` builds one engine per process; its from-zero
     checkpoints already release theirs.
+- [x] **Levers (a) + (b): one process per own-JVM module, `FAVE_JOBS` of them at a time** —
+  DONE 2026-10-13.
+  - **What changed in `test.sh`:** `run_pytest_units` runs the tier's pytest processes,
+    each a "unit": the bison-dependent group, and each `FAVE_NDD_TESTS` module on its own
+    (it used to be the whole list in one process). `FAVE_JOBS` (default 1) sets how many run
+    at once. With 1, each unit's output streams as before, followed by its seconds. Above 1,
+    each unit's log is printed whole when it finishes, with its exit code and seconds.
+    `test_incremental_apkeep.py` is first in `FAVE_NDD_TESTS`, so the longest unit never
+    starts last.
+  - **Shared inputs:** the two wl_cloud differentials rewrite `bench/wl_cloud/*.json` in
+    `setUpClass`, while `test_ndd_apkeep.py` and `test_incremental_apkeep.py` read those
+    files. They are listed in `FAVE_REGENERATING_TESTS`, still members of
+    `FAVE_INTEGRATION_TESTS`, and run first, alone (60 s). No other module of the tier
+    writes outside its temp dirs, per a scan for writes, generator calls and `/dev/shm`.
+  - **Measured on 16 cores and 62 GB, `FAVE_REQUIRE_BACKENDS=1`, the whole tier**
+    (one sample each):
+
+    | | wall | result | lowest MemAvailable |
+    |---|---:|---|---:|
+    | 2026-10-11, `6eeec530` (before items 44, 49) | ~83 min | PASSED, 512+4 skipped / 67 | — |
+    | `FAVE_JOBS=1` (default) | **29 min 58 s** | PASSED, 579 passed, 4 skipped | 16.3 GB |
+    | `FAVE_JOBS=4` | **14 min 35 s** | PASSED, 579 passed, 4 skipped | 9.2 GB |
+
+    The units, sequential: builds and generators about 1 min, the regenerating pair 60 s,
+    bison group 725 s, `test_incremental_apkeep` 740 s, and the other six together 227 s
+    (`ndd_apkeep_reference` 120, `apkeep_ndd_fwd` 57, `ndd_apkeep` 41). With 4 jobs the wall
+    is the longer of the bison group and `test_incremental_apkeep` running side by side,
+    each about 12.5 min.
+  - **Memory:** even one unit at a time uses up to about 46 GB here. Each JVM's heap
+    defaults to a quarter of RAM, and `test_ndd_apkeep_reference.py` adds two subprocess
+    JVMs at `-Xmx8g`. Four jobs added about 7 GB to that peak. **Not measured on a 16 GB
+    runner**, so CI keeps the default. Before CI sets `FAVE_JOBS`, it should also set
+    `FAVE_JVM_XMX`, and that pair should be measured there.
+- [ ] **CI: whether to set `FAVE_JOBS` (and `FAVE_JVM_XMX`)** — owner decision, after
+  knowing the integration job's runner (cores and memory). Not changed in `ci.yml`.
 - **Finding (2026-10-11, `ai` at `6eeec530`, 16 cores, 62 GB, `FAVE_REQUIRE_BACKENDS=1`):**
   `RESULT: integration PASSED` after ~83 min. The bison-dependent group: 512 passed, 4
   skipped in 12 min 41 s. The own-JVM group (`FAVE_NDD_TESTS`): 67 passed in **69 min 36 s**,
