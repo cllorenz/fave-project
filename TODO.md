@@ -1503,6 +1503,41 @@ then applied to one of the two halves.
   - `fast`, `fast --clean` (922 passed, 3 skipped), lint and typecheck are green. The full
     integration tier was not run on a fresh tree.
 
+### 50. A conntrack match other than exactly `ESTABLISHED` or `NEW` is dropped, and its rule becomes unconditional — OPEN (found 2026-10-13)
+Found while preparing item 51.
+- **Finding:** `iptables/generator.py` recognises a rule as state-checking only if
+  its `module.conntrack.ctstate` value equals `'ESTABLISHED'` (`_is_state_checking_rule`), and
+  as a `NEW` rule only if it equals `'NEW'` (`_is_new_state_rule`). `_interweave_state_shell`
+  then strips **every** conntrack field from **every** rule. So any other value loses its
+  condition and keeps its action: a state list (`RELATED,ESTABLISHED`), or a single
+  `RELATED`, `UNTRACKED` or `INVALID`.
+- **Measured 2026-10-13**, through the real parser and generator, on
+  `-P FORWARD DROP`, a state rule `-j ACCEPT` and an SSH accept:
+  - `--ctstate ESTABLISHED`: the shell as designed (`related=1` rules, then the SSH accept).
+  - `--ctstate RELATED,ESTABLISHED`, `RELATED`, `UNTRACKED` and `INVALID`: rule 0
+    has an **empty match and forwards**, so the firewall accepts everything. The usual
+    `-m conntrack --ctstate INVALID -j DROP` would drop everything.
+  - `--ctstate NEW,NOTRACK` (which `policy_translator` emits for a one-way pair,
+    `policy.py:855`): the parser drops **the whole rule**. The only trace is
+    `unknown char , ignored` on stderr. The grammar's state tokens (`parser.py:487`)
+    have no `NOTRACK`.
+- **Suite impact: none today.** Every rule set FaVe parses uses only `--ctstate ESTABLISHED`
+  (248), `--state ESTABLISHED` (3) or `--state NEW` (9,570). `wl_tum`'s raw save has
+  `RELATED,ESTABLISHED,UNTRACKED`, but its benchmark parses a preprocessed copy that
+  has `ESTABLISHED` only. Any real `iptables-save` input is exposed, since
+  `RELATED,ESTABLISHED` is the most common idiom there.
+- [ ] **Fix:** represent the value as a set of states. Weave a rule whose set contains
+  `ESTABLISHED` into the shell, and refuse loudly any state the model cannot express,
+  instead of dropping its condition. A full model of `RELATED` and `UNTRACKED` is item 51's
+  job; until then, refusing is the honest answer. A parse error must fail the parse, not
+  print a warning.
+- [ ] **Pinning tests** for each spelling above. They fail today, so they land with the fix.
+- [ ] **Owner question:** is `--ctstate NEW,NOTRACK` valid iptables? As far as I know
+  conntrack's states are `INVALID`, `NEW`, `ESTABLISHED`, `RELATED`, `UNTRACKED`, `SNAT` and
+  `DNAT`, and `NOTRACK` is a raw-table target. If so, the translator should emit
+  `UNTRACKED`. Not verified: this container has no `iptables`, and no network namespace
+  can be created to test one.
+
 ---
 
 ## Medium priority — structural improvements
