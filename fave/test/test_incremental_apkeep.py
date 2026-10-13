@@ -59,6 +59,25 @@ def _maker(engine, footprint=None):
 
 _make = _maker('bdd')
 
+
+class _ReleasesEngines:
+    """ Every engine a test makes is released when the test ends. An
+    NDD-APKeep network registers with the NDD atoms every network in the JVM
+    shares, and each later atom split rewrites every registered one, so an
+    engine never released makes every later build in the process slower: on
+    wl_airtel1, ~13 s more per network left behind, and up to 1,441 s for a
+    61 s test late in this module (TODO item 44). Nothing to do for BDD. """
+
+    def setUp(self):
+        super().setUp()
+        make = type(self).make
+
+        def made():
+            engine = make()
+            self.addCleanup(engine.release)
+            return engine
+        self.make = made
+
 #: NDD-APKeep also needs the NDD jar (fave/test/ndd_build.sh)
 ndd_available = available() and os.path.isfile(_NDD_JAR)
 
@@ -71,7 +90,7 @@ def _workload(test, prefix):
 
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
-class TestIncrementalAPKeep(unittest.TestCase):
+class TestIncrementalAPKeep(_ReleasesEngines, unittest.TestCase):
 
     #: the engine under test; the *Ndd* subclass runs every test on NDD-APKeep
     make = staticmethod(_make)
@@ -197,7 +216,7 @@ class TestIncrementalNddAPKeepDeadEnds(TestIncrementalNddAPKeep):
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
-class TestAgreesWithNetPlumber(unittest.TestCase):
+class TestAgreesWithNetPlumber(_ReleasesEngines, unittest.TestCase):
     """ O3.2 in miniature: on a stream neither engine refuses, every update
     changes the same verdicts on both. """
 
@@ -246,6 +265,9 @@ class TestRefusals(unittest.TestCase):
     def setUpClass(cls):
         from util.in_process_driver import InProcessFaVe
         if not inputs_present('bench/wl_example'):
+            # Through the gate, so FAVE_REQUIRE_BACKENDS fails it (item 49).
+            require_or_skip(False, "bench/wl_example inputs not generated")(
+                lambda: None)()
             raise unittest.SkipTest("bench/wl_example inputs not generated")
         cls.engine = cls.make()
         cls.fave = InProcessFaVe(cls.engine)
@@ -255,6 +277,7 @@ class TestRefusals(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.fave.stop()
+        cls.engine.release()
 
     def test_an_unknown_rule_cannot_be_deleted(self):
         key, _rule = inc.model_rules(self.fave)[0]
@@ -283,6 +306,7 @@ class TestRefusals(unittest.TestCase):
         from util.in_process_driver import InProcessFaVe
         log = logging.getLogger("test_incremental_apkeep")
         engine = APKeepAdapter(log, engine='ndd')
+        self.addCleanup(engine.release)
         with InProcessFaVe(engine) as fave:
             fave.replay('bench/wl_example')
             engine.check_compliance({})
