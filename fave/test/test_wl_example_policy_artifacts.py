@@ -28,8 +28,10 @@ The third of the family, after test_wl_up_policy_artifacts.py (self-rules under
 self-check). wl_example is the smallest of the three and the only one whose
 matrix is entirely GENERATED -- `reachability.csv`, `inventory.json`,
 `checks.json`, `cchecks.json` and `reachable.json` are all gitignored, and
-there is no `test/gen_wl_example_inputs.sh`: `bench/wl_example/benchmark.py` is
-the sole producer. Nothing else may quietly become a source of truth for them.
+`bench/wl_example/benchmark.py` is the sole producer:
+`test/gen_wl_example_inputs.sh` runs that benchmark's own input steps rather
+than steps of its own (TODO item 49). Nothing else may quietly become a source
+of truth for them.
 
 WHAT ONLY THIS WORKLOAD HAS. Every other matrix in the tree is plain `X`/`(X)`
 reachability. wl_example's has three service conditions and the tree's ONE

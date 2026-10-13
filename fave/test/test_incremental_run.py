@@ -49,6 +49,9 @@ class _Tmp(unittest.TestCase):
 
     def setUp(self):
         if not inputs_present(_PREFIX):
+            # Through the gate, so FAVE_REQUIRE_BACKENDS fails it (item 49).
+            require_or_skip(False, "%s inputs not generated" % _PREFIX)(
+                lambda: None)()
             self.skipTest("%s inputs not generated" % _PREFIX)
         self.tmp = tempfile.mkdtemp(prefix='inc_run_')
         self.addCleanup(shutil.rmtree, self.tmp, True)
@@ -199,8 +202,10 @@ class TestAPKeepCell(unittest.TestCase):
     def test_wl_ifi_agrees_with_netplumber(self):
         from apkeep.lib_apkeep import available as apkeep_available
         if not apkeep_available():
+            require_or_skip(False, "JPype or the APKeep jar is unavailable")(lambda: None)()
             self.skipTest("JPype or the APKeep jar is unavailable")
         if not inputs_present('bench/wl_ifi'):
+            require_or_skip(False, "bench/wl_ifi inputs not generated")(lambda: None)()
             self.skipTest("bench/wl_ifi inputs not generated")
         tmp = tempfile.mkdtemp(prefix='inc_apkeep_')
         self.addCleanup(shutil.rmtree, tmp, True)

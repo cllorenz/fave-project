@@ -100,6 +100,7 @@ class TestFromZero(unittest.TestCase):
     def test_wl_stanford_faithful(self):
         # VLAN rewrites and VLAN admission, the model BDD-APKeep does not finish
         if not os.path.exists('bench/wl_stanford/stanford-json/routes.json'):
+            require_or_skip(False, "wl_stanford inputs not generated")(lambda: None)()
             self.skipTest("wl_stanford inputs not generated")
         verdicts = self._same('bench/wl_stanford/stanford-json',
                               'bench/wl_stanford/checks.json', _HSA)

@@ -1372,7 +1372,7 @@ then applied to one of the two halves.
   - **Negative control:** with the gate widened to `('ad6', 'apkeep')`, the `apkeep` subtest
     fails and the `veriflow` one passes.
 
-### 49. The `integration` tier never generates the `wl_example` inputs its own tests read — OPEN (found 2026-10-13)
+### 49. The `integration` tier never generates the `wl_example` inputs its own tests read — FIXED 2026-10-13
 - **Finding:** seven integration modules read `bench/wl_example`'s generated model:
   `test_incremental_{netplumber,veriflow,apkeep,run}.py`, `test_ndd_apkeep.py`,
   `test_packet_filter_out_iface.py` and `test_veriflow_differential.py`. Those inputs are
@@ -1392,10 +1392,37 @@ then applied to one of the two halves.
   since the first such consumer, `bff573f7` (2026-10-09). It has passed locally only because
   this tree kept the files from an earlier smoke run. That includes item 44's 83-minute pass
   of 2026-10-11. CI itself was not observed.
-- [ ] **Fix:** a `test/gen_wl_example_inputs.sh` that the integration tier invokes. To keep
-  `benchmark.py` the single source of truth, the script runs the benchmark's own
-  preparation steps and nothing else: no backend, and no deletion of `/dev/shm/np`. And
-  `test_incremental_run.py` goes through `backend_gate`, as its siblings do.
+- [x] **Fix: `test/gen_wl_example_inputs.sh`, invoked by the integration tier** — DONE
+  2026-10-13. `benchmark.py` stays the single source of truth:
+  - `GenericBenchmark._preparation` is split, and its input half is now
+    `generate_inputs()`. `bench/wl_example/benchmark.py` builds its benchmark in a
+    `workload()` function, and the script calls `workload().generate_inputs()`. No backend
+    starts, and nothing under `/dev/shm/np` is deleted or truncated. The logging is set up
+    first so that the constructor's `basicConfig` cannot reopen `fave.log`.
+  - The steps discard their exit status (`os.system`), so the script deletes its 10 outputs
+    first and checks them last.
+  - **Measured:** the output is byte-identical to what the smoke benchmark produced, all 10
+    files. With `roles_and_services.txt` moved away the script exits 1 and names the
+    missing `checks.json`. Before the delete-first step it passed on the stale copy.
+- [x] **Every input skip in these modules goes through `backend_gate`** — DONE 2026-10-13.
+  Seven `skipTest` calls on missing inputs or backends bypassed `FAVE_REQUIRE_BACKENDS`:
+  - `test_incremental_run.py`, three: the wl_example `setUp`, plus APKeep and wl_ifi in
+    `test_wl_ifi_agrees_with_netplumber`.
+  - `incremental_oracle.moved_routes`: wl_stanford, for NetPlumber and VeriFlow-FR.
+  - One each in `test_incremental_veriflow.py`, `test_ndd_apkeep.py` (wl_stanford) and
+    `test_packet_filter_out_iface.py`.
+
+  Each now uses the idiom its siblings already used: fail through the gate, else skip.
+  `test_incremental_netplumber.py`'s "wl_ifi has no pre/post-routing table" stays a plain
+  skip, because it concerns the model's content, not a missing input.
+  - **Measured:** with the inputs moved aside and `FAVE_REQUIRE_BACKENDS=1`,
+    `test_incremental_run.py` gives 10 failed and 6 passed (it was 11 skipped). After
+    the script: `test_incremental_{run,netplumber,veriflow}.py` and
+    `test_packet_filter_out_iface.py` give 37 passed. The 2 that skip are the wl_stanford
+    `moved_routes` tests, because this tree has no wl_stanford inputs. Under the flag they now
+    fail, and the tier generates those inputs before them.
+  - `fast`, `fast --clean` (922 passed, 3 skipped), lint and typecheck are green. The full
+    integration tier was not run on a fresh tree.
 
 ---
 

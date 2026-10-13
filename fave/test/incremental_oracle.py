@@ -25,6 +25,7 @@
 import copy
 import os
 
+from test.backend_gate import require_or_skip
 from util import incremental as inc
 
 
@@ -156,6 +157,8 @@ def moved_routes(test, make, prefix, checks_path, files=None, source=None,
     pairs are moved. """
     from util.in_process_driver import InProcessFaVe
     if not os.path.exists(checks_path):
+        # Through the gate, so FAVE_REQUIRE_BACKENDS fails it (item 49).
+        require_or_skip(False, "%s not generated" % checks_path)(lambda: None)()
         test.skipTest("%s not generated" % checks_path)
     checks = [c for c in inc.load_checks(checks_path)
               if source is None or c.source == source]

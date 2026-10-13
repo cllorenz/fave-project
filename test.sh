@@ -456,6 +456,13 @@ run_integration() {
     echo "== integration: generate wl_ifi inputs (for test_apkeep_wl_ifi) =="
     bash "$ROOT/fave/test/gen_wl_ifi_inputs.sh" || rc=1
 
+    # wl_example's inputs, which the incremental, NDD and packet-filter tests
+    # read. Its benchmark is their only producer, and only `smoke` (in e2e)
+    # runs it, so a fresh runner had none (TODO item 49). The benchmark's own
+    # input steps, without the run.
+    echo "== integration: generate wl_example inputs (for the incremental tests) =="
+    bash "$ROOT/fave/test/gen_wl_example_inputs.sh" || rc=1
+
     # Generate the wl_i2 inputs (HSA transfer functions -> FaVe model + oracle)
     # for the APKeep scale test; from tracked inputs, no live backend.
     echo "== integration: generate wl_i2 inputs (for test_apkeep_i2) =="

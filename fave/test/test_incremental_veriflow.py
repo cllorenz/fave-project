@@ -105,6 +105,7 @@ class TestRefusals(unittest.TestCase):
         # would silently drop them.
         from util.in_process_driver import InProcessFaVe
         if not inputs_present('bench/wl_example'):
+            require_or_skip(False, "bench/wl_example inputs not generated")(lambda: None)()
             self.skipTest("bench/wl_example inputs not generated")
         engine = _make()
         with InProcessFaVe(engine) as fave:

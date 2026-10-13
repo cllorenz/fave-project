@@ -320,7 +320,15 @@ class GenericBenchmark(object):
 
     def _preparation(self):
         self._delete_artifacts()
+        self.generate_inputs()
 
+
+    def generate_inputs(self):
+        """ Derive the workload's model and checks from its tracked sources,
+        and nothing else: no backend, no deletion under TMPDIR. The input half
+        of `_preparation`, callable alone so a test tier can generate the
+        inputs a benchmark run would, from the same steps
+        (test/gen_wl_example_inputs.sh; TODO item 49). """
         self._generate_policy_matrix()
 
         self.logger.info("generate inventory...")

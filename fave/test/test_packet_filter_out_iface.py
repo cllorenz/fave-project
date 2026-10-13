@@ -84,6 +84,7 @@ class TestEnginesAgreeOnOutIface(unittest.TestCase):
 
     def _agree(self, deleted, apkeep_may_refuse=False):
         if not inputs_present(_PREFIX):
+            require_or_skip(False, "%s inputs not generated" % _PREFIX)(lambda: None)()
             self.skipTest("%s inputs not generated" % _PREFIX)
         checks = inc.load_checks(_PREFIX + '/checks.json')
         got = {}
