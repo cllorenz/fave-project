@@ -1,6 +1,6 @@
 # Document index
 
-Twenty-five reference documents, ~24,700 lines. They are lab notebooks, not
+Twenty-six reference documents, ~24,900 lines. They are lab notebooks, not
 specifications: each records what was tried, what it cost, what was measured and
 what the owner decided, usually with a dated status header at the top. **Read the
 status header before the body** — several of these describe work that is finished,
@@ -67,6 +67,7 @@ engine implements it.
 |---|---:|---|
 | [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md) | 1,066 | **Built.** Making FaVe's implicit first-match contract explicit, so the declaration reaches the engines. |
 | [`OUT_STAGE_PLAN.md`](OUT_STAGE_PLAN.md) | 766 | **Steps 0–5 done.** The `wl_stanford` out stage as a modelled device. Read its §3 first — the oracle it asked for showed no reachability question can observe the gap. |
+| [`STATE_ENCODING_PLAN.md`](STATE_ENCODING_PLAN.md) | 178 | **Research, not started** (TODO item 51). Generalizing state shell interweaving to a finite state machine per device class, projected onto virtual header bits, so verification stays one propagation run. Prerequisite: TODO item 50. |
 
 ## Workloads
 

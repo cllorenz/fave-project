@@ -3464,6 +3464,33 @@ Found while deciding VeriFlow-FR's revisit rule (`VERIFLOW_PLAN.md` Q4). Pinned 
   - **Suite unaffected:** VLAN matches sit only in HSA stages, and VLAN rewrites only in HSA stages or router routing tables. Checked by the integration tier's APKeep differentials.
   - **What remains is a capability gap, not a defect:** APKeep cannot express VLAN rewrites or ingress-qualified rules on first-match tables outside the HSA stages.
 
+### 51. State as virtual header bits: generalizing state shell interweaving — RESEARCH (owner discussion 2026-10-13; see [`STATE_ENCODING_PLAN.md`](docs/STATE_ENCODING_PLAN.md))
+**Why:** most device classes worth adding hold state: NAT gateways, cloud security groups, load
+balancers, learning switches. FaVe's snapshot model does not scale (the 2021 paper measured
+400 new connections/s on one firewall; the thesis has the full measurements). State shell
+interweaving scales, but models conntrack alone, as one virtual bit. Its strength is
+that both directions travel in **one** propagation run, which keeps updates incremental.
+A design that needs several runs that depend on each other gives that up (owner,
+2026-10-13).
+
+**Hypothesis (plan §3):** a device-local finite state machine compiled into k virtual
+header bits keeps one run. Conditions: state keyed by header fields, header-predicate
+guards, and state that is a property of the connection. Every condition stays local
+to its device. Today's shell is the two-state case. Where the conditions fail, isolation
+checks lose precision, not soundness. Required reachability is the opposite case (plan §4).
+- [ ] **E0 — prerequisite:** item 50 (a conntrack state list must be handled first).
+- [ ] **E1 — formalize** conntrack with `NEW`, `ESTABLISHED`, `RELATED`, `UNTRACKED` and
+  `INVALID`. Regression oracle: restricted to two states, the generalized compiler gives
+  today's verdicts on every workload.
+- [ ] **E2 — conntrack plus `-m recent`** on synthetic rule sets, then `wl_tum`'s raw save.
+  Measure header bits added, compiled-rule size against today's shell, single-run time and
+  incremental update cost per engine. Check soundness with a concrete-packet simulation
+  and with the snapshot model as an oracle.
+- [ ] **E3 — static NAT.**
+- [ ] **Owner questions** (plan §8): where the thesis's snapshot measurements are and
+  whether they cover low-rate state; which engines must take the new bits; whether `RELATED`'s
+  ICMP-error half is in scope; which soundness direction FPL's stateful reachability declares.
+
 ---
 
 ## Python codebase test expansion (fave/ + policy_translator/)
