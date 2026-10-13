@@ -60,13 +60,17 @@ def _maker(engine, footprint=None):
 _make = _maker('bdd')
 
 
-class _ReleasesEngines:
+class _ReleasesEngines(unittest.TestCase):
     """ Every engine a test makes is released when the test ends. An
     NDD-APKeep network registers with the NDD atoms every network in the JVM
     shares, and each later atom split rewrites every registered one, so an
     engine never released makes every later build in the process slower: on
     wl_airtel1, ~13 s more per network left behind, and up to 1,441 s for a
-    61 s test late in this module (TODO item 44). Nothing to do for BDD. """
+    61 s test late in this module (TODO item 44). Nothing to do for BDD.
+    Holds no tests itself. """
+
+    #: the engine factory; each subclass names its own
+    make = staticmethod(_make)
 
     def setUp(self):
         super().setUp()
@@ -90,7 +94,7 @@ def _workload(test, prefix):
 
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
-class TestIncrementalAPKeep(_ReleasesEngines, unittest.TestCase):
+class TestIncrementalAPKeep(_ReleasesEngines):
 
     #: the engine under test; the *Ndd* subclass runs every test on NDD-APKeep
     make = staticmethod(_make)
@@ -216,7 +220,7 @@ class TestIncrementalNddAPKeepDeadEnds(TestIncrementalNddAPKeep):
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
-class TestAgreesWithNetPlumber(_ReleasesEngines, unittest.TestCase):
+class TestAgreesWithNetPlumber(_ReleasesEngines):
     """ O3.2 in miniature: on a stream neither engine refuses, every update
     changes the same verdicts on both. """
 
