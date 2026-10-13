@@ -1341,6 +1341,57 @@ then applied to one of the two halves.
 - **Deferred:** coverage of fast and integration combined. The integration tier already uploads
   coverage, but merging the two waits for item 44's refactor of that tier.
 
+### 48. A `fast`-tier test launches real benchmark cells: it writes `bench/wl_ifi/` and deletes shared logs — OPEN (found 2026-10-13)
+- **Finding:** `test_cell_run.py::test_the_other_backends_are_not_gated` checks that the ad6
+  encoding gate (item 0a) leaves `apkeep` and `veriflow` alone. It does so by calling
+  `cell_run.main(['wl_ifi', ...])` with `--limit-wall 0.01`. For each backend the call gets
+  past every check, so the cell **runs**:
+  - `main` first deletes `report.md` (relative to the cwd), `/dev/shm/np/aggregator.log` and
+    `/dev/shm/np/inv.log`. Those are the paths a benchmark running on the same machine is
+    writing to.
+  - It then spawns the `wl_ifi` benchmark. The sampling loop polls once a second (`poll_s=1.0`),
+    so the 0.01 s limit fires only after about a second. By then the child has regenerated 11
+    of `bench/wl_ifi/`'s gitignored inputs in the source tree (`inventory.json`,
+    `checks.json`, `cchecks.json`, `reachability.csv`, `topology.json`, `routes.json`, ...).
+- **Measured 2026-10-13:** by mtime against a marker, a plain `./test.sh fast` writes exactly
+  those 11 files. Running the fast modules that mention `wl_ifi` one by one names
+  `test_cell_run.py` as the only writer.
+- **Since when:** the test has spawned these cells in any interpreter that passes the
+  interpreter guard. Item 45's fix (`7db6fb7e`) stubbed the guard to pass, so since then it
+  does so in every interpreter, CI's included.
+- **Why it matters:** this is item 37's side effect again (a unit test writing generated inputs
+  into the tree), and it overwrites inputs that the integration tier's generators made. Worse,
+  it deletes another run's logs. A `./test.sh fast` started while a benchmark cell runs on the
+  same machine removes that cell's aggregator log.
+- [ ] **Fix:** the guard is the last check in `main` before anything is deleted or spawned. So
+  the test can stub the guard with one that raises a sentinel. Reaching the guard proves the
+  gate let the backend through, and nothing runs. That is a test-only change.
+
+### 49. The `integration` tier never generates the `wl_example` inputs its own tests read — OPEN (found 2026-10-13)
+- **Finding:** seven integration modules read `bench/wl_example`'s generated model:
+  `test_incremental_{netplumber,veriflow,apkeep,run}.py`, `test_ndd_apkeep.py`,
+  `test_packet_filter_out_iface.py` and `test_veriflow_differential.py`. Those inputs are
+  gitignored, and their only producer is `bench/wl_example/benchmark.py`
+  (`test_wl_example_policy_artifacts.py` says so). Only the **smoke** benchmark run calls it,
+  and smoke belongs to `e2e`, not `integration`. The tier's generator block (`test.sh`, after
+  the APKeep build) covers wl_ifi, wl_i2, wl_stanford, wl_tum, wl_up, wl_cloud and Delta-net,
+  but not wl_example.
+- **Measured 2026-10-13:** with the generated `wl_example` files moved aside and
+  `FAVE_REQUIRE_BACKENDS=1`, as CI's integration job runs:
+  - `test_incremental_netplumber.py`: **2 failed** ("bench/wl_example inputs not generated").
+  - `test_incremental_run.py`: **11 skipped**, not failed. Its `setUp` calls `skipTest`
+    directly instead of going through `backend_gate`, so `FAVE_REQUIRE_BACKENDS` cannot see
+    it. That is item 42's defect (a gated test that only ever skips).
+  - The other five were not run this way; they use the same gate as the first.
+- **Consequence:** on a fresh runner, which is what CI's integration job gets, the tier is red
+  since the first such consumer, `bff573f7` (2026-10-09). It has passed locally only because
+  this tree kept the files from an earlier smoke run. That includes item 44's 83-minute pass
+  of 2026-10-11. CI itself was not observed.
+- [ ] **Fix:** a `test/gen_wl_example_inputs.sh` that the integration tier invokes. To keep
+  `benchmark.py` the single source of truth, the script runs the benchmark's own
+  preparation steps and nothing else: no backend, and no deletion of `/dev/shm/np`. And
+  `test_incremental_run.py` goes through `backend_gate`, as its siblings do.
+
 ---
 
 ## Medium priority — structural improvements
