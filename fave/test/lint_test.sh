@@ -62,15 +62,9 @@ export RCFILE="$HERE/.pylintrc"
 
 # Specific files to skip, by exact path relative to the fave/ directory.
 # (Vendored Hassel trees and deprecated/ are pruned at the find stage below.)
-#
-# compare.py sits in a committed result directory, which is evidence and not
-# edited (docs/CONVENTIONS.md); pylint reports E1133 on `us`/`base` there, a
-# false positive -- the line before returns on None (`continue`), which its
-# inference does not follow. The gate was red on it from f9aa6c78 (2026-10-10).
 export IGNORE_FILES="\
 ./examples/demo_slicing.py \
 ./util/dynamic_distribution.py \
-./bench/campaigns/results_inc_dev_footprints_20261010/compare.py \
 "
 
 # pylint checks that must not gate (env-fragile import/name resolution).
