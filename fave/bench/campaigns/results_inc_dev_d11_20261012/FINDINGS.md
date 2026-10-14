@@ -61,7 +61,7 @@ zero, on every engine.
      `wl_ifi`, seed 1, its deletes had removed all six entries of
      `access-list 103` by edit 125, while `ip access-group 103 out` still
      applies it. The router model then has no ACL to look up.
-   - **Remedy:** the owner chose to fix the harness. `m2` `a4f13252` (first
+   - **Remedy:** the owner chose to fix the harness. `b517a80f` on `updates` (first
      `7dc8d72a`, before the rebase) turns such a delete into a modify.
    - **Effect on the streams:** at seed 1, only `wl_ifi`'s stream changes,
      from edit 125. A regression test pins the invariant.
