@@ -1,0 +1,16 @@
+The full raw records of this run (cells/, 3,365 files, 387 MB) are NOT in git
+(owner, 2026-10-14; docs/CONVENTIONS.md). They are in one archive:
+
+  file    results-archives/results_inc_dev_d11_20261012_cells.tar.xz
+          (at the checkout root; gitignored -- copy it off the machine)
+  size    183,585,584 bytes
+  sha256  1a91f613305ce5ce1aca9755816cd050d57c09b633ced31d7016747a31901534
+  made    2026-10-14 from cells/ as it was after the run; verified the same day:
+          xz -t clean, 3,365 files, every file's sha256 equal to the disk's
+
+To use it: from this directory, `tar -xJf <checkout>/results-archives/
+results_inc_dev_d11_20261012_cells.tar.xz` restores cells/ in place.
+analyze.py and summarize.py read cells/ and need it.
+
+Not in summary/ and only in the archive: each update's `affected` pairs
+(92% of the records) and the per-update timings themselves.

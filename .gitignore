@@ -32,3 +32,8 @@ venv/
 fave/results/
 
 .yolobox.toml
+
+# Archived raw records of result directories too large for git (docs/CONVENTIONS.md,
+# "Raw records too large for git"; owner, 2026-10-14). NOT backed up by git: copy
+# each archive off the machine; the run's summary/ARCHIVE.txt gives its sha256.
+results-archives/

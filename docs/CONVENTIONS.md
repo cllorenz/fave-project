@@ -58,6 +58,22 @@ filename, so a descriptive stem does not drop a cell from the matrix.
   the falsifiable predictions. A prediction added afterwards is not a prediction.
 - **`FINDINGS.md`** — written after, scoring each prediction held or failed.
 
+## Raw records too large for git: summaries committed, records archived
+
+(Owner, 2026-10-14, first for `results_inc_dev_d11_20261012`, 387 MB.) When a
+run's raw records are too large to commit:
+
+- **git** gets the run's protocol, log, findings and analysis scripts, the small
+  per-cell files (`cell.json`, `end.json`, stdout, oracle records), and
+  `summary/`, made by the run's `summarize.py`: distributions of every timing,
+  memory along the run, verdict flips, refusals, and each distinct stream and
+  initial-verdict set once.
+- **The full `cells/`** goes into one `tar.xz` in `results-archives/` at the
+  checkout root. That folder is gitignored and is NOT backed up by git: copy the
+  archive off the machine. `summary/ARCHIVE.txt` names it and gives its sha256.
+- The raw files themselves stay untracked: the run directory's `.gitignore`
+  lists them.
+
 ## Never rename a result directory
 
 Once a result directory is committed, its name is part of the record:

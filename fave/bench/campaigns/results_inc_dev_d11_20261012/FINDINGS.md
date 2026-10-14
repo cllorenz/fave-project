@@ -5,7 +5,13 @@ commit; after the run, `updates` was rebased onto `ai`, and the tag
 `archive/updates-before-ai-rebase` keeps it. The run is indicative only:
 limit_class dev, one repetition, eight cells at a time on this machine.
 
-- `cells/`: the raw records, one directory per cell.
+- `cells/`: the raw records, one directory per cell. Only each cell's small
+  files are in git. The full records (387 MB) are archived outside git
+  (`summary/ARCHIVE.txt`, owner 2026-10-14).
+- `summary/`: made by `summarize.py`, written after the run. It holds every
+  cell's timing distributions (overall, by operation type, along the stream),
+  memory along the stream and during the run, verdict flips and refusals, plus
+  each distinct stream and initial-verdict set once.
 - `run.log`: the runner's log, with every deviation and finding as a dated
   DECLARED, FINDING or CORRECTION line, written when it happened.
 - `analyze.py`: written after the run, it reads `cells/` and writes:
