@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 #: TODO item 31's provenance vocabulary -- WHOSE CODE produced a number. It is
 #: a separate axis from the accommodations: one says whose code runs, the other
@@ -148,6 +148,15 @@ class AbstractVerificationEngine(object):
         """ Bring the link sport -> dport (FaVe port names) up or down. """
         raise UpdateRefused(
             "%s: set_link is not implemented" % type(self).__name__)
+
+    def remove_device(self, model: Any, links: List[Tuple[str, str]]) -> None:
+        """ Remove the device `model` -- its tables with their rules, its
+        wiring, its ports -- and its external `links`, FaVe (egress, ingress)
+        port names, the links INTO the device first (INCREMENTAL_PLAN.md
+        §8.2). Refused before anything is touched by an engine that lacks a
+        primitive for it (D-R4). """
+        raise UpdateRefused(
+            "%s: remove_device is not implemented" % type(self).__name__)
 
     def max_rule_index(self, table: str) -> int:
         """ The largest FaVe rule index this engine takes in `table` -- the

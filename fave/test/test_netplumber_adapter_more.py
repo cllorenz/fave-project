@@ -21,16 +21,12 @@
 
 """ More unit tests for netplumber.adapter.NetPlumberAdapter, complementing
 test_adapter.py: declared-LPM ordering, rewrites, slices, links, the
-incremental update API (INCREMENTAL_PLAN.md §6.2/§6.3), generator and probe
-removal, probe test paths, and the pass-through calls.
+incremental update API (INCREMENTAL_PLAN.md §6.2/§6.3), generator, probe and
+device removal, probe test paths, and the pass-through calls.
 
 As in test_adapter.py the module's ``jsonrpc`` is patched, so every RPC is
 recorded rather than sent: what is pinned is what the adapter TELLS NetPlumber
 and the bookkeeping it keeps. No backend, no socket.
-
-Several defects are PINNED as measured (2026-10-14), each in a test whose name
-ends in KNOWN_DEFECT, so a fix fails it visibly instead of passing unnoticed;
-the docstring says what the correct behaviour would be.
 """
 
 import io
@@ -635,56 +631,61 @@ class TestProbes(_Base):
         self.assertEqual(self.adapter.probes['pr'][1], 602)
 
 
-class TestModelRemovalDeadCode(_Base):
-    """ delete_rules / delete_wiring / delete_tables, reached only from
-    AggregatorService._delete_model, which nothing calls (its call site is
-    commented out: "TODO: fix deletion"). All three are broken; the defects
-    are pinned so reviving the path meets them here first. """
+class TestRemoveDevice(_Base):
+    """ remove_device (INCREMENTAL_PLAN.md §8.2), which replaced the broken
+    delete_rules / delete_wiring / delete_tables (TODO item 53): D-R2's order
+    -- links in, wiring, tables, links out -- and nothing of the device left
+    in the bookkeeping. On the real engine: test_incremental_device_removal.py. """
 
-    def test_delete_rules_KNOWN_DEFECT(self):
-        """ adapter.py:1069-1071: indexes a Rule as a tuple (`x[0]`) and would
-        then pass the table NAME as `t_idx` to `_calc_rule_index`. Correct:
-        remove every engine rule of the model and forget it. """
-        sw = self.switch(rules=[_route(0, '10.0.0.0/8')])
-        self.adapter.add_rules(sw)
-        with self.assertRaises(TypeError):
-            self.adapter.delete_rules(sw)
-        self.rpc.remove_rule.assert_not_called()
+    def setUp(self):
+        super().setUp()
+        self.fw = PacketFilterModel('fw', ports=['1', '2'])
+        self.sw = self.switch(rules=[_route(0, '10.0.0.0/8')])
+        for model in (self.fw, self.sw):
+            self.adapter.add_tables(model)
+            self.adapter.add_wiring(model)
+            self.adapter.add_rules(model)
+        g = self.adapter.global_port
+        self.into = (g('sw.2'), g('fw.1_ingress'))
+        self.out = (g('fw.2_egress'), g('sw.1'))
+        for sport, dport in (self.into, self.out):
+            self.adapter.links.setdefault(sport, []).append(dport)
+        self.wires = [(s, d) for s, ds in self.adapter.links.items() for d in ds
+                      if (s, d) not in (self.into, self.out)]
+        self.rpc.reset_mock()
 
-    def test_delete_tables_KNOWN_DEFECT(self):
-        """ adapter.py:1118: `if not self.tables[table]` removes only a table
-        whose index is 0 -- and indices start at 1. Correct: remove_table for
-        every table of the model. """
-        sw = self.switch()
-        self.adapter.delete_tables(sw)
-        self.rpc.remove_table.assert_not_called()
-        self.assertIn('sw.1', self.adapter.tables)
+    def test_links_in_then_wiring_then_tables_then_links_out(self):
+        tids = {self.adapter.tables[t] for t in self.fw.tables}
+        self.adapter.remove_device(self.fw, [('fw.2_egress', 'sw.1'),
+                                             ('sw.2', 'fw.1_ingress')])
+        calls = [(c[0], c.args[1:]) for c in self.rpc.method_calls]
+        self.assertEqual(calls[0], ('remove_link', self.into))
+        self.assertEqual(calls[-1], ('remove_link', self.out))
+        middle = calls[1:-1]
+        wired = [c for c in middle if c[0] == 'remove_link']
+        self.assertEqual(sorted(a for _n, a in wired), sorted(self.wires))
+        self.assertEqual({a[0] for n, a in middle if n == 'remove_table'}, tids)
+        self.assertEqual(middle[:len(wired)], wired)
+        self.rpc.remove_rule.assert_not_called()       # remove_table frees them
 
-        self.adapter.tables['sw.1'] = 0          # the only index it removes
-        self.adapter.delete_tables(sw)
-        self.rpc.remove_table.assert_called_once_with(['SOCK'], 0)
-        self.assertNotIn('sw.1', self.adapter.tables)
+    def test_nothing_of_the_device_is_left_and_the_other_one_is_untouched(self):
+        sw_rules = dict(self.adapter.rule_ids)
+        self.adapter.remove_device(self.fw, [('sw.2', 'fw.1_ingress'),
+                                             ('fw.2_egress', 'sw.1')])
+        self.assertEqual(list(self.adapter.tables), ['sw.1'])
+        self.assertEqual(list(self.adapter.ports), ['sw.1', 'sw.2'])
+        self.assertEqual(self.adapter.links, {})
+        self.assertNotIn('fw', self.adapter.model_types)
+        self.assertEqual(self.adapter.rule_ids, {
+            k: v for k, v in sw_rules.items() if k >> 32 == self.adapter.tables['sw.1']})
+        self.assertTrue(self.adapter.rule_ids)
 
-    def test_delete_wiring_KNOWN_DEFECT(self):
-        """ adapter.py:1087-1093: a port's table is guessed by stripping its
-        last dotted component, so `fw.pre_routing_input` resolves to `fw`, not
-        a table. Correct: remove_link for each internal wire. """
-        fw = PacketFilterModel('fw', ports=['1', '2'])
-        self.adapter.add_tables(fw)
-        with self.assertRaises(KeyError):
-            self.adapter.delete_wiring(fw)
-
-    def test_delete_wiring_where_the_guess_happens_to_hold(self):
-        """ When a port IS `<table>.<n>` the wire is removed by packed port. """
-        model = AbstractDeviceModel(
-            'm', tables={'m.a': [], 'm.b': []},
-            ports={'m.a.1': 'm.a', 'm.b.1': 'm.b'},
-            wiring=[('m.a.1', 'm.b.1')])
-        self.adapter.add_tables(model)
-        self.adapter.delete_wiring(model)
-        self.rpc.remove_link.assert_called_once_with(
-            ['SOCK'], self.adapter.global_port('m.a.1'),
-            self.adapter.global_port('m.b.1'))
+    def test_a_removed_device_is_added_again_under_fresh_tables(self):
+        old = self.adapter.tables['sw.1']
+        self.adapter.remove_device(self.sw, [])
+        self.assertNotIn('sw.1', self.adapter._lpm_tables)
+        self.adapter.add_tables(self.sw)
+        self.assertGreater(self.adapter.tables['sw.1'], old)
 
 
 class TestDiagnosticLogging(_Base):
@@ -725,11 +726,10 @@ class TestDiagnosticLogging(_Base):
                 'm', tables={'m.a': []}, ports={'m.a.1': 'm.a'},
                 wiring=[('m.a.1', 'm.a.1')])
             self.adapter.add_tables(model)
-            self.adapter.delete_wiring(model)
+            self.adapter.add_wiring(model)
             self.adapter.add_wiring(AbstractDeviceModel(
                 'f', wiring=[('f.internals_in', 'm.a.1')]))
-            self.adapter.tables['m.a'] = 0
-            self.adapter.delete_tables(model)
+            self.adapter.remove_device(model, [])
 
         text = "\n".join(logs.output)
         for expected in (

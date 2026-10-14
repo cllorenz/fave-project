@@ -79,6 +79,7 @@ class TestAbstractEngineDefaults(unittest.TestCase):
             ('insert_rule', (object(),)),
             ('delete_rule', ('n', 't', 0)),
             ('set_link', ('a.1', 'b.1', False)),
+            ('remove_device', (object(), [])),
         )
         for name, args in calls:
             with self.subTest(op=name):

@@ -1059,74 +1059,62 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         return {(sid[s], pid[p]) for s, p in self._rpc.take_affected(self.socks)
                 if s in sid and p in pid}
 
-    def delete_rules(self, model: Any) -> None:
-        """ Deletes all rules from a device model.
+    def remove_device(self, model: Any, links: List[Tuple[str, str]]) -> None:
+        """ Remove a whole device (INCREMENTAL_PLAN.md §8.2), in D-R2's order:
+        the links INTO it, its internal wiring, its tables, the links OUT of
+        it, then its ports.
 
-        Arguments:
-        model -- a device model
-        """
+        No rule is deleted on its own: NetPlumber's `remove_table` frees every
+        rule of the table (`free_table_memory`) through the same destructor
+        `remove_rule` ends in, so the adapter only forgets their ids. With the
+        links into the device gone first, no flow is left in it, and freeing
+        a rule has nothing to retract downstream.
 
-        for table in model.tables:
-            tid = table
+        Replaces `delete_rules`, `delete_wiring` and `delete_tables`, which
+        nothing called and none of which worked (D-R5, TODO item 53). """
+        tids = {self.tables[t] for t in model.tables if t in self.tables}
+        own = {self.ports[p] for p in model.ports if p in self.ports}
+        glinks = [(self.global_port(s), self.global_port(d)) for s, d in links]
 
-            only_rid = lambda x: x[0]
-            for rid in [only_rid(x) for x in model.tables[table]]:
-                for r_id in self.rule_ids[_calc_rule_index(rid, t_idx=tid)]:
-                    if self.logger.isEnabledFor(logging.DEBUG):
-                        self.logger.debug(
-                            "worker: remove rule %s from netplumber", r_id
-                        )
-                    self._rpc.remove_rule(self.socks, r_id)
-                del self.rule_ids[_calc_rule_index(rid, t_idx=tid)]
-
-
-    def delete_wiring(self, model: Any) -> None:
-        """ Remove all internal wiring of a device model.
-
-        Arguments:
-        model -- a device model
-        """
-
-        prefix = lambda x: '.'.join(x.split('.')[:len(x.split('.'))-1])
+        for sport, dport in [l for l in glinks if l[1] in own]:
+            self._unlink(sport, dport)
 
         for port1, port2 in model.wiring:
-            node1 = prefix(port1)
-            node2 = prefix(port2)
+            if port1 not in self.ports or port2 not in self.ports:
+                continue
+            gport1, gport2 = self.ports[port1], self.ports[port2]
+            # a forbidden wire was never added (`add_wiring`)
+            if gport2 in self.links.get(gport1, []):
+                self._unlink(gport1, gport2)
 
-            idx1 = self.tables[node1]
-            idx2 = self.tables[node2]
-
+        for table in [t for t in model.tables if t in self.tables]:
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug(
-                    "worker: remove link from %s to %s from netplumber",
-                    _calc_port(idx1, model, port1),
-                    _calc_port(idx2, model, port2)
-                )
-            self._rpc.remove_link(
-                self.socks,
-                _calc_port(idx1, model, port1),
-                _calc_port(idx2, model, port2)
-            )
+                    "worker: remove table %s with id %s from netplumber",
+                    table, self.tables[table])
+            self._rpc.remove_table(self.socks, self.tables.pop(table))
+            self._lpm_tables.discard(table)
+        for key in [k for k in self.rule_ids if k >> 32 in tids]:
+            del self.rule_ids[key]
+
+        for sport, dport in [l for l in glinks if l[1] not in own]:
+            self._unlink(sport, dport)
+
+        for port in model.ports:
+            self.ports.pop(port, None)
+        self.model_types.pop(model.node, None)
 
 
-    def delete_tables(self, model: Any) -> None:
-        """ Deletes all tables of a device model.
-
-        Arguments:
-        model -- a device model
-        """
-
-        for table in model.tables:
-
-            if not self.tables[table]:
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug(
-                        "worker: remove table %s with id %s from netplumber",
-                        table,
-                        self.tables[table]
-                    )
-                self._rpc.remove_table(self.socks, self.tables[table])
-                del self.tables[table]
+    def _unlink(self, sport: int, dport: int) -> None:
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(
+                "worker: remove link from %s to %s from netplumber",
+                hex(sport), hex(dport))
+        self._rpc.remove_link(self.socks, sport, dport)
+        if dport in self.links.get(sport, []):
+            self.links[sport].remove(dport)
+            if not self.links[sport]:
+                del self.links[sport]
 
 
     def _prepare_generator(self, model: Any) -> Tuple[Any, int, int, HeaderSpace]:
