@@ -1,6 +1,6 @@
 # State as virtual header bits: generalizing state shell interweaving
 
-**Status (2026-10-13): RESEARCH, not started.** Filed after an owner discussion of
+**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; four remain for the owner. Filed after an owner discussion of
 which device classes FaVe should model next (TODO item 51). Nothing here is built
 or measured. §3 is a hypothesis, and §7 is the first experiment that would test it.
 Its prerequisite is TODO item 50, which was found while preparing this document.
@@ -12,12 +12,20 @@ security groups, load balancers, learning switches. FaVe has two ways to model
 state, and neither carries over to them:
 
 - **Snapshots** (`devices/snapshot_packet_filter.py`) feed live state changes
-  into the model. They do not scale. The 2021 paper (Lorenz et al., TNSM,
-  §I) measured up to 400 new connections per second on a single firewall,
-  and the owner's thesis has the full measurements. Snapshots also verify only
-  the states observed, not all reachable ones.
-- **State shell interweaving** (`iptables/generator.py`, the 2021 paper's §IV)
-  scales, but models conntrack alone, with two states.
+  into the model. They do not scale. The thesis (Lorenz 2026, §7.1.6, Fig. 7.8)
+  measured one firewall in front of one web server. FaVe fell behind the
+  connection rate **between 400 and 500 new connections/s when only the state
+  rules were inserted**. **With traffic propagating**, which verification needs,
+  it fell behind **between 10 and 50/s**. The 2021 paper's "up to 400" is the
+  first figure. Snapshots also verify only the states observed, not all
+  reachable ones.
+- **State shell interweaving** (`iptables/generator.py`; thesis §7.1.7, the
+  2021 paper's §IV) scales, but models conntrack alone, with two states.
+
+The thesis names this question as future work. Its outlook (Chapter 9,
+*Application Level Policies*) proposes "adapting the state shell interweaving
+from Section 7.1.7 to support generic models like finite automata". The
+motivating case there is the ALG (Appendix A.14), whose relays rely on snapshots.
 
 **Question:** can state shell interweaving be generalized to a finite state
 machine per device class, projected onto virtual header bits, so that
@@ -38,7 +46,17 @@ As implemented (`_derive_general_state_shell`, `_derive_conditional_state_shells
   inter-rule dependency the paper's §IV-A example shows.
 - Both directions travel through the network **in the same run** (owner,
   2026-10-13). That run is what keeps verification cheap and updates
-  incremental.
+  incremental. In the code, a source leaves `related` as a wildcard
+  (`devices/generator.py` never sets it), so each source's flow covers forward
+  and backward packets at once. Only the checks constrain the bit (§4).
+
+The thesis states the shell's limits itself (§7.1.7, *Limitations*):
+- no custom chains, so rule sets must be preprocessed first;
+- **no `RELATED`**: only an FTP or RTP session's control channel is analysed;
+- no complex extension modules (pattern matches, rate limiting, eBPF);
+- stateful traffic is assumed to cross **the same firewall interfaces in both
+  directions**, which leaves out load balancing across firewall interfaces.
+  This is condition (c) of §3 below.
 
 Two properties make one run enough:
 
@@ -80,7 +98,25 @@ Today's shell is the case |Q| = 2, k = 1. This would preserve:
 Counters and timers cannot be represented and become **nondeterministic**: a free
 bit that the check leaves as a wildcard. As FaVe's field map reads, `-m limit`
 already works this way: it is the virtual field `module.limit` (32 bits). It
-appears in 113 of `wl_up`'s rule sets.
+appears in 113 of `wl_up`'s rule sets, and the thesis's Tab. 7.2 lists `limit`
+among UP's header fields.
+
+**Header width: probably no expansion needed.** `related` is already an 8-bit
+field (`netplumber/mapping.py`), and one bit of it is used:
+`util/ip6np_util.py` normalizes a value to `<bit>xxxxxxx`. So up to 7 more state
+bits fit without widening the header. That matters because widening at runtime
+costs 2–3 orders of magnitude more than a rule insertion (thesis §6.3, Fig. 6.15:
+2,906 ms against 9.86 ms at 50,000 rules).
+
+**Per-engine cost of wider state (code, 2026-10-14):**
+- NetPlumber, ad6 (`related` declared 8 bits wide) and VeriFlow-FR (any field
+  in `FIELD_SIZES`) read the field generically.
+- APKeep's adapter refuses any `related` value other than 0 or 1
+  (`apkeep/adapter.py`, the query-condition parser, and `related` declared 1 bit
+  wide). Its checker (`ReachabilityChecker.java`) also relies on **nothing in
+  FaVe's models ever rewriting `related`**. §3 keeps that property, because a
+  connection's state does not change along its path. A design in which devices
+  rewrote state bits would break the shortcut.
 
 ## 4. Precision, soundness, and how to recover precision
 
@@ -93,10 +129,25 @@ properties ("A must not reach B"), not soundness:
 | field correlation | masquerade NAT and port translation: the reply must restore *the* original source | HSA rewrites set constants or wildcards and cannot copy one field into another. The reverse rewrite goes to the wildcard set of possible originals. This is exact for 1:1 NAT. The BDD engines might express field equality, which is an open question for each backend. |
 | order, counting | `recent --hitcount`, `limit`, `connlimit` | nondeterministic (§3) |
 
-**Required reachability** ("A must reach B", including FPL's stateful
-reachability operator) is the opposite case: an over-approximation can hide a
-violation. This is already true of today's shell. Each check should state which
-direction its abstraction is sound for.
+**Required reachability** is the opposite case: an over-approximation can hide a
+violation. This is already true of today's shell.
+
+**Which checks are affected, per check type.** The thesis (§7.2, *Transforming
+FPL rules*) compiles `A <->> B` into three checks, and
+`bench/reach_csv_to_checks.py` emits exactly these for a `(X)` cell:
+
+| check | emitted as | effect of an over-approximated state |
+|---|---|---|
+| A reaches B | `s=A && EF p=B` | `related` unconstrained, so a backward packet also counts. A shell that is too permissive can satisfy it. |
+| B answers A | `... && f=related:1`, must reach | **can hide a violation**: the abstraction may let a reply through that the real firewall drops |
+| B never initiates to A | `! ... && f=related:0` | **unaffected**: shell rules match `related=1` only |
+| default deny | `! s=A && EF p=B`, no `related` constraint (`_deny_checks`) | **false alarms only**: a reply the abstraction admits but the device would not counts as a violation |
+
+So FPL's `<->>` mixes both directions. Its answer half is the one that loses
+soundness under a coarser abstraction, and its no-initiation half is exact. A
+generalized compiler must keep the no-initiation half exact. Any new state that
+admits more replies needs either an exact guard, or the per-alarm refinement
+below run on the **satisfied** `related:1` checks too.
 
 **Lazy refinement**, if false alarms become a problem: for each alarm that
 depends on a state bit, check whether the history it assumes can reach the
@@ -151,19 +202,44 @@ single run and the incremental path stay as they are.
     with real conntrack semantics, plus the snapshot oracle of §5.
 - **E3 — static NAT,** the first state that depends on more than direction.
 
-## 8. Open questions for the owner
+## 8. Questions: answered from the thesis and the code (2026-10-14), and what is left
 
-1. Where in the thesis are the snapshot measurements? Does the limit apply only
-   to per-connection state, or also to low-rate state (the control-plane row in
-   §6)?
-2. Which engines must support the new bits in E2: NetPlumber only, or the whole
-   comparison set?
-3. Is `RELATED`'s ICMP-error half in scope? Modeling it needs the ICMP error's
-   embedded header, or a wildcard over it.
-4. Which soundness direction should FPL's stateful reachability operator
-   declare (§4)?
+1. **Where are the snapshot measurements, and do they cover low-rate state?**
+   *Answered:* thesis §7.1.6, Fig. 7.8 (§1 above). Each request inserted one
+   connection's two state entries, one per direction. The limit is the cost of
+   each update (insertion plus propagation) against the rate of updates: about
+   10–50 updates/s with propagation. *Not measured:* low-rate state, such as
+   spanning-tree or load-balancer health changes. *Inference, not a measurement:*
+   such state is within reach whenever its change rate stays far below that.
+   FaVe already treats a FIB this way, through incremental route updates
+   (`INCREMENTAL_PLAN.md`). So the control-plane row of §6 stands, with the
+   caveat that the rate must be measured for each workload.
+2. **Which engines must take the new bits?** *Narrowed:* the thesis is
+   NetPlumber-only. In the code, NetPlumber, ad6 and VeriFlow-FR read `related`
+   generically, and only APKeep's adapter needs work (§3). *Left to the owner:*
+   NetPlumber alone for E2, or the comparison set (item 31).
+3. **Is `RELATED` in scope?** *Answered for the thesis:* out of scope (§7.1.7,
+   *Limitations*), so FTP and RTP data connections are not analysed, only their
+   control channels. *Left to the owner:* whether item 51 takes it on.
+   Recommendation: E1 models expectation-based `RELATED` (FTP-like helpers),
+   with the parent connection's acceptance at the same device as the local
+   guard. It defers the ICMP-error half, which needs the error's embedded
+   header or a wildcard over it.
+4. **Which soundness direction does `<->>` declare?** *Answered:* both. It is
+   three checks, and they differ (§4). *Left to the owner:* whether reports
+   should mark the `related:1` answer checks as resting on an over-approximation
+   of state.
+5. **New, from the thesis's scope (§1.8):** the thesis left NAT out on purpose:
+   it plays no role for compliance, and IPv6 makes it obsolete. Does that still
+   hold, given that `wl_cloud` already models a gateway's DNAT and the raw TUM
+   rule set has SNAT? It decides whether E3 is worth doing.
 
-## 9. Literature to check
+## 9. Literature
+
+The owner's thesis: Lorenz, *Continuously verified Compliance: Achieving and
+Maintaining Network Security*, dissertation, 2026 (in this tree as an untracked
+PDF). Read for this plan: §1.8, §4.1.2, §6.3, §7.1.5–7.1.7, §7.2, Chapter 9,
+Appendix A.14.
 
 Cited from memory, so to verify before anything leans on it:
 

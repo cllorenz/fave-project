@@ -3472,8 +3472,11 @@ Found while deciding VeriFlow-FR's revisit rule (`VERIFLOW_PLAN.md` Q4). Pinned 
 
 ### 51. State as virtual header bits: generalizing state shell interweaving — RESEARCH (owner discussion 2026-10-13; see [`STATE_ENCODING_PLAN.md`](docs/STATE_ENCODING_PLAN.md))
 **Why:** most device classes worth adding hold state: NAT gateways, cloud security groups, load
-balancers, learning switches. FaVe's snapshot model does not scale (the 2021 paper measured
-400 new connections/s on one firewall; the thesis has the full measurements). State shell
+balancers, learning switches. FaVe's snapshot model does not scale. On one firewall it fell
+behind between 400 and 500 new connections/s with insertion only, and between **10 and 50/s**
+with traffic propagating (thesis §7.1.6, Fig. 7.8). The thesis's outlook (Chapter 9)
+proposes this item: state shell interweaving extended to "generic models like finite
+automata". State shell
 interweaving scales, but models conntrack alone, as one virtual bit. Its strength is
 that both directions travel in **one** propagation run, which keeps updates incremental.
 A design that needs several runs that depend on each other gives that up (owner,
@@ -3493,9 +3496,21 @@ checks lose precision, not soundness. Required reachability is the opposite case
   incremental update cost per engine. Check soundness with a concrete-packet simulation
   and with the snapshot model as an oracle.
 - [ ] **E3 — static NAT.**
-- [ ] **Owner questions** (plan §8): where the thesis's snapshot measurements are and
-  whether they cover low-rate state; which engines must take the new bits; whether `RELATED`'s
-  ICMP-error half is in scope; which soundness direction FPL's stateful reachability declares.
+- [~] **Owner questions** (plan §8) — **answered from the thesis and the code where
+  possible, 2026-10-14:**
+  - The snapshot measurements are in §7.1.6. The limit is per-update cost against update
+    rate. Low-rate state was not measured.
+  - `related` is already 8 bits wide with one used, so up to 7 state bits fit without
+    widening the header. Only APKeep's adapter needs work: it refuses values other than 0/1.
+  - `RELATED` is out of the thesis's scope (§7.1.7).
+  - `<->>` is three checks with different soundness directions: the `related:1` answer
+    check can hide a violation, and the `related:0` no-initiation check is exact (plan §4).
+
+  **Still the owner's:**
+  - [ ] NetPlumber alone for E2, or the comparison set?
+  - [ ] Does item 51 take on expectation-based `RELATED`?
+  - [ ] Should reports mark `related:1` checks as resting on an over-approximation?
+  - [ ] Does the thesis's decision to leave NAT out (§1.8) still hold? It decides E3.
 
 ---
 
