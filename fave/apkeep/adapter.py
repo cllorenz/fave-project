@@ -3872,6 +3872,38 @@ class APKeepAdapter(AbstractVerificationEngine):
             down.add(link)
         self._apply_translation(op, self._models, down)
 
+    def remove_device(self, model: Any, links: List[Tuple[str, str]]) -> None:
+        """ INCREMENTAL_PLAN.md §8.2, by EMPTYING (Q-R2; ACCOMMODATIONS.md).
+        `Network.java` removes rules, never an element or a topology edge, so
+        the device's elements stay, and so do its links: every rule batch of
+        the device is translated with its tables empty, and the engine is
+        brought to that translation as for any update (`_apply_translation`).
+        An emptied element drops everything -- an ACL keeps its default deny,
+        a forward element sends to its `default` port -- so the device answers
+        as an absent one, which the from-zero oracle checks.
+
+        The links are NOT taken down, unlike VeriFlow-FR's emptying: the
+        translation decides element structure from the topology (a packet
+        filter left with one ingress is no longer split per ingress), so
+        taking them down can change ANOTHER device's elements, which APKeep
+        cannot follow -- measured on wl_example, where cutting off `dmz` and
+        `office` made `pgf` one element. The name cannot be added again:
+        every add after the build is refused. Refused before anything is
+        touched on NDD-flood and before the build. """
+        op = "remove_device(%s)" % model.node
+        self._require_updatable(op)
+        if model.node not in self._models:
+            return                       # no rule ever reached the device
+        models = dict(self._models)
+        emptied = []
+        for batch in models[model.node]:
+            empty = copy.copy(batch)
+            empty.tables = {tid: [] for tid in batch.tables}
+            emptied.append(empty)
+        models[model.node] = emptied
+        self._apply_translation(op, models, self._down)
+        self._fib_refs.pop(model.node, None)
+
     # --- not yet supported (not exercised by the forwarding-only smoke) ------
 
     def check_anomalies(self, *args: Any, **kwargs: Any) -> None:
