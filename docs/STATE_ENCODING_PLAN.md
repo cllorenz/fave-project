@@ -1,6 +1,6 @@
 # State as virtual header bits: generalizing state shell interweaving
 
-**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; three remain for the owner (question 2 decided 2026-10-14). Filed after an owner discussion of
+**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; two remain for the owner (questions 2 and 3 decided 2026-10-14). Filed after an owner discussion of
 which device classes FaVe should model next (TODO item 51). Nothing here is built
 or measured. §3 is a hypothesis, and §7 is the first experiment that would test it.
 Its prerequisite is TODO item 50, which was found while preparing this document.
@@ -182,7 +182,9 @@ single run and the incremental path stay as they are.
   A state list has to be handled before `RELATED` can be a state of its own.
 - **E1 — formalize.** Define Q, the guards and the local fixpoint for conntrack
   with `NEW`, `ESTABLISHED`, `RELATED`, `UNTRACKED` and `INVALID`, in the 2021
-  paper's notation. Today's shell must fall out as the two-state special case.
+  paper's notation. `RELATED` covers both halves of §8.3: helper expectations,
+  and ICMP errors (wildcard first, embedded-header fields as a measured
+  variant). Today's shell must fall out as the two-state special case.
   This is the regression oracle: on every workload, the generalized compiler
   restricted to two states must produce the same verdicts as today's.
 - **E2 — conntrack plus `recent`.**
@@ -225,11 +227,17 @@ single run and the incremental path stay as they are.
    engines follow once the encoding and algorithms are stable (§7).
 3. **Is `RELATED` in scope?** *Answered for the thesis:* out of scope (§7.1.7,
    *Limitations*), so FTP and RTP data connections are not analysed, only their
-   control channels. *Left to the owner:* whether item 51 takes it on.
-   Recommendation: E1 models expectation-based `RELATED` (FTP-like helpers),
-   with the parent connection's acceptance at the same device as the local
-   guard. It defers the ICMP-error half, which needs the error's embedded
-   header or a wildcard over it.
+   control channels. *Decided (owner, 2026-10-14):* item 51 takes on both
+   halves (§7, E1):
+   - helper expectations (FTP-like): the parent connection's acceptance at the
+     same device is the local guard; the expected ports come from the payload
+     and are wildcarded;
+   - ICMP errors about a tracked connection: the connection sits in the
+     error's embedded header. First a wildcard over it, which is cheap and
+     sound for isolation checks; then embedded-header fields as a measured
+     variant, to put a number on the precision bought and the header widening
+     paid (thesis §6.3). For IPv6 this half matters more: Packet Too Big is
+     needed for path MTU discovery.
 4. **Which soundness direction does `<->>` declare?** *Answered:* both. It is
    three checks, and they differ (§4). *Left to the owner:* whether reports
    should mark the `related:1` answer checks as resting on an over-approximation

@@ -3489,8 +3489,9 @@ to its device. Today's shell is the two-state case. Where the conditions fail, i
 checks lose precision, not soundness. Required reachability is the opposite case (plan §4).
 - [ ] **E0 — prerequisite:** item 50 (a conntrack state list must be handled first).
 - [ ] **E1 — formalize** conntrack with `NEW`, `ESTABLISHED`, `RELATED`, `UNTRACKED` and
-  `INVALID`. Regression oracle: restricted to two states, the generalized compiler gives
-  today's verdicts on every workload.
+  `INVALID`. `RELATED` covers helper expectations and ICMP errors (wildcard first,
+  embedded-header fields as a measured variant). Regression oracle: restricted to two
+  states, the generalized compiler gives today's verdicts on every workload.
 - [ ] **E2 — conntrack plus `-m recent`** on synthetic rule sets, then `wl_tum`'s raw save.
   Measure header bits added, compiled-rule size against today's shell, single-run time and
   incremental update cost per engine (NetPlumber and ad6; the rest once the encoding is
@@ -3511,7 +3512,8 @@ checks lose precision, not soundness. Required reachability is the opposite case
   - [x] NetPlumber alone for E2, or the comparison set? **Decided (owner, 2026-10-14):**
     NetPlumber with ad6 as sparring partner; the other engines follow once the encoding
     and algorithms are stable (plan §7, §8.2).
-  - [ ] Does item 51 take on expectation-based `RELATED`?
+  - [x] Does item 51 take on expectation-based `RELATED`? **Decided (owner, 2026-10-14):**
+    both halves, helper expectations and ICMP errors (plan §8.3).
   - [ ] Should reports mark `related:1` checks as resting on an over-approximation?
   - [ ] Does the thesis's decision to leave NAT out (§1.8) still hold? It decides E3.
 
