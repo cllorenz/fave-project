@@ -183,6 +183,9 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         #: set by the first update: a rebuild would now retranslate the model
         #: as it was recorded, without the updates, so it is refused
         self._updated = False
+        #: devices removed by emptying (INCREMENTAL_PLAN.md §8.2): their
+        #: tables and ports stay in the engine, without rules or links
+        self._emptied: Set[str] = set()
 
     def configuration_stamp(self) -> Dict[str, Any]:
         """ The measurement-affecting choices behind this adapter's answers,
@@ -582,6 +585,49 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             self.net.remove_link(a, b)
             if (a, b) in ir.links:
                 ir.links.remove((a, b))
+
+    def remove_device(self, model: Any, links: List[Tuple[str, str]]) -> None:
+        """ INCREMENTAL_PLAN.md §8.2, by EMPTYING (Q-R2; ACCOMMODATIONS.md):
+        the device's external links go down -- those INTO it first -- and
+        every rule it holds is deleted, through `set_link` and `delete_rule`
+        and their footprints. Its tables, ports and internal wiring stay: a
+        table without rules sends nothing on, so the device answers as an
+        absent one, which the from-zero oracle checks. Adding the same name
+        again is refused (`add_tables`). Refused before anything is touched
+        unless the model is built and every link is one it knows. """
+        ir = self._require_built('remove_device')
+        assert self._rids is not None
+        starts = {g.node + ".1" for g in self._generators}
+        unknown = [(a, b) for a, b in links
+                   if b not in ir.ports or (a not in ir.ports and a not in starts)]
+        if unknown:
+            raise UpdateRefused("VeriFlowAdapter: remove_device(%s): links to "
+                                "unknown ports %s" % (model.node, unknown[:3]))
+        inbound = [l for l in links if l[1] in model.ports]
+        for sport, dport in inbound:
+            self._link_down(sport, dport)
+        for key in sorted(k for k in self._rids if k[0] == model.node):
+            self.delete_rule(*key)
+        for sport, dport in [l for l in links if l not in inbound]:
+            self._link_down(sport, dport)
+        self._emptied.add(model.node)
+
+    def _link_down(self, sport: str, dport: str) -> None:
+        """ `set_link(.., up=False)` for a link that is up; one already down
+        has nothing left to take. """
+        assert self.ir is not None
+        ports = self.ir.ports
+        if sport in ports and (ports[sport], ports[dport]) not in self.ir.links:
+            return
+        self.set_link(sport, dport, False)
+
+    def add_tables(self, model: Any) -> None:
+        if model.node in self._emptied:
+            raise UpdateRefused(
+                "VeriFlowAdapter: add_tables(%s): the device was removed by "
+                "emptying (INCREMENTAL_PLAN.md §8.2); adding it again is not "
+                "implemented" % model.node)
+        super().add_tables(model)
 
     def max_rule_index(self, table: str) -> int:
         """ §8.1: priorities are `-idx`, and in a declared-LPM table
