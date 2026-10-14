@@ -683,6 +683,9 @@ before parsing, and so editing `reach.txt` alone changes nothing — deleting a 
 from it leaves the generated matrix byte-identical. Both files have to change, and a
 fast-tier test now pins that the two copies agree, since if they ever diverge the
 concatenation order decides silently.
+*(Resolved 2026-10-14, TODO item 53: the copies were removed from both inventories,
+so `reach*.txt` is the only policy source, and the translator now refuses a second
+policies block instead of ignoring it. The test pins that the copies stay gone.)*
 
 Artifacts: `reach_stateless.txt`, `roles_and_services_stateless.txt` and
 `reachability_stateless.csv` are tracked inputs; `gen_wl_ifi_inputs.sh` derives

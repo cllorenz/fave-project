@@ -52,11 +52,11 @@ import unittest
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _W = os.path.join(os.path.dirname(_HERE), "bench", "wl_ifi")
 
-# The translator CONCATENATES its positional files and parses the result, so
-# both carry policy text and both have to change. wl_ifi's `roles_and_services`
-# file holds its own copy of the same four rules (lines 172-181) -- editing
-# `reach.txt` alone changes nothing at all, which is what
-# `test_the_policy_block_is_duplicated` pins.
+# The translator CONCATENATES its positional files and parses the result. Each
+# variant keeps its inventory and its policy in separate files; the policy is in
+# `reach*.txt` ALONE. Until 2026-10-14 the inventories carried a copy of the
+# policies block too, and editing `reach.txt` alone changed nothing (TODO item
+# 53); `test_reach_is_the_only_policy_source` pins that it stays gone.
 _STATEFUL_POLICIES = [os.path.join(_W, f)
                       for f in ("roles_and_services.txt", "reach.txt")]
 _STATELESS_POLICIES = [os.path.join(_W, f)
@@ -106,21 +106,15 @@ class TestStatelessPolicySource(unittest.TestCase):
         one that documents the policy/model mismatch, and it stays. """
         self.assertTrue(any('<->>' in open(p).read() for p in _STATEFUL_POLICIES))
 
-    def test_the_policy_block_is_duplicated_across_both_files(self):
-        """ Found while building the variant, and pinned because it wastes the
-        next person's afternoon: `reach.txt` is NOT the source of wl_ifi's
-        policy matrix. `roles_and_services.txt` carries the same four rules, the
-        translator concatenates both positional files before parsing, and so
-        deleting a rule from `reach.txt` alone leaves the generated matrix
-        byte-identical. Any change to wl_ifi's policy must touch both files --
-        as the variant does. """
-        rules = lambda t: sorted(l.split('#')[0].strip() for l in t.splitlines()
-                                 if '<->>' in l or '<-->' in l)
-        roles_rules, reach_rules = (rules(open(p).read()) for p in _STATEFUL_POLICIES)
-        self.assertEqual(roles_rules, reach_rules,
-                         "if these ever diverge, the duplication has become a "
-                         "conflict and the concatenation order decides silently")
-
+    def test_reach_is_the_only_policy_source(self):
+        """ The inventories once carried a copy of the policies block, and the
+        translator used the FIRST of the two, so deleting a rule from
+        `reach.txt` alone left the matrix byte-identical. The copies were
+        removed, and a second block is now refused (TODO item 53). """
+        for inventory in (_STATEFUL_POLICIES[0], _STATELESS_POLICIES[0]):
+            with self.subTest(path=os.path.basename(inventory)):
+                self.assertNotRegex(open(inventory).read(),
+                                    r'(?m)^\s*(def|define|describe) +polic')
 
 class TestStatelessPolicyMatrix(unittest.TestCase):
     """ The matrix is what `bench/reach_csv_to_checks.py` actually reads: an
