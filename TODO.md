@@ -1214,8 +1214,34 @@ then applied to one of the two halves.
     JVMs at `-Xmx8g`. Four jobs added about 7 GB to that peak. **Not measured on a 16 GB
     runner**, so CI keeps the default. Before CI sets `FAVE_JOBS`, it should also set
     `FAVE_JVM_XMX`, and that pair should be measured there.
-- [ ] **CI: whether to set `FAVE_JOBS` (and `FAVE_JVM_XMX`)** — owner decision, after
-  knowing the integration job's runner (cores and memory). Not changed in `ci.yml`.
+- [x] **CI: whether to set `FAVE_JOBS` (and `FAVE_JVM_XMX`)** — **DONE 2026-10-14.** Owner:
+  the repository is public, on the standard runner (4 cores, 16 GB). `ci.yml` now sets
+  `FAVE_JVM_XMX=8g` and leaves `FAVE_JOBS` at 1. Chosen by simulating that runner here:
+  `taskset` to 4 cores, `JAVA_TOOL_OPTIONS=-XX:MaxRAM=16g` so every JVM sizes its default
+  heap as on 16 GB, and a sampler for the peak RSS of the whole process tree. No hard
+  memory limit was possible (read-only cgroupfs, no systemd), so a process the runner
+  would kill ran on here; the peaks below are the margin.
+  - **Run 1, default heap (4 GB):** FAILED, three causes. (a) The bison-dependent group's
+    shared JVM ran out of heap: 40 failed and 23 errors, all `OutOfMemoryError`, from the
+    12th module on. Each failing module passes alone. NDD's process-wide tables
+    (`ndd/.../fave/FaveFields.java:30`, 48M BDD nodes) take ~2 GB at its first use and
+    keep it; a class histogram showed 3.8 GB of live `int[]`. A fixed size, not a leak.
+    (b) APKeep's Java unit tests in `mvn package` ran out of heap in their surefire fork,
+    which `FAVE_JVM_XMX` did not reach: APKeep's upstream BDD table is 100M nodes. (c) The
+    tree peaked at **18 GB**: `test_ad6_wl_up`'s ad6 bridge subprocess holds 12.7 GB, and
+    it ran beside the bison group's 5.2 GB process.
+  - **Fixes:** `test_ad6_wl_up` runs in a process of its own (`FAVE_OWN_PROCESS_TESTS` in
+    `test.sh`); `apkeep_smoke.sh` hands `FAVE_JVM_XMX` to Maven's test JVM through
+    `JDK_JAVA_OPTIONS` (the vendored `pom.xml` and JaCoCo's `argLine` stay untouched).
+    Checked by hand: APKeep's suite fails at 4g, passes at 8g (37 tests).
+  - **Run 3, `FAVE_JVM_XMX=8g`:** `RESULT: integration PASSED`, 579 passed, 4 skipped (the
+    baseline's counts), 42 min on 4 cores. Peak tree RSS **12.9 GB** (the ad6 subprocess,
+    alone). Largest live heap after GC per JVM: bison group 5.0 GB, `test_incremental_apkeep`
+    6.0 GB, **APKeep's Maven test fork 7.7 GB of 8** (818 full GCs in 13 s). That last one
+    is the thin margin: if APKeep's unit tests grow, they hit the cap first.
+  - Two jobs would not fit: 2 x 8 GB heaps plus the native processes exceed 16 GB.
+  - Not checked here: the workflow triggers on pushes to `main` and on pull requests,
+    and all work lands on `ai`. A push to `ai` alone runs no CI.
 - **Finding (2026-10-11, `ai` at `6eeec530`, 16 cores, 62 GB, `FAVE_REQUIRE_BACKENDS=1`):**
   `RESULT: integration PASSED` after ~83 min. The bison-dependent group: 512 passed, 4
   skipped in 12 min 41 s. The own-JVM group (`FAVE_NDD_TESTS`): 67 passed in **69 min 36 s**,
