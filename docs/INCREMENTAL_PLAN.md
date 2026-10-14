@@ -7,7 +7,7 @@ NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
 its witness + dead-ends footprint, the default since 2026-10-11); the harness is
 done. Only indicative (dev) runs have run (§10), the last the D11 grid; no
 reportable measurement exists until the campaign's `PROTOCOL.txt` with
-predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built on NetPlumber the same day, the other engines refuse it by name.
+predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built the same day on NetPlumber and, by emptying, on VeriFlow-FR and BDD-/NDD-APKeep; ad6 and NDD-flood refuse it by name.
 **Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -417,7 +417,7 @@ and are listed for confirmation.
    the engine-rule changes and relabels. `t_total` is the sum -- a
    configuration change to an updated verdict.
 
-### 8.2 Removing a device — DESIGN (2026-10-14); NetPlumber BUILT (2026-10-14)
+### 8.2 Removing a device — DESIGN (2026-10-14); NetPlumber, VeriFlow-FR, APKeep BUILT (2026-10-14)
 
 **Owner's framing (2026-10-14):** *"Adding and deleting whole devices should work
 just like adding and removing rules or links. … In its simplest form, removing a
@@ -609,9 +609,52 @@ before this build.
   reads one: the legacy probe condition is compiled out. In the incremental
   engine, the probe keeps its path; per Q-R4 its check stays and is
   re-verified.
-- **Not built:** APKeep and VeriFlow-FR by emptying, and ad6 from its buffers
-  (Q-R2, Q-R3); D-R6. A switch rule delete (`switch.py -d`/`-u`) is still
-  refused by name. It is not a device removal.
+
+**Built on VeriFlow-FR, BDD-APKeep and NDD-APKeep by emptying (2026-10-14).**
+Q-R2's accommodation, declared in `ACCOMMODATIONS.md`.
+- **VeriFlow-FR** (`VeriFlowAdapter.remove_device`): in D-R2's order, it takes
+  the links into the device down, deletes every rule the device holds, then
+  takes the links out of it down. It uses `set_link` and `delete_rule`, so
+  their footprints decide what is affected. The device's tables, ports and
+  internal wiring stay.
+- **APKeep** (`APKeepAdapter.remove_device`): every rule batch of the device is
+  translated with its tables empty, and the engine is brought to that
+  translation as for any other update (`_apply_translation`). Its elements
+  stay, **and so do its links**. That departs from the refinement recorded
+  under Q-R2, and follows the owner's answer instead.
+  - The reason, measured on wl_example: APKeep's translation decides element
+    structure from the topology. With `dmz`'s and then `office`'s links
+    down, `pgf` had one ingress left, and the translation stopped splitting
+    it per ingress (`pgf.fwd`, `pgf.fwd.in1` became `pgf`). APKeep cannot
+    create that element, so the removal was refused (`structural`).
+  - With the links left up, nothing changes structure. An emptied element
+    drops everything, which the oracle confirms.
+- **The name cannot be added again** on either engine. VeriFlow-FR refuses
+  `add_tables` for an emptied device; APKeep refuses every add after the
+  build. Both refuse by name (`UpdateRefused`). Re-adding would mean
+  reusing the leftover tables or elements, as Q-R2 noted. Not built.
+- **The oracle** (same module, `remove_each(readd=False)`): the removals
+  ACCUMULATE. Each is compared with a from-zero build without every device
+  removed so far. The residue check asks for rules left on the device, and
+  on VeriFlow-FR also for links or generator starts into it.
+
+  | engine | tiny | wl_example | wl_ifi | wl_cloud |
+  |---|---|---|---|---|
+  | VeriFlow-FR | 2 of 2 | 2 of 3 | 15 of 17 | 86 of 86 |
+  | BDD-APKeep | 2 of 2 | 2 of 3 | 15 of 17 | not run (a 3.24 h build, ×86) |
+  | NDD-APKeep | 2 of 2 | 2 of 3 | 15 of 17 | 86 of 86, ~2 min |
+
+  - No removal was refused.
+  - The skipped devices are those whose removal, after the earlier ones,
+    would leave a probe's test path empty.
+  - Mutations caught: on VeriFlow-FR, a no-op, links kept, rules kept and
+    an empty affected set; on APKeep, a no-op, only the first table of each
+    batch emptied, and an empty affected set.
+  - APKeep's residue check reads the adapter's record of what the engine
+    holds (`_live`), not the JVM.
+- **Not built:** ad6 from its buffers (Q-R3), and D-R6. A switch rule delete
+  (`switch.py -d`/`-u`) is still refused by name; it is not a device
+  removal. NDD-flood refuses (`_require_updatable`).
 
 
 ## 9. Open questions (recommendations, not decisions)

@@ -3601,7 +3601,7 @@ section that reads the registered checks, not only the violations.
 
 ---
 
-### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; device removal built on NetPlumber (INCREMENTAL_PLAN.md §8.2)
+### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; device removal built on NetPlumber, VeriFlow-FR and APKeep (INCREMENTAL_PLAN.md §8.2)
 None is fixed. Each is pinned by a test, either as an `expectedFailure` (remove the
 decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behaviour
 (it fails on purpose once fixed). Ordered by likely impact on verdicts.
@@ -3652,8 +3652,13 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
       it. A device delete reaches the engine. On wl_example, wl_ifi and
       wl_cloud, the oracle holds for every device it can build without, and
       nothing of the device is left in the engine.
-    - Still open: APKeep and VeriFlow-FR by emptying, and ad6 from its
-      buffers. They refuse by name until then.
+    - **BUILT by emptying on VeriFlow-FR and BDD-/NDD-APKeep 2026-10-14**
+      (§8.2, `ACCOMMODATIONS.md`). VeriFlow-FR takes the device's links down;
+      APKeep leaves them up, since taking them down changed another device's
+      element structure on wl_example. The oracle holds on every workload
+      run. The name cannot be added again on either engine.
+    - Still open: ad6 from its buffers. It refuses by name until then, as
+      NDD-flood does for good.
   Tested: `test_netplumber_adapter_more.py`, `test_incremental_device_removal.py`.
 - [x] **FIXED 2026-10-14 — `netplumber/jsonrpc.py:78`.** It now reads bytes and decodes once. That also fixes a second bug found on the way: the newline's index in the DECODED peek was used as a BYTE count, so a multi-byte character left the reply's tail on the socket, to corrupt the next reply. Originally: each 4096-byte peek was decoded on its own, so a
   multi-byte UTF-8 character split across the boundary raises. Pinned:
