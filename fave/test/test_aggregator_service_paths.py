@@ -359,13 +359,13 @@ class TestGeneratorsAndProbes(_Base):
         self.engine.delete_generator.assert_called_once_with('src')
 
     def test_a_device_delete_is_refused_by_name(self):
-        """ Deleting a device is not built (INCREMENTAL_PLAN.md §8.1): it is
+        """ Deleting a device is not built (INCREMENTAL_PLAN.md §8.2): it is
         refused, naming the device, rather than crashing on the absent model
         or being dropped. """
         with self.assertRaises(NotImplementedError) as ctx:
             self.aggr._sync_diff(TopologyCommand('fw', 'del', mtype='packet_filter'))
         self.assertIn('fw', str(ctx.exception))
-        self.assertIn('§8.1', str(ctx.exception))
+        self.assertIn('§8.2', str(ctx.exception))
 
     def test_a_delete_without_a_type_is_refused(self):
         with self.assertRaises(ValueError):
@@ -430,6 +430,19 @@ class TestSwitchUpdatesAndDeclaredLpm(_Base):
         # no `semantics_of` at all: returns before touching the index
         self.aggr._validate_declared_tables(types.SimpleNamespace(node='x'))
         self.assertEqual(self.aggr._lpm_index, {})
+
+    def test_rule_delete_and_update_are_refused_by_name(self):
+        """ `switch.py -d`/`-u` send `remove_rule`/`update_rule`. Their
+        deletions would never reach the engine (the `_deletes` buffer is not
+        read; INCREMENTAL_PLAN.md §8.2), so they are refused rather than
+        crashing (TypeError, as before) or silently keeping the rule (TODO
+        item 53). """
+        for command in ('remove_rule', 'update_rule'):
+            with self.subTest(command=command):
+                cmd = SwitchCommand('sw', command, [self._rule(1, '10.0.0.0/8', 'sw.2')])
+                with self.assertRaises(NotImplementedError) as ctx:
+                    self.aggr._sync_diff(cmd)
+                self.assertIn('§8.2', str(ctx.exception))
 
 
 class TestDeleteModel(_Base):

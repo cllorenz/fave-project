@@ -3657,7 +3657,12 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     - A device delete is refused by name (`NotImplementedError`, pointing to
       INCREMENTAL_PLAN.md §8.1).
     - A delete without a type is refused instead of dropped.
-  - Switch `remove_rule`/`update_rule` get the whole rule list (`:623`). Not pinned.
+  - [x] REFUSED 2026-10-14: switch `remove_rule`/`update_rule` got the whole rule list
+    (`:623`).
+    - Mending the call alone would have made the delete silent: it lands in
+      `_deletes`, which nothing reads.
+    - Both are now refused by name until INCREMENTAL_PLAN.md §8.2 is built.
+    - Tested.
   - Under `filelock` 3.29, `PreLockedFileLock` (`util/lock_util.py:35`) never releases
     a dump's `.lock`.
   - An empty connection kills `run()` on an `assert`.

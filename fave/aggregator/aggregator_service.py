@@ -655,6 +655,16 @@ class AggregatorService(AbstractAggregator):
 
         # handle minor model changes (e.g. updates by the control plane)
         if model.type in ["switch_command", 'state_command', 'relay_command']:
+            if model.command in ('remove_rule', 'update_rule'):
+                # Refused by name until the deletion half of the diff exists
+                # (INCREMENTAL_PLAN.md §8.2). Before, `remove_rule` got the
+                # whole rule list and raised TypeError; with that mended it
+                # would only fill `_deletes`, which nothing reads, so the
+                # engine would keep the rule SILENTLY (TODO item 53).
+                raise NotImplementedError(
+                    "%s on %s is not implemented: rule deletions do not reach "
+                    "the engine yet; see INCREMENTAL_PLAN.md §8.2"
+                    % (model.command, model.node))
             if model.node in self.models:
                 device = self.models[model.node]
                 getattr(device, model.command)(model.rules)
@@ -739,12 +749,12 @@ class AggregatorService(AbstractAggregator):
                     "router"
             ]:
                 if cmd.command == "del":
-                    # Not built: designed in INCREMENTAL_PLAN.md §8.1. Refused
+                    # Not built: designed in INCREMENTAL_PLAN.md §8.2. Refused
                     # by name rather than crashing on the absent model, which
                     # is what a device delete did (TODO item 53).
                     raise NotImplementedError(
                         "deleting a %s (%s) is not implemented; see "
-                        "INCREMENTAL_PLAN.md §8.1" % (cmd.mtype, cmd.node))
+                        "INCREMENTAL_PLAN.md §8.2" % (cmd.mtype, cmd.node))
                 model = cmd.model
 
             elif cmd.mtype == "generator":
