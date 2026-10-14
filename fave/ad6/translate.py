@@ -134,6 +134,10 @@ def _port_value(value: str) -> Optional[str]:
     anyway would WIDEN the match -- an over-approximation, the direction that
     reports reachable what is not. """
     text = str(value)
+    # The vector form first, as FaVe's encoder tests it (TODO item 53): a
+    # 16-character 0/1 string is a bit-vector, never a 16-digit decimal.
+    if len(text) == _PORT_WIDTH and not set(text) - set('01'):
+        return str(int(text, 2))
     if text.isdigit():
         return text
     if set(text) - set('01x'):
@@ -411,6 +415,23 @@ def _fave_field_width(name: str) -> Optional[int]:
     return FIELD_SIZES.get(name)
 
 
+def _determined_vector_int(name: str, value: Any) -> Optional[int]:
+    """ The integer a FULLY determined bit-vector spells, or None if `value` is
+    not one.
+
+    FaVe's encoder (`ip6np_util.field_value_to_bitvector`, what NetPlumber is
+    fed) tests the bit-vector form FIRST: a string of the field's width made
+    of `0`/`1`/`x` is a vector, whatever else it might look like. So
+    `0000000000010100` is port 20 there, not 10,100. This applies the same
+    test, so both engines read one value the same way (TODO item 53). Without a
+    FaVe width the string is not a vector to FaVe either. """
+    text = str(value)
+    width = _fave_field_width(name)
+    if width is None or len(text) != width or set(text) - set('01'):
+        return None
+    return int(text, 2)
+
+
 _GENERIC_FIELD_WIDTHS = {
     'related': 8,
 }
@@ -475,6 +496,10 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
         # 16). Anything else -- a CIDR, or a bit-vector with don't-cares -- is
         # rendered as a ternary bit-vector, which is what lets a REWRITTEN
         # field still be matched by PREFIX.
+        determined = _determined_vector_int(name, value)
+        if determined is not None:
+            return GenUtils.fieldmatch(rewrite_field_for(name), str(determined),
+                                       negated=negated)
         if str(value).lstrip('-').isdigit():
             return GenUtils.fieldmatch(rewrite_field_for(name), str(value),
                                        negated=negated)
@@ -593,6 +618,8 @@ def _rewrites(rule: Any, port_id: Any) -> Any:
                 value = None
             elif field.name in _PORT_FIELDS:
                 value = port_id(str(field.value))
+            elif _determined_vector_int(field.name, field.value) is not None:
+                value = _determined_vector_int(field.name, field.value)
             else:
                 try:
                     value = int(field.value)

@@ -3605,7 +3605,7 @@ section that reads the registered checks, not only the violations.
 None is fixed. Each is pinned by a test, either as an `expectedFailure` (remove the
 decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behaviour
 (it fails on purpose once fixed). Ordered by likely impact on verdicts.
-- [ ] **ad6 reads a fully determined bit-vector as a decimal.** `ad6/translate.py:137`
+- [x] **FIXED 2026-10-14 — ad6 read a fully determined bit-vector as a decimal.** The fix applies FaVe's own test first (field width, only `0`/`1`) at all three sites; the expectedFailure is now a passing test, and the VLAN and rewrite cases are tested too. Originally: `ad6/translate.py:137`
   (`_port_value`) tests `isdigit()` before the bit-vector form, so port
   `0000000000010100` becomes port 10100, where FaVe's encoder (`ip6np_util.py:193`,
   vector first) reads port 20. The same flaw affects node-scoped fields (`:478`) and

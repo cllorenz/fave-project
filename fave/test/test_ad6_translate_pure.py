@@ -108,21 +108,16 @@ class TestTransportPorts(unittest.TestCase):
     def test_negation_is_kept(self):
         self.assertIn('negated="true"', _fm('packet.upper.dport', '80', negated=True))
 
-    @unittest.expectedFailure
     def test_a_FULLY_DETERMINED_port_bit_vector_means_the_same_port_as_in_fave(self):
-        """ KNOWN BUG, pinned rather than fixed (coverage task, 2026-10-14).
-
-        FaVe's own encoder (`field_value_to_bitvector`, what NetPlumber is fed)
-        reads the 16-character value `0000000000010100` as BINARY: port 20,
-        bit-for-bit the vector it builds for `'20'`. `_port_value` tests
-        `text.isdigit()` FIRST, so a fully determined bit-vector -- every
-        character a 0 or 1 -- is passed through as if it were DECIMAL, and
-        ad6's CanonizePort turns it into port 10,100. A 16-digit decimal can
-        never be a valid port, so the binary reading is the only sound one.
-        Whether any generator emits this spelling is unmeasured. """
+        """ FaVe's own encoder (`field_value_to_bitvector`, what NetPlumber is
+        fed) reads the 16-character value `0000000000010100` as BINARY: port 20,
+        bit-for-bit the vector it builds for `'20'`. `_port_value` once tested
+        `isdigit()` first and passed it through as DECIMAL, which ad6's
+        CanonizePort turned into port 10,100 (TODO item 53). """
         self.assertEqual(_fm('packet.upper.dport', '0000000000010100'),
                          _fm('packet.upper.dport', '20'))
-
+        # Fewer than 16 characters is not a port vector to FaVe: decimal.
+        self.assertEqual(_fm('packet.upper.dport', '10100'), '<port direction="dst">10100</port>')
 
 class TestProtocolAndIcmp6Names(unittest.TestCase):
     """ ad6 looks protocols and ICMPv6 types up BY NAME and silently returns a
@@ -216,6 +211,14 @@ class TestFieldToMatchDispatch(unittest.TestCase):
             _fm('packet.ipv6.destination', '2001:db8::/32'),
             '<ip version="6" direction="dst"><address>2001:db8::/32</address></ip>')
 
+    def test_a_fully_determined_vlan_vector_means_the_same_vlan_as_in_fave(self):
+        """ A mutable field takes the decimal path for an integer. A
+        16-character 0/1 string is a bit-vector to FaVe, so it must reach ad6
+        as the integer it spells: VLAN 5, not 101 (TODO item 53). """
+        mutable = {'packet.ether.vlan'}
+        self.assertEqual(_fm('packet.ether.vlan', '0000000000000101', mutable=mutable),
+                         _fm('packet.ether.vlan', '5', mutable=mutable))
+
     def test_port_fields_are_refused_at_the_field_layer(self):
         for name in ('in_port', 'out_port'):
             with self.subTest(field=name):
@@ -282,6 +285,13 @@ class TestRewritesAndForwards(unittest.TestCase):
             ('vlan', 7),
             ('packet.ipv4.destination', 'b' + '0000101000000001' + 'x' * 16),
         ])
+
+    def test_a_fully_determined_bit_vector_rewrite_is_its_integer(self):
+        """ `0000000000000101` is VLAN 5 to FaVe's encoder, so it must be 5
+        here too, not the decimal 101 `int()` makes of it (TODO item 53). """
+        rule = _rule(actions=[Rewrite([
+            RuleField('packet.ether.vlan', '0000000000000101')])])
+        self.assertEqual(translate._rewrites(rule, _port_id), [('vlan', 5)])
 
     def test_an_agreeing_duplicate_rewrite_is_collapsed(self):
         rule = _rule(actions=[Rewrite([RuleField('packet.ether.vlan', '7')]),
