@@ -1532,11 +1532,17 @@ Found while preparing item 51.
   job; until then, refusing is the honest answer. A parse error must fail the parse, not
   print a warning.
 - [ ] **Pinning tests** for each spelling above. They fail today, so they land with the fix.
-- [ ] **Owner question:** is `--ctstate NEW,NOTRACK` valid iptables? As far as I know
-  conntrack's states are `INVALID`, `NEW`, `ESTABLISHED`, `RELATED`, `UNTRACKED`, `SNAT` and
-  `DNAT`, and `NOTRACK` is a raw-table target. If so, the translator should emit
-  `UNTRACKED`. Not verified: this container has no `iptables`, and no network namespace
-  can be created to test one.
+- [ ] **`--ctstate NEW,NOTRACK` departs from the thesis — ANSWERED 2026-10-14 from the
+  thesis, fix OPEN.** Thesis §7.3 (*Templates for Stateless Rules*): `-j NOTRACK` is the
+  raw/PREROUTING target, which "marks the ctstate field ... as UNTRACKED". The main rule
+  set's stateless rule then matches `-m conntrack --ctstate UNTRACKED`. The stateful
+  template matches `NEW` alone. So the translator's `NEW,NOTRACK` is neither template, and
+  `NOTRACK` is not a conntrack state. Not checked against a real `iptables`: this
+  container has none, and no network namespace can be created to test one.
+  - **The two defects meet:** with the translator fixed to the thesis's form, FaVe's
+    generator would turn every `--ctstate UNTRACKED -j ACCEPT` into an unconditional
+    accept (Finding above). So the generator must be fixed before the translator, or
+    together with it.
 
 ---
 
