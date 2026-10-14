@@ -3601,7 +3601,7 @@ section that reads the registered checks, not only the violations.
 
 ---
 
-### 53. Defects found while raising fast-tier coverage — OPEN (found 2026-10-14)
+### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; the delete path designed (INCREMENTAL_PLAN.md §8.1)
 None is fixed. Each is pinned by a test, either as an `expectedFailure` (remove the
 decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behaviour
 (it fails on purpose once fixed). Ordered by likely impact on verdicts.
@@ -3711,7 +3711,7 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     copy of the block, which the old builder ignored. The copies were removed
     (owner, `b0428765`), and the regenerated CSVs are byte-identical.
   - Tests: `TestAnUnreadablePoliciesBlockIsRefused`.
-- **Test-order hazard, not a defect in the code under test:** `ad6/translate.py:71`
+- [x] **FIXED 2026-10-14 — test-order hazard.** `ad6/` is now appended to `sys.path`, not prepended (also in `test_ad6_port_pair.py`); the failing module pair passes. Originally: `ad6/translate.py:71`
   prepends the repo-root `ad6/` to `sys.path`. After that, `util/bench_utils.py`'s
   `import test.check_flows` resolves to `ad6/test`. The full fast tier is unaffected
   only because collection imports `bench_utils` first.

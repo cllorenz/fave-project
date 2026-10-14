@@ -67,8 +67,12 @@ from typing import Any, Dict, Iterable, Optional, Set
 _HERE = os.path.dirname(os.path.abspath(__file__))          # .../fave/ad6
 _AD6 = os.path.join(os.path.dirname(os.path.dirname(_HERE)), 'ad6')
 
+# APPENDED, not prepended: ad6/ has a top-level `test` package too, and in
+# front it shadowed fave's, so a later `import test.check_flows`
+# (util/bench_utils.py) found ad6/test (TODO item 53). Behind, fave's own
+# packages win and ad6 supplies only what fave lacks -- `src`.
 if _AD6 not in sys.path:                                     # ad6/ is a sibling of fave/
-    sys.path.insert(0, _AD6)
+    sys.path.append(_AD6)
 
 from src.xml.genutils import GenUtils                        # noqa: E402
 from src.xml.xmlutils import XMLUtils as _XMLUtils           # noqa: E402

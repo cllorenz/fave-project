@@ -141,7 +141,9 @@ def _port_condition(ports):
 
     from ad6.adapter import AD6_ROOT
     if AD6_ROOT not in sys.path:
-        sys.path.insert(0, AD6_ROOT)
+        # appended, as ad6/translate.py does: in front, ad6's `test` package
+        # shadows fave's (TODO item 53)
+        sys.path.append(AD6_ROOT)
     from src.core.kripke import KripkeUtils
 
     kripke = KripkeUtils.ConvertToKripke(
