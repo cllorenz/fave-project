@@ -158,10 +158,11 @@ class TestTumDidNotFinish(unittest.TestCase):
 
     def test_stops_at_the_firewall_table(self):
         from util.barrier import BarrierError
-        if not os.path.isfile("bench/wl_tum/routes.json"):
+        # the SINGLE variant (bench/wl_tum/single/gen.py): the model V3b measured
+        if not os.path.isfile("bench/wl_tum/single/routes.json"):
             raise unittest.SkipTest("wl_tum inputs not generated")
         with self.assertRaisesRegex(BarrierError, r"fw\.tum\.forward_filter.*alone would slice"):
-            veriflow_matrix("bench/wl_tum", fields="plain")
+            veriflow_matrix("bench/wl_tum/single", fields="plain")
 
 
 if __name__ == '__main__':

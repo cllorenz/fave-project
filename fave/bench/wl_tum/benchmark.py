@@ -25,6 +25,17 @@ class TUMBenchmark(GenericBenchmark):
             os.system("sed -i 's/ -o / -o eth/g' %s" % ruleset)
 
 
+    def generate_inputs(self):
+        """ wl_tum's policy is derived from its ruleset (owner, 2026-10-14;
+        WORKLOAD.md): the service matrix and the FPL first, then the generic
+        steps, then the single variant the older tests and V5 used. """
+        os.system("%s bench/wl_tum/service_matrix.py" % PYTHON)
+        os.system("%s bench/wl_tum/fplgen.py" % PYTHON)
+        super().generate_inputs()
+        os.system("%s bench/wl_tum/single/gen.py %s %s"
+                  % (PYTHON, self.ip, self.files['tum_ruleset']))
+
+
     def _post_preparation(self):
         os.system(
             "python3 bench/wl_tum/topogen.py %s %s" % (self.ip, self.files['tum_ruleset'])
@@ -98,8 +109,6 @@ if __name__ == '__main__':
 
     files = {
         'tum_ruleset' : args.ruleset,
-        'reach_csv' : 'bench/empty.csv',
-        'inventory' : 'bench/empty.json',
     }
 
     TUMBenchmark(
@@ -109,5 +118,7 @@ if __name__ == '__main__':
         ip=args.ip,
         use_unix=args.use_unix,
         use_interweaving=args.use_interweaving,
-        mapping=args.mapping
+        mapping=args.mapping,
+        strict=True,
+        checks_options=['--only-with', 'Internet', '--deny-unpermitted-services']
     ).run()

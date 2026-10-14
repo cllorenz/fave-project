@@ -306,7 +306,7 @@ gate against. Status:
 | wl_i2 | 72 | 0 | `bench/wl_i2/reachable.json` (72 pairs) | 0 **per the POLICY** | **NOT a usable gate** — see below |
 | wl_stanford | 240 | 0 | `bench/wl_stanford/reachable.json` (240 pairs) | 0 **per the POLICY** | **NOT a usable gate** — same defect |
 | wl_up | 11 902 | 8 532 | none tracked | computable, not yet computed | **OPEN** |
-| wl_tum | **0** | 0 | n/a | n/a — checks nothing | **VACUOUS** |
+| wl_tum | 8 497 (since 2026-10-14) | 704 | `bench/wl_tum/service_matrix.json`, derived from the ruleset WITHOUT FaVe's engines | 0 | **usable** — NetPlumber 0 of 8,497 violated; see `bench/wl_tum/WORKLOAD.md` |
 
 **The key structural fact, measured: every check in all four workloads is `EF`**
 (existential reachability) — `s=source.X && EF p=probe.Y`, optionally negated.
@@ -344,7 +344,11 @@ tier; there is no need for four bespoke expectations.
   That needs a wl_up reachability oracle; `eval/mat_apk.json` is a frozen BDD
   reachability baseline rather than a compliance expectation, so it is a
   candidate input to that computation, not the answer.
-- [ ] **wl_tum checks NOTHING — its `checks.json` is empty (0 entries).** Its
+- [x] **RESOLVED 2026-10-14 (owner): wl_tum has a derived policy.** `bench/wl_tum/WORKLOAD.md`: an
+  FPL policy read off the ruleset by an evaluator that does not use FaVe's engines (`service_matrix.py`),
+  per-host destination roles, 8,497 checks of which 704 must-not-reach -- an oracle that CAN catch
+  over-approximation. The old checkless model is kept as `bench/wl_tum/single/`. Original text:
+  **wl_tum checks NOTHING — its `checks.json` is empty (0 entries).** Its
   compliance phase is vacuous by construction: it cannot report a violation, so
   gating it would be meaningless until it has checks. Decide whether wl_tum is
   supposed to have a compliance policy at all (it is a single-firewall

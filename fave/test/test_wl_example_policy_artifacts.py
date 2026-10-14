@@ -217,8 +217,17 @@ class TestWlExamplePolicyArtifacts(unittest.TestCase):
         # the moment one diverges while still carrying an alternative, this
         # fires again.
         mine = _cells(self.csv_path)
+        # wl_tum's derived policy (2026-10-14) permits several services per
+        # cell too, but never through --complement: its unpermitted services
+        # are positive terms in must-not-reach checks, so it cannot produce
+        # the two-negations shape. Exempt by name, and held to that here.
+        tum = "%s/bench/wl_tum/checks.json" % _FAVE
+        if os.path.exists(tum):
+            with open(tum) as raw:
+                self.assertFalse([c for c in json.load(raw) if 'f=!' in c],
+                                 "wl_tum's checks carry a negated term")
         others = [p for p in sorted(glob.glob("%s/bench/*/reachability*.csv" % _FAVE))
-                  if os.path.basename(os.path.dirname(p)) != 'wl_example'
+                  if os.path.basename(os.path.dirname(p)) not in ('wl_example', 'wl_tum')
                   and any('|' in c for c in _cells(p).values())
                   and _cells(p) != mine]
         self.assertEqual(

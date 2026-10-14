@@ -162,13 +162,14 @@ class TestS4Harness(unittest.TestCase):
             self.assertEqual(len(full), 2)
 
     def test_a_workload_without_checks_records_its_updates(self):
-        # D13: wl_tum has no check set, so S1-S3 measure the updates alone
+        # wl_tum's SINGLE variant has no check set (the policy model has one
+        # since 2026-10-14), so S1-S3 measure the updates alone
         import json, os
         from bench import incremental_run
-        if not inputs_present('bench/wl_tum', checks=False):
+        if not inputs_present('bench/wl_tum/single', checks=False):
             self.skipTest("bench/wl_tum inputs not generated")
         with tempfile.TemporaryDirectory(prefix='tum_cell_') as cell:
-            rc = incremental_run.main(['bench/wl_tum', '--engine', 'netplumber',
+            rc = incremental_run.main(['bench/wl_tum/single', '--engine', 'netplumber',
                                        '--stream', 's2', '--limit-updates', '3',
                                        '--cell-dir', cell])
             self.assertEqual(rc, 0)

@@ -64,7 +64,9 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 HERE = os.path.dirname(os.path.abspath(__file__))  # .../bench/analysis
 BENCH = os.path.dirname(HERE)                      # .../bench
 FAVE = os.path.dirname(BENCH)                      # .../fave
-MODEL_DIR = os.path.join(BENCH, "wl_tum")
+# the SINGLE variant: the one-source, one-probe model this differential was
+# written for (bench/wl_tum/single/gen.py, owner 2026-10-14)
+MODEL_DIR = os.path.join(BENCH, "wl_tum", "single")
 
 Pair = Tuple[str, str]
 Matrix = Dict[str, List[str]]   # probe full name -> sorted source full names that reach it

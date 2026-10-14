@@ -90,10 +90,12 @@ _ST_FILES = {"topology": "device_topology.json", "policies": "probes.json"}
 _ST_INPUTS = ["%s/%s" % (_ST_PREFIX, f) for f in
               ("device_topology.json", "routes.json", "sources.json", "probes.json")]
 
-_TUM_PREFIX = "bench/wl_tum"
+# wl_tum's SINGLE variant (bench/wl_tum/single/gen.py), the model this
+# differential was written for
+_TUM_PREFIX = "bench/wl_tum/single"
 _TUM_INPUTS = ["%s/%s" % (_TUM_PREFIX, f) for f in
-               ("topology.json", "routes.json", "policies.json", "sources.json",
-                "rulesets/tum-ruleset")]
+               ("topology.json", "routes.json", "policies.json", "sources.json")] \
+    + ["bench/wl_tum/rulesets/tum-ruleset"]
 
 
 @require_or_skip(ndd_available(), "JPype or the NDD jar is unavailable")

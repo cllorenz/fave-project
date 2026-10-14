@@ -167,7 +167,8 @@ class GenericBenchmark(object):
             anomalies=None,
             backend=BACKEND_NETPLUMBER,
             engine_options='',
-            use_complement=False
+            use_complement=False,
+            checks_options=None
     ):
         # AD6_PLAN.md §9.28: which verification engine this run uses.
         # `engine_options` is passed through to the aggregator verbatim (e.g.
@@ -243,6 +244,10 @@ class GenericBenchmark(object):
         # expected to report, so it is a decision per workload rather than a
         # silent upgrade.
         self.use_complement = use_complement
+        # Further reach_csv_to_checks.py options, verbatim, for a workload whose
+        # matrix needs them (wl_tum: --only-with Internet,
+        # --deny-unpermitted-services). Per workload, like use_complement.
+        self.checks_options = list(checks_options or [])
         self.use_internet = use_internet
         self.ip = ip
         self.length = length
@@ -305,7 +310,8 @@ class GenericBenchmark(object):
             "%s bench/reach_csv_to_checks.py " % PYTHON + ' '.join(
                 (['-s', self.suffix] if self.suffix else [])
                 + (['--strict'] if self.strict else [])
-                + (['--complement'] if self.use_complement else []) + [
+                + (['--complement'] if self.use_complement else [])
+                + self.checks_options + [
                     '-p', self.files['reach_csv'],
                     '-m', self.files['inventory'],
                     '--roles', self.files['roles_json'],

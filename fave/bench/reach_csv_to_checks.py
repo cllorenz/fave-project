@@ -269,6 +269,30 @@ if __name__ == '__main__':
              'than all traffic to it. For matrices whose roles are services '
              'and may therefore share machines. Needs --roles.'
     )
+    # OFF by default, like the two above: a conditionally permitted cell then
+    # also asserts, per service the target OFFERS and the cell does not
+    # permit, that the service is unreachable. Unlike `--complement` it names
+    # only declared services, so a port range the policy does not enumerate
+    # cannot falsify it. wl_tum (owner, 2026-10-14): a role offers what its
+    # rules name, and offered-but-unreachable is the check that catches an
+    # engine letting too much through.
+    parser.add_argument(
+        '--deny-unpermitted-services',
+        dest='deny_unpermitted',
+        action='store_true',
+        default=False,
+        help='in a conditionally permitted cell, also check each service the '
+             'target offers and the cell does not permit as must-not-reach. '
+             'Needs --roles.'
+    )
+    # Restricts the matrix to the pairs one role takes part in (wl_tum: the
+    # pairs with the Internet; traffic between inside roles is not stated).
+    parser.add_argument(
+        '--only-with',
+        dest='only_with',
+        default=None,
+        help='emit checks only for cells whose source or target is this role'
+    )
     parser.add_argument(
         '--roles',
         dest='roles_file',
@@ -293,6 +317,10 @@ if __name__ == '__main__':
     mapping = json.load(open(args.inventory_file, 'r'))
     role_attributes = _load_role_attributes(args.roles_file)
     role_services = _load_role_services(args.roles_file)
+
+    if args.deny_unpermitted and not args.roles_file:
+        parser.error('--deny-unpermitted-services needs --roles: the offered '
+                     'services come from the translator\'s role dump.')
 
     if args.deny_per_service and not args.roles_file:
         parser.error(
@@ -328,6 +356,9 @@ if __name__ == '__main__':
                 # policy, so the question is not answerable (and FPL carries
                 # `Internet` as a builtin role, so it appears in most policies).
                 if source == _INTERNET and source == target: continue
+
+                if args.only_with and args.only_with not in (source_role, target_role):
+                    continue
 
                 if target != 'Internet': target += args.suffix
 
@@ -401,6 +432,18 @@ if __name__ == '__main__':
                         # stateful alternative permits nothing, so including
                         # `X` would negate a token that is not a field and
                         # would wrongly forbid the services beside it.
+                        if args.deny_unpermitted:
+                            permitted = {frozenset(c.split(';')) for c in conditions}
+                            for attributes in role_services.get(target_role, []):
+                                terms = _service_terms(attributes)
+                                if not terms or frozenset(t[len('f='):] for t in terms) in permitted:
+                                    continue
+                                checks.extend([
+                                    '! ' + fstr % (s, target) + ' && f=related:0 && '
+                                    + ' && '.join(terms)
+                                    for s in _peers(sources, target, keep_self)
+                                ])
+
                         if args.complement:
                             for term in complement_terms('(%s)' % '|'.join(conditions)):
                                 checks.extend([

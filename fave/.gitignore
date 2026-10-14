@@ -37,6 +37,12 @@ bench/wl_example/policy.csv
 bench/wl_example/*.json
 
 bench/wl_tum/*.json
+# wl_tum's policy, generated from the ruleset (bench/wl_tum/WORKLOAD.md), and
+# its single variant's model (bench/wl_tum/single/gen.py)
+bench/wl_tum/reachability.csv
+bench/wl_tum/reach.txt
+bench/wl_tum/roles_and_services.txt
+bench/wl_tum/single/*.json
 bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset
 
 bench/wl_generic_fw/*.json

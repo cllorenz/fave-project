@@ -49,10 +49,12 @@ from test.backend_gate import require_or_skip
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bench"))
 
-_PREFIX = "bench/wl_tum"
+# wl_tum's SINGLE variant, the model this differential is about
+# (bench/wl_tum/single/gen.py); the ruleset stays where it is
+_PREFIX = "bench/wl_tum/single"
 _INPUTS = ["%s/%s" % (_PREFIX, f) for f in
-           ("topology.json", "routes.json", "policies.json", "sources.json",
-            "rulesets/tum-ruleset")]
+           ("topology.json", "routes.json", "policies.json", "sources.json")] \
+    + ["bench/wl_tum/rulesets/tum-ruleset"]
 
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
