@@ -400,13 +400,11 @@ class TestRoutingTables(_Base):
         self.assertEqual(len(sent[0]), 6)
         self.assertEqual(sent[0], sent[1])
 
-    def test_pre_routing_extends_the_mapping_without_expand_KNOWN_DEFECT(self):
-        """ KNOWN DEFECT (adapter.py:612-614): when `in_port` is not yet
-        mapped, `_add_pre_routing_rules` extends the mapping and the rule
-        vector but sends NO `expand` and leaves `mapping_keys` stale. A rule
-        without an in_port rewrite therefore reaches NetPlumber 64 bits wide
-        while NetPlumber was told 32. Correct: route the extension through
-        `_update_mapping`, so `expand(64)` precedes the rule. """
+    def test_pre_routing_extends_the_mapping_with_an_expand(self):
+        """ When `in_port` is not yet mapped, `_add_pre_routing_rules` extends
+        the mapping through `_update_mapping`, so `expand(64)` reaches
+        NetPlumber before the 64-bit rule. It once extended the mapping alone:
+        NetPlumber was told 32 bits and sent a 64-bit rule (TODO item 53). """
         model = AbstractDeviceModel(
             'd', tables={'d.pre_routing': [Rule(
                 'd', 'd.pre_routing', 0, in_ports=['d.in'],
@@ -417,10 +415,9 @@ class TestRoutingTables(_Base):
         self.adapter.add_tables(model)
         self.adapter.add_rules(model)
 
-        self.assertEqual([c.args[1] for c in self.rpc.expand.call_args_list], [32])
+        self.assertEqual([c.args[1] for c in self.rpc.expand.call_args_list], [32, 64])
         self.assertEqual(len(self.rpc.add_rule.call_args.args[5]), 64)
-        self.assertNotIn('in_port', self.adapter.mapping_keys)
-
+        self.assertIn('in_port', self.adapter.mapping_keys)
 
 class TestIncrementalUpdates(_Base):
     """ insert_rule / delete_rule on a built model, and what they refuse. """
@@ -484,17 +481,18 @@ class TestTakeAffected(_Base):
         self.assertEqual(self.adapter.take_affected(), {('gen', 'pr')})
         self.rpc.take_affected.assert_called_once_with(['SOCK'])
 
-    def test_a_deleted_source_is_still_reported_KNOWN_DEFECT(self):
-        """ KNOWN DEFECT (adapter.py:1222-1254, 1383-1414): delete_generator and
-        delete_probe never remove the node from `generators`/`probes`, so
-        take_affected -- whose docstring promises to drop pairs naming a
-        deleted source or probe -- still reports them. Correct: {}. """
+    def test_a_deleted_source_and_probe_are_no_longer_reported(self):
+        """ delete_generator and delete_probe drop the node from
+        `generators`/`probes`, so take_affected drops pairs naming it, as its
+        docstring promises. They once kept it (TODO item 53). """
         self.adapter.links[self.adapter.global_port('gen.1')] = [
             self.adapter.global_port('pr.1')]
         self.adapter.delete_generator('gen')
         self.adapter.delete_probe('pr')
+        self.assertNotIn('gen', self.adapter.generators)
+        self.assertNotIn('pr', self.adapter.probes)
         self.rpc.take_affected.return_value = {(501, 601)}
-        self.assertEqual(self.adapter.take_affected(), {('gen', 'pr')})
+        self.assertEqual(self.adapter.take_affected(), set())
 
 
 class TestGeneratorRemoval(_Base):
@@ -520,15 +518,14 @@ class TestGeneratorRemoval(_Base):
         self.assertNotIn(self.gport, self.adapter.links)
         self.assertNotIn('gen', self.adapter.tables)
 
-    def test_delete_with_several_links_KNOWN_DEFECT(self):
-        """ KNOWN DEFECT (adapter.py:1234-1242): the loop removes links from
-        the very list it iterates, so every second link is skipped. With two
-        links only the first is removed: one remove_link RPC, the second link
-        stays in NetPlumber and in `links`. Correct: both removed. """
+    def test_delete_with_several_links_removes_them_all(self):
+        """ The loop once removed links from the very list it walked, so with
+        two links only the first went (TODO item 53). """
         self.adapter.delete_generator('gen')
-        self.rpc.remove_link.assert_called_once_with(
-            ['SOCK'], self.gport, self.targets[0])
-        self.assertEqual(self.adapter.links[self.gport], [self.targets[1]])
+        self.assertEqual(
+            [c.args for c in self.rpc.remove_link.call_args_list],
+            [(['SOCK'], self.gport, t) for t in self.targets])
+        self.assertNotIn(self.gport, self.adapter.links)
         self.rpc.remove_source.assert_called_once_with(['SOCK'], 501)
 
     def test_re_adding_replaces_the_source(self):
@@ -538,14 +535,14 @@ class TestGeneratorRemoval(_Base):
         self.assertEqual(sid, 502)
         self.assertEqual(self.adapter.tables['gen'], idx)
 
-    def test_re_adding_an_unlinked_generator_KNOWN_DEFECT(self):
-        """ KNOWN DEFECT (adapter.py:1234): delete_generator indexes
-        `self.links[port]` unguarded, so re-adding a generator that has no
-        link yet raises KeyError instead of replacing it. """
+    def test_re_adding_an_unlinked_generator_replaces_it(self):
+        """ A generator with no link yet once made delete_generator raise
+        KeyError, so it could not be re-added (TODO item 53). """
         self.rpc.add_source.side_effect = [601, 602]
         self.adapter.add_generator(_gen('lonely'))
-        with self.assertRaises(KeyError):
-            self.adapter.add_generator(_gen('lonely'))
+        self.adapter.add_generator(_gen('lonely'))
+        self.rpc.remove_source.assert_called_once_with(['SOCK'], 601)
+        self.assertEqual(self.adapter.generators['lonely'][1], 602)
 
 
 class TestProbes(_Base):

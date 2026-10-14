@@ -3627,10 +3627,15 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
   port 1 only, `10:20` → 10–19). This reaches the generator's `--sports`/`--dports`
   expansion. Not pinned.
 - [ ] **NetPlumber adapter:**
-  - `delete_generator` mutates the list it walks and raises `KeyError` on a generator
-    with no links.
-  - `delete_generator` and `delete_probe` leave the node in `take_affected`'s view.
-  - `_add_pre_routing_rules` (`adapter.py:612`) widens the mapping without an `expand`.
+  - [x] FIXED 2026-10-14: `delete_generator` mutated the list it walks and raised
+    `KeyError` on a generator with no links.
+  - [x] FIXED 2026-10-14: `delete_generator` and `delete_probe` left the node in
+    `take_affected`'s view.
+  - [x] FIXED 2026-10-14: `_add_pre_routing_rules` (`adapter.py:612`) widened the mapping
+    without an `expand`. It now goes through `_update_mapping`.
+  - The `*_KNOWN_DEFECT` tests for those three now assert the correct behaviour.
+    `test_incremental_netplumber` and `test_packet_filter_out_iface` pass on
+    libnetplumber.
   - `delete_rules`, `delete_tables` and `delete_wiring` are broken, but reachable only
     through the uncalled `AggregatorService._delete_model`.
   Pinned: `test_netplumber_adapter_more.py`.

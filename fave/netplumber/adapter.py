@@ -609,7 +609,11 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             rewrite = None
             mask = None
             if "in_port" not in self.mapping:
-                self.mapping.extend("in_port")
+                # Through _update_mapping, so NetPlumber is sent the `expand`
+                # and mapping_keys learns the field. Extending the mapping
+                # directly sent rules wider than NetPlumber was told (TODO
+                # item 53).
+                self._update_mapping({"in_port"})
                 rvec.enlarge(FIELD_SIZES["in_port"])
 
             rewrite = Vector(length=self.mapping.length)
@@ -1228,10 +1232,11 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         only_sid = lambda x: x[1]
         sid = only_sid(self.generators[node])
 
-        # delete links
+        # delete links. Over a COPY, and guarded: removing from the list being
+        # walked skipped every second link, and a generator with no link yet
+        # raised KeyError, so re-adding it failed (TODO item 53).
         port1 = self.global_port(node+'.1')
-        ports = self.links[port1]
-        for port2 in ports:
+        for port2 in list(self.links.get(port1, [])):
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug(
                     "worker: remove link from %s to %s from netplumber", port1, port2
@@ -1240,7 +1245,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
 
             self.links[port1].remove(port2)
 
-        if not self.links[port1]: del self.links[port1]
+        self.links.pop(port1, None)
 
 
         # delete source and probe
@@ -1251,6 +1256,8 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self._rpc.remove_source(self.socks, sid)
 
         del self.tables[node]
+        # So take_affected no longer names it (TODO item 53).
+        del self.generators[node]
 
 
     def _get_model_table(self, node: str) -> int:
@@ -1411,6 +1418,8 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self._rpc.remove_source_probe(self.socks, sid)
 
         del self.tables[node]
+        # So take_affected no longer names it (TODO item 53).
+        del self.probes[node]
 
 
     def global_port(self, port: Any) -> int:
