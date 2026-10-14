@@ -136,22 +136,28 @@ class TestFramingOverARealSocket(_PairBase):
         self.server.sendall(reply.encode())
         self.assertEqual(jsonrpc._sendrecv(self.client, "m"), reply)
 
-    def test_multibyte_character_across_the_peek_window_KNOWN_DEFECT(self):
-        """ KNOWN DEFECT, pinned as measured (2026-10-14): `_sync_recv` decodes
-        each 4096-byte PEEK window as UTF-8 on its own. A multi-byte character
-        straddling the window boundary makes that decode fail, so a valid
-        response raises UnicodeDecodeError instead of being returned
-        (netplumber/jsonrpc.py:78). Accumulating bytes and decoding once, as
-        `_sendrecv` does, would fix it -- and fail this test, which should then
-        assert the parsed result instead. """
+    def test_multibyte_character_across_the_peek_window(self):
+        """ `_sync_recv` once decoded each 4096-byte PEEK window as UTF-8 on its
+        own, so a multi-byte character straddling the boundary made a valid
+        response raise UnicodeDecodeError (TODO item 53). """
         prefix = '{"id": 0, "jsonrpc": "2.0", "result": "'
         pad = "a" * (4095 - len(prefix))      # 'ä' starts at byte 4095
         payload = (prefix + pad + 'ä"}\n').encode('utf8')
         self.assertEqual(payload[4095:4097], 'ä'.encode('utf8'))
         self.server.sendall(payload)
-        with self.assertRaises(UnicodeDecodeError):
-            jsonrpc._sync_recv([self.client])
+        [reply] = jsonrpc._sync_recv([self.client])
+        self.assertEqual(reply['result'], pad + 'ä')
 
+    def test_a_multibyte_character_does_not_leave_bytes_for_the_next_reply(self):
+        """ The newline's index in the DECODED peek was used as a BYTE count to
+        consume, so each multi-byte character before it left one byte of the
+        response on the socket, and the NEXT response began with it (TODO
+        item 53). """
+        first = '{"id": 0, "jsonrpc": "2.0", "result": "äöü"}\n'
+        second = '{"id": 1, "jsonrpc": "2.0", "result": 2}\n'
+        self.server.sendall((first + second).encode('utf8'))
+        self.assertEqual(jsonrpc._sync_recv([self.client])[0]['result'], 'äöü')
+        self.assertEqual(jsonrpc._sync_recv([self.client])[0]['result'], 2)
 
 class TestConsumeRaceGuard(unittest.TestCase):
     """ The consuming recv after a non-empty peek returning nothing means the

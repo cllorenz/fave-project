@@ -3646,7 +3646,7 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     - Owner questions Q-R1 to Q-R4 are open. The `*_KNOWN_DEFECT` tests stay
       until it is built.
   Pinned: `test_netplumber_adapter_more.py`.
-- [ ] **`netplumber/jsonrpc.py:78`:** each 4096-byte peek is decoded on its own, so a
+- [x] **FIXED 2026-10-14 — `netplumber/jsonrpc.py:78`.** It now reads bytes and decodes once. That also fixes a second bug found on the way: the newline's index in the DECODED peek was used as a BYTE count, so a multi-byte character left the reply's tail on the socket, to corrupt the next reply. Originally: each 4096-byte peek was decoded on its own, so a
   multi-byte UTF-8 character split across the boundary raises. Pinned:
   `test_jsonrpc_wire.py`.
 - [ ] **Aggregator:**

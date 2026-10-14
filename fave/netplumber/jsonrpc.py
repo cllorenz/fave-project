@@ -73,9 +73,15 @@ def _parse_msg(msg: str) -> JSONDict:
 def _sync_recv(socks: List[socket.socket]) -> List[JSONDict]:
     results = []
     for sock in socks:
-        result = ''
+        # BYTES throughout, decoded once per response (TODO item 53). Decoding
+        # each 4096-byte peek on its own raised UnicodeDecodeError when a
+        # multi-byte character straddled the window; and the newline's
+        # position in the DECODED peek was then used as a BYTE count to
+        # consume, so a multi-byte character before it left the response's
+        # tail on the socket, to corrupt the next one.
+        result = b''
         while True:
-            chunk = sock.recv(4096, socket.MSG_PEEK).decode('utf8')
+            chunk = sock.recv(4096, socket.MSG_PEEK)
 
             # An empty read is EOF: the peer closed the connection. Treating it
             # as "partial response, keep reading" (as this loop used to) is an
@@ -91,10 +97,10 @@ def _sync_recv(socks: List[socket.socket]) -> List[JSONDict]:
                     "response (net_plumber died?)" % len(result)
                 )
 
-            pos = chunk.find('\n')
+            pos = chunk.find(b'\n')
 
             if pos == -1:
-                part = sock.recv(4096).decode('utf8')
+                part = sock.recv(4096)
                 # The peek above saw data, so this normally cannot be empty;
                 # guard anyway for a close racing between peek and consume.
                 if not part:
@@ -105,10 +111,10 @@ def _sync_recv(socks: List[socket.socket]) -> List[JSONDict]:
                 result += part
             else:
                 result += chunk[:pos]
-                sock.recv(pos+1).decode('utf8')
+                sock.recv(pos+1)
                 break
 
-        results.append(_parse_msg(result))
+        results.append(_parse_msg(result.decode('utf8')))
 
     return results
 
