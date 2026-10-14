@@ -19,12 +19,51 @@
 # You should have received a copy of the GNU General Public License
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
+""" Draws an FPL inventory: roles, the groups that include them, and the
+services they offer. Reads FPL through `PolicyBuilder`, the translator's own
+parser, so it accepts what the translator accepts -- `def` or `describe`,
+any whitespace, services without a port. It once had a tokenizer of its
+own that read only `def` blocks and required a port (TODO item 53).
+
+Usage: visualize_roles_and_services.py INVENTORY
+Writes roles_and_services.svg (and a PDF through inkscape).
+"""
+
 import sys
 import os
-import graphviz
 from graphviz import Digraph
 
-from typing import Dict, List
+from policy import Policy, Superrole
+from policy_builder import PolicyBuilder
+
+
+def roles_and_services_graph(inventory: str) -> Digraph:
+    """ The inventory `inventory` (FPL text) as a graph. """
+    # With FPL's built-in `Internet` role, which inventories may include.
+    policy = Policy()
+    PolicyBuilder.build_roles_and_services(inventory, policy)
+
+    g = Digraph(format='svg')
+    for name in policy.roles:
+        g.node(name, shape='rectangle')
+    for name, role in policy.roles.items():
+        if isinstance(role, Superrole):
+            for member in role.subroles:
+                g.edge(name, member, dir='both', arrowhead='open', arrowtail='odiamond')
+
+    for name, service in policy.services.items():
+        attributes = service.attributes
+        label = "%s,\nproto: %s" % (name, attributes.get('protocol', '-'))
+        if 'port' in attributes:
+            label += ",\nport: %s" % attributes['port']
+        g.node(name, label=label)
+
+    for name, role in policy.roles.items():
+        if not isinstance(role, Superrole):
+            for offered in role.services:
+                g.edge(name, offered, arrowhead='open', style='dashed')
+    return g
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -34,59 +73,7 @@ if __name__ == '__main__':
         print("not a file: %s. quit." % sys.argv[1])
         sys.exit(2)
 
-    roles_and_services = sys.argv[1]
-
-    roles: Dict[str, List[str]] = {}
-    services: Dict[str, Dict[str, str]] = {}
-    offers: Dict[str, List[str]] = {}
-    with open(roles_and_services, 'r') as f:
-        current_role = ''
-        current_service = ''
-        for line in f.read().split('\n'):
-            if line.startswith('#'): continue
-
-            token = line.lstrip().split(' ')
-            if len(token) == 3 and token[0] == 'def' and token[1] in ['role', 'abstract_role']:
-                roles.setdefault(token[2], [])
-                current_role = token[2]
-            elif len(token) == 2 and token[0] == 'includes':
-                roles[current_role].append(token[1])
-            elif len(token) == 3 and token[0] == 'def' and token[1] == 'service':
-                services.setdefault(token[2], {})
-                current_service = token[2]
-            elif len(token) == 3 and token[0] in ['protocol', 'port']:
-                services[current_service][token[0]] = token[2]
-            elif len(token) == 2 and token[0] == 'offers':
-                offers.setdefault(current_role, [])
-                offers[current_role].append(token[1])
-
-    g = Digraph(format='svg')
-
-    seen = []
-    for role in roles:
-        if role not in seen:
-            g.node(role, shape='rectangle')
-            seen.append(role)
-
-        if roles[role]:
-            for subrole in roles[role]:
-                if subrole not in seen:
-                    g.node(subrole, shape='rectangle')
-                    seen.append(role)
-
-                g.edge(role, subrole, dir='both', arrowhead='open', arrowtail='odiamond')
-
-    seen = []
-    for service in services:
-        if service not in seen:
-            label = "%s,\nproto: %s,\nport: %s" % (service, services[service]['protocol'], services[service]['port'])
-            g.node(service, label=label)
-            seen.append(service)
-
-    seen = []
-    for offer in offers:
-        for service in offers[offer]:
-            g.edge(offer, service, arrowhead='open', style='dashed')
-
-    g.render('roles_and_services', cleanup=True)
+    with open(sys.argv[1], 'r') as f:
+        graph = roles_and_services_graph(f.read())
+    graph.render('roles_and_services', cleanup=True)
     os.popen('inkscape --export-pdf=roles_and_services.pdf roles_and_services.svg')

@@ -22,27 +22,16 @@
 """ The two Graphviz visualizers are user tools the owner KEPT (2026-10-14);
 this pins the DOT source each one builds.
 
-Both are scripts with all their logic under `if __name__ == '__main__'`, so
-they are run in-process with `runpy.run_path` and a patched `sys.argv`. No
-Graphviz binary is needed: `graphviz.Digraph.render` is replaced by a stub
-that records the DOT source it was asked to render, and `os.popen` (their
-`inkscape` call) is mocked. Nothing is written anywhere.
+Both are scripts run in-process with `runpy.run_path` and a patched
+`sys.argv`. No Graphviz binary is needed: `graphviz.Digraph.render` is
+replaced by a stub that records the DOT source it was asked to render, and
+`os.popen` (their `inkscape` call) is mocked. Nothing is written anywhere.
 
-Both scripts tokenise lines with `split(' ')` and recognise only the `def`
-keyword, which is narrower than FPL:
-
-  * `visualize_roles_and_services.py` reads `examples/ifi-policy.txt` as
-    expected, but on an inventory spelled with `describe` -- every committed
-    `fave/bench/wl_*/inventory.txt` -- it fails with KeyError('') at line 58,
-    because the `describe service` header was not recognised; and a service
-    without a `port` (`protocol = 'icmp'`) fails with KeyError('port') at
-    line 81. Both pinned as expectedFailures.
-  * `visualize_policies.py` reads rules of exactly three space-separated
-    tokens, and looks the target up as a ROLE: a rule naming a service
-    (`X <->> Web.HTTP`) fails with KeyError('Web.HTTP') at line 104. A rule
-    aligned with extra blanks or tabs between its tokens, as in
-    `examples/*.txt`, is silently skipped. So it is fed a small policy written in the
-    style it reads, plus an expectedFailure for the service form.
+Both read FPL through `PolicyBuilder`, the translator's own parser, since
+TODO item 53. Before, each had a tokenizer of its own that read only `def`
+blocks (every committed `wl_*/inventory.txt` uses `describe`), needed a
+port on every service, skipped rules not written as exactly three
+space-separated tokens, and failed on `Role.Service` targets.
 """
 
 import contextlib
@@ -61,12 +50,10 @@ _PT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _POLICIES = os.path.join(_PT, 'visualize_policies.py')
 _ROLES_AND_SERVICES = os.path.join(_PT, 'visualize_roles_and_services.py')
 _IFI = os.path.join(_PT, 'examples', 'ifi-policy.txt')
-_GENERIC_FW_INVENTORY = os.path.join(
-    os.path.dirname(_PT), 'fave', 'bench', 'wl_generic_fw', 'default',
-    'inventory.txt')
+_GENERIC_FW = os.path.join(
+    os.path.dirname(_PT), 'fave', 'bench', 'wl_generic_fw', 'default')
 
-_INVENTORY = """# roles in the style the visualizers read
-def role Clients
+_INVENTORY = """describe role Clients
 end
 
 def role Office
@@ -74,20 +61,19 @@ def role Office
 end
 
 def role Web
+\toffers HTTP
 end
 
-def role Team
-	includes Clients
+def service HTTP
+\tprotocol = 'tcp'
+\tport = 80
 end
 """
 
 _POLICY = """describe policies(default: deny)
-# Clients first: a sub-edge is drawn only to a role already drawn.
-Clients ---> Web
-Office <->> Web
-Office <-->  Web
+\tClients ---> Web.HTTP
+\tOffice    <->>   Web
 \tWeb ---> Clients
-Web ---> Team
 end
 """
 
@@ -133,39 +119,41 @@ class TestVisualizePolicies(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_dot_source(self):
+        """ Every rule is an edge labelled with its operator and service,
+        whatever its spacing; a drawn group is linked to its drawn members. """
         source, call, popen, _out, code = _run(
             _POLICIES, [self.inventory, self.policy])
         self.assertIsNone(code)
-        # Every operator is drawn alike, and the rule with two blanks before
-        # its target is not read at all (four tokens).
-        reach = ' [arrowhead=openopen arrowtail=open color=red dir=both]'
         self.assertEqual(source.splitlines(), [
             'digraph {',
             '\tClients [shape=rectangle]',
             '\tWeb [shape=rectangle]',
-            '\tClients -> Web' + reach,
+            '\tClients -> Web [label="---> HTTP" color=red]',
             '\tOffice [shape=rectangle]',
-            '\tOffice -> Web' + reach,
+            '\tOffice -> Web [label="<->>" color=red]',
+            '\tWeb -> Clients [label="--->" color=red]',
             '\tOffice -> Clients [arrowhead=open arrowtail=odiamond dir=both]',
-            '\tWeb -> Clients' + reach,
-            '\tTeam [shape=rectangle]',
-            '\tWeb -> Team' + reach,
-            '\tTeam -> Clients [arrowhead=open arrowtail=odiamond dir=both]',
             '}',
         ])
         self.assertEqual(call, (('policies',), {'cleanup': True}))
         popen.assert_called_once_with(
             'inkscape --export-pdf=policies.pdf policies.svg')
 
-    # DEFECT (visualize_policies.py:104): the target of `X ---> Y.SERVICE` is
-    # looked up as a role. Remove the decorator once `Y.SERVICE` is read.
-    @unittest.expectedFailure
-    def test_rule_naming_a_service(self):
+    def test_a_forbidding_rule_is_blue_and_dashed(self):
         with open(self.policy, 'w') as f:
-            f.write("Clients <->> Web.HTTP\n")
-        source, _call, _popen, _out, _code = _run(
-            _POLICIES, [self.inventory, self.policy])
-        self.assertIn('Clients ->', source)
+            f.write("describe policies(default: allow)\n\tClients --/-> Web\nend\n")
+        source, _c, _p, _o, code = _run(_POLICIES, [self.inventory, self.policy])
+        self.assertIsNone(code)
+        self.assertIn('\tClients -> Web [label="--/->" color=blue style=dashed]',
+                      source.splitlines())
+
+    def test_a_committed_workload(self):
+        source, _c, _p, _o, code = _run(_POLICIES, [
+            os.path.join(_GENERIC_FW, 'inventory.txt'),
+            os.path.join(_GENERIC_FW, 'policy.txt')])
+        self.assertIsNone(code)
+        self.assertIn('\tAllClients -> WebServer [label="<->> HTTP" color=red]',
+                      source.splitlines())
 
     def test_wrong_argument_count_exits_1(self):
         source, _call, popen, out, code = _run(_POLICIES, [self.inventory])
@@ -187,21 +175,15 @@ class TestVisualizeRolesAndServices(unittest.TestCase):
         source, call, popen, _out, code = _run(_ROLES_AND_SERVICES, [_IFI])
         self.assertIsNone(code)
         lines = source.splitlines()
-        self.assertEqual(lines[0], 'digraph {')
-        self.assertEqual(lines[-1], '}')
-        for role in ('AdminNetz', 'Sekretariate', 'TrustedClients',
+        self.assertEqual((lines[0], lines[-1]), ('digraph {', '}'))
+        for role in ('Internet', 'AdminNetz', 'Sekretariate', 'TrustedClients',
                      'UntrustedClients', 'Webserver', 'Server', 'Intern',
                      'MitInternetzugriff', 'All'):
             self.assertIn('\t%s [shape=rectangle]' % role, lines)
         incl = ' [arrowhead=open arrowtail=odiamond dir=both]'
         self.assertIn('\tServer -> Webserver' + incl, lines)
-        self.assertEqual(
-            sum(1 for line in lines if line.endswith(incl)), 13)
-        # The protocol keeps its FPL quotes.
-        self.assertIn('\tHTTP [label="HTTP,\nproto: \'tcp\',\nport: 80"]',
-                      source)
-        self.assertIn('\tHTTPS [label="HTTPS,\nproto: \'tcp\',\nport: 443"]',
-                      source)
+        self.assertIn('\tHTTP [label="HTTP,\nproto: tcp,\nport: 80"]', source)
+        self.assertIn('\tHTTPS [label="HTTPS,\nproto: tcp,\nport: 443"]', source)
         offer = ' [arrowhead=open style=dashed]'
         self.assertEqual(
             [line for line in lines if line.endswith(offer)],
@@ -211,55 +193,49 @@ class TestVisualizeRolesAndServices(unittest.TestCase):
             'inkscape --export-pdf=roles_and_services.pdf '
             'roles_and_services.svg')
 
-    def test_group_declared_before_its_member(self):
-        """ A member not yet drawn is drawn on the spot. Line 75 then records
-        the GROUP as seen instead of the member (`seen.append(role)`), so the
-        member's own block declares its node a second time -- harmless in
-        DOT, pinned so a fix shows up here. """
+    def test_each_node_is_declared_once(self):
+        """ The old tokenizer declared a member twice when its group came
+        first (TODO item 53). """
         with tempfile.TemporaryDirectory() as tmp:
             inventory = os.path.join(tmp, 'inventory.txt')
             with open(inventory, 'w') as f:
-                f.write("def role Group\n\tincludes Member\n\toffers SSH\n"
-                        "end\n\ndef role Member\nend\n\n"
+                f.write("def role Member\n\toffers SSH\nend\n\n"
+                        "def role Group\n\tincludes Member\nend\n\n"
                         "def service SSH\n\tprotocol = 'tcp'\n\tport = 22\n"
                         "end\n")
             source, _c, _p, _o, code = _run(_ROLES_AND_SERVICES, [inventory])
         self.assertIsNone(code)
         self.assertEqual(source.splitlines(), [
             'digraph {',
+            '\tInternet [shape=rectangle]',
+            '\tMember [shape=rectangle]',
             '\tGroup [shape=rectangle]',
-            '\tMember [shape=rectangle]',
             '\tGroup -> Member [arrowhead=open arrowtail=odiamond dir=both]',
-            '\tMember [shape=rectangle]',
             '\tSSH [label="SSH,',
-            "proto: 'tcp',",
+            'proto: tcp,',
             'port: 22"]',
-            '\tGroup -> SSH [arrowhead=open style=dashed]',
+            '\tMember -> SSH [arrowhead=open style=dashed]',
             '}',
         ])
 
-    # DEFECT (visualize_roles_and_services.py:81): the label reads
-    # services[s]['port'], so a service without a port -- `protocol =
-    # 'icmp'`, valid FPL -- raises KeyError('port'). Remove the decorator
-    # once a missing port is rendered.
-    @unittest.expectedFailure
     def test_service_without_port(self):
+        """ `protocol = 'icmp'` alone is valid FPL; it once raised KeyError. """
         with tempfile.TemporaryDirectory() as tmp:
             inventory = os.path.join(tmp, 'inventory.txt')
             with open(inventory, 'w') as f:
                 f.write("def service ICMP\n\tprotocol = 'icmp'\nend\n")
-            source, _c, _p, _o, _code = _run(_ROLES_AND_SERVICES, [inventory])
-        self.assertIn('ICMP', source)
+            source, _c, _p, _o, code = _run(_ROLES_AND_SERVICES, [inventory])
+        self.assertIsNone(code)
+        self.assertIn('\tICMP [label="ICMP,\nproto: icmp"]', source)
 
-    # DEFECT (visualize_roles_and_services.py:58): only `def` opens a block,
-    # so `describe service HTTP` is not seen and its `protocol` line indexes
-    # services[''] -- KeyError. Every committed wl_*/inventory.txt is written
-    # with `describe`. Remove the decorator once `describe` is accepted.
-    @unittest.expectedFailure
     def test_describe_spelled_inventory(self):
-        source, _c, _p, _o, _code = _run(
-            _ROLES_AND_SERVICES, [_GENERIC_FW_INVENTORY])
-        self.assertIn('WebServer -> HTTP', source)
+        """ Every committed wl_*/inventory.txt uses `describe`; it once raised
+        KeyError. """
+        source, _c, _p, _o, code = _run(
+            _ROLES_AND_SERVICES, [os.path.join(_GENERIC_FW, 'inventory.txt')])
+        self.assertIsNone(code)
+        self.assertIn('\tWebServer -> HTTP [arrowhead=open style=dashed]',
+                      source.splitlines())
 
     def test_wrong_argument_count_exits_1(self):
         source, _c, popen, out, code = _run(_ROLES_AND_SERVICES, [])

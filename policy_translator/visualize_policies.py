@@ -19,12 +19,61 @@
 # You should have received a copy of the GNU General Public License
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
+""" Draws an FPL policy: one edge per rule, from the role it grants or
+forbids access to the role (and service) it names, and the groups the drawn
+roles belong to. Reads FPL through `PolicyBuilder`, the translator's own
+parser. It once had a tokenizer of its own that skipped any rule not written
+as exactly three space-separated tokens and failed on `Role.Service` targets
+(TODO item 53).
+
+A permitting rule (`--->`, `<-->`, `<->>`) is drawn red, a forbidding one
+(`--/->`, `<-/->`, `-/->>`) blue and dashed; the edge is labelled with its
+operator and, if it names one, its service.
+
+Usage: visualize_policies.py INVENTORY POLICY
+Writes policies.svg (and a PDF through inkscape).
+"""
+
 import sys
 import os
-import graphviz
-from graphviz import Digraph
+from graphviz import Digraph, nohtml
 
-from typing import Any, Dict, List
+from policy import Policy, Superrole
+from policy_builder import PolicyBuilder
+
+
+_FORBIDDING = {'--/->', '<-/->', '-/->>'}
+
+
+def policies_graph(inventory: str, policies: str) -> Digraph:
+    """ The policy `policies` over the inventory `inventory` (FPL texts). """
+    policy = Policy()
+    PolicyBuilder.build(inventory + '\n' + policies, policy)
+
+    g = Digraph(format='svg')
+    drawn = []
+    for role_from, role_to, service, operator in policy.raw_policies:
+        for role in (role_from, role_to):
+            if role not in drawn:
+                g.node(role, shape='rectangle')
+                drawn.append(role)
+        # nohtml: an operator such as `<->>` starts with `<` and ends with
+        # `>`, which Graphviz would otherwise take for an HTML label.
+        label = nohtml(operator + (' %s' % service if service else ''))
+        if operator in _FORBIDDING:
+            g.edge(role_from, role_to, label=label, color='blue', style='dashed')
+        else:
+            g.edge(role_from, role_to, label=label, color='red')
+
+    for name in drawn:
+        role = policy.roles.get(name)
+        if isinstance(role, Superrole):
+            for member in role.subroles:
+                if member in drawn:
+                    g.edge(name, member, dir='both', arrowhead='open',
+                           arrowtail='odiamond')
+    return g
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
@@ -37,73 +86,10 @@ if __name__ == '__main__':
         print("not a file: %s. quit." % sys.argv[2])
         sys.exit(2)
 
-    roles_and_services = sys.argv[1]
-    policies = sys.argv[2]
-
-    roles: Dict[str, List[str]] = {'Internet' : []}
-    with open(roles_and_services, 'r') as f:
-        for line in f.read().split('\n'):
-            if line.startswith('#'): continue
-
-            token = line.lstrip().split(' ')
-            if len(token) == 3 and token[0] == 'def' and token[1] in ['role', 'abstract_role']:
-                roles.setdefault(token[2], [])
-                current_role = token[2]
-            elif len(token) == 2 and token[0] == 'includes':
-                roles[current_role].append(token[1])
-
-    default = 'deny'
-    reach: Dict[str, List[Any]] = {}
-    with open(policies, 'r') as f:
-        for line in f.read().split('\n'):
-            if line.startswith('#'): continue
-
-            token = line.lstrip().split(' ')
-            if len(token) == 3 and token[0] == 'describe':
-                default = token[2].rstrip(')')
-            elif len(token) == 3 and token[1] in ['--->', '<-->', '<->>']:
-                src, operator, dst = token
-                reach.setdefault(src, [])
-                reach[src].append((operator, dst))
-
-
-    g = Digraph(format='svg')
-
-#    seen = []
-#    for role in roles:
-#        if role not in seen:
-#            g.node(role, shape='rectangle')
-#            seen.append(role)
-#
-#        if roles[role]:
-#            for subrole in roles[role]:
-#                if subrole not in seen:
-#                    g.node(subrole, shape='rectangle')
-#                    seen.append(subrole)
-#
-#                g.edge(role, subrole, arrowtail='diamond')
-
-    seen = []
-    sub_edges = []
-    for src in reach:
-        if src not in seen:
-            g.node(src, shape='rectangle')
-            seen.append(src)
-
-        for operator, dst in reach[src]:
-            if dst not in seen:
-                g.node(dst, shape='rectangle')
-                seen.append(dst)
-
-            g.edge(src, dst, dir='both', arrowhead='openopen', arrowtail='open', color='red')
-
-            for subrole in [s for s in roles[src] if s in seen and (src, s) not in sub_edges]:
-                g.edge(src, subrole, dir='both', arrowhead='open', arrowtail='odiamond')
-                sub_edges.append((src, subrole))
-
-            for subrole in [s for s in roles[dst] if s in seen and (dst, s) not in sub_edges]:
-                g.edge(dst, subrole, dir='both', arrowhead='open', arrowtail='odiamond')
-                sub_edges.append((dst, subrole))
-
-    g.render('policies', cleanup=True)
+    with open(sys.argv[1], 'r') as f:
+        inventory_text = f.read()
+    with open(sys.argv[2], 'r') as f:
+        policies_text = f.read()
+    graph = policies_graph(inventory_text, policies_text)
+    graph.render('policies', cleanup=True)
     os.popen('inkscape --export-pdf=policies.pdf policies.svg')
