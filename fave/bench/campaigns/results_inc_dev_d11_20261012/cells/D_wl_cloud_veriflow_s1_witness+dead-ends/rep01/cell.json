@@ -1,0 +1,64 @@
+{
+ "argv": [
+  "/home/ubuntu/fave-project/fave/bench/incremental_run.py",
+  "bench/wl_cloud",
+  "--engine",
+  "veriflow",
+  "--stream",
+  "s1",
+  "--fraction",
+  "0.2",
+  "--seed",
+  "1",
+  "--batch",
+  "1",
+  "--checks",
+  "checks.json",
+  "--cell-dir",
+  "bench/campaigns/results_inc_dev_d11_20261012/cells/D_wl_cloud_veriflow_s1_witness+dead-ends/rep01",
+  "--footprint",
+  "witness,dead-ends"
+ ],
+ "completed_updates": 3482,
+ "limit_class": "dev",
+ "limit_rss_mb": 2048,
+ "limit_tripped": "none",
+ "limit_update_s": 3600.0,
+ "limit_wall_s": 7200.0,
+ "machine": {
+  "cores": 16,
+  "kernel": "7.0.0-31-generic",
+  "node": "5fdf45bfc27e",
+  "ram_mb": 64294,
+  "swap_mb": 0
+ },
+ "measured": {
+  "deadline_stop": null,
+  "exit": 0,
+  "least_available_mb": 15920,
+  "limit_tripped": "none",
+  "memory_stop": null,
+  "orphans_killed": [],
+  "peak_rss_by_process_mb": {
+   "python3": 52
+  },
+  "peak_rss_mb": 52,
+  "peak_swap_by_process_mb": {
+   "python3": 0
+  },
+  "peak_swap_used_mb": 0,
+  "status": "completed",
+  "status_trail": "cell.status.jsonl",
+  "swap_pages": {
+   "pswpin": 0,
+   "pswpout": 0
+  },
+  "swap_used_at_start_mb": 0,
+  "wall_s": 12.659
+ },
+ "memory_floor_mb": 1024,
+ "outcome": "measured",
+ "repetition": 1,
+ "repetitions": 1,
+ "what": "incremental cell (INCREMENTAL_PLAN.md O3, O4)"
+}

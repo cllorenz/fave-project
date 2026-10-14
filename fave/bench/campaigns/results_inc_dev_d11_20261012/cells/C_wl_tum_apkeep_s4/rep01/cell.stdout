@@ -1,0 +1,19 @@
+worker: task failed:
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 486, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 422, in _dispatch
+    self._sync_diff(model)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 790, in _sync_diff
+    self._sync_stable(model)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 918, in _sync_stable
+    self.verification_engine.insert_rule(rule)
+  File "/home/ubuntu/fave-project/fave/apkeep/adapter.py", line 3832, in insert_rule
+    self._require_updatable(op)
+  File "/home/ubuntu/fave-project/fave/apkeep/adapter.py", line 3572, in _require_updatable
+    self._refuse('unbuilt', "%s before the build: there is nothing to "
+  File "/home/ubuntu/fave-project/fave/apkeep/adapter.py", line 3565, in _refuse
+    raise UpdateRefused("APKeepAdapter: " + message)
+aggregator.abstract_engine.UpdateRefused: APKeepAdapter: insert_rule(fw.tum, fw.tum.forward_filter, 3321777) before the build: there is nothing to update yet
+THE ORACLE FAILED: see oracle.jsonl in bench/campaigns/results_inc_dev_d11_20261012/cells/C_wl_tum_apkeep_s4/rep01

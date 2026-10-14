@@ -1,0 +1,872 @@
+2026-10-12T08:20:22Z start A_wl_i2_veriflow_s1 (2048 MB, est 6513.98 h; running 1, 2048 MB)
+2026-10-12T08:20:22Z start D_wl_i2_veriflow_s1_witness (2048 MB, est 6513.98 h; running 2, 4096 MB)
+2026-10-12T08:20:22Z start D_wl_i2_veriflow_s1_dead-ends (2048 MB, est 6513.98 h; running 3, 6144 MB)
+2026-10-12T08:20:22Z start D_wl_i2_veriflow_s1_witness+dead-ends (2048 MB, est 6513.98 h; running 4, 8192 MB)
+2026-10-12T08:20:22Z start E_wl_i2_veriflow_s2_oracle (2048 MB, est 2453.62 h; running 5, 10240 MB)
+2026-10-12T08:20:22Z start A_wl_i2_veriflow_s2 (2048 MB, est 1226.81 h; running 6, 12288 MB)
+2026-10-12T08:20:22Z start B_wl_i2_veriflow_s2_b10 (2048 MB, est 1226.81 h; running 7, 14336 MB)
+2026-10-12T08:20:22Z start B_wl_i2_veriflow_s2_b100 (2048 MB, est 1226.81 h; running 8, 16384 MB)
+2026-10-12T10:20:22Z end   D_wl_i2_veriflow_s1_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T10:20:22Z end   D_wl_i2_veriflow_s1_witness+dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T10:20:22Z end   B_wl_i2_veriflow_s2_b100 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T10:20:22Z start B_wl_i2_veriflow_s2_ball (2048 MB, est 1226.81 h; running 6, 12288 MB)
+2026-10-12T10:20:22Z start D_wl_i2_veriflow_s2_witness (2048 MB, est 1226.81 h; running 7, 14336 MB)
+2026-10-12T10:20:22Z start D_wl_i2_veriflow_s2_dead-ends (2048 MB, est 1226.81 h; running 8, 16384 MB)
+2026-10-12T10:20:24Z end   A_wl_i2_veriflow_s1 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T10:20:24Z end   D_wl_i2_veriflow_s1_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T10:20:24Z end   E_wl_i2_veriflow_s2_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T10:20:24Z end   A_wl_i2_veriflow_s2 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T10:20:24Z end   B_wl_i2_veriflow_s2_b10 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T10:20:24Z start D_wl_i2_veriflow_s2_witness+dead-ends (2048 MB, est 1226.81 h; running 4, 8192 MB)
+2026-10-12T10:20:24Z start A_wl_stanford_veriflow_s1 (3072 MB, est 1182.22 h; running 5, 11264 MB)
+2026-10-12T10:20:24Z start D_wl_stanford_veriflow_s1_witness (3072 MB, est 1182.22 h; running 6, 14336 MB)
+2026-10-12T10:20:24Z start D_wl_stanford_veriflow_s1_dead-ends (3072 MB, est 1182.22 h; running 7, 17408 MB)
+2026-10-12T10:20:24Z start D_wl_stanford_veriflow_s1_witness+dead-ends (3072 MB, est 1182.22 h; running 8, 20480 MB)
+2026-10-12T10:25:46Z end   B_wl_i2_veriflow_s2_ball rc=0 outcome=measured after 0.09 h
+2026-10-12T10:25:46Z start E_wl_stanford_veriflow_s2_oracle (4096 MB, est 230.85 h; running 8, 22528 MB)
+2026-10-12T12:09:05Z end   E_wl_stanford_veriflow_s2_oracle rc=0 outcome=did_not_finish after 1.72 h
+2026-10-12T12:09:05Z start A_wl_stanford_veriflow_s3 (3072 MB, est 179.07 h; running 8, 21504 MB)
+2026-10-12T12:20:23Z end   D_wl_i2_veriflow_s2_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T12:20:23Z start D_wl_stanford_veriflow_s3_witness (3072 MB, est 179.07 h; running 8, 22528 MB)
+2026-10-12T12:20:25Z end   D_wl_i2_veriflow_s2_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T12:20:25Z end   D_wl_i2_veriflow_s2_witness+dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T12:20:25Z end   A_wl_stanford_veriflow_s1 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T12:20:25Z end   D_wl_stanford_veriflow_s1_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T12:20:25Z start D_wl_stanford_veriflow_s3_dead-ends (3072 MB, est 179.07 h; running 5, 15360 MB)
+2026-10-12T12:20:25Z start D_wl_stanford_veriflow_s3_witness+dead-ends (3072 MB, est 179.07 h; running 6, 18432 MB)
+2026-10-12T12:20:25Z start A_wl_stanford_veriflow_s2 (3072 MB, est 115.42 h; running 7, 21504 MB)
+2026-10-12T12:20:25Z start B_wl_stanford_veriflow_s2_b10 (3072 MB, est 115.42 h; running 8, 24576 MB)
+2026-10-12T12:20:27Z end   D_wl_stanford_veriflow_s1_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T12:20:27Z end   D_wl_stanford_veriflow_s1_witness+dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T12:20:27Z start B_wl_stanford_veriflow_s2_b100 (3072 MB, est 115.42 h; running 7, 21504 MB)
+2026-10-12T12:20:27Z start B_wl_stanford_veriflow_s2_ball (3072 MB, est 115.42 h; running 8, 24576 MB)
+2026-10-12T12:27:11Z end   B_wl_stanford_veriflow_s2_ball rc=0 outcome=measured after 0.11 h
+2026-10-12T12:27:11Z start D_wl_stanford_veriflow_s2_witness (3072 MB, est 115.42 h; running 8, 24576 MB)
+2026-10-12T12:41:23Z end   D_wl_stanford_veriflow_s2_witness rc=0 outcome=did_not_finish after 0.24 h
+2026-10-12T12:41:23Z start D_wl_stanford_veriflow_s2_dead-ends (3072 MB, est 115.42 h; running 8, 24576 MB)
+2026-10-12T13:13:29Z end   B_wl_stanford_veriflow_s2_b100 rc=0 outcome=measured after 0.88 h
+2026-10-12T13:13:29Z start D_wl_stanford_veriflow_s2_witness+dead-ends (3072 MB, est 115.42 h; running 8, 24576 MB)
+2026-10-12T13:27:53Z end   D_wl_stanford_veriflow_s2_witness+dead-ends rc=0 outcome=did_not_finish after 0.24 h
+2026-10-12T13:27:53Z start A_wl_up_veriflow_s1 (4096 MB, est 101.37 h; running 8, 25600 MB)
+2026-10-12T14:09:05Z end   A_wl_stanford_veriflow_s3 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T14:09:05Z start D_wl_up_veriflow_s1_witness (4096 MB, est 101.37 h; running 8, 26624 MB)
+2026-10-12T14:20:23Z end   D_wl_stanford_veriflow_s3_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T14:20:23Z start D_wl_up_veriflow_s1_dead-ends (4096 MB, est 101.37 h; running 8, 27648 MB)
+2026-10-12T14:20:25Z end   D_wl_stanford_veriflow_s3_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T14:20:25Z end   D_wl_stanford_veriflow_s3_witness+dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T14:20:25Z end   B_wl_stanford_veriflow_s2_b10 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T14:20:25Z start D_wl_up_veriflow_s1_witness+dead-ends (4096 MB, est 101.37 h; running 6, 22528 MB)
+2026-10-12T14:20:25Z start A_wl_i2_ndd-apkeep_s1 (21504 MB, est 89.19 h; running 7, 44032 MB)
+2026-10-12T14:20:25Z start A_wl_i2_veriflow_s3 (2048 MB, est 19.58 h; running 8, 46080 MB)
+2026-10-12T14:20:27Z end   A_wl_stanford_veriflow_s2 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T14:20:27Z start A_wl_up_veriflow_s3 (4096 MB, est 52.06 h; running 8, 47104 MB)
+2026-10-12T14:41:23Z end   D_wl_stanford_veriflow_s2_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T14:41:23Z start D_wl_i2_veriflow_s3_witness (2048 MB, est 19.58 h; running 8, 46080 MB)
+2026-10-12T15:27:56Z end   A_wl_up_veriflow_s1 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T15:27:56Z start E_wl_up_veriflow_s2_oracle (5120 MB, est 53.06 h; running 8, 47104 MB)
+2026-10-12T16:09:08Z end   D_wl_up_veriflow_s1_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T16:09:08Z start D_wl_up_veriflow_s3_witness (4096 MB, est 52.06 h; running 8, 47104 MB)
+2026-10-12T16:20:26Z end   D_wl_up_veriflow_s1_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T16:20:26Z end   A_wl_i2_veriflow_s3 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T16:20:26Z start D_wl_up_veriflow_s3_dead-ends (4096 MB, est 52.06 h; running 7, 45056 MB)
+2026-10-12T16:20:26Z start D_wl_i2_veriflow_s3_dead-ends (2048 MB, est 19.58 h; running 8, 47104 MB)
+2026-10-12T16:20:28Z end   A_wl_i2_ndd-apkeep_s1 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T16:20:28Z start D_wl_i2_ndd-apkeep_s1_coarse (21504 MB, est 89.19 h; running 8, 47104 MB)
+2026-10-12T16:20:30Z end   D_wl_up_veriflow_s1_witness+dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T16:20:30Z end   A_wl_up_veriflow_s3 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T16:20:30Z start E_wl_up_apkeep_s2_oracle (8192 MB, est 87.87 h; running 7, 47104 MB)
+2026-10-12T16:41:24Z end   D_wl_i2_veriflow_s3_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T16:41:24Z start D_wl_i2_veriflow_s3_witness+dead-ends (2048 MB, est 19.58 h; running 7, 47104 MB)
+2026-10-12T16:46:22Z end   E_wl_up_veriflow_s2_oracle rc=0 outcome=did_not_finish after 1.31 h
+2026-10-12T16:46:22Z start D_wl_up_veriflow_s3_witness+dead-ends (4096 MB, est 52.06 h; running 7, 46080 MB)
+2026-10-12T18:09:11Z end   D_wl_up_veriflow_s3_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T18:09:11Z start A_wl_up_veriflow_s2 (4096 MB, est 26.53 h; running 7, 46080 MB)
+2026-10-12T18:20:27Z end   D_wl_up_veriflow_s3_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T18:20:27Z end   D_wl_i2_veriflow_s3_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T18:20:27Z start A_wl_up_apkeep_s1 (7168 MB, est 52.07 h; running 6, 47104 MB)
+2026-10-12T18:20:31Z end   D_wl_i2_ndd-apkeep_s1_coarse rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T18:20:31Z end   E_wl_up_apkeep_s2_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T18:20:31Z start D_wl_i2_ndd-apkeep_s1_witness (21504 MB, est 89.19 h; running 5, 38912 MB)
+2026-10-12T18:20:31Z start D_wl_up_apkeep_s1_coarse (7168 MB, est 52.07 h; running 6, 46080 MB)
+2026-10-12T18:41:25Z end   D_wl_i2_veriflow_s3_witness+dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T18:41:25Z start D_wl_airtel1_veriflow_s1_witness (2048 MB, est 16.08 h; running 6, 46080 MB)
+2026-10-12T18:46:25Z end   D_wl_up_veriflow_s3_witness+dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T18:46:25Z start B_wl_up_veriflow_s2_b10 (4096 MB, est 26.53 h; running 6, 46080 MB)
+2026-10-12T20:09:14Z end   A_wl_up_veriflow_s2 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T20:09:14Z start B_wl_up_veriflow_s2_b100 (4096 MB, est 26.53 h; running 6, 46080 MB)
+2026-10-12T20:20:30Z end   A_wl_up_apkeep_s1 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T20:20:30Z start D_wl_up_apkeep_s1_witness (7168 MB, est 52.07 h; running 6, 46080 MB)
+2026-10-12T20:20:32Z end   D_wl_up_apkeep_s1_coarse rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T20:20:32Z start D_wl_up_apkeep_s1_dead-ends (7168 MB, est 52.07 h; running 6, 46080 MB)
+2026-10-12T20:20:34Z end   D_wl_i2_ndd-apkeep_s1_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T20:20:34Z start D_wl_i2_ndd-apkeep_s1_dead-ends (21504 MB, est 89.19 h; running 6, 46080 MB)
+2026-10-12T20:41:28Z end   D_wl_airtel1_veriflow_s1_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T20:41:28Z start A_wl_airtel1_veriflow_s1 (2048 MB, est 16.04 h; running 6, 46080 MB)
+2026-10-12T20:46:28Z end   B_wl_up_veriflow_s2_b10 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T20:46:28Z start B_wl_up_veriflow_s2_ball (4096 MB, est 26.53 h; running 6, 46080 MB)
+2026-10-12T20:50:38Z end   B_wl_up_veriflow_s2_ball rc=0 outcome=measured after 0.07 h
+2026-10-12T20:50:38Z start D_wl_up_veriflow_s2_witness (4096 MB, est 26.53 h; running 6, 46080 MB)
+2026-10-12T21:00:16Z end   B_wl_up_veriflow_s2_b100 rc=0 outcome=measured after 0.85 h
+2026-10-12T21:00:16Z start D_wl_up_veriflow_s2_dead-ends (4096 MB, est 26.53 h; running 6, 46080 MB)
+2026-10-12T22:20:31Z end   D_wl_up_apkeep_s1_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T22:20:31Z start A_wl_up_apkeep_s2 (7168 MB, est 43.93 h; running 6, 46080 MB)
+2026-10-12T22:20:35Z end   D_wl_up_apkeep_s1_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T22:20:35Z start B_wl_up_apkeep_s2_b10 (7168 MB, est 43.93 h; running 6, 46080 MB)
+2026-10-12T22:20:37Z end   D_wl_i2_ndd-apkeep_s1_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T22:20:37Z start B_wl_up_apkeep_s2_b100 (7168 MB, est 43.93 h; running 6, 31744 MB)
+2026-10-12T22:20:37Z start B_wl_up_apkeep_s2_ball (7168 MB, est 43.93 h; running 7, 38912 MB)
+2026-10-12T22:20:37Z start D_wl_up_apkeep_s2_coarse (7168 MB, est 43.93 h; running 8, 46080 MB)
+2026-10-12T22:41:33Z end   A_wl_airtel1_veriflow_s1 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T22:41:33Z start A_wl_airtel2_veriflow_s1 (2048 MB, est 15.95 h; running 8, 46080 MB)
+2026-10-12T22:50:41Z end   D_wl_up_veriflow_s2_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T22:50:41Z start D_wl_up_veriflow_s2_witness+dead-ends (4096 MB, est 26.53 h; running 8, 46080 MB)
+2026-10-12T23:00:19Z end   D_wl_up_veriflow_s2_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-12T23:00:19Z start D_wl_airtel2_veriflow_s1_witness (2048 MB, est 15.95 h; running 8, 44032 MB)
+2026-10-12T23:34:29Z end   B_wl_up_apkeep_s2_ball rc=0 outcome=did_not_finish after 1.23 h
+2026-10-12T23:34:29Z start D_wl_up_apkeep_s2_witness (7168 MB, est 43.93 h; running 8, 44032 MB)
+2026-10-13T00:20:34Z end   A_wl_up_apkeep_s2 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T00:20:34Z start D_wl_up_apkeep_s2_dead-ends (7168 MB, est 43.93 h; running 8, 44032 MB)
+2026-10-13T00:20:38Z end   B_wl_up_apkeep_s2_b10 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T00:20:38Z start A_wl_up_apkeep_s3 (7168 MB, est 41.94 h; running 8, 44032 MB)
+2026-10-13T00:20:40Z end   B_wl_up_apkeep_s2_b100 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T00:20:40Z end   D_wl_up_apkeep_s2_coarse rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T00:20:40Z start D_wl_up_apkeep_s3_coarse (7168 MB, est 41.94 h; running 7, 36864 MB)
+2026-10-13T00:20:40Z start D_wl_up_apkeep_s3_witness (7168 MB, est 41.94 h; running 8, 44032 MB)
+2026-10-13T00:41:38Z end   A_wl_airtel2_veriflow_s1 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T00:41:38Z start D_wl_airtel2_veriflow_s1_dead-ends (2048 MB, est 15.95 h; running 8, 44032 MB)
+2026-10-13T00:50:44Z end   D_wl_up_veriflow_s2_witness+dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T00:50:44Z start D_wl_up_apkeep_s3_dead-ends (7168 MB, est 41.94 h; running 8, 47104 MB)
+2026-10-13T01:00:22Z end   D_wl_airtel2_veriflow_s1_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T01:00:22Z start D_wl_airtel2_veriflow_s1_witness+dead-ends (2048 MB, est 15.95 h; running 8, 47104 MB)
+2026-10-13T01:34:32Z end   D_wl_up_apkeep_s2_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T01:34:32Z start D_wl_airtel1_veriflow_s1_dead-ends (2048 MB, est 15.84 h; running 8, 41984 MB)
+2026-10-13T01:52:44Z end   D_wl_airtel2_veriflow_s1_witness+dead-ends rc=0 outcome=measured after 0.87 h
+2026-10-13T01:52:44Z start E_wl_airtel2_veriflow_s2_oracle (2048 MB, est 6.53 h; running 8, 41984 MB)
+2026-10-13T02:20:35Z end   D_wl_up_apkeep_s2_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T02:20:35Z start A_wl_up_ndd-apkeep_s3 (10240 MB, est 15.63 h; running 8, 45056 MB)
+2026-10-13T02:20:41Z end   A_wl_up_apkeep_s3 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T02:20:41Z start E_wl_airtel1_veriflow_s2_oracle (2048 MB, est 6.46 h; running 8, 39936 MB)
+2026-10-13T02:20:43Z end   D_wl_up_apkeep_s3_coarse rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T02:20:43Z end   D_wl_up_apkeep_s3_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T02:20:43Z start A_wl_i2_ndd-apkeep_s2 (21504 MB, est 17.77 h; running 7, 47104 MB)
+2026-10-13T02:41:41Z end   D_wl_airtel2_veriflow_s1_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T02:41:41Z start E_wl_ifi_veriflow_s4_oracle (2048 MB, est 4.00 h; running 7, 47104 MB)
+2026-10-13T02:41:45Z end   E_wl_ifi_veriflow_s4_oracle rc=1 outcome=error after 0.00 h
+2026-10-13T02:41:45Z start E_wl_ifi_apkeep_s4_oracle (2048 MB, est 4.00 h; running 7, 47104 MB)
+2026-10-13T02:41:49Z end   E_wl_ifi_apkeep_s4_oracle rc=1 outcome=error after 0.00 h
+2026-10-13T02:41:49Z start E_wl_cloud_veriflow_s4_oracle (2048 MB, est 4.00 h; running 7, 47104 MB)
+2026-10-13T02:45:35Z end   E_wl_cloud_veriflow_s4_oracle rc=0 outcome=measured after 0.06 h
+2026-10-13T02:45:35Z start E_wl_up_netplumber_s4_oracle (2048 MB, est 4.00 h; running 7, 47104 MB)
+2026-10-13T02:47:35Z end   E_wl_up_netplumber_s4_oracle rc=0 outcome=did_not_finish after 0.03 h
+2026-10-13T02:47:35Z start A_wl_airtel2_veriflow_s2 (2048 MB, est 3.26 h; running 7, 47104 MB)
+2026-10-13T02:50:47Z end   D_wl_up_apkeep_s3_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T02:50:47Z start E_wl_ifi_netplumber_s4_oracle (4096 MB, est 4.00 h; running 7, 44032 MB)
+2026-10-13T02:50:47Z start E_wl_ifi_ndd-apkeep_s4_oracle (3072 MB, est 4.00 h; running 8, 47104 MB)
+2026-10-13T02:50:49Z end   E_wl_ifi_netplumber_s4_oracle rc=1 outcome=error after 0.00 h
+2026-10-13T02:50:49Z start E_wl_cloud_netplumber_s4_oracle (4096 MB, est 4.00 h; running 8, 47104 MB)
+2026-10-13T02:50:51Z end   E_wl_ifi_ndd-apkeep_s4_oracle rc=1 outcome=error after 0.00 h
+2026-10-13T02:50:51Z start B_wl_airtel2_veriflow_s2_b10 (2048 MB, est 3.26 h; running 8, 46080 MB)
+2026-10-13T03:04:55Z end   B_wl_airtel2_veriflow_s2_b10 rc=0 outcome=measured after 0.23 h
+2026-10-13T03:04:55Z start B_wl_airtel2_veriflow_s2_b100 (2048 MB, est 3.26 h; running 8, 46080 MB)
+2026-10-13T03:06:27Z end   B_wl_airtel2_veriflow_s2_b100 rc=0 outcome=measured after 0.03 h
+2026-10-13T03:06:27Z start B_wl_airtel2_veriflow_s2_ball (2048 MB, est 3.26 h; running 8, 46080 MB)
+2026-10-13T03:06:37Z end   B_wl_airtel2_veriflow_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T03:06:37Z start D_wl_airtel2_veriflow_s2_witness (2048 MB, est 3.26 h; running 8, 46080 MB)
+2026-10-13T03:34:35Z end   D_wl_airtel1_veriflow_s1_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T03:34:35Z start D_wl_airtel2_veriflow_s2_dead-ends (2048 MB, est 3.26 h; running 8, 46080 MB)
+2026-10-13T03:50:53Z end   E_wl_cloud_netplumber_s4_oracle rc=0 outcome=did_not_finish after 1.00 h
+2026-10-13T03:50:53Z start E_wl_up_veriflow_s4_oracle (5120 MB, est 4.00 h; running 8, 47104 MB)
+2026-10-13T03:52:47Z end   E_wl_airtel2_veriflow_s2_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T03:52:47Z start D_wl_airtel2_veriflow_s2_witness+dead-ends (2048 MB, est 3.26 h; running 8, 47104 MB)
+2026-10-13T04:20:39Z end   A_wl_up_ndd-apkeep_s3 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T04:20:39Z start D_wl_up_ndd-apkeep_s3_coarse (10240 MB, est 15.63 h; running 8, 47104 MB)
+2026-10-13T04:20:43Z end   E_wl_airtel1_veriflow_s2_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T04:20:43Z start D_wl_airtel1_veriflow_s2_witness (2048 MB, est 3.23 h; running 8, 47104 MB)
+2026-10-13T04:20:45Z end   A_wl_i2_ndd-apkeep_s2 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T04:20:45Z start B_wl_i2_ndd-apkeep_s2_b10 (21504 MB, est 17.77 h; running 8, 47104 MB)
+2026-10-13T04:47:40Z end   A_wl_airtel2_veriflow_s2 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T04:47:40Z start A_wl_airtel1_veriflow_s2 (2048 MB, est 3.23 h; running 8, 47104 MB)
+2026-10-13T05:05:28Z end   D_wl_airtel2_veriflow_s2_witness+dead-ends rc=0 outcome=measured after 1.21 h
+2026-10-13T05:05:28Z start B_wl_airtel1_veriflow_s2_b10 (2048 MB, est 3.23 h; running 8, 47104 MB)
+2026-10-13T05:06:40Z end   D_wl_airtel2_veriflow_s2_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T05:06:40Z start B_wl_airtel1_veriflow_s2_b100 (2048 MB, est 3.23 h; running 8, 47104 MB)
+2026-10-13T05:08:14Z end   B_wl_airtel1_veriflow_s2_b100 rc=0 outcome=measured after 0.03 h
+2026-10-13T05:08:14Z start B_wl_airtel1_veriflow_s2_ball (2048 MB, est 3.23 h; running 8, 47104 MB)
+2026-10-13T05:08:24Z end   B_wl_airtel1_veriflow_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T05:08:24Z start D_wl_airtel1_veriflow_s2_dead-ends (2048 MB, est 3.21 h; running 8, 47104 MB)
+2026-10-13T05:19:34Z end   B_wl_airtel1_veriflow_s2_b10 rc=0 outcome=measured after 0.24 h
+2026-10-13T05:19:34Z start C_wl_ifi_apkeep_s4 (2048 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T05:19:38Z end   C_wl_ifi_apkeep_s4 rc=1 outcome=error after 0.00 h
+2026-10-13T05:19:38Z start C_wl_cloud_veriflow_s4 (2048 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T05:19:45Z FINDING the 4 E_wl_ifi_*_s4_oracle errors are one harness defect, not an engine one: every engine raises KeyError '103' in devices/router.py persist() at S4 edit 124 (a delete). S4's random deletes (util/incremental.py stream_s4; it only keeps >=1 rule line per DEVICE) removed the last of access-list 103's 6 entries while 'ip access-group 103 out' still applies it; the router model has no ACL to look up. The 4 C_wl_ifi_*_s4 cells (same seed) are expected to fail the same way; not skipped, not re-run (protocol). Remedy for the campaign, owner to choose: S4 keeps >=1 entry per ACL, or the router model treats an applied but undefined ACL like IOS does.
+2026-10-13T05:20:20Z end   C_wl_cloud_veriflow_s4 rc=0 outcome=measured after 0.01 h
+2026-10-13T05:20:20Z start C_wl_up_netplumber_s4 (2048 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T05:22:34Z end   C_wl_up_netplumber_s4 rc=0 outcome=did_not_finish after 0.04 h
+2026-10-13T05:22:34Z start E_wl_up_netplumber_s2_oracle (2048 MB, est 0.39 h; running 8, 47104 MB)
+2026-10-13T05:26:16Z end   E_wl_up_netplumber_s2_oracle rc=0 outcome=did_not_finish after 0.06 h
+2026-10-13T05:26:16Z start A_wl_cloud_veriflow_s1 (2048 MB, est 0.27 h; running 8, 47104 MB)
+2026-10-13T05:32:39Z DECLARED owner chose to fix the harness: m2 7dc8d72a makes S4 never delete a router ACL's last entry (seed 1: only wl_ifi's stream changes, from edit 125). For the campaign only; THIS run keeps the code it declared, so its wl_ifi S4 cells stay as recorded.
+2026-10-13T05:33:20Z end   A_wl_cloud_veriflow_s1 rc=0 outcome=measured after 0.12 h
+2026-10-13T05:33:20Z start A_wl_stanford_netplumber_s3 (2048 MB, est 0.27 h; running 8, 47104 MB)
+2026-10-13T05:34:06Z end   A_wl_stanford_netplumber_s3 rc=0 outcome=measured after 0.01 h
+2026-10-13T05:34:06Z start D_wl_cloud_veriflow_s1_dead-ends (2048 MB, est 0.23 h; running 8, 47104 MB)
+2026-10-13T05:34:40Z end   D_wl_airtel2_veriflow_s2_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T05:34:40Z start A_wl_up_netplumber_s2 (2048 MB, est 0.20 h; running 8, 47104 MB)
+2026-10-13T05:38:24Z end   A_wl_up_netplumber_s2 rc=0 outcome=measured after 0.06 h
+2026-10-13T05:38:24Z start B_wl_up_netplumber_s2_b10 (2048 MB, est 0.20 h; running 8, 47104 MB)
+2026-10-13T05:39:16Z end   D_wl_cloud_veriflow_s1_dead-ends rc=0 outcome=measured after 0.09 h
+2026-10-13T05:39:16Z start B_wl_up_netplumber_s2_b100 (2048 MB, est 0.20 h; running 8, 47104 MB)
+2026-10-13T05:41:54Z end   B_wl_up_netplumber_s2_b10 rc=0 outcome=measured after 0.06 h
+2026-10-13T05:41:54Z start B_wl_up_netplumber_s2_ball (2048 MB, est 0.20 h; running 8, 47104 MB)
+2026-10-13T05:42:44Z end   B_wl_up_netplumber_s2_b100 rc=0 outcome=measured after 0.06 h
+2026-10-13T05:42:44Z start E_wl_airtel2_apkeep_s2_oracle (2048 MB, est 0.18 h; running 8, 47104 MB)
+2026-10-13T05:45:24Z end   B_wl_up_netplumber_s2_ball rc=0 outcome=measured after 0.06 h
+2026-10-13T05:45:24Z start E_wl_cloud_veriflow_s2_oracle (2048 MB, est 0.15 h; running 8, 47104 MB)
+2026-10-13T05:48:40Z end   E_wl_cloud_veriflow_s2_oracle rc=0 outcome=measured after 0.05 h
+2026-10-13T05:48:40Z start A_wl_stanford_netplumber_s2 (2048 MB, est 0.14 h; running 8, 47104 MB)
+2026-10-13T05:49:26Z end   A_wl_stanford_netplumber_s2 rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T05:49:26Z start B_wl_stanford_netplumber_s2_b10 (2048 MB, est 0.14 h; running 8, 47104 MB)
+2026-10-13T05:50:10Z end   B_wl_stanford_netplumber_s2_b10 rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T05:50:10Z start B_wl_stanford_netplumber_s2_b100 (2048 MB, est 0.14 h; running 8, 47104 MB)
+2026-10-13T05:50:56Z end   E_wl_up_veriflow_s4_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T05:50:56Z end   B_wl_stanford_netplumber_s2_b100 rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T05:50:56Z start A_wl_i2_netplumber_s1 (5120 MB, est 3.73 h; running 7, 45056 MB)
+2026-10-13T05:50:56Z start B_wl_stanford_netplumber_s2_ball (2048 MB, est 0.14 h; running 8, 47104 MB)
+2026-10-13T05:51:40Z end   B_wl_stanford_netplumber_s2_ball rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T05:51:40Z start D_wl_airtel1_apkeep_s1_coarse (2048 MB, est 0.13 h; running 8, 47104 MB)
+2026-10-13T05:52:34Z end   E_wl_airtel2_apkeep_s2_oracle rc=0 outcome=measured after 0.16 h
+2026-10-13T05:52:34Z start D_wl_airtel1_apkeep_s1_dead-ends (2048 MB, est 0.13 h; running 8, 47104 MB)
+2026-10-13T05:56:34Z end   D_wl_airtel1_apkeep_s1_coarse rc=0 outcome=measured after 0.08 h
+2026-10-13T05:56:34Z start D_wl_cloud_veriflow_s1_witness (2048 MB, est 0.12 h; running 8, 47104 MB)
+2026-10-13T05:57:08Z end   D_wl_airtel1_apkeep_s1_dead-ends rc=0 outcome=measured after 0.08 h
+2026-10-13T05:57:08Z start D_wl_airtel1_apkeep_s1_witness (2048 MB, est 0.12 h; running 8, 47104 MB)
+2026-10-13T05:59:40Z end   D_wl_cloud_veriflow_s1_witness rc=0 outcome=measured after 0.05 h
+2026-10-13T05:59:40Z start E_wl_airtel2_netplumber_s2_oracle (2048 MB, est 0.11 h; running 8, 47104 MB)
+2026-10-13T06:01:12Z end   E_wl_airtel2_netplumber_s2_oracle rc=0 outcome=measured after 0.03 h
+2026-10-13T06:01:12Z start E_wl_airtel1_netplumber_s2_oracle (2048 MB, est 0.11 h; running 8, 47104 MB)
+2026-10-13T06:01:32Z end   D_wl_airtel1_apkeep_s1_witness rc=0 outcome=measured after 0.07 h
+2026-10-13T06:01:32Z start E_wl_example_apkeep_s2_oracle (2048 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:01:34Z end   E_wl_example_apkeep_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T06:01:34Z start E_wl_ifi_veriflow_s2_oracle (2048 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:01:36Z end   E_wl_ifi_veriflow_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T06:01:36Z start E_wl_ifi_apkeep_s2_oracle (2048 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:01:38Z end   E_wl_ifi_apkeep_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T06:01:38Z start A_wl_airtel2_apkeep_s1 (2048 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:02:44Z end   E_wl_airtel1_netplumber_s2_oracle rc=0 outcome=measured after 0.03 h
+2026-10-13T06:02:44Z start D_wl_airtel2_apkeep_s1_coarse (2048 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:05:32Z end   A_wl_i2_netplumber_s1 rc=0 outcome=measured after 0.24 h
+2026-10-13T06:05:32Z end   A_wl_airtel2_apkeep_s1 rc=0 outcome=measured after 0.07 h
+2026-10-13T06:05:32Z start A_wl_tum_netplumber_s1 (4096 MB, est 2.00 h; running 7, 44032 MB)
+2026-10-13T06:05:32Z start C_wl_ifi_ndd-apkeep_s4 (3072 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:05:36Z end   C_wl_ifi_ndd-apkeep_s4 rc=1 outcome=error after 0.00 h
+2026-10-13T06:05:36Z start E_wl_stanford_netplumber_s2_oracle (3072 MB, est 0.28 h; running 8, 47104 MB)
+2026-10-13T06:05:42Z end   A_wl_tum_netplumber_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T06:05:42Z start A_wl_tum_netplumber_s2 (4096 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:06:58Z end   E_wl_stanford_netplumber_s2_oracle rc=0 outcome=did_not_finish after 0.02 h
+2026-10-13T06:06:58Z start E_wl_airtel1_apkeep_s2_oracle (3072 MB, est 0.13 h; running 8, 47104 MB)
+2026-10-13T06:07:48Z end   D_wl_airtel2_apkeep_s1_coarse rc=0 outcome=measured after 0.08 h
+2026-10-13T06:07:48Z start D_wl_airtel2_apkeep_s1_witness (2048 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:11:10Z end   A_wl_tum_netplumber_s2 rc=0 outcome=measured after 0.09 h
+2026-10-13T06:11:10Z start A_wl_tum_netplumber_s3 (4096 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:11:18Z end   A_wl_tum_netplumber_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T06:11:18Z start A_wl_tum_veriflow_s1 (4096 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:11:22Z end   A_wl_tum_veriflow_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T06:11:22Z start A_wl_tum_veriflow_s2 (4096 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:11:24Z end   A_wl_tum_veriflow_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T06:11:24Z start A_wl_tum_veriflow_s3 (4096 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:11:26Z end   A_wl_tum_veriflow_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T06:11:26Z start C_wl_ifi_netplumber_s4 (4096 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:11:28Z end   C_wl_ifi_netplumber_s4 rc=1 outcome=error after 0.00 h
+2026-10-13T06:11:28Z start C_wl_ifi_veriflow_s4 (4096 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:11:30Z end   C_wl_ifi_veriflow_s4 rc=1 outcome=error after 0.00 h
+2026-10-13T06:11:30Z start C_wl_cloud_netplumber_s4 (4096 MB, est 2.00 h; running 8, 47104 MB)
+2026-10-13T06:12:26Z end   D_wl_airtel2_apkeep_s1_witness rc=0 outcome=measured after 0.08 h
+2026-10-13T06:12:26Z start D_wl_airtel2_apkeep_s1_dead-ends (2048 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:16:58Z end   E_wl_airtel1_apkeep_s2_oracle rc=0 outcome=measured after 0.17 h
+2026-10-13T06:16:58Z start E_wl_example_ndd-apkeep_s2_oracle (3072 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:17:02Z end   E_wl_example_ndd-apkeep_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T06:17:02Z start E_wl_ifi_ndd-apkeep_s2_oracle (3072 MB, est 0.10 h; running 8, 47104 MB)
+2026-10-13T06:17:06Z end   E_wl_ifi_ndd-apkeep_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T06:17:06Z start A_wl_airtel2_apkeep_s2 (2048 MB, est 0.09 h; running 8, 46080 MB)
+2026-10-13T06:17:16Z end   D_wl_airtel2_apkeep_s1_dead-ends rc=0 outcome=measured after 0.08 h
+2026-10-13T06:17:16Z start B_wl_airtel2_apkeep_s2_b10 (2048 MB, est 0.09 h; running 8, 46080 MB)
+2026-10-13T06:19:02Z end   B_wl_airtel2_apkeep_s2_b10 rc=0 outcome=measured after 0.03 h
+2026-10-13T06:19:02Z start B_wl_airtel2_apkeep_s2_b100 (2048 MB, est 0.09 h; running 8, 46080 MB)
+2026-10-13T06:19:16Z end   A_wl_airtel2_apkeep_s2 rc=0 outcome=measured after 0.04 h
+2026-10-13T06:19:16Z start B_wl_airtel2_apkeep_s2_ball (2048 MB, est 0.09 h; running 8, 46080 MB)
+2026-10-13T06:20:22Z end   B_wl_airtel2_apkeep_s2_b100 rc=0 outcome=measured after 0.02 h
+2026-10-13T06:20:22Z start D_wl_airtel2_apkeep_s2_coarse (2048 MB, est 0.09 h; running 8, 46080 MB)
+2026-10-13T06:20:30Z end   B_wl_airtel2_apkeep_s2_ball rc=0 outcome=measured after 0.02 h
+2026-10-13T06:20:30Z start D_wl_airtel2_apkeep_s2_witness (2048 MB, est 0.09 h; running 8, 46080 MB)
+2026-10-13T06:20:44Z end   D_wl_up_ndd-apkeep_s3_coarse rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T06:20:44Z start D_wl_up_ndd-apkeep_s3_witness (10240 MB, est 15.63 h; running 8, 46080 MB)
+2026-10-13T06:20:46Z end   D_wl_airtel1_veriflow_s2_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T06:20:46Z start D_wl_airtel2_apkeep_s2_dead-ends (2048 MB, est 0.09 h; running 8, 46080 MB)
+2026-10-13T06:20:48Z end   B_wl_i2_ndd-apkeep_s2_b10 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T06:20:48Z start B_wl_i2_ndd-apkeep_s2_b100 (21504 MB, est 17.77 h; running 8, 46080 MB)
+2026-10-13T06:23:42Z end   D_wl_airtel2_apkeep_s2_witness rc=0 outcome=measured after 0.05 h
+2026-10-13T06:23:42Z start A_wl_airtel1_apkeep_s1 (2048 MB, est 0.09 h; running 8, 46080 MB)
+2026-10-13T06:25:40Z end   D_wl_airtel2_apkeep_s2_dead-ends rc=0 outcome=measured after 0.08 h
+2026-10-13T06:25:40Z start D_wl_airtel1_apkeep_s3_witness (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:25:48Z end   D_wl_airtel2_apkeep_s2_coarse rc=0 outcome=measured after 0.09 h
+2026-10-13T06:25:48Z start A_wl_airtel1_apkeep_s3 (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:27:22Z end   D_wl_airtel1_apkeep_s3_witness rc=0 outcome=measured after 0.03 h
+2026-10-13T06:27:22Z start A_wl_airtel2_apkeep_s3 (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:27:28Z end   A_wl_airtel1_apkeep_s3 rc=0 outcome=measured after 0.03 h
+2026-10-13T06:27:28Z start D_wl_airtel1_apkeep_s2_coarse (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:27:50Z end   A_wl_airtel1_apkeep_s1 rc=0 outcome=measured after 0.07 h
+2026-10-13T06:27:50Z start D_wl_airtel1_apkeep_s3_dead-ends (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:29:04Z end   A_wl_airtel2_apkeep_s3 rc=0 outcome=measured after 0.03 h
+2026-10-13T06:29:04Z start D_wl_airtel2_apkeep_s3_coarse (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:29:32Z end   D_wl_airtel1_apkeep_s3_dead-ends rc=0 outcome=measured after 0.03 h
+2026-10-13T06:29:32Z start D_wl_airtel2_apkeep_s3_witness (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:30:44Z end   D_wl_airtel2_apkeep_s3_coarse rc=0 outcome=measured after 0.03 h
+2026-10-13T06:30:44Z start D_wl_airtel2_apkeep_s3_dead-ends (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:31:14Z end   D_wl_airtel2_apkeep_s3_witness rc=0 outcome=measured after 0.03 h
+2026-10-13T06:31:14Z start D_wl_airtel1_apkeep_s3_coarse (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:32:26Z end   D_wl_airtel2_apkeep_s3_dead-ends rc=0 outcome=measured after 0.03 h
+2026-10-13T06:32:26Z start D_wl_airtel1_apkeep_s2_dead-ends (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:32:36Z end   D_wl_airtel1_apkeep_s2_coarse rc=0 outcome=measured after 0.09 h
+2026-10-13T06:32:36Z start A_wl_airtel1_veriflow_s3 (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:32:58Z end   D_wl_airtel1_apkeep_s3_coarse rc=0 outcome=measured after 0.03 h
+2026-10-13T06:32:58Z start D_wl_airtel1_veriflow_s3_witness (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:34:06Z end   A_wl_airtel1_veriflow_s3 rc=0 outcome=measured after 0.03 h
+2026-10-13T06:34:06Z start D_wl_airtel1_veriflow_s3_dead-ends (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:34:28Z end   D_wl_airtel1_veriflow_s3_witness rc=0 outcome=measured after 0.03 h
+2026-10-13T06:34:28Z start D_wl_airtel1_veriflow_s1_witness+dead-ends (2048 MB, est 0.08 h; running 8, 46080 MB)
+2026-10-13T06:35:30Z end   D_wl_airtel1_veriflow_s3_dead-ends rc=0 outcome=measured after 0.02 h
+2026-10-13T06:35:30Z start D_wl_airtel1_apkeep_s2_witness (2048 MB, est 0.07 h; running 8, 46080 MB)
+2026-10-13T06:36:58Z end   D_wl_airtel1_apkeep_s2_dead-ends rc=0 outcome=measured after 0.08 h
+2026-10-13T06:36:58Z start A_wl_cloud_veriflow_s2 (2048 MB, est 0.07 h; running 8, 46080 MB)
+2026-10-13T06:38:04Z end   A_wl_cloud_veriflow_s2 rc=0 outcome=measured after 0.02 h
+2026-10-13T06:38:04Z start B_wl_cloud_veriflow_s2_b10 (2048 MB, est 0.07 h; running 8, 46080 MB)
+2026-10-13T06:38:20Z end   B_wl_cloud_veriflow_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T06:38:20Z start B_wl_cloud_veriflow_s2_b100 (2048 MB, est 0.07 h; running 8, 46080 MB)
+2026-10-13T06:38:22Z end   D_wl_airtel1_apkeep_s2_witness rc=0 outcome=measured after 0.05 h
+2026-10-13T06:38:22Z start B_wl_cloud_veriflow_s2_ball (2048 MB, est 0.07 h; running 8, 46080 MB)
+2026-10-13T06:38:24Z end   B_wl_cloud_veriflow_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T06:38:24Z end   B_wl_cloud_veriflow_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T06:38:24Z start C_wl_up_veriflow_s4 (4096 MB, est 2.00 h; running 7, 46080 MB)
+2026-10-13T06:47:44Z end   A_wl_airtel1_veriflow_s2 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T06:47:44Z start D_wl_cloud_veriflow_s2_dead-ends (2048 MB, est 0.07 h; running 7, 46080 MB)
+2026-10-13T06:48:38Z end   D_wl_cloud_veriflow_s2_dead-ends rc=0 outcome=measured after 0.02 h
+2026-10-13T06:48:38Z start D_wl_airtel1_veriflow_s3_witness+dead-ends (2048 MB, est 0.07 h; running 7, 46080 MB)
+2026-10-13T06:49:42Z end   D_wl_airtel1_veriflow_s3_witness+dead-ends rc=0 outcome=measured after 0.02 h
+2026-10-13T06:49:42Z start A_wl_airtel1_apkeep_s2 (2048 MB, est 0.07 h; running 7, 46080 MB)
+2026-10-13T06:51:44Z end   A_wl_airtel1_apkeep_s2 rc=0 outcome=measured after 0.03 h
+2026-10-13T06:51:44Z start B_wl_airtel1_apkeep_s2_b10 (2048 MB, est 0.07 h; running 7, 46080 MB)
+2026-10-13T06:53:28Z end   B_wl_airtel1_apkeep_s2_b10 rc=0 outcome=measured after 0.03 h
+2026-10-13T06:53:28Z start B_wl_airtel1_apkeep_s2_b100 (2048 MB, est 0.07 h; running 7, 46080 MB)
+2026-10-13T06:54:49Z end   B_wl_airtel1_apkeep_s2_b100 rc=0 outcome=measured after 0.02 h
+2026-10-13T06:54:49Z start B_wl_airtel1_apkeep_s2_ball (2048 MB, est 0.07 h; running 7, 46080 MB)
+2026-10-13T06:56:01Z end   B_wl_airtel1_apkeep_s2_ball rc=0 outcome=measured after 0.02 h
+2026-10-13T06:56:01Z start A_wl_up_netplumber_s1 (2048 MB, est 0.07 h; running 7, 46080 MB)
+2026-10-13T06:56:31Z end   A_wl_up_netplumber_s1 rc=0 outcome=measured after 0.01 h
+2026-10-13T06:56:31Z start A_wl_airtel2_veriflow_s3 (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T06:57:57Z end   A_wl_airtel2_veriflow_s3 rc=0 outcome=measured after 0.02 h
+2026-10-13T06:57:57Z start D_wl_airtel2_veriflow_s3_witness (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T06:59:23Z end   D_wl_airtel2_veriflow_s3_witness rc=0 outcome=measured after 0.02 h
+2026-10-13T06:59:23Z start D_wl_airtel2_veriflow_s3_dead-ends (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:00:51Z end   D_wl_airtel2_veriflow_s3_dead-ends rc=0 outcome=measured after 0.02 h
+2026-10-13T07:00:51Z start D_wl_airtel2_veriflow_s3_witness+dead-ends (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:01:53Z end   D_wl_airtel2_veriflow_s3_witness+dead-ends rc=0 outcome=measured after 0.02 h
+2026-10-13T07:01:53Z start A_wl_cloud_veriflow_s3 (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:02:29Z end   A_wl_cloud_veriflow_s3 rc=0 outcome=measured after 0.01 h
+2026-10-13T07:02:29Z start A_wl_airtel1_netplumber_s1 (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:02:53Z end   A_wl_airtel1_netplumber_s1 rc=0 outcome=measured after 0.01 h
+2026-10-13T07:02:53Z start A_wl_airtel2_netplumber_s1 (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:03:17Z end   A_wl_airtel2_netplumber_s1 rc=0 outcome=measured after 0.01 h
+2026-10-13T07:03:17Z start D_wl_airtel1_veriflow_s2_witness+dead-ends (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:08:29Z end   D_wl_airtel1_veriflow_s2_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T07:08:29Z start D_wl_cloud_veriflow_s3_dead-ends (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:09:03Z end   D_wl_cloud_veriflow_s3_dead-ends rc=0 outcome=measured after 0.01 h
+2026-10-13T07:09:03Z start A_wl_up_netplumber_s3 (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:09:31Z end   A_wl_up_netplumber_s3 rc=0 outcome=measured after 0.01 h
+2026-10-13T07:09:31Z start D_wl_cloud_veriflow_s2_witness (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:10:03Z end   D_wl_cloud_veriflow_s2_witness rc=0 outcome=measured after 0.01 h
+2026-10-13T07:10:03Z start D_wl_cloud_veriflow_s3_witness (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:10:29Z end   D_wl_cloud_veriflow_s3_witness rc=0 outcome=measured after 0.01 h
+2026-10-13T07:10:29Z start D_wl_cloud_veriflow_s3_witness+dead-ends (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:10:45Z end   D_wl_cloud_veriflow_s3_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T07:10:45Z start A_wl_airtel2_netplumber_s2 (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:10:57Z end   A_wl_airtel2_netplumber_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:10:57Z start B_wl_airtel2_netplumber_s2_b10 (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:11:05Z end   B_wl_airtel2_netplumber_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:11:05Z start B_wl_airtel2_netplumber_s2_b100 (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:11:13Z end   B_wl_airtel2_netplumber_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:11:13Z start B_wl_airtel2_netplumber_s2_ball (2048 MB, est 0.06 h; running 7, 46080 MB)
+2026-10-13T07:11:21Z end   B_wl_airtel2_netplumber_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T07:11:21Z start A_wl_airtel1_netplumber_s2 (2048 MB, est 0.05 h; running 7, 46080 MB)
+2026-10-13T07:11:33Z end   C_wl_cloud_netplumber_s4 rc=0 outcome=did_not_finish after 1.00 h
+2026-10-13T07:11:33Z end   A_wl_airtel1_netplumber_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:11:33Z start C_wl_up_apkeep_s4 (7168 MB, est 2.00 h; running 6, 47104 MB)
+2026-10-13T07:22:57Z end   D_wl_airtel1_veriflow_s1_witness+dead-ends rc=0 outcome=measured after 0.81 h
+2026-10-13T07:22:57Z start B_wl_airtel1_netplumber_s2_b10 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:23:05Z end   B_wl_airtel1_netplumber_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:23:05Z start B_wl_airtel1_netplumber_s2_b100 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:23:13Z end   B_wl_airtel1_netplumber_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:23:13Z start B_wl_airtel1_netplumber_s2_ball (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:23:19Z end   B_wl_airtel1_netplumber_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T07:23:19Z start A_wl_stanford_netplumber_s1 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:23:33Z end   A_wl_stanford_netplumber_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:23:33Z start A_wl_airtel1_netplumber_s3 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:23:39Z end   A_wl_airtel1_netplumber_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:23:39Z start A_wl_airtel2_netplumber_s3 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:23:45Z end   A_wl_airtel2_netplumber_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:23:45Z start D_wl_cloud_veriflow_s1_witness+dead-ends (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:23:59Z end   D_wl_cloud_veriflow_s1_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T07:23:59Z start D_wl_cloud_veriflow_s2_witness+dead-ends (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:07Z end   D_wl_cloud_veriflow_s2_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:07Z start A_wl_example_apkeep_s1 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:09Z end   A_wl_example_apkeep_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:09Z start A_wl_example_apkeep_s2 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:11Z end   A_wl_example_apkeep_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:11Z start A_wl_example_apkeep_s3 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:13Z end   A_wl_example_apkeep_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:13Z start B_wl_example_apkeep_s2_b10 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:15Z end   B_wl_example_apkeep_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:15Z start B_wl_example_apkeep_s2_b100 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:17Z end   B_wl_example_apkeep_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:17Z start B_wl_example_apkeep_s2_ball (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:19Z end   B_wl_example_apkeep_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:19Z start A_wl_ifi_apkeep_s1 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:21Z end   A_wl_ifi_apkeep_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:21Z start A_wl_ifi_apkeep_s2 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:23Z end   A_wl_ifi_apkeep_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:23Z start A_wl_ifi_apkeep_s3 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:25Z end   A_wl_ifi_apkeep_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:25Z start B_wl_ifi_apkeep_s2_b10 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:27Z end   B_wl_ifi_apkeep_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:27Z start B_wl_ifi_apkeep_s2_b100 (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:29Z end   B_wl_ifi_apkeep_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:29Z start B_wl_ifi_apkeep_s2_ball (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:31Z end   B_wl_ifi_apkeep_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:31Z start D_wl_example_apkeep_s1_coarse (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:33Z end   D_wl_example_apkeep_s1_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:33Z start D_wl_example_apkeep_s2_coarse (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:35Z end   D_wl_example_apkeep_s2_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:35Z start D_wl_example_apkeep_s3_coarse (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:37Z end   D_wl_example_apkeep_s3_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:37Z start D_wl_example_apkeep_s1_witness (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:39Z end   D_wl_example_apkeep_s1_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:39Z start D_wl_example_apkeep_s2_witness (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:41Z end   D_wl_example_apkeep_s2_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:41Z start D_wl_example_apkeep_s3_witness (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:43Z end   D_wl_example_apkeep_s3_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:43Z start D_wl_example_apkeep_s1_dead-ends (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:45Z end   D_wl_example_apkeep_s1_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:45Z start D_wl_example_apkeep_s2_dead-ends (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:47Z end   D_wl_example_apkeep_s2_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:47Z start D_wl_example_apkeep_s3_dead-ends (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:49Z end   D_wl_example_apkeep_s3_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:49Z start D_wl_ifi_apkeep_s1_coarse (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:51Z end   D_wl_ifi_apkeep_s1_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:51Z start D_wl_ifi_apkeep_s2_coarse (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:53Z end   D_wl_ifi_apkeep_s2_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:53Z start D_wl_ifi_apkeep_s3_coarse (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:55Z end   D_wl_ifi_apkeep_s3_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:55Z start D_wl_ifi_apkeep_s1_witness (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:57Z end   D_wl_ifi_apkeep_s1_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:57Z start D_wl_ifi_apkeep_s2_witness (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:24:59Z end   D_wl_ifi_apkeep_s2_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T07:24:59Z start D_wl_ifi_apkeep_s3_witness (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:25:01Z end   D_wl_ifi_apkeep_s3_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T07:25:01Z start D_wl_ifi_apkeep_s1_dead-ends (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:25:03Z end   D_wl_ifi_apkeep_s1_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T07:25:03Z start D_wl_ifi_apkeep_s2_dead-ends (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:25:05Z end   D_wl_ifi_apkeep_s2_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T07:25:05Z start D_wl_ifi_apkeep_s3_dead-ends (2048 MB, est 0.05 h; running 6, 47104 MB)
+2026-10-13T07:25:07Z end   D_wl_ifi_apkeep_s3_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:17:43Z end   D_wl_airtel1_veriflow_s2_witness+dead-ends rc=0 outcome=measured after 1.24 h
+2026-10-13T08:17:43Z start C_wl_tum_netplumber_s4 (4096 MB, est 2.00 h; running 5, 47104 MB)
+2026-10-13T08:19:05Z end   C_wl_tum_netplumber_s4 rc=0 outcome=did_not_finish after 0.02 h
+2026-10-13T08:19:05Z start C_wl_tum_veriflow_s4 (4096 MB, est 2.00 h; running 5, 47104 MB)
+2026-10-13T08:19:09Z end   C_wl_tum_veriflow_s4 rc=0 outcome=refused after 0.00 h
+2026-10-13T08:19:09Z start E_wl_example_netplumber_s2_oracle (4096 MB, est 0.10 h; running 5, 47104 MB)
+2026-10-13T08:19:11Z end   E_wl_example_netplumber_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:11Z start E_wl_example_veriflow_s2_oracle (4096 MB, est 0.10 h; running 5, 47104 MB)
+2026-10-13T08:19:13Z end   E_wl_example_veriflow_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:13Z start E_wl_ifi_netplumber_s2_oracle (4096 MB, est 0.10 h; running 5, 47104 MB)
+2026-10-13T08:19:15Z end   E_wl_ifi_netplumber_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:15Z start E_wl_cloud_netplumber_s2_oracle (4096 MB, est 0.10 h; running 5, 47104 MB)
+2026-10-13T08:19:17Z end   E_wl_cloud_netplumber_s2_oracle rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:17Z start A_wl_ifi_ndd-apkeep_s3 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:19:21Z end   A_wl_ifi_ndd-apkeep_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:21Z start D_wl_ifi_ndd-apkeep_s3_coarse (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:19:25Z end   D_wl_ifi_ndd-apkeep_s3_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:25Z start D_wl_ifi_ndd-apkeep_s3_witness (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:19:29Z end   D_wl_ifi_ndd-apkeep_s3_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:29Z start D_wl_ifi_ndd-apkeep_s3_dead-ends (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:19:33Z end   D_wl_ifi_ndd-apkeep_s3_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:33Z start A_wl_example_netplumber_s1 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:35Z end   A_wl_example_netplumber_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:35Z start A_wl_example_netplumber_s2 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:37Z end   A_wl_example_netplumber_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:37Z start A_wl_example_netplumber_s3 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:39Z end   A_wl_example_netplumber_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:39Z start B_wl_example_netplumber_s2_b10 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:41Z end   B_wl_example_netplumber_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:41Z start B_wl_example_netplumber_s2_b100 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:43Z end   B_wl_example_netplumber_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:43Z start B_wl_example_netplumber_s2_ball (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:45Z end   B_wl_example_netplumber_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:45Z start A_wl_example_veriflow_s1 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:47Z end   A_wl_example_veriflow_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:47Z start A_wl_example_veriflow_s2 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:49Z end   A_wl_example_veriflow_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:49Z start A_wl_example_veriflow_s3 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:51Z end   A_wl_example_veriflow_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:51Z start B_wl_example_veriflow_s2_b10 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:53Z end   B_wl_example_veriflow_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:53Z start B_wl_example_veriflow_s2_b100 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:55Z end   B_wl_example_veriflow_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:55Z start B_wl_example_veriflow_s2_ball (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:19:57Z end   B_wl_example_veriflow_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T08:19:57Z start A_wl_example_ndd-apkeep_s1 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:01Z end   A_wl_example_ndd-apkeep_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:01Z start A_wl_example_ndd-apkeep_s2 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:03Z end   A_wl_example_ndd-apkeep_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:03Z start A_wl_example_ndd-apkeep_s3 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:07Z end   A_wl_example_ndd-apkeep_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:07Z start B_wl_example_ndd-apkeep_s2_b10 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:09Z end   B_wl_example_ndd-apkeep_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:09Z start B_wl_example_ndd-apkeep_s2_b100 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:11Z end   B_wl_example_ndd-apkeep_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:11Z start B_wl_example_ndd-apkeep_s2_ball (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:13Z end   B_wl_example_ndd-apkeep_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:13Z start A_wl_ifi_netplumber_s1 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:15Z end   A_wl_ifi_netplumber_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:15Z start A_wl_ifi_netplumber_s2 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:17Z end   A_wl_ifi_netplumber_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:17Z start A_wl_ifi_netplumber_s3 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:19Z end   A_wl_ifi_netplumber_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:19Z start B_wl_ifi_netplumber_s2_b10 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:21Z end   B_wl_ifi_netplumber_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:21Z start B_wl_ifi_netplumber_s2_b100 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:23Z end   B_wl_ifi_netplumber_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:23Z start B_wl_ifi_netplumber_s2_ball (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:25Z end   B_wl_ifi_netplumber_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:25Z start A_wl_ifi_veriflow_s1 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:27Z end   A_wl_ifi_veriflow_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:27Z start A_wl_ifi_veriflow_s2 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:29Z end   A_wl_ifi_veriflow_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:29Z start A_wl_ifi_veriflow_s3 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:31Z end   A_wl_ifi_veriflow_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:31Z start B_wl_ifi_veriflow_s2_b10 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:33Z end   B_wl_ifi_veriflow_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:33Z start B_wl_ifi_veriflow_s2_b100 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:35Z end   B_wl_ifi_veriflow_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:35Z start B_wl_ifi_veriflow_s2_ball (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:37Z end   B_wl_ifi_veriflow_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:37Z start A_wl_ifi_ndd-apkeep_s1 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:41Z end   A_wl_ifi_ndd-apkeep_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:41Z start A_wl_ifi_ndd-apkeep_s2 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:45Z end   A_wl_ifi_ndd-apkeep_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:45Z start B_wl_ifi_ndd-apkeep_s2_b10 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:47Z end   D_wl_up_ndd-apkeep_s3_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T08:20:47Z start D_wl_up_ndd-apkeep_s3_dead-ends (10240 MB, est 15.63 h; running 5, 46080 MB)
+2026-10-13T08:20:49Z end   B_wl_ifi_ndd-apkeep_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:49Z start B_wl_ifi_ndd-apkeep_s2_b100 (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:51Z end   B_wl_i2_ndd-apkeep_s2_b100 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T08:20:51Z start B_wl_i2_ndd-apkeep_s2_ball (21504 MB, est 17.77 h; running 5, 46080 MB)
+2026-10-13T08:20:53Z end   B_wl_ifi_ndd-apkeep_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:53Z start B_wl_ifi_ndd-apkeep_s2_ball (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:20:55Z end   B_wl_ifi_ndd-apkeep_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:55Z start A_wl_cloud_netplumber_s1 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:57Z end   A_wl_cloud_netplumber_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:57Z start A_wl_cloud_netplumber_s2 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:20:59Z end   A_wl_cloud_netplumber_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:20:59Z start A_wl_cloud_netplumber_s3 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:01Z end   A_wl_cloud_netplumber_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:01Z start B_wl_cloud_netplumber_s2_b10 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:03Z end   B_wl_cloud_netplumber_s2_b10 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:03Z start B_wl_cloud_netplumber_s2_b100 (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:05Z end   B_wl_cloud_netplumber_s2_b100 rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:05Z start B_wl_cloud_netplumber_s2_ball (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:07Z end   B_wl_cloud_netplumber_s2_ball rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:07Z start D_wl_example_ndd-apkeep_s1_coarse (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:11Z end   D_wl_example_ndd-apkeep_s1_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:11Z start D_wl_example_ndd-apkeep_s2_coarse (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:13Z end   D_wl_example_ndd-apkeep_s2_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:13Z start D_wl_example_ndd-apkeep_s3_coarse (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:17Z end   D_wl_example_ndd-apkeep_s3_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:17Z start D_wl_example_ndd-apkeep_s1_witness (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:21Z end   D_wl_example_ndd-apkeep_s1_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:21Z start D_wl_example_ndd-apkeep_s2_witness (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:23Z end   D_wl_example_ndd-apkeep_s2_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:23Z start D_wl_example_ndd-apkeep_s3_witness (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:27Z end   D_wl_example_ndd-apkeep_s3_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:27Z start D_wl_example_ndd-apkeep_s1_dead-ends (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:31Z end   D_wl_example_ndd-apkeep_s1_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:31Z start D_wl_example_ndd-apkeep_s2_dead-ends (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:33Z end   D_wl_example_ndd-apkeep_s2_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:33Z start D_wl_example_ndd-apkeep_s3_dead-ends (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:37Z end   D_wl_example_ndd-apkeep_s3_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:37Z start D_wl_example_veriflow_s1_witness (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:39Z end   D_wl_example_veriflow_s1_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:39Z start D_wl_example_veriflow_s2_witness (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:41Z end   D_wl_example_veriflow_s2_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:41Z start D_wl_example_veriflow_s3_witness (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:43Z end   D_wl_example_veriflow_s3_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:43Z start D_wl_example_veriflow_s1_dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:45Z end   D_wl_example_veriflow_s1_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:45Z start D_wl_example_veriflow_s2_dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:47Z end   D_wl_example_veriflow_s2_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:47Z start D_wl_example_veriflow_s3_dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:49Z end   D_wl_example_veriflow_s3_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:49Z start D_wl_example_veriflow_s1_witness+dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:51Z end   D_wl_example_veriflow_s1_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:51Z start D_wl_example_veriflow_s2_witness+dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:53Z end   D_wl_example_veriflow_s2_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:53Z start D_wl_example_veriflow_s3_witness+dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:21:55Z end   D_wl_example_veriflow_s3_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:55Z start D_wl_ifi_ndd-apkeep_s1_coarse (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:21:59Z end   D_wl_ifi_ndd-apkeep_s1_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T08:21:59Z start D_wl_ifi_ndd-apkeep_s2_coarse (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:22:03Z end   D_wl_ifi_ndd-apkeep_s2_coarse rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:03Z start D_wl_ifi_ndd-apkeep_s1_witness (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:22:07Z end   D_wl_ifi_ndd-apkeep_s1_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:07Z start D_wl_ifi_ndd-apkeep_s2_witness (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:22:11Z end   D_wl_ifi_ndd-apkeep_s2_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:11Z start D_wl_ifi_ndd-apkeep_s1_dead-ends (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:22:15Z end   D_wl_ifi_ndd-apkeep_s1_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:15Z start D_wl_ifi_ndd-apkeep_s2_dead-ends (3072 MB, est 0.05 h; running 5, 46080 MB)
+2026-10-13T08:22:19Z end   D_wl_ifi_ndd-apkeep_s2_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:19Z start D_wl_ifi_veriflow_s1_witness (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:21Z end   D_wl_ifi_veriflow_s1_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:21Z start D_wl_ifi_veriflow_s2_witness (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:23Z end   D_wl_ifi_veriflow_s2_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:23Z start D_wl_ifi_veriflow_s3_witness (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:25Z end   D_wl_ifi_veriflow_s3_witness rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:25Z start D_wl_ifi_veriflow_s1_dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:27Z end   D_wl_ifi_veriflow_s1_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:27Z start D_wl_ifi_veriflow_s2_dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:29Z end   D_wl_ifi_veriflow_s2_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:29Z start D_wl_ifi_veriflow_s3_dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:31Z end   D_wl_ifi_veriflow_s3_dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:31Z start D_wl_ifi_veriflow_s1_witness+dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:33Z end   D_wl_ifi_veriflow_s1_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:33Z start D_wl_ifi_veriflow_s2_witness+dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:35Z end   D_wl_ifi_veriflow_s2_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:22:35Z start D_wl_ifi_veriflow_s3_witness+dead-ends (4096 MB, est 0.05 h; running 5, 47104 MB)
+2026-10-13T08:22:37Z end   D_wl_ifi_veriflow_s3_witness+dead-ends rc=0 outcome=measured after 0.00 h
+2026-10-13T08:38:27Z end   C_wl_up_veriflow_s4 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T08:38:27Z start A_wl_cloud_apkeep_s1 (8192 MB, est 6.00 h; running 4, 47104 MB)
+2026-10-13T09:11:34Z end   C_wl_up_apkeep_s4 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T09:11:34Z start A_wl_i2_netplumber_s3 (5120 MB, est 1.13 h; running 4, 45056 MB)
+2026-10-13T09:23:06Z end   A_wl_i2_netplumber_s3 rc=0 outcome=measured after 0.19 h
+2026-10-13T09:23:06Z start E_wl_i2_netplumber_s2_oracle (6144 MB, est 0.52 h; running 4, 46080 MB)
+2026-10-13T09:25:18Z end   B_wl_i2_ndd-apkeep_s2_ball rc=0 outcome=did_not_finish after 1.07 h
+2026-10-13T09:25:18Z start D_wl_i2_ndd-apkeep_s2_coarse (21504 MB, est 17.77 h; running 4, 46080 MB)
+2026-10-13T09:33:30Z DECLARED deviation from 'nothing else of this session runs on this machine': for the S4 fix (m2), about 2026-10-13T05:20Z-05:33Z ran in the worktree: two 1000-edit S4 stream generations (seconds), test_incremental_m2.py + test_incremental_m2_apkeep.py (one pytest process, JVM, 4.5 min), typecheck and lint. Cells running then carry that interference. 09:35Z: updates/m2 rebased onto ai in the worktree (git only); its tests are deferred until this run ends.
+2026-10-13T09:33:35Z CORRECTION previous line: the rebase ran about 09:20-09:30Z, not 09:35Z.
+2026-10-13T10:06:56Z end   E_wl_i2_netplumber_s2_oracle rc=0 outcome=measured after 0.73 h
+2026-10-13T10:06:56Z start A_wl_i2_netplumber_s2 (5120 MB, est 0.26 h; running 4, 45056 MB)
+2026-10-13T10:15:22Z end   A_wl_i2_netplumber_s2 rc=0 outcome=measured after 0.14 h
+2026-10-13T10:15:22Z start B_wl_i2_netplumber_s2_b10 (5120 MB, est 0.26 h; running 4, 45056 MB)
+2026-10-13T10:20:50Z end   D_wl_up_ndd-apkeep_s3_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T10:20:50Z start E_wl_up_ndd-apkeep_s2_oracle (12288 MB, est 15.21 h; running 4, 47104 MB)
+2026-10-13T10:23:28Z end   B_wl_i2_netplumber_s2_b10 rc=0 outcome=measured after 0.14 h
+2026-10-13T10:23:28Z start B_wl_i2_netplumber_s2_b100 (5120 MB, est 0.26 h; running 4, 47104 MB)
+2026-10-13T10:31:22Z end   B_wl_i2_netplumber_s2_b100 rc=0 outcome=measured after 0.13 h
+2026-10-13T10:31:22Z start B_wl_i2_netplumber_s2_ball (5120 MB, est 0.26 h; running 4, 47104 MB)
+2026-10-13T10:39:12Z end   B_wl_i2_netplumber_s2_ball rc=0 outcome=measured after 0.13 h
+2026-10-13T11:04:20Z end   A_wl_cloud_apkeep_s1 rc=0 outcome=measured after 2.43 h
+2026-10-13T11:04:20Z start A_wl_up_ndd-apkeep_s2 (10240 MB, est 7.61 h; running 3, 44032 MB)
+2026-10-13T11:25:20Z end   D_wl_i2_ndd-apkeep_s2_coarse rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T11:25:20Z start D_wl_i2_ndd-apkeep_s2_witness (21504 MB, est 17.77 h; running 3, 44032 MB)
+2026-10-13T12:20:53Z end   E_wl_up_ndd-apkeep_s2_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T12:20:53Z start B_wl_up_ndd-apkeep_s2_b10 (10240 MB, est 7.61 h; running 3, 41984 MB)
+2026-10-13T13:04:23Z end   A_wl_up_ndd-apkeep_s2 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T13:04:23Z start B_wl_up_ndd-apkeep_s2_b100 (10240 MB, est 7.61 h; running 3, 41984 MB)
+2026-10-13T13:25:23Z end   D_wl_i2_ndd-apkeep_s2_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T13:25:23Z start E_wl_i2_ndd-apkeep_s2_oracle (25600 MB, est 35.53 h; running 3, 46080 MB)
+2026-10-13T14:12:21Z end   B_wl_up_ndd-apkeep_s2_b100 rc=0 outcome=measured after 1.13 h
+2026-10-13T14:12:21Z start B_wl_up_ndd-apkeep_s2_ball (10240 MB, est 7.61 h; running 3, 46080 MB)
+2026-10-13T14:20:55Z end   B_wl_up_ndd-apkeep_s2_b10 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T14:20:55Z start D_wl_up_ndd-apkeep_s2_coarse (10240 MB, est 7.61 h; running 3, 46080 MB)
+2026-10-13T14:28:22Z end   B_wl_up_ndd-apkeep_s2_ball rc=0 outcome=measured after 0.27 h
+2026-10-13T14:28:22Z start D_wl_up_ndd-apkeep_s2_witness (10240 MB, est 7.61 h; running 3, 46080 MB)
+2026-10-13T15:25:26Z end   E_wl_i2_ndd-apkeep_s2_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T15:25:26Z start D_wl_i2_ndd-apkeep_s2_dead-ends (21504 MB, est 17.77 h; running 3, 41984 MB)
+2026-10-13T16:20:58Z end   D_wl_up_ndd-apkeep_s2_coarse rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T16:20:58Z start D_wl_up_ndd-apkeep_s2_dead-ends (10240 MB, est 7.61 h; running 3, 41984 MB)
+2026-10-13T16:28:24Z end   D_wl_up_ndd-apkeep_s2_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T16:28:24Z start A_wl_cloud_apkeep_s2 (8192 MB, est 6.00 h; running 3, 39936 MB)
+2026-10-13T17:25:29Z end   D_wl_i2_ndd-apkeep_s2_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T17:25:29Z start A_wl_cloud_apkeep_s3 (8192 MB, est 6.00 h; running 3, 26624 MB)
+2026-10-13T17:25:29Z start E_wl_cloud_ndd-apkeep_s4_oracle (14336 MB, est 4.00 h; running 4, 40960 MB)
+2026-10-13T17:28:21Z end   E_wl_cloud_ndd-apkeep_s4_oracle rc=0 outcome=measured after 0.05 h
+2026-10-13T17:28:21Z start E_wl_up_apkeep_s4_oracle (8192 MB, est 4.00 h; running 4, 34816 MB)
+2026-10-13T17:28:21Z start E_wl_up_ndd-apkeep_s4_oracle (12288 MB, est 4.00 h; running 5, 47104 MB)
+2026-10-13T17:55:47Z end   A_wl_cloud_apkeep_s3 rc=0 outcome=measured after 0.51 h
+2026-10-13T17:55:47Z start A_wl_tum_apkeep_s1 (8192 MB, est 2.00 h; running 5, 47104 MB)
+2026-10-13T17:55:51Z end   A_wl_tum_apkeep_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T17:55:51Z start A_wl_tum_apkeep_s2 (8192 MB, est 2.00 h; running 5, 47104 MB)
+2026-10-13T17:55:55Z end   A_wl_tum_apkeep_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T17:55:55Z start A_wl_tum_apkeep_s3 (8192 MB, est 2.00 h; running 5, 47104 MB)
+2026-10-13T17:55:57Z end   A_wl_tum_apkeep_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T17:55:57Z start C_wl_tum_apkeep_s4 (8192 MB, est 2.00 h; running 5, 47104 MB)
+2026-10-13T17:56:03Z end   C_wl_tum_apkeep_s4 rc=0 outcome=refused after 0.00 h
+2026-10-13T18:21:01Z end   D_wl_up_ndd-apkeep_s2_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T18:21:01Z start A_wl_tum_ndd-apkeep_s1 (12288 MB, est 2.00 h; running 4, 40960 MB)
+2026-10-13T18:21:05Z end   A_wl_tum_ndd-apkeep_s1 rc=0 outcome=measured after 0.00 h
+2026-10-13T18:21:05Z start A_wl_tum_ndd-apkeep_s2 (12288 MB, est 2.00 h; running 4, 40960 MB)
+2026-10-13T18:21:09Z end   A_wl_tum_ndd-apkeep_s2 rc=0 outcome=measured after 0.00 h
+2026-10-13T18:21:09Z start A_wl_tum_ndd-apkeep_s3 (12288 MB, est 2.00 h; running 4, 40960 MB)
+2026-10-13T18:21:11Z end   A_wl_tum_ndd-apkeep_s3 rc=0 outcome=measured after 0.00 h
+2026-10-13T18:21:11Z start C_wl_cloud_ndd-apkeep_s4 (13312 MB, est 2.00 h; running 4, 41984 MB)
+2026-10-13T18:23:11Z end   C_wl_cloud_ndd-apkeep_s4 rc=0 outcome=measured after 0.03 h
+2026-10-13T18:23:11Z start C_wl_up_ndd-apkeep_s4 (10240 MB, est 2.00 h; running 4, 38912 MB)
+2026-10-13T19:03:19Z end   A_wl_cloud_apkeep_s2 rc=0 outcome=measured after 2.58 h
+2026-10-13T19:03:19Z start C_wl_tum_ndd-apkeep_s4 (12288 MB, est 2.00 h; running 4, 43008 MB)
+2026-10-13T19:03:25Z end   C_wl_tum_ndd-apkeep_s4 rc=0 outcome=refused after 0.00 h
+2026-10-13T19:03:25Z start A_wl_up_ndd-apkeep_s1 (10240 MB, est 0.99 h; running 4, 40960 MB)
+2026-10-13T19:28:21Z end   E_wl_up_apkeep_s4_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T19:28:21Z start D_wl_up_ndd-apkeep_s1_coarse (10240 MB, est 0.99 h; running 4, 43008 MB)
+2026-10-13T19:28:23Z end   E_wl_up_ndd-apkeep_s4_oracle rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T19:28:23Z start D_wl_up_ndd-apkeep_s1_witness (10240 MB, est 0.99 h; running 4, 40960 MB)
+2026-10-13T20:23:14Z end   C_wl_up_ndd-apkeep_s4 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T20:23:14Z start D_wl_up_ndd-apkeep_s1_dead-ends (10240 MB, est 0.99 h; running 4, 40960 MB)
+2026-10-13T21:03:36Z end   A_wl_up_ndd-apkeep_s1 rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T21:03:36Z start A_wl_stanford_ndd-apkeep_s1 (9216 MB, est 0.84 h; running 4, 39936 MB)
+2026-10-13T21:08:00Z end   A_wl_stanford_ndd-apkeep_s1 rc=0 outcome=did_not_finish after 0.07 h
+2026-10-13T21:08:00Z start D_wl_stanford_ndd-apkeep_s1_coarse (9216 MB, est 0.84 h; running 4, 39936 MB)
+2026-10-13T21:12:18Z end   D_wl_stanford_ndd-apkeep_s1_coarse rc=0 outcome=did_not_finish after 0.07 h
+2026-10-13T21:12:18Z start D_wl_stanford_ndd-apkeep_s1_witness (9216 MB, est 0.84 h; running 4, 39936 MB)
+2026-10-13T21:16:40Z end   D_wl_stanford_ndd-apkeep_s1_witness rc=0 outcome=did_not_finish after 0.07 h
+2026-10-13T21:16:40Z start D_wl_stanford_ndd-apkeep_s1_dead-ends (9216 MB, est 0.84 h; running 4, 39936 MB)
+2026-10-13T21:23:48Z end   D_wl_stanford_ndd-apkeep_s1_dead-ends rc=0 outcome=did_not_finish after 0.12 h
+2026-10-13T21:23:48Z start E_wl_stanford_ndd-apkeep_s2_oracle (11264 MB, est 0.42 h; running 4, 41984 MB)
+2026-10-13T21:28:24Z end   D_wl_up_ndd-apkeep_s1_coarse rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T21:28:24Z start A_wl_stanford_ndd-apkeep_s3 (9216 MB, est 0.24 h; running 4, 40960 MB)
+2026-10-13T21:28:26Z end   D_wl_up_ndd-apkeep_s1_witness rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T21:28:26Z start D_wl_stanford_ndd-apkeep_s3_coarse (9216 MB, est 0.24 h; running 4, 39936 MB)
+2026-10-13T21:28:44Z end   D_wl_stanford_ndd-apkeep_s3_coarse rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T21:28:44Z start D_wl_stanford_ndd-apkeep_s3_witness (9216 MB, est 0.24 h; running 4, 39936 MB)
+2026-10-13T21:28:50Z end   A_wl_stanford_ndd-apkeep_s3 rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T21:28:50Z start D_wl_stanford_ndd-apkeep_s3_dead-ends (9216 MB, est 0.24 h; running 4, 39936 MB)
+2026-10-13T21:29:08Z end   D_wl_stanford_ndd-apkeep_s3_witness rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T21:29:08Z start A_wl_stanford_ndd-apkeep_s2 (9216 MB, est 0.21 h; running 4, 39936 MB)
+2026-10-13T21:29:12Z end   D_wl_stanford_ndd-apkeep_s3_dead-ends rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T21:29:12Z start B_wl_stanford_ndd-apkeep_s2_b10 (9216 MB, est 0.21 h; running 4, 39936 MB)
+2026-10-13T21:30:04Z end   A_wl_stanford_ndd-apkeep_s2 rc=0 outcome=did_not_finish after 0.02 h
+2026-10-13T21:30:04Z start B_wl_stanford_ndd-apkeep_s2_b100 (9216 MB, est 0.21 h; running 4, 39936 MB)
+2026-10-13T21:30:40Z end   B_wl_stanford_ndd-apkeep_s2_b10 rc=0 outcome=did_not_finish after 0.02 h
+2026-10-13T21:30:40Z start B_wl_stanford_ndd-apkeep_s2_ball (9216 MB, est 0.21 h; running 4, 39936 MB)
+2026-10-13T21:32:20Z end   B_wl_stanford_ndd-apkeep_s2_b100 rc=0 outcome=did_not_finish after 0.04 h
+2026-10-13T21:32:20Z start D_wl_stanford_ndd-apkeep_s2_coarse (9216 MB, est 0.21 h; running 4, 39936 MB)
+2026-10-13T21:32:42Z end   D_wl_stanford_ndd-apkeep_s2_coarse rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T21:32:42Z start D_wl_stanford_ndd-apkeep_s2_witness (9216 MB, est 0.21 h; running 4, 39936 MB)
+2026-10-13T21:33:28Z end   D_wl_stanford_ndd-apkeep_s2_witness rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T21:33:28Z start D_wl_stanford_ndd-apkeep_s2_dead-ends (9216 MB, est 0.21 h; running 4, 39936 MB)
+2026-10-13T21:33:50Z end   D_wl_stanford_ndd-apkeep_s2_dead-ends rc=0 outcome=did_not_finish after 0.01 h
+2026-10-13T21:33:50Z start D_wl_airtel1_ndd-apkeep_s1_dead-ends (15360 MB, est 0.16 h; running 4, 46080 MB)
+2026-10-13T21:38:26Z end   B_wl_stanford_ndd-apkeep_s2_ball rc=0 outcome=did_not_finish after 0.13 h
+2026-10-13T21:38:44Z end   E_wl_stanford_ndd-apkeep_s2_oracle rc=0 outcome=measured after 0.25 h
+2026-10-13T21:38:44Z start A_wl_i2_ndd-apkeep_s3 (21504 MB, est 0.47 h; running 3, 47104 MB)
+2026-10-13T21:39:24Z end   D_wl_airtel1_ndd-apkeep_s1_dead-ends rc=0 outcome=measured after 0.09 h
+2026-10-13T21:39:24Z start D_wl_cloud_ndd-apkeep_s1_coarse (13312 MB, est 0.15 h; running 3, 45056 MB)
+2026-10-13T21:43:18Z end   D_wl_cloud_ndd-apkeep_s1_coarse rc=0 outcome=measured after 0.07 h
+2026-10-13T21:43:18Z start E_wl_airtel1_ndd-apkeep_s2_oracle (14336 MB, est 0.14 h; running 3, 46080 MB)
+2026-10-13T21:56:54Z end   E_wl_airtel1_ndd-apkeep_s2_oracle rc=0 outcome=measured after 0.23 h
+2026-10-13T21:56:54Z start D_wl_airtel1_ndd-apkeep_s1_coarse (15360 MB, est 0.13 h; running 3, 47104 MB)
+2026-10-13T22:00:32Z end   A_wl_i2_ndd-apkeep_s3 rc=0 outcome=measured after 0.36 h
+2026-10-13T22:00:32Z start D_wl_i2_ndd-apkeep_s3_coarse (21504 MB, est 0.47 h; running 3, 47104 MB)
+2026-10-13T22:02:49Z end   D_wl_airtel1_ndd-apkeep_s1_coarse rc=0 outcome=measured after 0.10 h
+2026-10-13T22:02:49Z start D_wl_cloud_ndd-apkeep_s1_witness (13312 MB, est 0.13 h; running 3, 45056 MB)
+2026-10-13T22:06:01Z end   D_wl_cloud_ndd-apkeep_s1_witness rc=0 outcome=measured after 0.05 h
+2026-10-13T22:06:01Z start D_wl_airtel1_ndd-apkeep_s1_witness (15360 MB, est 0.12 h; running 3, 47104 MB)
+2026-10-13T22:11:27Z end   D_wl_airtel1_ndd-apkeep_s1_witness rc=0 outcome=measured after 0.09 h
+2026-10-13T22:11:27Z start E_wl_cloud_ndd-apkeep_s2_oracle (14336 MB, est 0.12 h; running 3, 46080 MB)
+2026-10-13T22:12:53Z end   E_wl_cloud_ndd-apkeep_s2_oracle rc=0 outcome=measured after 0.02 h
+2026-10-13T22:12:53Z start D_wl_cloud_ndd-apkeep_s1_dead-ends (13312 MB, est 0.12 h; running 3, 45056 MB)
+2026-10-13T22:14:45Z end   D_wl_cloud_ndd-apkeep_s1_dead-ends rc=0 outcome=measured after 0.03 h
+2026-10-13T22:14:45Z start A_wl_airtel2_ndd-apkeep_s1 (14336 MB, est 0.10 h; running 3, 46080 MB)
+2026-10-13T22:19:27Z end   A_wl_airtel2_ndd-apkeep_s1 rc=0 outcome=measured after 0.08 h
+2026-10-13T22:19:27Z start D_wl_airtel2_ndd-apkeep_s1_coarse (14336 MB, est 0.10 h; running 3, 46080 MB)
+2026-10-13T22:22:57Z end   D_wl_i2_ndd-apkeep_s3_coarse rc=0 outcome=measured after 0.37 h
+2026-10-13T22:22:57Z start D_wl_i2_ndd-apkeep_s3_witness (21504 MB, est 0.47 h; running 3, 46080 MB)
+2026-10-13T22:23:25Z end   D_wl_up_ndd-apkeep_s1_dead-ends rc=0 outcome=did_not_finish after 2.00 h
+2026-10-13T22:25:29Z end   D_wl_airtel2_ndd-apkeep_s1_coarse rc=0 outcome=measured after 0.10 h
+2026-10-13T22:25:29Z start D_wl_i2_ndd-apkeep_s3_dead-ends (21504 MB, est 0.47 h; running 2, 43008 MB)
+2026-10-13T22:44:55Z end   D_wl_i2_ndd-apkeep_s3_witness rc=0 outcome=measured after 0.37 h
+2026-10-13T22:44:55Z start E_wl_airtel2_ndd-apkeep_s2_oracle (17408 MB, est 0.19 h; running 2, 38912 MB)
+2026-10-13T22:47:33Z end   D_wl_i2_ndd-apkeep_s3_dead-ends rc=0 outcome=measured after 0.37 h
+2026-10-13T22:47:33Z start D_wl_airtel2_ndd-apkeep_s1_witness (14336 MB, est 0.10 h; running 2, 31744 MB)
+2026-10-13T22:47:33Z start D_wl_airtel2_ndd-apkeep_s1_dead-ends (14336 MB, est 0.10 h; running 3, 46080 MB)
+2026-10-13T22:52:59Z end   D_wl_airtel2_ndd-apkeep_s1_witness rc=0 outcome=measured after 0.09 h
+2026-10-13T22:52:59Z start A_wl_airtel1_ndd-apkeep_s1 (15360 MB, est 0.10 h; running 3, 47104 MB)
+2026-10-13T22:53:05Z end   D_wl_airtel2_ndd-apkeep_s1_dead-ends rc=0 outcome=measured after 0.09 h
+2026-10-13T22:53:05Z start A_wl_airtel2_ndd-apkeep_s2 (14336 MB, est 0.10 h; running 3, 47104 MB)
+2026-10-13T22:55:21Z end   A_wl_airtel2_ndd-apkeep_s2 rc=0 outcome=measured after 0.04 h
+2026-10-13T22:55:21Z start B_wl_airtel2_ndd-apkeep_s2_b10 (14336 MB, est 0.10 h; running 3, 47104 MB)
+2026-10-13T22:57:21Z end   B_wl_airtel2_ndd-apkeep_s2_b10 rc=0 outcome=measured after 0.03 h
+2026-10-13T22:57:21Z start B_wl_airtel2_ndd-apkeep_s2_b100 (14336 MB, est 0.10 h; running 3, 47104 MB)
+2026-10-13T22:57:47Z end   A_wl_airtel1_ndd-apkeep_s1 rc=0 outcome=measured after 0.08 h
+2026-10-13T22:57:47Z start B_wl_airtel2_ndd-apkeep_s2_ball (14336 MB, est 0.10 h; running 3, 46080 MB)
+2026-10-13T22:58:23Z end   E_wl_airtel2_ndd-apkeep_s2_oracle rc=0 outcome=measured after 0.22 h
+2026-10-13T22:58:23Z start D_wl_airtel2_ndd-apkeep_s2_coarse (14336 MB, est 0.10 h; running 3, 43008 MB)
+2026-10-13T22:59:05Z end   B_wl_airtel2_ndd-apkeep_s2_b100 rc=0 outcome=measured after 0.03 h
+2026-10-13T22:59:05Z start D_wl_airtel2_ndd-apkeep_s2_witness (14336 MB, est 0.10 h; running 3, 43008 MB)
+2026-10-13T22:59:27Z end   B_wl_airtel2_ndd-apkeep_s2_ball rc=0 outcome=measured after 0.03 h
+2026-10-13T22:59:27Z start D_wl_airtel2_ndd-apkeep_s2_dead-ends (14336 MB, est 0.10 h; running 3, 43008 MB)
+2026-10-13T23:01:55Z end   D_wl_airtel2_ndd-apkeep_s2_witness rc=0 outcome=measured after 0.05 h
+2026-10-13T23:01:55Z start D_wl_airtel1_ndd-apkeep_s2_coarse (15360 MB, est 0.09 h; running 3, 44032 MB)
+2026-10-13T23:02:45Z end   D_wl_airtel2_ndd-apkeep_s2_coarse rc=0 outcome=measured after 0.07 h
+2026-10-13T23:02:45Z start D_wl_airtel1_ndd-apkeep_s2_dead-ends (15360 MB, est 0.09 h; running 3, 45056 MB)
+2026-10-13T23:03:31Z end   D_wl_airtel2_ndd-apkeep_s2_dead-ends rc=0 outcome=measured after 0.07 h
+2026-10-13T23:03:31Z start A_wl_airtel1_ndd-apkeep_s3 (15360 MB, est 0.09 h; running 3, 46080 MB)
+2026-10-13T23:05:21Z end   A_wl_airtel1_ndd-apkeep_s3 rc=0 outcome=measured after 0.03 h
+2026-10-13T23:05:21Z start D_wl_airtel1_ndd-apkeep_s3_coarse (15360 MB, est 0.09 h; running 3, 46080 MB)
+2026-10-13T23:06:17Z end   D_wl_airtel1_ndd-apkeep_s2_coarse rc=0 outcome=measured after 0.07 h
+2026-10-13T23:06:17Z start D_wl_airtel1_ndd-apkeep_s3_witness (15360 MB, est 0.09 h; running 3, 46080 MB)
+2026-10-13T23:06:47Z end   D_wl_airtel1_ndd-apkeep_s2_dead-ends rc=0 outcome=measured after 0.07 h
+2026-10-13T23:06:47Z start D_wl_airtel1_ndd-apkeep_s3_dead-ends (15360 MB, est 0.09 h; running 3, 46080 MB)
+2026-10-13T23:07:15Z end   D_wl_airtel1_ndd-apkeep_s3_coarse rc=0 outcome=measured after 0.03 h
+2026-10-13T23:07:15Z start A_wl_airtel2_ndd-apkeep_s3 (14336 MB, est 0.08 h; running 3, 45056 MB)
+2026-10-13T23:08:09Z end   D_wl_airtel1_ndd-apkeep_s3_witness rc=0 outcome=measured after 0.03 h
+2026-10-13T23:08:09Z start D_wl_airtel2_ndd-apkeep_s3_coarse (14336 MB, est 0.08 h; running 3, 44032 MB)
+2026-10-13T23:08:37Z end   D_wl_airtel1_ndd-apkeep_s3_dead-ends rc=0 outcome=measured after 0.03 h
+2026-10-13T23:08:37Z start D_wl_airtel2_ndd-apkeep_s3_witness (14336 MB, est 0.08 h; running 3, 43008 MB)
+2026-10-13T23:09:07Z end   A_wl_airtel2_ndd-apkeep_s3 rc=0 outcome=measured after 0.03 h
+2026-10-13T23:09:07Z start D_wl_airtel2_ndd-apkeep_s3_dead-ends (14336 MB, est 0.08 h; running 3, 43008 MB)
+2026-10-13T23:10:01Z end   D_wl_airtel2_ndd-apkeep_s3_coarse rc=0 outcome=measured after 0.03 h
+2026-10-13T23:10:01Z start D_wl_airtel1_ndd-apkeep_s2_witness (15360 MB, est 0.08 h; running 3, 44032 MB)
+2026-10-13T23:10:29Z end   D_wl_airtel2_ndd-apkeep_s3_witness rc=0 outcome=measured after 0.03 h
+2026-10-13T23:10:29Z start A_wl_cloud_ndd-apkeep_s1 (13312 MB, est 0.08 h; running 3, 43008 MB)
+2026-10-13T23:10:59Z end   D_wl_airtel2_ndd-apkeep_s3_dead-ends rc=0 outcome=measured after 0.03 h
+2026-10-13T23:10:59Z start A_wl_airtel1_ndd-apkeep_s2 (15360 MB, est 0.07 h; running 3, 44032 MB)
+2026-10-13T23:11:33Z end   A_wl_cloud_ndd-apkeep_s1 rc=0 outcome=measured after 0.02 h
+2026-10-13T23:11:33Z start B_wl_airtel1_ndd-apkeep_s2_b10 (15360 MB, est 0.07 h; running 3, 46080 MB)
+2026-10-13T23:12:51Z end   D_wl_airtel1_ndd-apkeep_s2_witness rc=0 outcome=measured after 0.05 h
+2026-10-13T23:12:51Z start B_wl_airtel1_ndd-apkeep_s2_b100 (15360 MB, est 0.07 h; running 3, 46080 MB)
+2026-10-13T23:13:11Z end   A_wl_airtel1_ndd-apkeep_s2 rc=0 outcome=measured after 0.04 h
+2026-10-13T23:13:11Z start B_wl_airtel1_ndd-apkeep_s2_ball (15360 MB, est 0.07 h; running 3, 46080 MB)
+2026-10-13T23:13:37Z end   B_wl_airtel1_ndd-apkeep_s2_b10 rc=0 outcome=measured after 0.03 h
+2026-10-13T23:13:37Z start D_wl_cloud_ndd-apkeep_s2_coarse (13312 MB, est 0.07 h; running 3, 44032 MB)
+2026-10-13T23:14:35Z end   B_wl_airtel1_ndd-apkeep_s2_b100 rc=0 outcome=measured after 0.03 h
+2026-10-13T23:14:35Z start D_wl_cloud_ndd-apkeep_s2_witness (13312 MB, est 0.07 h; running 3, 41984 MB)
+2026-10-13T23:14:41Z end   D_wl_cloud_ndd-apkeep_s2_coarse rc=0 outcome=measured after 0.02 h
+2026-10-13T23:14:41Z start D_wl_cloud_ndd-apkeep_s2_dead-ends (13312 MB, est 0.07 h; running 3, 41984 MB)
+2026-10-13T23:14:51Z end   B_wl_airtel1_ndd-apkeep_s2_ball rc=0 outcome=measured after 0.03 h
+2026-10-13T23:14:51Z start D_wl_cloud_ndd-apkeep_s3_coarse (13312 MB, est 0.06 h; running 3, 39936 MB)
+2026-10-13T23:15:25Z end   D_wl_cloud_ndd-apkeep_s2_witness rc=0 outcome=measured after 0.01 h
+2026-10-13T23:15:25Z start D_wl_cloud_ndd-apkeep_s3_dead-ends (13312 MB, est 0.06 h; running 3, 39936 MB)
+2026-10-13T23:15:27Z end   D_wl_cloud_ndd-apkeep_s3_coarse rc=0 outcome=measured after 0.01 h
+2026-10-13T23:15:27Z start A_wl_cloud_ndd-apkeep_s2 (13312 MB, est 0.06 h; running 3, 39936 MB)
+2026-10-13T23:15:31Z end   D_wl_cloud_ndd-apkeep_s2_dead-ends rc=0 outcome=measured after 0.01 h
+2026-10-13T23:15:31Z start B_wl_cloud_ndd-apkeep_s2_b10 (13312 MB, est 0.06 h; running 3, 39936 MB)
+2026-10-13T23:15:59Z end   D_wl_cloud_ndd-apkeep_s3_dead-ends rc=0 outcome=measured after 0.01 h
+2026-10-13T23:15:59Z end   A_wl_cloud_ndd-apkeep_s2 rc=0 outcome=measured after 0.01 h
+2026-10-13T23:15:59Z start B_wl_cloud_ndd-apkeep_s2_b100 (13312 MB, est 0.06 h; running 2, 26624 MB)
+2026-10-13T23:15:59Z start B_wl_cloud_ndd-apkeep_s2_ball (13312 MB, est 0.06 h; running 3, 39936 MB)
+2026-10-13T23:16:01Z end   B_wl_cloud_ndd-apkeep_s2_b10 rc=0 outcome=measured after 0.01 h
+2026-10-13T23:16:01Z start A_wl_cloud_ndd-apkeep_s3 (13312 MB, est 0.06 h; running 3, 39936 MB)
+2026-10-13T23:16:23Z end   B_wl_cloud_ndd-apkeep_s2_ball rc=0 outcome=measured after 0.01 h
+2026-10-13T23:16:23Z start D_wl_cloud_ndd-apkeep_s3_witness (13312 MB, est 0.06 h; running 3, 39936 MB)
+2026-10-13T23:16:25Z end   B_wl_cloud_ndd-apkeep_s2_b100 rc=0 outcome=measured after 0.01 h
+2026-10-13T23:16:29Z end   A_wl_cloud_ndd-apkeep_s3 rc=0 outcome=measured after 0.01 h
+2026-10-13T23:16:49Z end   D_wl_cloud_ndd-apkeep_s3_witness rc=0 outcome=measured after 0.01 h
+FLAGGED (error / oracle_failed), not re-run: C_wl_ifi_netplumber_s4, E_wl_ifi_netplumber_s4_oracle, C_wl_ifi_veriflow_s4, E_wl_ifi_veriflow_s4_oracle, C_wl_ifi_apkeep_s4, E_wl_ifi_apkeep_s4_oracle, C_wl_ifi_ndd-apkeep_s4, E_wl_ifi_ndd-apkeep_s4_oracle
+2026-10-13T23:16:49Z runner exit rc=0

@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/bench/incremental_run.py", line 520, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/incremental_run.py", line 510, in main
+    rc = run_s4(args)
+         ^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/bench/incremental_run.py", line 406, in run_s4
+    configs.resend(fave, dev)
+  File "/home/ubuntu/fave-project/fave/util/incremental.py", line 446, in resend
+    fave.resend_device(self.devices[n])
+  File "/home/ubuntu/fave-project/fave/util/in_process_driver.py", line 217, in resend_device
+    _DEVICES[device[1]](*device, use_unix=False, interweave=True)
+  File "/home/ubuntu/fave-project/fave/util/bench_utils.py", line 83, in _add_router
+    topo.main(["-a", "-t", "router", "-n", name, "-p", ','.join([str(p) for p in range(1, ports+1)]), "-r", acls] + (["-u"] if use_unix else []))
+  File "/home/ubuntu/fave-project/fave/topology/topology.py", line 441, in main
+    model = {
+            ^
+  File "/home/ubuntu/fave-project/fave/topology/topology.py", line 482, in <lambda>
+    'router' : lambda: RouterModel(
+                       ^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/devices/router.py", line 202, in __init__
+    self.persist()
+  File "/home/ubuntu/fave-project/fave/devices/router.py", line 244, in persist
+    acl_rules = self.acls[acl_name(acl)]
+                ~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: '103'

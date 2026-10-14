@@ -1,0 +1,1449 @@
+{
+ "P1": {
+  "error_or_oracle_failed": [
+   "C_wl_ifi_netplumber_s4",
+   "E_wl_ifi_netplumber_s4_oracle",
+   "C_wl_ifi_veriflow_s4",
+   "E_wl_ifi_veriflow_s4_oracle",
+   "C_wl_ifi_apkeep_s4",
+   "E_wl_ifi_apkeep_s4_oracle",
+   "C_wl_ifi_ndd-apkeep_s4",
+   "E_wl_ifi_ndd-apkeep_s4_oracle"
+  ],
+  "held": false,
+  "outcomes": {
+   "did_not_finish": 131,
+   "error": 8,
+   "measured": 291,
+   "refused": 3
+  }
+ },
+ "P2": {
+  "held": false,
+  "rss": 28,
+  "rss_cells": [
+   [
+    "E_wl_up_netplumber_s2_oracle",
+    2101,
+    2048,
+    2777
+   ],
+   [
+    "E_wl_up_veriflow_s2_oracle",
+    5143,
+    5120,
+    79
+   ],
+   [
+    "A_wl_stanford_netplumber_s2",
+    2112,
+    2048,
+    310
+   ],
+   [
+    "B_wl_stanford_netplumber_s2_b10",
+    2064,
+    2048,
+    300
+   ],
+   [
+    "B_wl_stanford_netplumber_s2_b100",
+    2058,
+    2048,
+    300
+   ],
+   [
+    "B_wl_stanford_netplumber_s2_ball",
+    2112,
+    2048,
+    0
+   ],
+   [
+    "E_wl_stanford_netplumber_s2_oracle",
+    3104,
+    3072,
+    329
+   ],
+   [
+    "E_wl_stanford_veriflow_s2_oracle",
+    4173,
+    4096,
+    21
+   ],
+   [
+    "A_wl_stanford_ndd-apkeep_s1",
+    9255,
+    9216,
+    2105
+   ],
+   [
+    "A_wl_stanford_ndd-apkeep_s2",
+    9228,
+    9216,
+    290
+   ],
+   [
+    "A_wl_stanford_ndd-apkeep_s3",
+    9254,
+    9216,
+    77
+   ],
+   [
+    "B_wl_stanford_ndd-apkeep_s2_b10",
+    9224,
+    9216,
+    530
+   ],
+   [
+    "B_wl_stanford_ndd-apkeep_s2_b100",
+    9230,
+    9216,
+    900
+   ],
+   [
+    "B_wl_stanford_ndd-apkeep_s2_ball",
+    9231,
+    9216,
+    0
+   ],
+   [
+    "C_wl_up_netplumber_s4",
+    2054,
+    2048,
+    286
+   ],
+   [
+    "E_wl_up_netplumber_s4_oracle",
+    2135,
+    2048,
+    250
+   ],
+   [
+    "C_wl_tum_netplumber_s4",
+    4182,
+    4096,
+    42
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s1_coarse",
+    9321,
+    9216,
+    2038
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s2_coarse",
+    9263,
+    9216,
+    50
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s3_coarse",
+    9220,
+    9216,
+    20
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s1_witness",
+    9222,
+    9216,
+    2093
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s2_witness",
+    9471,
+    9216,
+    238
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s3_witness",
+    9247,
+    9216,
+    63
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s1_dead-ends",
+    9255,
+    9216,
+    3840
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s2_dead-ends",
+    9229,
+    9216,
+    52
+   ],
+   [
+    "D_wl_stanford_ndd-apkeep_s3_dead-ends",
+    9281,
+    9216,
+    30
+   ],
+   [
+    "D_wl_stanford_veriflow_s2_witness",
+    3152,
+    3072,
+    181
+   ],
+   [
+    "D_wl_stanford_veriflow_s2_witness+dead-ends",
+    3113,
+    3072,
+    182
+   ]
+  ],
+  "wall": 103
+ },
+ "P3": {
+  "e_cells": 40,
+  "held": false,
+  "mismatches": [],
+  "without_full": [
+   "E_wl_up_veriflow_s2_oracle",
+   "E_wl_stanford_netplumber_s2_oracle",
+   "E_wl_stanford_veriflow_s2_oracle",
+   "E_wl_ifi_netplumber_s4_oracle",
+   "E_wl_ifi_veriflow_s4_oracle",
+   "E_wl_ifi_apkeep_s4_oracle",
+   "E_wl_ifi_ndd-apkeep_s4_oracle",
+   "E_wl_up_netplumber_s4_oracle",
+   "E_wl_up_veriflow_s4_oracle",
+   "E_wl_up_apkeep_s4_oracle"
+  ],
+  "without_full_not_error": [
+   "E_wl_up_veriflow_s2_oracle",
+   "E_wl_stanford_netplumber_s2_oracle",
+   "E_wl_stanford_veriflow_s2_oracle",
+   "E_wl_up_netplumber_s4_oracle",
+   "E_wl_up_veriflow_s4_oracle",
+   "E_wl_up_apkeep_s4_oracle"
+  ]
+ },
+ "P4": {
+  "held": true,
+  "hours": 38.94
+ },
+ "P5": {
+  "all": [
+   {
+    "holds": true,
+    "key": "wl_airtel1|apkeep|s1",
+    "rechecked": {
+     "coarse": 1142702,
+     "dead-ends": 773339,
+     "witness": 740068,
+     "witness,dead-ends": 370705
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel1|apkeep|s2",
+    "rechecked": {
+     "coarse": 378730,
+     "dead-ends": 336693,
+     "witness": 84252,
+     "witness,dead-ends": 42215
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel1|apkeep|s3",
+    "rechecked": {
+     "coarse": 10124,
+     "dead-ends": 10124,
+     "witness": 4564,
+     "witness,dead-ends": 4564
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel1|ndd-apkeep|s1",
+    "rechecked": {
+     "coarse": 1154824,
+     "dead-ends": 785461,
+     "witness": 740068,
+     "witness,dead-ends": 370705
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel1|ndd-apkeep|s2",
+    "rechecked": {
+     "coarse": 379556,
+     "dead-ends": 337519,
+     "witness": 84252,
+     "witness,dead-ends": 42215
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel1|ndd-apkeep|s3",
+    "rechecked": {
+     "coarse": 10086,
+     "dead-ends": 10086,
+     "witness": 4564,
+     "witness,dead-ends": 4564
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel1|veriflow|s3",
+    "rechecked": {
+     "coarse": 34272,
+     "dead-ends": 31239,
+     "witness": 7962,
+     "witness,dead-ends": 4929
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel2|apkeep|s1",
+    "rechecked": {
+     "coarse": 1159334,
+     "dead-ends": 786963,
+     "witness": 746082,
+     "witness,dead-ends": 373711
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel2|apkeep|s2",
+    "rechecked": {
+     "coarse": 379176,
+     "dead-ends": 337236,
+     "witness": 84031,
+     "witness,dead-ends": 42091
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel2|apkeep|s3",
+    "rechecked": {
+     "coarse": 10008,
+     "dead-ends": 10008,
+     "witness": 4538,
+     "witness,dead-ends": 4538
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel2|ndd-apkeep|s1",
+    "rechecked": {
+     "coarse": 1180242,
+     "dead-ends": 807871,
+     "witness": 746082,
+     "witness,dead-ends": 373711
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel2|ndd-apkeep|s2",
+    "rechecked": {
+     "coarse": 382901,
+     "dead-ends": 340961,
+     "witness": 84031,
+     "witness,dead-ends": 42091
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel2|ndd-apkeep|s3",
+    "rechecked": {
+     "coarse": 9926,
+     "dead-ends": 9926,
+     "witness": 4538,
+     "witness,dead-ends": 4538
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_airtel2|veriflow|s3",
+    "rechecked": {
+     "coarse": 34272,
+     "dead-ends": 31239,
+     "witness": 7962,
+     "witness,dead-ends": 4929
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_cloud|ndd-apkeep|s1",
+    "rechecked": {
+     "coarse": 117872,
+     "dead-ends": 41813,
+     "witness": 95778,
+     "witness,dead-ends": 16431
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_cloud|ndd-apkeep|s2",
+    "rechecked": {
+     "coarse": 17753,
+     "dead-ends": 11356,
+     "witness": 10159,
+     "witness,dead-ends": 2844
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_cloud|ndd-apkeep|s3",
+    "rechecked": {
+     "coarse": 6572,
+     "dead-ends": 6572,
+     "witness": 2904,
+     "witness,dead-ends": 2904
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_cloud|veriflow|s1",
+    "rechecked": {
+     "coarse": 145014,
+     "dead-ends": 87121,
+     "witness": 61672,
+     "witness,dead-ends": 3779
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_cloud|veriflow|s2",
+    "rechecked": {
+     "coarse": 21866,
+     "dead-ends": 16908,
+     "witness": 6125,
+     "witness,dead-ends": 1019
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_cloud|veriflow|s3",
+    "rechecked": {
+     "coarse": 11568,
+     "dead-ends": 10985,
+     "witness": 2352,
+     "witness,dead-ends": 1520
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|apkeep|s1",
+    "rechecked": {
+     "coarse": 166,
+     "dead-ends": 114,
+     "witness": 154,
+     "witness,dead-ends": 102
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|apkeep|s2",
+    "rechecked": {
+     "coarse": 53,
+     "dead-ends": 47,
+     "witness": 34,
+     "witness,dead-ends": 26
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|apkeep|s3",
+    "rechecked": {
+     "coarse": 112,
+     "dead-ends": 112,
+     "witness": 104,
+     "witness,dead-ends": 104
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|ndd-apkeep|s1",
+    "rechecked": {
+     "coarse": 166,
+     "dead-ends": 114,
+     "witness": 154,
+     "witness,dead-ends": 102
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|ndd-apkeep|s2",
+    "rechecked": {
+     "coarse": 54,
+     "dead-ends": 48,
+     "witness": 34,
+     "witness,dead-ends": 26
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|ndd-apkeep|s3",
+    "rechecked": {
+     "coarse": 116,
+     "dead-ends": 116,
+     "witness": 104,
+     "witness,dead-ends": 104
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|veriflow|s1",
+    "rechecked": {
+     "coarse": 292,
+     "dead-ends": 126,
+     "witness": 258,
+     "witness,dead-ends": 112
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|veriflow|s2",
+    "rechecked": {
+     "coarse": 41,
+     "dead-ends": 30,
+     "witness": 20,
+     "witness,dead-ends": 14
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_example|veriflow|s3",
+    "rechecked": {
+     "coarse": 100,
+     "dead-ends": 92,
+     "witness": 76,
+     "witness,dead-ends": 72
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_i2|ndd-apkeep|s3",
+    "rechecked": {
+     "coarse": 14752,
+     "dead-ends": 14752,
+     "witness": 10180,
+     "witness,dead-ends": 10180
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|apkeep|s1",
+    "rechecked": {
+     "coarse": 3252,
+     "dead-ends": 2442,
+     "witness": 3014,
+     "witness,dead-ends": 2204
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|apkeep|s2",
+    "rechecked": {
+     "coarse": 2662,
+     "dead-ends": 2070,
+     "witness": 2181,
+     "witness,dead-ends": 1589
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|apkeep|s3",
+    "rechecked": {
+     "coarse": 5636,
+     "dead-ends": 5636,
+     "witness": 4700,
+     "witness,dead-ends": 4700
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|ndd-apkeep|s1",
+    "rechecked": {
+     "coarse": 4032,
+     "dead-ends": 2925,
+     "witness": 3608,
+     "witness,dead-ends": 2501
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|ndd-apkeep|s2",
+    "rechecked": {
+     "coarse": 1648,
+     "dead-ends": 1392,
+     "witness": 1377,
+     "witness,dead-ends": 1121
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|ndd-apkeep|s3",
+    "rechecked": {
+     "coarse": 5772,
+     "dead-ends": 5772,
+     "witness": 4700,
+     "witness,dead-ends": 4700
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|veriflow|s1",
+    "rechecked": {
+     "coarse": 4636,
+     "dead-ends": 3179,
+     "witness": 3846,
+     "witness,dead-ends": 2389
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|veriflow|s2",
+    "rechecked": {
+     "coarse": 2981,
+     "dead-ends": 2187,
+     "witness": 2234,
+     "witness,dead-ends": 1440
+    }
+   },
+   {
+    "holds": true,
+    "key": "wl_ifi|veriflow|s3",
+    "rechecked": {
+     "coarse": 5624,
+     "dead-ends": 4217,
+     "witness": 3856,
+     "witness,dead-ends": 2449
+    }
+   }
+  ],
+  "comparable": 39,
+  "groups": 75,
+  "held": true,
+  "violations": []
+ },
+ "P6": {
+  "all": [
+   {
+    "b1": 0.003,
+    "ball": 0.001,
+    "holds": true,
+    "key": "wl_example|netplumber"
+   },
+   {
+    "b1": 0.015,
+    "ball": 0.002,
+    "holds": true,
+    "key": "wl_example|veriflow"
+   },
+   {
+    "b1": 0.017,
+    "ball": 0.007,
+    "holds": true,
+    "key": "wl_example|apkeep"
+   },
+   {
+    "b1": 0.014,
+    "ball": 0.004,
+    "holds": true,
+    "key": "wl_example|ndd-apkeep"
+   },
+   {
+    "b1": 0.023,
+    "ball": 0.002,
+    "holds": true,
+    "key": "wl_ifi|netplumber"
+   },
+   {
+    "b1": 0.254,
+    "ball": 0.018,
+    "holds": true,
+    "key": "wl_ifi|veriflow"
+   },
+   {
+    "b1": 0.223,
+    "ball": 0.032,
+    "holds": true,
+    "key": "wl_ifi|apkeep"
+   },
+   {
+    "b1": 0.21,
+    "ball": 0.059,
+    "holds": true,
+    "key": "wl_ifi|ndd-apkeep"
+   },
+   {
+    "b1": 0.049,
+    "ball": 0.017,
+    "holds": true,
+    "key": "wl_cloud|netplumber"
+   },
+   {
+    "b1": 64.202,
+    "ball": 0.237,
+    "holds": true,
+    "key": "wl_cloud|veriflow"
+   },
+   {
+    "b1": 7.852,
+    "ball": 0.165,
+    "holds": true,
+    "key": "wl_cloud|ndd-apkeep"
+   },
+   {
+    "b1": 4.407,
+    "ball": 0.008,
+    "holds": true,
+    "key": "wl_airtel1|netplumber"
+   },
+   {
+    "b1": 44.59,
+    "ball": 0.07,
+    "holds": true,
+    "key": "wl_airtel1|apkeep"
+   },
+   {
+    "b1": 31.706,
+    "ball": 0.085,
+    "holds": true,
+    "key": "wl_airtel1|ndd-apkeep"
+   },
+   {
+    "b1": 4.347,
+    "ball": 0.007,
+    "holds": true,
+    "key": "wl_airtel2|netplumber"
+   },
+   {
+    "b1": 49.813,
+    "ball": 0.233,
+    "holds": true,
+    "key": "wl_airtel2|apkeep"
+   },
+   {
+    "b1": 33.173,
+    "ball": 0.082,
+    "holds": true,
+    "key": "wl_airtel2|ndd-apkeep"
+   },
+   {
+    "b1": 10.7,
+    "ball": 0.091,
+    "holds": true,
+    "key": "wl_up|netplumber"
+   },
+   {
+    "b1": 30.444,
+    "ball": 0.038,
+    "holds": true,
+    "key": "wl_i2|netplumber"
+   }
+  ],
+  "comparable": 19,
+  "held": true,
+  "violations": []
+ },
+ "P7": {
+  "all": [
+   {
+    "d11_ms": 0.026,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_example_netplumber_s1/rep01",
+    "earlier_ms": 0.029,
+    "name": "A_wl_example_netplumber_s1",
+    "ratio": 0.9,
+    "within": true
+   },
+   {
+    "d11_ms": 0.643,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_example_netplumber_s2/rep01",
+    "earlier_ms": 0.685,
+    "name": "A_wl_example_netplumber_s2",
+    "ratio": 0.94,
+    "within": true
+   },
+   {
+    "d11_ms": 0.747,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_example_netplumber_s3/rep01",
+    "earlier_ms": 0.767,
+    "name": "A_wl_example_netplumber_s3",
+    "ratio": 0.97,
+    "within": true
+   },
+   {
+    "d11_ms": 2.247,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_example_veriflow_s1/rep01",
+    "earlier_ms": 2.225,
+    "name": "A_wl_example_veriflow_s1",
+    "ratio": 1.01,
+    "within": true
+   },
+   {
+    "d11_ms": 2.172,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_example_veriflow_s2/rep01",
+    "earlier_ms": 2.143,
+    "name": "A_wl_example_veriflow_s2",
+    "ratio": 1.01,
+    "within": true
+   },
+   {
+    "d11_ms": 1.796,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_example_veriflow_s3/rep01",
+    "earlier_ms": 1.893,
+    "name": "A_wl_example_veriflow_s3",
+    "ratio": 0.95,
+    "within": true
+   },
+   {
+    "d11_ms": 7.681,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_example_apkeep_s2/rep01",
+    "earlier_ms": 6.248,
+    "name": "A_wl_example_apkeep_s2",
+    "ratio": 1.23,
+    "within": true
+   },
+   {
+    "d11_ms": 6.263,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_example_apkeep_s3/rep01",
+    "earlier_ms": 5.836,
+    "name": "A_wl_example_apkeep_s3",
+    "ratio": 1.07,
+    "within": true
+   },
+   {
+    "d11_ms": 6.843,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_example_ndd-apkeep_s2/rep01",
+    "earlier_ms": 6.624,
+    "name": "A_wl_example_ndd-apkeep_s2",
+    "ratio": 1.03,
+    "within": true
+   },
+   {
+    "d11_ms": 7.242,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_example_ndd-apkeep_s3/rep01",
+    "earlier_ms": 5.95,
+    "name": "A_wl_example_ndd-apkeep_s3",
+    "ratio": 1.22,
+    "within": true
+   },
+   {
+    "d11_ms": 0.036,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_ifi_netplumber_s1/rep01",
+    "earlier_ms": 0.021,
+    "name": "A_wl_ifi_netplumber_s1",
+    "ratio": 1.68,
+    "within": true
+   },
+   {
+    "d11_ms": 0.467,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_ifi_netplumber_s2/rep01",
+    "earlier_ms": 0.478,
+    "name": "A_wl_ifi_netplumber_s2",
+    "ratio": 0.98,
+    "within": true
+   },
+   {
+    "d11_ms": 0.545,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_ifi_netplumber_s3/rep01",
+    "earlier_ms": 0.524,
+    "name": "A_wl_ifi_netplumber_s3",
+    "ratio": 1.04,
+    "within": true
+   },
+   {
+    "d11_ms": 0.071,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_ifi_veriflow_s1/rep01",
+    "earlier_ms": 0.067,
+    "name": "A_wl_ifi_veriflow_s1",
+    "ratio": 1.07,
+    "within": true
+   },
+   {
+    "d11_ms": 2.509,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_ifi_veriflow_s2/rep01",
+    "earlier_ms": 2.212,
+    "name": "A_wl_ifi_veriflow_s2",
+    "ratio": 1.13,
+    "within": true
+   },
+   {
+    "d11_ms": 1.855,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_ifi_veriflow_s3/rep01",
+    "earlier_ms": 1.875,
+    "name": "A_wl_ifi_veriflow_s3",
+    "ratio": 0.99,
+    "within": true
+   },
+   {
+    "d11_ms": 0.688,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_ifi_apkeep_s1/rep01",
+    "earlier_ms": 0.649,
+    "name": "A_wl_ifi_apkeep_s1",
+    "ratio": 1.06,
+    "within": true
+   },
+   {
+    "d11_ms": 4.118,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_ifi_apkeep_s2/rep01",
+    "earlier_ms": 3.285,
+    "name": "A_wl_ifi_apkeep_s2",
+    "ratio": 1.25,
+    "within": true
+   },
+   {
+    "d11_ms": 2.859,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_ifi_apkeep_s3/rep01",
+    "earlier_ms": 2.933,
+    "name": "A_wl_ifi_apkeep_s3",
+    "ratio": 0.97,
+    "within": true
+   },
+   {
+    "d11_ms": 0.641,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_ifi_ndd-apkeep_s1/rep01",
+    "earlier_ms": 0.662,
+    "name": "A_wl_ifi_ndd-apkeep_s1",
+    "ratio": 0.97,
+    "within": true
+   },
+   {
+    "d11_ms": 2.83,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_ifi_ndd-apkeep_s2/rep01",
+    "earlier_ms": 2.787,
+    "name": "A_wl_ifi_ndd-apkeep_s2",
+    "ratio": 1.02,
+    "within": true
+   },
+   {
+    "d11_ms": 2.778,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_ifi_ndd-apkeep_s3/rep01",
+    "earlier_ms": 2.77,
+    "name": "A_wl_ifi_ndd-apkeep_s3",
+    "ratio": 1.0,
+    "within": true
+   },
+   {
+    "d11_ms": 0.019,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_cloud_netplumber_s1/rep01",
+    "earlier_ms": 0.014,
+    "name": "A_wl_cloud_netplumber_s1",
+    "ratio": 1.36,
+    "within": true
+   },
+   {
+    "d11_ms": 0.029,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_cloud_netplumber_s2/rep01",
+    "earlier_ms": 0.021,
+    "name": "A_wl_cloud_netplumber_s2",
+    "ratio": 1.36,
+    "within": true
+   },
+   {
+    "d11_ms": 0.114,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_cloud_netplumber_s3/rep01",
+    "earlier_ms": 0.135,
+    "name": "A_wl_cloud_netplumber_s3",
+    "ratio": 0.85,
+    "within": true
+   },
+   {
+    "d11_ms": 145.074,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_cloud_veriflow_s1/rep01",
+    "earlier_ms": 222.747,
+    "name": "A_wl_cloud_veriflow_s1",
+    "ratio": 0.65,
+    "within": true
+   },
+   {
+    "d11_ms": 63.386,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_cloud_veriflow_s2/rep01",
+    "earlier_ms": 129.645,
+    "name": "A_wl_cloud_veriflow_s2",
+    "ratio": 0.49,
+    "within": false
+   },
+   {
+    "d11_ms": 133.559,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_cloud_veriflow_s3/rep01",
+    "earlier_ms": 140.654,
+    "name": "A_wl_cloud_veriflow_s3",
+    "ratio": 0.95,
+    "within": true
+   },
+   {
+    "d11_ms": 12.707,
+    "earlier": "results_inc_dev_footprints_20261010/default_switch_check/default/wl_cloud_ndd-apkeep_s1/rep01",
+    "earlier_ms": 17.906,
+    "name": "A_wl_cloud_ndd-apkeep_s1",
+    "ratio": 0.71,
+    "within": true
+   },
+   {
+    "d11_ms": 17.555,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_cloud_ndd-apkeep_s2/rep01",
+    "earlier_ms": 17.851,
+    "name": "A_wl_cloud_ndd-apkeep_s2",
+    "ratio": 0.98,
+    "within": true
+   },
+   {
+    "d11_ms": 39.87,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_cloud_ndd-apkeep_s3/rep01",
+    "earlier_ms": 47.163,
+    "name": "A_wl_cloud_ndd-apkeep_s3",
+    "ratio": 0.85,
+    "within": true
+   },
+   {
+    "d11_ms": 0.08,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_airtel1_netplumber_s1/rep01",
+    "earlier_ms": 0.411,
+    "name": "A_wl_airtel1_netplumber_s1",
+    "ratio": 0.19,
+    "within": false
+   },
+   {
+    "d11_ms": 0.417,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_airtel1_netplumber_s2/rep01",
+    "earlier_ms": 0.45,
+    "name": "A_wl_airtel1_netplumber_s2",
+    "ratio": 0.93,
+    "within": true
+   },
+   {
+    "d11_ms": 2.761,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_airtel1_netplumber_s3/rep01",
+    "earlier_ms": 3.019,
+    "name": "A_wl_airtel1_netplumber_s3",
+    "ratio": 0.91,
+    "within": true
+   },
+   {
+    "d11_ms": 469.754,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_airtel1_veriflow_s1/rep01",
+    "earlier_ms": 607.096,
+    "name": "A_wl_airtel1_veriflow_s1",
+    "ratio": 0.77,
+    "within": true
+   },
+   {
+    "d11_ms": 517.209,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_airtel1_veriflow_s2/rep01",
+    "earlier_ms": 600.951,
+    "name": "A_wl_airtel1_veriflow_s2",
+    "ratio": 0.86,
+    "within": true
+   },
+   {
+    "d11_ms": 631.932,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_airtel1_veriflow_s3/rep01",
+    "earlier_ms": 600.458,
+    "name": "A_wl_airtel1_veriflow_s3",
+    "ratio": 1.05,
+    "within": true
+   },
+   {
+    "d11_ms": 1.324,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_airtel1_apkeep_s1/rep01",
+    "earlier_ms": 1.165,
+    "name": "A_wl_airtel1_apkeep_s1",
+    "ratio": 1.14,
+    "within": true
+   },
+   {
+    "d11_ms": 7.362,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_airtel1_apkeep_s2/rep01",
+    "earlier_ms": 1.27,
+    "name": "A_wl_airtel1_apkeep_s2",
+    "ratio": 5.79,
+    "within": false
+   },
+   {
+    "d11_ms": 562.504,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_airtel1_apkeep_s3/rep01",
+    "earlier_ms": 549.066,
+    "name": "A_wl_airtel1_apkeep_s3",
+    "ratio": 1.02,
+    "within": true
+   },
+   {
+    "d11_ms": 1.679,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_airtel1_ndd-apkeep_s1/rep01",
+    "earlier_ms": 1.252,
+    "name": "A_wl_airtel1_ndd-apkeep_s1",
+    "ratio": 1.34,
+    "within": true
+   },
+   {
+    "d11_ms": 7.411,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_airtel1_ndd-apkeep_s2/rep01",
+    "earlier_ms": 1.482,
+    "name": "A_wl_airtel1_ndd-apkeep_s2",
+    "ratio": 5.0,
+    "within": false
+   },
+   {
+    "d11_ms": 560.183,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_airtel1_ndd-apkeep_s3/rep01",
+    "earlier_ms": 555.683,
+    "name": "A_wl_airtel1_ndd-apkeep_s3",
+    "ratio": 1.01,
+    "within": true
+   }
+  ],
+  "held": true,
+  "outside": [
+   {
+    "d11_ms": 63.386,
+    "earlier": "results_inc_dev_vf_footprints_20261011/cells_coarse/wl_cloud_veriflow_s2/rep01",
+    "earlier_ms": 129.645,
+    "name": "A_wl_cloud_veriflow_s2",
+    "ratio": 0.49,
+    "within": false
+   },
+   {
+    "d11_ms": 0.08,
+    "earlier": "results_inc_dev_ndd_20261010/cells/wl_airtel1_netplumber_s1/rep01",
+    "earlier_ms": 0.411,
+    "name": "A_wl_airtel1_netplumber_s1",
+    "ratio": 0.19,
+    "within": false
+   },
+   {
+    "d11_ms": 7.362,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_airtel1_apkeep_s2/rep01",
+    "earlier_ms": 1.27,
+    "name": "A_wl_airtel1_apkeep_s2",
+    "ratio": 5.79,
+    "within": false
+   },
+   {
+    "d11_ms": 7.411,
+    "earlier": "results_inc_dev_footprints_20261010/cells_witness+dead-ends/wl_airtel1_ndd-apkeep_s2/rep01",
+    "earlier_ms": 1.482,
+    "name": "A_wl_airtel1_ndd-apkeep_s2",
+    "ratio": 5.0,
+    "within": false
+   }
+  ],
+  "pairs": 43,
+  "share": 0.907,
+  "within": 39
+ },
+ "hollow": [
+  [
+   "A_wl_tum_veriflow_s1",
+   "measured",
+   10216
+  ],
+  [
+   "A_wl_tum_veriflow_s2",
+   "measured",
+   2044
+  ],
+  [
+   "A_wl_tum_veriflow_s3",
+   "measured",
+   4
+  ],
+  [
+   "A_wl_tum_apkeep_s1",
+   "measured",
+   10216
+  ],
+  [
+   "A_wl_tum_apkeep_s2",
+   "measured",
+   2044
+  ],
+  [
+   "A_wl_tum_apkeep_s3",
+   "measured",
+   4
+  ],
+  [
+   "A_wl_tum_ndd-apkeep_s1",
+   "measured",
+   10216
+  ],
+  [
+   "A_wl_tum_ndd-apkeep_s2",
+   "measured",
+   2044
+  ],
+  [
+   "A_wl_tum_ndd-apkeep_s3",
+   "measured",
+   4
+  ]
+ ],
+ "some_refused": [
+  [
+   "A_wl_example_apkeep_s1",
+   "measured",
+   6,
+   44
+  ],
+  [
+   "A_wl_example_ndd-apkeep_s1",
+   "measured",
+   6,
+   44
+  ],
+  [
+   "A_wl_up_apkeep_s1",
+   "did_not_finish",
+   222,
+   9209
+  ],
+  [
+   "A_wl_up_apkeep_s2",
+   "did_not_finish",
+   5,
+   113
+  ],
+  [
+   "B_wl_up_apkeep_s2_b10",
+   "did_not_finish",
+   6,
+   200
+  ],
+  [
+   "B_wl_up_apkeep_s2_b100",
+   "did_not_finish",
+   24,
+   1100
+  ],
+  [
+   "E_wl_up_apkeep_s2_oracle",
+   "did_not_finish",
+   1,
+   58
+  ],
+  [
+   "A_wl_up_ndd-apkeep_s1",
+   "did_not_finish",
+   266,
+   12162
+  ],
+  [
+   "A_wl_up_ndd-apkeep_s2",
+   "did_not_finish",
+   12,
+   535
+  ],
+  [
+   "B_wl_up_ndd-apkeep_s2_b10",
+   "did_not_finish",
+   21,
+   920
+  ],
+  [
+   "B_wl_up_ndd-apkeep_s2_b100",
+   "measured",
+   65,
+   2812
+  ],
+  [
+   "B_wl_up_ndd-apkeep_s2_ball",
+   "measured",
+   65,
+   2812
+  ],
+  [
+   "E_wl_up_ndd-apkeep_s2_oracle",
+   "did_not_finish",
+   12,
+   524
+  ],
+  [
+   "A_wl_stanford_netplumber_s1",
+   "measured",
+   139,
+   17584
+  ],
+  [
+   "A_wl_stanford_netplumber_s2",
+   "did_not_finish",
+   5,
+   310
+  ],
+  [
+   "B_wl_stanford_netplumber_s2_b10",
+   "did_not_finish",
+   5,
+   300
+  ],
+  [
+   "B_wl_stanford_netplumber_s2_b100",
+   "did_not_finish",
+   5,
+   300
+  ],
+  [
+   "E_wl_stanford_netplumber_s2_oracle",
+   "did_not_finish",
+   5,
+   329
+  ],
+  [
+   "A_wl_stanford_veriflow_s2",
+   "did_not_finish",
+   2,
+   64
+  ],
+  [
+   "B_wl_stanford_veriflow_s2_b10",
+   "did_not_finish",
+   5,
+   370
+  ],
+  [
+   "B_wl_stanford_veriflow_s2_b100",
+   "measured",
+   28,
+   3516
+  ],
+  [
+   "B_wl_stanford_veriflow_s2_ball",
+   "measured",
+   28,
+   3516
+  ],
+  [
+   "E_wl_stanford_veriflow_s2_oracle",
+   "did_not_finish",
+   1,
+   21
+  ],
+  [
+   "D_wl_example_apkeep_s1_coarse",
+   "measured",
+   6,
+   44
+  ],
+  [
+   "D_wl_example_apkeep_s1_witness",
+   "measured",
+   6,
+   44
+  ],
+  [
+   "D_wl_example_apkeep_s1_dead-ends",
+   "measured",
+   6,
+   44
+  ],
+  [
+   "D_wl_example_ndd-apkeep_s1_coarse",
+   "measured",
+   6,
+   44
+  ],
+  [
+   "D_wl_example_ndd-apkeep_s1_witness",
+   "measured",
+   6,
+   44
+  ],
+  [
+   "D_wl_example_ndd-apkeep_s1_dead-ends",
+   "measured",
+   6,
+   44
+  ],
+  [
+   "D_wl_up_apkeep_s1_coarse",
+   "did_not_finish",
+   5,
+   157
+  ],
+  [
+   "D_wl_up_apkeep_s1_witness",
+   "did_not_finish",
+   6,
+   194
+  ],
+  [
+   "D_wl_up_apkeep_s2_witness",
+   "did_not_finish",
+   1,
+   57
+  ],
+  [
+   "D_wl_up_apkeep_s1_dead-ends",
+   "did_not_finish",
+   7,
+   246
+  ],
+  [
+   "D_wl_up_apkeep_s2_dead-ends",
+   "did_not_finish",
+   1,
+   57
+  ],
+  [
+   "D_wl_up_ndd-apkeep_s1_coarse",
+   "did_not_finish",
+   23,
+   809
+  ],
+  [
+   "D_wl_up_ndd-apkeep_s2_coarse",
+   "did_not_finish",
+   6,
+   183
+  ],
+  [
+   "D_wl_up_ndd-apkeep_s1_witness",
+   "did_not_finish",
+   29,
+   1025
+  ],
+  [
+   "D_wl_up_ndd-apkeep_s2_witness",
+   "did_not_finish",
+   6,
+   240
+  ],
+  [
+   "D_wl_up_ndd-apkeep_s1_dead-ends",
+   "did_not_finish",
+   256,
+   11793
+  ],
+  [
+   "D_wl_up_ndd-apkeep_s2_dead-ends",
+   "did_not_finish",
+   6,
+   281
+  ],
+  [
+   "D_wl_stanford_veriflow_s1_witness",
+   "did_not_finish",
+   6,
+   815
+  ],
+  [
+   "D_wl_stanford_veriflow_s2_witness",
+   "did_not_finish",
+   4,
+   181
+  ],
+  [
+   "D_wl_stanford_veriflow_s2_dead-ends",
+   "did_not_finish",
+   2,
+   63
+  ],
+  [
+   "D_wl_stanford_veriflow_s1_witness+dead-ends",
+   "did_not_finish",
+   139,
+   16560
+  ],
+  [
+   "D_wl_stanford_veriflow_s2_witness+dead-ends",
+   "did_not_finish",
+   4,
+   182
+  ]
+ ]
+}

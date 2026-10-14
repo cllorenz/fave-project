@@ -1,0 +1,66 @@
+{
+ "argv": [
+  "/home/ubuntu/fave-project/fave/bench/incremental_run.py",
+  "bench/wl_stanford/stanford-json",
+  "--engine",
+  "veriflow",
+  "--stream",
+  "s1",
+  "--fraction",
+  "0.2",
+  "--seed",
+  "1",
+  "--batch",
+  "1",
+  "--checks",
+  "../checks.json",
+  "--cell-dir",
+  "bench/campaigns/results_inc_dev_d11_20261012/cells/D_wl_stanford_veriflow_s1_witness/rep01",
+  "--files",
+  "topology=device_topology.json,policies=probes.json",
+  "--footprint",
+  "witness"
+ ],
+ "completed_updates": 815,
+ "limit_class": "dev",
+ "limit_rss_mb": 3072,
+ "limit_tripped": "wall",
+ "limit_update_s": 3600.0,
+ "limit_wall_s": 7200.0,
+ "machine": {
+  "cores": 16,
+  "kernel": "7.0.0-31-generic",
+  "node": "5fdf45bfc27e",
+  "ram_mb": 64294,
+  "swap_mb": 0
+ },
+ "measured": {
+  "deadline_stop": "limit_wall",
+  "exit": null,
+  "least_available_mb": 34091,
+  "limit_tripped": "wall",
+  "memory_stop": null,
+  "orphans_killed": [],
+  "peak_rss_by_process_mb": {
+   "python3": 1465
+  },
+  "peak_rss_mb": 1465,
+  "peak_swap_by_process_mb": {
+   "python3": 0
+  },
+  "peak_swap_used_mb": 0,
+  "status": "deadline",
+  "status_trail": "cell.status.jsonl",
+  "swap_pages": {
+   "pswpin": 0,
+   "pswpout": 0
+  },
+  "swap_used_at_start_mb": 0,
+  "wall_s": 7200.266
+ },
+ "memory_floor_mb": 1024,
+ "outcome": "did_not_finish",
+ "repetition": 1,
+ "repetitions": 1,
+ "what": "incremental cell (INCREMENTAL_PLAN.md O3, O4)"
+}
