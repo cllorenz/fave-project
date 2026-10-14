@@ -614,5 +614,32 @@ class TestRunOverUnixSocket(_Base):
         self.assertIn('master: finished run', text)
 
 
+    def test_an_empty_connection_is_skipped_and_the_service_keeps_running(self):
+        """ A client that connects and closes without sending once hit
+        `assert data != None` and ended run(), and with it the service (TODO
+        item 53). It is now logged and skipped. """
+        server = threading.Thread(
+            target=self.aggr.run, args=(self.sock_path,), daemon=True)
+        with self.assertLogs('Aggregator', level=logging.WARNING) as logs:
+            server.start()
+            self._wait_for(lambda: os.path.exists(self.owner))
+            connect_to_fave(self.sock_path).close()
+
+            # Polled with a deadline, not barrier.wait: if the empty
+            # connection kills run() again, the waiter would see a live
+            # process and block forever.
+            self._send({'type': 'check_compliance', 'rules': {}})
+            self._wait_for(lambda: self.engine.check_compliance.called)
+            self.engine.check_compliance.assert_called_once_with({})
+
+            stop_guard = barrier.arm(self.tmp.name)
+            self._send({'type': 'stop', 'barrier': stop_guard})
+            barrier.wait(stop_guard, directory=self.tmp.name, poll=0.005)
+            server.join(5)
+
+        self.assertFalse(server.is_alive())
+        self.assertIn('connection closed without a complete message',
+                      '\n'.join(logs.output))
+
 if __name__ == '__main__':
     unittest.main()

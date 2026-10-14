@@ -3666,7 +3666,8 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
   - [x] FIXED 2026-10-14: under `filelock` 3.29, `PreLockedFileLock` (`util/lock_util.py:35`)
     never released a dump's `.lock`, and leaked a descriptor. It now owns its
     descriptor and removes the file (`test_lock_util.py`).
-  - An empty connection kills `run()` on an `assert`.
+  - [x] FIXED 2026-10-14: an empty connection killed `run()` on an `assert`. It is now
+    logged and skipped (`logger.warn` → `warning` in `aggregator_utils` on the way).
   Pinned: `test_aggregator_service_paths.py`.
 - [ ] **Router model:**
   - `persist()` is not idempotent (`router.py:211`), which `to_json(persist=True)`

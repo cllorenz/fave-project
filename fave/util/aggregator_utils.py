@@ -96,7 +96,7 @@ def fave_recvmsg(
     raw_msglen = conn.recv(4)
     if not raw_msglen:
         if logger:
-            logger.warn("fave_recvmsg: failed to read message length")
+            logger.warning("fave_recvmsg: failed to read message length")
         return None
     msglen = struct.unpack('>I', raw_msglen)[0]
     if logger and logger.isEnabledFor(logging.DEBUG):
@@ -111,7 +111,7 @@ def _recvall(
         part = conn.recv(msglen - len(data))
         if not part:
             if logger:
-                logger.warn("fave_recvmsg: received empty data. data so far: %s" % len(data))
+                logger.warning("fave_recvmsg: received empty data. data so far: %s" % len(data))
             return None
         data.extend(part)
     return data.decode('utf8')

@@ -576,7 +576,14 @@ class AggregatorService(AbstractAggregator):
 
             # receive data from socket
             data = fave_recvmsg(conn, logger=AggregatorService.LOGGER)
-            assert data != None
+            if data is None:
+                # A client that connected and closed without a complete
+                # message. Skip it: an assert here ended the whole service,
+                # and every request after it (TODO item 53).
+                AggregatorService.LOGGER.warning(
+                    "master: connection closed without a complete message, ignored")
+                conn.close()
+                continue
             if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
                 lmsg = "master: read data of size %s" % len(data)
                 AggregatorService.LOGGER.debug(lmsg)
