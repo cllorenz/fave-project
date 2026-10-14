@@ -150,6 +150,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_incremental_netplumber.py # INCREMENTAL_PLAN.md M1: update streams on NetPlumber, selective re-check == full == from-zero; skips if libnetplumber unbuilt
     test/test_incremental_veriflow.py  # the same on VeriFlow-FR, affected checks from walk footprints; skips if libveriflow_fr unbuilt
     test/test_incremental_m2.py  # INCREMENTAL_PLAN.md M2: S4 config edits through the aggregator with stable indices, NetPlumber + VeriFlow-FR, under the oracle
+    test/test_incremental_device_removal.py  # INCREMENTAL_PLAN.md §8.2: every device of wl_example/wl_ifi/wl_cloud removed and re-added on NetPlumber, under the oracle; skips if libnetplumber unbuilt
     test/test_incremental_run.py       # bench/incremental_run.py, the M1 development driver, on both engines
     test/test_apkeep_incremental_core.py  # APKeep's update path in Java: each removal fix against a build without the rule (BDD)
     test/test_packet_filter_out_iface.py  # `-o` means the routed egress (owner decision A1): NetPlumber, VeriFlow-FR and APKeep agree from zero

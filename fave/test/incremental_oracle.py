@@ -23,7 +23,9 @@
 (test_incremental_<engine>.py; INCREMENTAL_PLAN.md §5, §6). Not a test module. """
 
 import copy
+import json
 import os
+import tempfile
 
 from test.backend_gate import require_or_skip
 from util import incremental as inc
@@ -190,7 +192,6 @@ def run_s4(test, make, prefix, n, seed, every):
     build of the edited configurations (stable indices off -- the oracle
     shares no code path with what it checks but the generators). Returns the
     run's counts, including the engine-rule changes the edits caused. """
-    import tempfile
     from util.in_process_driver import InProcessFaVe
     checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
     engine = make()
@@ -230,4 +231,147 @@ def run_s4(test, make, prefix, n, seed, every):
                                  "with a from-zero build of the edited "
                                  "configurations" % (prefix, k, edit[:3]))
             stats['edits'] = k
+    return stats
+
+
+# --- removing a device (INCREMENTAL_PLAN.md §8.2) ---------------------------
+
+_INPUTS = ('topology.json', 'routes.json', 'policies.json', 'sources.json')
+
+
+_PATH_PORTS = r'\(p in \(([^()]*)\)\)'
+
+
+def _strip_path_ports(policies, ports):
+    """ `policies` with the `ports` dropped from every probe test path's
+    `(p in (...))` list, or None when that leaves a list empty: the probe
+    could not be written without the device. NetPlumber never consults a
+    test path (the legacy probe condition is compiled out; `devices/probe.py`
+    warns), but the aggregator resolves one at build, so a build without the
+    device needs it gone. """
+    import re
+    emptied = []
+
+    def keep(match):
+        names = [n.strip() for n in match.group(1).split(',')]
+        left = [n for n in names if n not in ports]
+        if not left:
+            emptied.append(match.group(0))
+        return '(p in (%s))' % ','.join(left)
+
+    policies = copy.deepcopy(policies)
+    for probe in policies['devices']:
+        if len(probe) > 6 and probe[6]:
+            probe[6] = [re.sub(_PATH_PORTS, keep, text) for text in probe[6]]
+    return None if emptied else policies
+
+
+def _without(prefix, work, name, ports):
+    """ Write `prefix`'s inputs to `work` WITHOUT device `name`: its entry,
+    its routes, every link one of its `ports` ends and its ports in probe
+    test paths. Config paths in the entries are relative to the working
+    directory, so the copy needs no other file. None when a probe's test
+    path names nothing but the device's ports. """
+    for fname in _INPUTS:
+        with open(os.path.join(prefix, fname)) as raw:
+            data = json.load(raw)
+        if fname == 'routes.json':
+            data = [r for r in data if r[0] != name]
+        else:
+            if fname == 'policies.json':
+                data = _strip_path_ports(data, ports)
+                if data is None:
+                    return None
+            data['devices'] = [d for d in data['devices'] if d[0] != name]
+            data['links'] = [l for l in data['links']
+                             if l[0] not in ports and l[1] not in ports]
+        with open(os.path.join(work, fname), 'w') as out:
+            json.dump(data, out)
+    return work
+
+
+def _readd(fave, prefix, entry, ports):
+    """ Send device `entry` again as `replay` sends it: the device, its
+    routes, then every link one of its `ports` ends. """
+    from util import bench_utils as bu
+    loaded = {}
+    for fname in _INPUTS:
+        with open(os.path.join(prefix, fname)) as raw:
+            loaded[fname] = json.load(raw)
+    bu.create_topology([entry], [], use_unix=False, interweave=True)
+    bu.add_routes([r for r in loaded['routes.json'] if r[0] == entry[0]],
+                  use_unix=False)
+    for fname in ('topology.json', 'policies.json', 'sources.json'):
+        links = [l for l in loaded[fname]['links'] if l[0] in ports or l[1] in ports]
+        if links:
+            bu._add_links(links, use_unix=False)
+    fave._agg.queue.join()
+
+
+def remove_each(test, make, prefix, names=None, residue=None):
+    """ §8.2's oracle: remove each device of `prefix` (all, or `names`) from
+    a built engine with its links, as ONE update, then re-verify the checks
+    the engine reports as affected. The selective re-verification must
+    leave the cache equal to a full one, and the full verdicts must equal a
+    from-zero build of the workload WITHOUT the device. The device is then
+    added again, as `replay` adds it, and every verdict must be back.
+
+    Verdicts cannot see what the engine leaks: a device whose links are cut
+    answers like an absent one with its tables still held. `residue(engine,
+    model)`, called before the removal, returns a callable listing what the
+    engine still holds of the device after it; that list must be empty.
+
+    A device whose ports are ALL a probe's test path names is skipped
+    (`_without`): there is no from-zero build to compare against. Returns
+    the run's counts. """
+    from util.in_process_driver import InProcessFaVe
+    checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
+    with open(os.path.join(prefix, 'topology.json')) as raw:
+        entries = json.load(raw)['devices']
+    stats = {'removed': 0, 'skipped': [], 'verdict_changes': 0, 'rechecked': 0}
+    engine = make()
+    with InProcessFaVe(engine) as fave:
+        fave.replay(prefix)
+        engine.track_affected(True)
+        cache = inc.VerdictCache(fave, engine, checks)
+        before = cache.full()
+        engine.take_affected()
+        for entry in entries:
+            name = entry[0]
+            if names is not None and name not in names:
+                continue
+            model = fave._agg.models[name]
+            ports = {p for p, m in fave._agg.port_to_model.items() if m is model}
+            work = tempfile.TemporaryDirectory(prefix='removal_')
+            if _without(prefix, work.name, name, ports) is None:
+                work.cleanup()
+                stats['skipped'].append(name)
+                continue
+            left = residue(engine, model) if residue is not None else list
+            fave.delete_device(name, model.type)
+            test.assertEqual(left(), [], "%s, removing %s: the engine still "
+                             "holds part of it" % (prefix, name))
+            stats['rechecked'] += len(cache.selective(engine.take_affected()))
+            full = cache.ask(checks)
+            test.assertEqual(cache.verdict, full,
+                             "%s, removing %s: selective re-verification "
+                             "missed a change" % (prefix, name))
+            stats['verdict_changes'] += sum(
+                1 for line in full if full[line] != before[line])
+            with work:
+                zero = inc.from_zero(make, work.name, checks, set(), set())
+            test.assertEqual(full, zero,
+                             "%s, removing %s: the incremental engine disagrees "
+                             "with a from-zero build without it" % (prefix, name))
+
+            _readd(fave, prefix, entry, ports)
+            cache.selective(engine.take_affected())
+            test.assertEqual(cache.verdict, before,
+                             "%s, re-adding %s: a verdict did not come back"
+                             % (prefix, name))
+            test.assertEqual(cache.ask(checks), before,
+                             "%s, re-adding %s: the engine did not come back"
+                             % (prefix, name))
+            stats['removed'] += 1
+    test.assertGreater(stats['removed'], 0, "no device was removed")
     return stats
