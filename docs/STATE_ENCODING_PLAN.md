@@ -1,6 +1,6 @@
 # State as virtual header bits: generalizing state shell interweaving
 
-**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; two remain for the owner (questions 2 and 3 decided 2026-10-14). Filed after an owner discussion of
+**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; one remains for the owner (questions 2–4 decided 2026-10-14). Filed after an owner discussion of
 which device classes FaVe should model next (TODO item 51). Nothing here is built
 or measured. §3 is a hypothesis, and §7 is the first experiment that would test it.
 Its prerequisite is TODO item 50, which was found while preparing this document.
@@ -239,9 +239,11 @@ single run and the incremental path stay as they are.
      paid (thesis §6.3). For IPv6 this half matters more: Packet Too Big is
      needed for path MTU discovery.
 4. **Which soundness direction does `<->>` declare?** *Answered:* both. It is
-   three checks, and they differ (§4). *Left to the owner:* whether reports
-   should mark the `related:1` answer checks as resting on an over-approximation
-   of state.
+   three checks, and they differ (§4). *Decided (owner, 2026-10-14):* reports
+   mark passing `related:1` answer checks as resting on the state
+   over-approximation, and an opt-in strict mode reports them as undecided.
+   Filed as TODO item 52; independent of this plan, but item 51 drops the mark
+   where its encoding makes an answer check exact.
 5. **New, from the thesis's scope (§1.8):** the thesis left NAT out on purpose:
    it plays no role for compliance, and IPv6 makes it obsolete. Does that still
    hold, given that `wl_cloud` already models a gateway's DNAT and the raw TUM

@@ -3514,8 +3514,37 @@ checks lose precision, not soundness. Required reachability is the opposite case
     and algorithms are stable (plan §7, §8.2).
   - [x] Does item 51 take on expectation-based `RELATED`? **Decided (owner, 2026-10-14):**
     both halves, helper expectations and ICMP errors (plan §8.3).
-  - [ ] Should reports mark `related:1` checks as resting on an over-approximation?
+  - [x] Should reports mark `related:1` checks as resting on an over-approximation?
+    **Decided (owner, 2026-10-14):** yes, plus a strict mode. Filed as item 52.
   - [ ] Does the thesis's decision to leave NAT out (§1.8) still hold? It decides E3.
+
+---
+
+### 52. Reports: mark answer checks that pass under the state over-approximation, and a strict mode — OPEN (owner decision 2026-10-14)
+**Why:** `<->>` compiles to three checks (thesis §7.2, `bench/reach_csv_to_checks.py`).
+Its answer check (`f=related:1`, must reach) can pass where the real firewall drops
+the reply, because the reverse state shell treats every direction-swapped packet the
+rules admit as established, whether or not the connection was opened. So such a pass
+can **hide a violation** (`STATE_ENCODING_PLAN.md` §4). The other two checks are exact or
+err towards false alarms. The scale is not small: `wl_up` has 3,302 stateful checks of
+11,902. Item 51 adds more approximations of this kind (wildcarded helper ports, ICMP
+embedded headers).
+
+**Today:** `reporting/reporter.py` `dump_report` lists only violations, on two paths:
+the engine's own `get_compliance_results()` (ad6, APKeep, VeriFlow-FR) and the
+NetPlumber log tail. A passing check appears nowhere, so marking it means a new report
+section that reads the registered checks, not only the violations.
+
+- [ ] **Marking (default):** a section listing the `related:1` must-reach checks that
+  passed, each with "passes under the state over-approximation". No verdict changes,
+  and no violation count changes, so benchmark results stay comparable.
+- [ ] **Strict mode (opt-in):** those passes are reported as *undecided*, not as passes,
+  for audits that need a guarantee. Off by default, so the suite's verdicts do not
+  move. Decide the flag's name and whether undecided checks change the exit status.
+- [ ] Both report paths, on every engine; a pinning test per path.
+- [ ] Item 51 later drops the mark where its encoding makes an answer check exact. The
+  mark should therefore be keyed to the approximation the check rests on, not
+  hard-wired to `related:1`.
 
 ---
 
