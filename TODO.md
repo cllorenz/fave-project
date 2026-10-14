@@ -3620,7 +3620,8 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
   Not pinned.
 - [x] **FIXED 2026-10-14 (`0ca9dbf5`, found by `wl_tum`'s derived policy) — `util/packet_util.py:375`, the port range.** It now loops `<=`. Tests in `test_utils.py`: upstream's set of ranges, plus an exhaustive check over small ranges that each port is covered exactly once.
   - **Recorded results predate the fix.** Per `0ca9dbf5` it changes FaVe's model, on every engine, of 244 of `wl_tum`'s 356 ranges and 54,314 of `wl_shadow`'s 182,846; no other workload has such ranges. ad6's own `ad6/bench/tum` path parses separately and is unaffected.
-  - **Unmeasured:** whether any recorded `wl_tum`/`wl_shadow` verdict or count changes. That needs the integration tier or a campaign rerun, and either is the owner's call.
+  - **Measured after the fix:** only `wl_tum`'s new derived policy on NetPlumber, 0 of 8,497 checks violated (`df8294fd`).
+  - **Unmeasured:** whether any earlier recorded `wl_tum`/`wl_shadow` verdict or count changes (V5, D11 replay the old `wl_tum` model). Owner, 2026-10-14: settle it in the next campaign run, not now.
   - Originally: `portrange_to_prefix_list` looped `while lower < upper`,
   so it drops the last port of a range that does not end on a prefix boundary (`1:2` →
   port 1 only, `10:20` → 10–19). This reaches the generator's `--sports`/`--dports`
