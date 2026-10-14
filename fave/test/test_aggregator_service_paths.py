@@ -166,13 +166,12 @@ class TestDispatchRequests(_Base):
         self.engine.dump_flow_trees.assert_called_once_with(odir, True)
         self.engine.dump_plumbing_network.assert_not_called()
 
-    @unittest.expectedFailure
     def test_dump_removes_its_lock_file(self):
-        """ BUG, pinned as expected-failure: the dump is announced to the
-        waiter by releasing `<dir>/.lock` through `PreLockedFileLock`. Under the
-        pinned filelock (3.29.4) that class's `_lock_file_fd` assignment no
-        longer reaches the lock's context, so `is_locked` is False, `release()`
-        is a no-op and the file -- and an open fd -- survive. """
+        """ The dump is announced to the waiter by releasing `<dir>/.lock`
+        through `PreLockedFileLock`. Under filelock 3.29 that class's
+        `_lock_file_fd` assignment no longer reached the lock's state, so
+        `release()` was a no-op and the file, and an open fd, survived (TODO
+        item 53). """
         odir = os.path.join(self.tmp.name, 'dump')
         os.makedirs(odir)
         self.aggr._dispatch({

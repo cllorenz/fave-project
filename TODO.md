@@ -3663,8 +3663,9 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
       `_deletes`, which nothing reads.
     - Both are now refused by name until INCREMENTAL_PLAN.md §8.2 is built.
     - Tested.
-  - Under `filelock` 3.29, `PreLockedFileLock` (`util/lock_util.py:35`) never releases
-    a dump's `.lock`.
+  - [x] FIXED 2026-10-14: under `filelock` 3.29, `PreLockedFileLock` (`util/lock_util.py:35`)
+    never released a dump's `.lock`, and leaked a descriptor. It now owns its
+    descriptor and removes the file (`test_lock_util.py`).
   - An empty connection kills `run()` on an `assert`.
   Pinned: `test_aggregator_service_paths.py`.
 - [ ] **Router model:**

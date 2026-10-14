@@ -23,32 +23,46 @@
 
 import os
 
+from typing import Optional
+
 from filelock import SoftFileLock
 
 class PreLockedFileLock(SoftFileLock):
-    """ This class provides a pre locked file lock.
+    """ This class provides a pre locked file lock: constructing it holds the
+    lock file (creating it if absent), and `release` removes it.
+
+    It keeps its own descriptor rather than planting one in `filelock`'s
+    internals. It once set `self._lock_file_fd`, which `filelock` 3.29 no longer
+    reads, so `release()` was a no-op: the dump's `.lock` and an open
+    descriptor survived every request (TODO item 53).
     """
 
     def __init__(self, lock_file: str, timeout: float = -1) -> None:
         super(PreLockedFileLock, self).__init__(lock_file, timeout)
 
+        self._prelocked_fd: Optional[int] = None
         open_mode = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         try:
-            lock_file_fd = os.open(self.lock_file, open_mode)
+            self._prelocked_fd = os.open(self.lock_file, open_mode)
         except (IOError, OSError):
             pass
-        else:
-            self._lock_file_fd = lock_file_fd
 
 
     def release(self, force: bool = True) -> None:
-        """ Releases the file lock.
+        """ Releases the file lock: closes its descriptor and removes the file.
 
         :arg bool force:
-            If true, the lock counter is ignored and the lock is released in
-            every case.
+            Kept for the base class's signature; a pre-held lock has no
+            counter, so it is released in every case.
         """
-        return super(PreLockedFileLock, self).release(force)
+        del force
+        if self._prelocked_fd is not None:
+            os.close(self._prelocked_fd)
+            self._prelocked_fd = None
+        try:
+            os.remove(self.lock_file)
+        except FileNotFoundError:
+            pass
 
 
 class PersistentFileLock(SoftFileLock):
