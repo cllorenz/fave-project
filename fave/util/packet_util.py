@@ -372,7 +372,12 @@ def portrange_to_prefix_list(lower: int, upper: int) -> List[Tuple[int, int]]:
     if lower == upper:
         return [(lower, PORT_BITS)]
 
-    while lower < upper:
+    # `<=`, not `<`: a range whose last block is ONE port (21:22, 53:54,
+    # 140:444) ended the loop with that port still uncovered, so iptables'
+    # inclusive `--dports a:b` lost its upper bound -- 244 of wl_tum's 356
+    # ranges, 54,314 of wl_shadow's (found 2026-10-14 by wl_tum's
+    # independently derived policy, bench/wl_tum/service_matrix.py).
+    while lower <= upper:
         postfix = 0
         for postfix in range(PORT_BITS+1):
             if (lower % (1 << (postfix + 1)) != 0) or (lower + (1 << (postfix + 1)) - 1 > upper):

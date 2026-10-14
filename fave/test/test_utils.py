@@ -351,6 +351,21 @@ class TestPacketUtil(unittest.TestCase):
             [(65534, 15)]
         )
 
+        # a range whose last block is one port keeps that port (the upper
+        # bound was lost until 2026-10-14: 21:22 became port 21 alone)
+        self.assertEqual(portrange_to_prefix_list(21, 22), [(21, 16), (22, 16)])
+        self.assertEqual(portrange_to_prefix_list(53, 54), [(53, 16), (54, 16)])
+
+        # every range covers exactly its ports, both ends included
+        def covered(lower, upper):
+            ports = set()
+            for base, plen in portrange_to_prefix_list(lower, upper):
+                ports.update(range(base, base + (1 << (16 - plen))))
+            return ports
+        for lower, upper in [(21, 22), (140, 444), (1000, 2000), (1, 136), (0, 65535),
+                             (1, 65535), (65534, 65535), (65535, 65535), (7, 7), (2, 40988)]:
+            self.assertEqual(covered(lower, upper), set(range(lower, upper + 1)), (lower, upper))
+
         with self.assertRaises(AssertionError):
             portrange_to_prefix_list(65535, 65536)
             portrange_to_prefix_list(65536, 65536)
