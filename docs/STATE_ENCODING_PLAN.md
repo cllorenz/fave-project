@@ -1,6 +1,6 @@
 # State as virtual header bits: generalizing state shell interweaving
 
-**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; four remain for the owner. Filed after an owner discussion of
+**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; three remain for the owner (question 2 decided 2026-10-14). Filed after an owner discussion of
 which device classes FaVe should model next (TODO item 51). Nothing here is built
 or measured. §3 is a hypothesis, and §7 is the first experiment that would test it.
 Its prerequisite is TODO item 50, which was found while preparing this document.
@@ -196,8 +196,12 @@ single run and the incremental path stay as they are.
   - Measure: header bits added; size of the compiled rules against today's
     shell (the conditional shells are already products of rules and
     state-checking positions); single-run verification time and incremental
-    update cost per engine (NetPlumber first; APKeep and NDD need atoms over the
-    new bits).
+    update cost per engine. Engines (owner, 2026-10-14): NetPlumber, with ad6
+    as sparring partner, while the encoding and its algorithms are being worked
+    out; ad6 is a different paradigm (SAT/QBF), so verdicts that agree across
+    both test the encoding rather than one engine. The other engines follow in
+    a step of their own once the encoding is stable. APKeep and NDD need atoms
+    over the new bits, and APKeep's adapter must first accept more than one bit.
   - Soundness check, on small networks: a brute-force concrete-packet simulation
     with real conntrack semantics, plus the snapshot oracle of §5.
 - **E3 — static NAT,** the first state that depends on more than direction.
@@ -216,8 +220,9 @@ single run and the incremental path stay as they are.
    caveat that the rate must be measured for each workload.
 2. **Which engines must take the new bits?** *Narrowed:* the thesis is
    NetPlumber-only. In the code, NetPlumber, ad6 and VeriFlow-FR read `related`
-   generically, and only APKeep's adapter needs work (§3). *Left to the owner:*
-   NetPlumber alone for E2, or the comparison set (item 31).
+   generically, and only APKeep's adapter needs work (§3). *Decided (owner,
+   2026-10-14):* E2 runs on NetPlumber with ad6 as sparring partner; the other
+   engines follow once the encoding and algorithms are stable (§7).
 3. **Is `RELATED` in scope?** *Answered for the thesis:* out of scope (§7.1.7,
    *Limitations*), so FTP and RTP data connections are not analysed, only their
    control channels. *Left to the owner:* whether item 51 takes it on.

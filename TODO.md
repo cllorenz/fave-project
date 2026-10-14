@@ -3493,7 +3493,8 @@ checks lose precision, not soundness. Required reachability is the opposite case
   today's verdicts on every workload.
 - [ ] **E2 — conntrack plus `-m recent`** on synthetic rule sets, then `wl_tum`'s raw save.
   Measure header bits added, compiled-rule size against today's shell, single-run time and
-  incremental update cost per engine. Check soundness with a concrete-packet simulation
+  incremental update cost per engine (NetPlumber and ad6; the rest once the encoding is
+  stable). Check soundness with a concrete-packet simulation
   and with the snapshot model as an oracle.
 - [ ] **E3 — static NAT.**
 - [~] **Owner questions** (plan §8) — **answered from the thesis and the code where
@@ -3507,7 +3508,9 @@ checks lose precision, not soundness. Required reachability is the opposite case
     check can hide a violation, and the `related:0` no-initiation check is exact (plan §4).
 
   **Still the owner's:**
-  - [ ] NetPlumber alone for E2, or the comparison set?
+  - [x] NetPlumber alone for E2, or the comparison set? **Decided (owner, 2026-10-14):**
+    NetPlumber with ad6 as sparring partner; the other engines follow once the encoding
+    and algorithms are stable (plan §7, §8.2).
   - [ ] Does item 51 take on expectation-based `RELATED`?
   - [ ] Should reports mark `related:1` checks as resting on an over-approximation?
   - [ ] Does the thesis's decision to leave NAT out (§1.8) still hold? It decides E3.
