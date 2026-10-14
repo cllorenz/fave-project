@@ -64,7 +64,6 @@ export RCFILE="$HERE/.pylintrc"
 # (Vendored Hassel trees and deprecated/ are pruned at the find stage below.)
 export IGNORE_FILES="\
 ./examples/demo_slicing.py \
-./util/dynamic_distribution.py \
 "
 
 # pylint checks that must not gate (env-fragile import/name resolution).
