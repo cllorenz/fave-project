@@ -288,6 +288,53 @@ class TestOracleRun(_Tmp):
                         "the failure stops the stream")
 
 
+class _Refusing(_Blind):
+    """ An engine that refuses every update, as VeriFlow-FR and the APKeep
+    engines did on wl_tum before a check had built their model. """
+
+    def _refuse(self, *_args, **_kwargs):
+        from aggregator.abstract_engine import UpdateRefused
+        raise UpdateRefused("refusing on purpose")
+
+    insert_rule = delete_rule = set_link = _refuse
+
+
+class TestEveryUpdateRefused(_Tmp):
+    """ The D11 run's wl_tum cells ended `measured` with every update refused
+    (FINDINGS.md finding 2): such a stream measured nothing. """
+
+    @require_or_skip(*_NP)
+    def test_is_refused_not_completed_and_no_oracle_failure(self):
+        import contextlib, io
+        real = incremental_run.make_engine
+        def refusing(name):
+            make = real(name)
+            return lambda: _Refusing(make())
+        incremental_run.make_engine = refusing
+        self.addCleanup(setattr, incremental_run, 'make_engine', real)
+        cell_dir = os.path.join(self.tmp, 'refusing')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            rc = incremental_run.main([_PREFIX, '--engine', 'netplumber', '--stream', 's1',
+                                       '--limit-updates', '4', '--cell-dir', cell_dir])
+        self.assertEqual(rc, 0, "a refusal is a result, not an oracle failure")
+        self.assertNotIn('ORACLE', err.getvalue())
+        self.assertIn('REFUSED', err.getvalue())
+        with open(os.path.join(cell_dir, 'end.json')) as raw:
+            self.assertEqual(json.load(raw)['status'], 'refused')
+        self.assertEqual(incremental_cell.outcome({'status': 'completed'},
+                                                  {'status': 'refused'}), 'refused')
+
+    @require_or_skip(*_NP)
+    def test_some_refused_is_still_completed(self):
+        cell_dir = os.path.join(self.tmp, 'some')
+        rc = incremental_run.main([_PREFIX, '--engine', 'netplumber', '--stream', 's1',
+                                   '--limit-updates', '4', '--cell-dir', cell_dir])
+        self.assertEqual(rc, 0)
+        with open(os.path.join(cell_dir, 'end.json')) as raw:
+            self.assertEqual(json.load(raw)['status'], 'completed')
+
+
 class TestFootprintOption(unittest.TestCase):
     """ --footprint: both modes by default on APKeep, 'coarse' for the coarse
     footprint, recorded in head.json as the modes in effect. """

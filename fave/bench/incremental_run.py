@@ -274,7 +274,7 @@ def run(args):
         rng = random.Random(args.oracle_seed)
         deleted, down = set(), set()
         failed = None
-        done = 0
+        done = n_refused = 0
         for b, start in enumerate(range(0, len(stream), args.batch)):
             batch = stream[start:start + args.batch]
             each = []
@@ -285,6 +285,7 @@ def run(args):
                 inc.apply(engine, update, deleted, down, refused)
                 each.append(time.perf_counter() - t_u)
             t_b = time.perf_counter()
+            n_refused += len(refused)
             affected = engine.take_affected()
             rechecked = cache.selective(affected) if checks else []
             t_c = time.perf_counter()
@@ -329,9 +330,17 @@ def run(args):
         if oracles:
             oracles.close()
 
+    # A stream whose every update the engine refused measured nothing: it is
+    # `refused`, as S4 is when an edit is refused, not `completed` (the D11
+    # run's wl_tum cells, FINDINGS.md finding 2)
+    every_refused = bool(done) and n_refused == done
     _write_json(path('end.json'), {
         'finished': _now(), 'completed_updates': done,
-        'status': 'oracle_failed' if failed else 'completed'})
+        'status': ('oracle_failed' if failed else
+                   'refused' if every_refused else 'completed')})
+    if every_refused:
+        print("REFUSED: the engine refused all %d updates; see updates.jsonl in %s"
+              % (done, args.cell_dir), file=sys.stderr)
     return 1 if failed else 0
 
 
@@ -460,10 +469,15 @@ def run_s4(args):
         updates.close()
         if oracles:
             oracles.close()
+    refused = bool(failed and 'refused' in failed)
     _write_json(path('end.json'), {
         'finished': _now(), 'completed_updates': done,
-        'status': ('refused' if failed and 'refused' in failed else
+        'status': ('refused' if refused else
                    'oracle_failed' if failed else 'completed')})
+    if refused:
+        # a result, not an oracle failure: the exit code says only the latter
+        print("REFUSED at edit %d: %s" % (failed['pos'], failed['refused']), file=sys.stderr)
+        return 0
     return 1 if failed else 0
 
 
@@ -510,7 +524,7 @@ def main(argv=None):
         rc = run_s4(args)
     else:
         rc = run(args)
-    if rc:
+    if rc:   # 1 means the oracle failed, and nothing else does
         print("THE ORACLE FAILED: see oracle.jsonl in %s" % args.cell_dir,
               file=sys.stderr)
     return rc
