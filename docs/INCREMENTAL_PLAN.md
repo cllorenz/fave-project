@@ -7,7 +7,7 @@ NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
 its witness + dead-ends footprint, the default since 2026-10-11); the harness is
 done. Only indicative (dev) runs have run (§10), the last the D11 grid; no
 reportable measurement exists until the campaign's `PROTOCOL.txt` with
-predictions is written. §8.2 (2026-10-14) designs device removal; not built, owner questions Q-R1–Q-R4 open.
+predictions is written. §8.2 (2026-10-14) designs device removal; not built, owner questions Q-R1–Q-R4 answered.
 **Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -449,17 +449,18 @@ section adds what §8.1 refuses.
   index. `delete_tables` only ever removes index 0, and indices start at 1.
   `delete_wiring` guesses a port's table by stripping a dotted suffix. All
   three are pinned as `*_KNOWN_DEFECT` in `test_netplumber_adapter_more.py`.
-- **The engines already have most primitives.** NetPlumber's `remove_table`
+- **Only NetPlumber has every primitive.** NetPlumber's `remove_table`
   frees every rule in the table (`net_plumber.cc` `free_table_memory`), and
-  `remove_rule` and `remove_link` propagate. Per adapter (`fave/*/adapter.py`):
+  `remove_rule` and `remove_link` propagate. Per adapter (`fave/*/adapter.py`,
+  APKeep and ad6 corrected 2026-10-14):
 
   | engine | rule delete | link remove | table/element remove | selective re-check |
   |---|---|---|---|---|
   | NetPlumber | `delete_rule` | `remove_link` | engine `remove_table`; the adapter's `delete_tables` is broken | `track_affected`/`take_affected` |
-  | BDD-APKeep, NDD-APKeep | `delete_rule` | `remove_link` | unsurveyed: `Network.updateRule` removes rules, and whether an element can be removed is open | yes |
-  | VeriFlow-FR | `delete_rule` | none in the adapter; the engine's `remove_link` is untested (§2) | n/a: tables are per-switch rule sets | yes |
-  | NDD-flood | none: a from-zero build | — | — | — |
-  | ad6 | n/a: a fresh bridge per check | `remove_link` | n/a | n/a |
+  | BDD-APKeep, NDD-APKeep | `delete_rule` | none: the adapter's `remove_link` raises `UpdateRefused`, since the model is built from the recorded topology; `set_link(up=False)` takes a link down | none: `Network.java` removes rules (`removeOneRule`), never an element or a topology edge | yes |
+  | VeriFlow-FR | `delete_rule` | none in the adapter (the engine's `remove_link` is untested, §2); `set_link(up=False)` takes a link down | n/a: tables are per-switch rule sets | yes |
+  | NDD-flood | none: a from-zero build, refused by name | — | — | — |
+  | ad6 | none (the contract's default refuses) | none: `remove_link` raises `UpdateRefused` | none; but every check rebuilds from the capture buffers `_tables` and `_raw_edges` | n/a |
 
 **Design.**
 - **D-R1. Removing a device is §8.1's diff against an empty model.** Every
@@ -488,7 +489,7 @@ section adds what §8.1 refuses.
   every primitive, so batching saves the CHECKS, not the propagation. D-R2's
   ordering is the lever there.
 - **D-R4. A missing primitive is refused by name, never skipped.** Where an
-  engine lacks a primitive — VeriFlow-FR has no `remove_link` in its adapter,
+  engine lacks a primitive — APKeep and VeriFlow-FR have no `remove_link`,
   NDD-flood has none — the aggregator raises an `UpdateRefused` naming the
   engine and the primitive, before anything is touched, as §8.1 item 5 does.
   A from-zero engine may instead declare that it rebuilds; that is a declared
@@ -508,26 +509,45 @@ build from zero WITHOUT that device gives. Check by check, as M1's and M2's
 tests already do. That also exercises `remove_link` on VeriFlow-FR's engine,
 which §2 lists as untested.
 
-**Owner questions.**
+**Owner questions — all answered 2026-10-14.**
 - **Q-R1. Scope.** Whole-device removal first, and D-R6 (lifting §8.1's
   refusals for tables, ports and wiring in a re-send) after? Or both in one
   piece of work? *Recommendation: device removal first. It is self-contained,
   replaces the refused `del`, and its oracle is cheap; D-R6 reuses its
-  primitives.*
-- **Q-R2. Which engines.** *Recommendation: NetPlumber and BDD/NDD-APKeep
-  first, after a survey of whether APKeep can remove an element. Then
-  VeriFlow-FR, once its adapter has `remove_link`.*
-- **Q-R3. From-zero engines** (NDD-flood, ad6): refuse, or rebuild as a
-  declared accommodation? *Recommendation: refuse for NDD-flood, as today. ad6
-  rebuilds per check by design, so removal is free there and needs no
-  declaration.*
+  primitives.* **Owner, 2026-10-14: device removal first; D-R6 after.**
+- **Q-R2. Which engines.** Only NetPlumber has every primitive. APKeep
+  (both) and VeriFlow-FR can delete rules but cannot remove a link, and
+  APKeep cannot remove an element. They could instead EMPTY the device: every
+  rule deleted, the elements and links left. An emptied APKeep element drops
+  everything (an ACL keeps its default deny, `ACLElement.java`; a forward
+  element sends to its `default` port), so for reachability it should equal
+  an absent device, except for a check that starts or ends at its ports; the
+  oracle decides. It would be a declared accommodation, and re-adding the same
+  name needs the leftover elements reused. *Recommendation: NetPlumber first,
+  as the full design. Then APKeep and VeriFlow-FR by emptying, declared and
+  held to the oracle, rather than building link and element removal into
+  their engines now.* **Owner, 2026-10-14: NetPlumber first; then APKeep and
+  VeriFlow-FR by emptying, declared and held to the oracle.** Found after the
+  answer: both implement `set_link(up=False)`, so emptying also takes the
+  device's links down, in D-R2's order, rather than leaving them up.
+- **Q-R3. From-zero engines** (NDD-flood, ad6). Both refuse today. ad6
+  rebuilds its model for every check from its capture buffers (`_tables`,
+  `_raw_edges`), so removing a device there means dropping it from those
+  buffers: a real removal, not an accommodation, and small. NDD-flood builds
+  once from zero, so removal there means a full rebuild. *Recommendation: ad6
+  removes from its buffers, held to the same oracle; NDD-flood keeps refusing
+  by name.* **Owner, 2026-10-14: ad6 removes from its buffers; NDD-flood
+  refuses.**
 - **Q-R4. Generators and probes.** They are removed today on their own
-  (`delete_generator`/`delete_probe`, fixed in item 53). When a removed device
+  (`delete_generator`/`delete_probe`, fixed in item 53; VeriFlow-FR inherits
+  the contract's `NotImplementedError` for both). When a removed device
   was a probe's or a generator's only neighbour, does the check stay
   (vacuously failing or passing), or does the client have to retract it?
   *Recommendation: the check stays and is re-verified, and its new verdict is
   reported, not dropped. Flagging it as vacuous needs a report field that does
-  not exist yet; item 52's marking is the natural place for one.*
+  not exist yet; item 52's marking is the natural place for one.* **Owner,
+  2026-10-14: the check stays, is re-verified and its verdict reported; a
+  vacuous marking is left to item 52.**
 
 
 ## 9. Open questions (recommendations, not decisions)

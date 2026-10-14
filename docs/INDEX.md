@@ -21,7 +21,7 @@ that produced them, under [`../fave/bench/campaigns/`](../fave/bench/campaigns/)
 | [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md) | 986 | **The run book.** The measurements that are open and worth running, ordered so a session with no prior context can execute it top to bottom, unattended. Start here to run something. |
 | [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md) | 163 | **The accommodation registry.** Every way a tool was helped to run the suite, or a workload changed for it — what was done, what it costs, the evidence it is right. The write-up cites this for all of them. |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | 87 | How result directories and per-cell artifacts are named, what a run directory must carry, and why a committed result directory is never renamed. Read before starting a run. |
-| [`INCREMENTAL_PLAN.md`](INCREMENTAL_PLAN.md) | 716 | **The incremental axis (TODO item 31), PLAN. M1 and M2 built; next the D11 run, then the campaign.** Making updates work end to end — engines that report what a change affected, FaVe re-verifying only those checks — and measuring it. The owner's decisions of 2026-10-09 are its §4 and §9; what is built, its §10. §8.2 designs device removal (2026-10-14, owner questions open). |
+| [`INCREMENTAL_PLAN.md`](INCREMENTAL_PLAN.md) | 736 | **The incremental axis (TODO item 31), PLAN. M1 and M2 built; next the D11 run, then the campaign.** Making updates work end to end — engines that report what a change affected, FaVe re-verifying only those checks — and measuring it. The owner's decisions of 2026-10-09 are its §4 and §9; what is built, its §10. §8.2 designs device removal (2026-10-14, owner questions answered). |
 
 ## The verification backends — one document per engine family
 
