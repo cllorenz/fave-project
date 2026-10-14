@@ -1362,7 +1362,7 @@ then applied to one of the two halves.
   - **What unpinned still allows:** a new pylint release can turn the gate red. When it does,
     every environment sees it on the same day, and the version is in the gate's first line.
 
-### 47. The `fast` coverage floor has never been met as CI measures it, and the number measures the import graph — SCOPE DECLARED 2026-10-12; raising coverage OPEN
+### 47. The `fast` coverage floor has never been met as CI measures it, and the number measures the import graph — SCOPE DECLARED 2026-10-12; floor MET 2026-10-14 (97%)
 - **Finding:** CI's `fast` job gates on `COVERAGE=1 COVERAGE_MIN=78 bash test.sh fast`
   (`ci.yml:94`). Measured the way that job sees the tree (a `git archive` export and a venv
   holding `requirements.txt` only, i.e. `./test.sh fast --clean`), with each commit's own
@@ -1435,7 +1435,7 @@ then applied to one of the two halves.
   was already failing at 68.87% under the old measure. `ci.yml` and the README say so.
   `COVERAGE=1 COVERAGE_MIN=78 ./test.sh fast --clean` reproduces the verdict
   (`Coverage failure: total of 64 is less than fail-under=78`).
-- [ ] **Raise coverage within A′ to the floor** — LATER (owner). That is about 930 more covered
+- [x] **Raise coverage within A′ to the floor** — DONE 2026-10-14: **97%** (6,652 statements, 207 missed) on `./test.sh fast --clean`, 1,309 passed. Commits `094284e1` (ad6), `682fd750` (aggregator, CLIs, reporter), `707f502b` (policy_translator), `641cba64` (NetPlumber client, adapter, CLIs), `05291b75` (topology, devices, generator, incremental). The defects the new tests found are item 53. The floor stays 78 until the owner decides to raise it. Originally: That is about 930 more covered
   statements (78% of 6,827 is 5,325; 4,392 are covered today). The largest gaps:
   `ad6/translate.py` (270 missed), `aggregator/aggregator_service.py` (232),
   `netplumber/adapter.py` (173), `policy_translator/fpl_grammar.py` (158, at 0%),
@@ -3600,6 +3600,68 @@ section that reads the registered checks, not only the violations.
   hard-wired to `related:1`.
 
 ---
+
+### 53. Defects found while raising fast-tier coverage — OPEN (found 2026-10-14)
+None is fixed. Each is pinned by a test, either as an `expectedFailure` (remove the
+decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behaviour
+(it fails on purpose once fixed). Ordered by likely impact on verdicts.
+- [ ] **ad6 reads a fully determined bit-vector as a decimal.** `ad6/translate.py:137`
+  (`_port_value`) tests `isdigit()` before the bit-vector form, so port
+  `0000000000010100` becomes port 10100, where FaVe's encoder (`ip6np_util.py:193`,
+  vector first) reads port 20. The same flaw affects node-scoped fields (`:478`) and
+  `_rewrites` (`int(field.value)`). Whether any workload emits such vectors is unknown.
+  Pinned: `test_ad6_translate_pure.py`.
+- [ ] **PolicyTranslator, non-strict mode with `default: allow`:** the self-reachability
+  entries added for every role (`policy_builder.py:427`) mean "forbidden" under that
+  default, so the iptables output DROPs `role -> role` traffic. Pinned:
+  `test_policy_model_edges.py`.
+- [ ] **`iptables/generator.py:489`:** state interweaving raises `IndexError` on
+  `--ctstate ESTABLISHED -j DROP`, since a DROP has `actions=[]`. Separate from item 50.
+  Not pinned.
+- [ ] **`util/packet_util.py:375`:** `portrange_to_prefix_list` loops `while lower < upper`,
+  so it drops the last port of a range that does not end on a prefix boundary (`1:2` →
+  port 1 only, `10:20` → 10–19). This reaches the generator's `--sports`/`--dports`
+  expansion. Not pinned.
+- [ ] **NetPlumber adapter:**
+  - `delete_generator` mutates the list it walks and raises `KeyError` on a generator
+    with no links.
+  - `delete_generator` and `delete_probe` leave the node in `take_affected`'s view.
+  - `_add_pre_routing_rules` (`adapter.py:612`) widens the mapping without an `expand`.
+  - `delete_rules`, `delete_tables` and `delete_wiring` are broken, but reachable only
+    through the uncalled `AggregatorService._delete_model`.
+  Pinned: `test_netplumber_adapter_more.py`.
+- [ ] **`netplumber/jsonrpc.py:78`:** each 4096-byte peek is decoded on its own, so a
+  multi-byte UTF-8 character split across the boundary raises. Pinned:
+  `test_jsonrpc_wire.py`.
+- [ ] **Aggregator:**
+  - A non-link topology delete carries no model, so `aggregator_service.py:390` raises
+    `AttributeError`, which makes deleting a generator or probe unreachable from the
+    wire.
+  - Switch `remove_rule`/`update_rule` get the whole rule list (`:623`). Not pinned.
+  - Under `filelock` 3.29, `PreLockedFileLock` (`util/lock_util.py:35`) never releases
+    a dump's `.lock`.
+  - An empty connection kills `run()` on an `assert`.
+  Pinned: `test_aggregator_service_paths.py`.
+- [ ] **Router model:**
+  - `persist()` is not idempotent (`router.py:211`), which `to_json(persist=True)`
+    shows; nothing calls it that way today.
+  - A two-address NAT pool or a multi-port route emits duplicate rule indices, and
+    the second case would fail `validate_lpm_rules`.
+  Not pinned.
+- [ ] **Tools:**
+  - `fpl_grammar.parse_fpl` lacks `parseAll`, so it silently stops on
+    `fml-paper-policy.txt` and returns 9 of 13 roles.
+  - `print_prosa`'s operator table misses `-/->>`.
+  - `visualize_policies` cannot read `Role.Service` targets.
+  - `visualize_roles_and_services` reads only `def`, not `describe`, which every
+    committed inventory uses.
+  - `Superrole == Role` raises `AttributeError`.
+  Pinned: `policy_translator/test/test_fpl_grammar.py`, `test_visualizers.py`,
+  `test_policy_model_edges.py`.
+- **Test-order hazard, not a defect in the code under test:** `ad6/translate.py:71`
+  prepends the repo-root `ad6/` to `sys.path`. After that, `util/bench_utils.py`'s
+  `import test.check_flows` resolves to `ad6/test`. The full fast tier is unaffected
+  only because collection imports `bench_utils` first.
 
 ## Python codebase test expansion (fave/ + policy_translator/)
 
