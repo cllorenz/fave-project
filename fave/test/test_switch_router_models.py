@@ -166,8 +166,8 @@ class TestRouterModel(unittest.TestCase):
         }
         self.router = RouterModel(
             'r', ports=['1', '2'], acls=self.acls,
-            vlan_to_ports={'2': ['r.1_ingress'], 'nat_P': ('255.255.255.0', ['192.0.2.1', '192.0.2.2'])},
-            vlan_to_acls={'2': ['in_10', 'out_20'], 'nat_P': ('inside', '20')},
+            vlan_to_ports={'2': ['r.1_ingress']},
+            vlan_to_acls={'2': ['in_10', 'out_20']},
             if_to_vlans={'1': [2]},
             routes=[([('ipv4_dst', '10.0.2.0/24')], ['r.2'])])
 
@@ -193,16 +193,32 @@ class TestRouterModel(unittest.TestCase):
         self.assertEqual(acl_out.in_ports, ['r.acl_out_in'])
         self.assertEqual(acl_out.actions, [Forward(['r.acl_out_out'])])
 
-    def test_nat_rewrites_the_source_to_each_pool_address(self):
-        nat = [r for r in self.router.tables['r.acl_in']
-               if any(isinstance(a, Rewrite) for a in r.actions)]
-        self.assertEqual([r.actions[0] for r in nat],
-                         [Rewrite([RuleField('packet.ipv4.source', ip)])
-                          for ip in ('192.0.2.1', '192.0.2.2')])
-        for rule in nat:
-            self.assertEqual(rule.in_ports, ['r.acl_in_in'])
-            self.assertEqual(_fields(rule), [('packet.ipv4.destination', '10.0.2.0/24')])
-            self.assertEqual(rule.actions[1], Forward(['r.acl_in_out']))
+    def test_a_nat_pool_is_refused_by_name(self):
+        """ A pool names an address RANGE, and the model kept only its two
+        endpoints, as two rules under one index. Many-to-one SNAT is TODO
+        item 51's E3b, so it is refused rather than guessed (item 53). """
+        with self.assertRaises(NotImplementedError) as ctx:
+            RouterModel(
+                'r', ports=['1', '2'], acls=self.acls,
+                vlan_to_ports={'nat_P': ('255.255.255.0', ['192.0.2.1', '192.0.2.9'])},
+                vlan_to_acls={'nat_P': ('inside', '20')})
+        self.assertIn("'P'", str(ctx.exception))
+        self.assertIn('E3b', str(ctx.exception))
+
+    def test_a_multipath_route_is_refused_by_name(self):
+        """ One rule per out port, all under the same index: refused until
+        multipath has a decided semantics (TODO item 53). """
+        with self.assertRaises(NotImplementedError):
+            RouterModel('r', ports=['1', '2'],
+                        routes=[([('ipv4_dst', '10.0.2.0/24')], ['r.1', 'r.2'])])
+
+    def test_persist_is_idempotent(self):
+        """ `to_json(persist=True)` once appended every ACL and route rule a
+        second time (TODO item 53). The constructor's fixed rules stay. """
+        before = self.router.to_json()['tables']
+        self.assertEqual(self.router.to_json(persist=True)['tables'], before)
+        self.router.persist()
+        self.assertEqual(self.router.to_json()['tables'], before)
 
     def test_routes_tag_the_egress_and_the_table_is_lpm(self):
         [route] = self.router.tables['r.routing']

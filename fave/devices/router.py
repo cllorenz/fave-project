@@ -199,6 +199,9 @@ class RouterModel(AbstractDeviceModel):
         # [ ([rule_body], rule_action) ]
         self.routes = routes if routes is not None else []
 
+        # (table, rule) pairs the last persist() generated, so the next one can
+        # take them out first: persist() is idempotent.
+        self._persisted: List[Tuple[str, Rule]] = []
         self.persist()
 
         # A router's `routing` table IS a destination-prefix FIB, and the model
@@ -217,10 +220,25 @@ class RouterModel(AbstractDeviceModel):
         self.set_table_semantics(self.node + '.routing', LPM)
 
 
-    # is idempotent
     def persist(self) -> None:
-        """ Persists ACLs and routes.
+        """ Persists ACLs and routes. Idempotent: the rules a previous call
+        generated are removed first, and the constructor's fixed rules stay. It
+        used to append everything again on every call (TODO item 53).
+
+        Refused, by name: a NAT pool, and a route with more than one out port.
+        Both emitted several rules under ONE index. A Cisco pool also names an
+        address RANGE, of which only the two endpoints were kept. Many-to-one
+        SNAT is TODO item 51's E3b research question, and ECMP needs a decided
+        semantics, so neither is guessed here. No committed workload uses
+        either.
         """
+        for table, rule in self._persisted:
+            rules = self.tables.get(table, [])
+            for i, candidate in enumerate(rules):
+                if candidate is rule:
+                    del rules[i]
+                    break
+        self._persisted = []
 
         acl_name = lambda x: '_'.join(x.split('_')[1:])
         acl_body = lambda x: x
@@ -272,9 +290,14 @@ class RouterModel(AbstractDeviceModel):
 
                     self.tables.setdefault(acl_table, [])
                     self.tables[acl_table].append(rule)
+                    self._persisted.append((acl_table, rule))
 
 
         for nat in [n for n in self.vlan_to_acls if n.startswith('nat_')]:
+            raise NotImplementedError(
+                "router %s: NAT pool %r is not modelled (TODO item 51, E3b; "
+                "item 53)" % (self.node, nat[len('nat_'):]))
+
             direction, acl = self.vlan_to_acls[nat]
             _netmask, pub_ips = self.vlan_to_ports[nat]
 
@@ -317,6 +340,11 @@ class RouterModel(AbstractDeviceModel):
                 RuleField(OXM_FIELD_TO_MATCH_FIELD[k], v) for k, v in rule_body
             ]
 
+            if len(out_ports) > 1:
+                raise NotImplementedError(
+                    "router %s: route %d has %d out ports; multipath routing "
+                    "is not modelled (TODO item 53)" % (self.node, idx, len(out_ports)))
+
             for port in out_ports:
                 rule = Rule(
                     self.node, self.node+".routing", idx, [],
@@ -331,6 +359,7 @@ class RouterModel(AbstractDeviceModel):
 
                 self.tables.setdefault(self.node+".routing", [])
                 self.tables[self.node+".routing"].append(rule)
+                self._persisted.append((self.node+".routing", rule))
 
 
     def ingress_port(self, port: str) -> str:

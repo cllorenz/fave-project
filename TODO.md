@@ -3670,11 +3670,16 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     logged and skipped (`logger.warn` → `warning` in `aggregator_utils` on the way).
   Pinned: `test_aggregator_service_paths.py`.
 - [ ] **Router model:**
-  - `persist()` is not idempotent (`router.py:211`), which `to_json(persist=True)`
-    shows; nothing calls it that way today.
-  - A two-address NAT pool or a multi-port route emits duplicate rule indices, and
-    the second case would fail `validate_lpm_rules`.
-  Not pinned.
+  - [x] FIXED 2026-10-14: `persist()` was not idempotent (`router.py:211`). It now
+    removes what it generated before.
+  - [x] REFUSED 2026-10-14: a NAT pool and a multi-port route emitted duplicate rule
+    indices.
+    - The pool was also misread: Cisco's `ip nat pool NAME <start> <end>` is an
+      address RANGE, of which only the two endpoints became rules.
+    - Both are now refused by name. The NAT pool belongs to item 51's E3b
+      (many-to-one SNAT); multipath needs a decided semantics.
+    - No committed workload uses either: `wl_ifi`'s router builds unchanged.
+    - Tested in `test_switch_router_models.py`.
 - [ ] **Tools:**
   - `fpl_grammar.parse_fpl` lacks `parseAll`, so it silently stops on
     `fml-paper-policy.txt` and returns 9 of 13 roles.
