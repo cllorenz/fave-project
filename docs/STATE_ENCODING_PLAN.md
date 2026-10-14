@@ -1,6 +1,6 @@
 # State as virtual header bits: generalizing state shell interweaving
 
-**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; one remains for the owner (questions 2–4 decided 2026-10-14). Filed after an owner discussion of
+**Status (2026-10-14): RESEARCH, not started.** §8's questions answered from the thesis and the code where they could be; questions 2–5 decided by the owner 2026-10-14. Filed after an owner discussion of
 which device classes FaVe should model next (TODO item 51). Nothing here is built
 or measured. §3 is a hypothesis, and §7 is the first experiment that would test it.
 Its prerequisite is TODO item 50, which was found while preparing this document.
@@ -206,7 +206,17 @@ single run and the incremental path stay as they are.
     over the new bits, and APKeep's adapter must first accept more than one bit.
   - Soundness check, on small networks: a brute-force concrete-packet simulation
     with real conntrack semantics, plus the snapshot oracle of §5.
-- **E3 — static NAT,** the first state that depends on more than direction.
+- **E3 — NAT,** the first state that depends on more than direction. In scope
+  since the owner lifted the thesis's exclusion (§8.5).
+  - **E3a — reversible NAT:** static 1:1 NAT and fixed DNAT port forwards. The
+    forward rewrite is a constant and the reverse one is exact, so this is
+    today's shell generalized per device class (§6). It gives `wl_cloud`'s
+    one-way `rw` rules a reply direction.
+  - **E3b — many-to-one SNAT and masquerade,** research. The reply must restore
+    the original source, which is field correlation (§4): HSA's reverse rewrite
+    only reaches a wildcard over the possible originals. First question: can
+    the BDD engines express field equality? Input: the raw TUM save's LDAP SNAT
+    (lines 37–39, three servers onto 131.159.252.150).
 
 ## 8. Questions: answered from the thesis and the code (2026-10-14), and what is left
 
@@ -247,7 +257,12 @@ single run and the incremental path stay as they are.
 5. **New, from the thesis's scope (§1.8):** the thesis left NAT out on purpose:
    it plays no role for compliance, and IPv6 makes it obsolete. Does that still
    hold, given that `wl_cloud` already models a gateway's DNAT and the raw TUM
-   rule set has SNAT? It decides whether E3 is worth doing.
+   rule set has SNAT? It decides whether E3 is worth doing. *Decided (owner,
+   2026-10-14):* the exclusion is lifted. `wl_cloud`'s gateway DNAT and core
+   SNAT arrive as stateless `rw` rules, so the reply direction is not modelled;
+   a policy names pre-translation addresses while a filter after DNAT matches
+   post-translation ones; and IPv6 keeps NAT64 and NPTv6. E3 runs in two steps
+   (§7).
 
 ## 9. Literature
 

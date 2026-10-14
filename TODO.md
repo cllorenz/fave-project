@@ -3497,8 +3497,11 @@ checks lose precision, not soundness. Required reachability is the opposite case
   incremental update cost per engine (NetPlumber and ad6; the rest once the encoding is
   stable). Check soundness with a concrete-packet simulation
   and with the snapshot model as an oracle.
-- [ ] **E3 — static NAT.**
-- [~] **Owner questions** (plan §8) — **answered from the thesis and the code where
+- [ ] **E3a — reversible NAT** (static 1:1, fixed DNAT port forwards): exact reverse rewrite;
+  gives `wl_cloud`'s one-way `rw` rules a reply direction.
+- [ ] **E3b — many-to-one SNAT and masquerade** — research: field correlation; first question
+  is whether the BDD engines can express field equality. Input: the raw TUM save's LDAP SNAT.
+- [x] **Owner questions** (plan §8) — **answered from the thesis and the code where
   possible, 2026-10-14:**
   - The snapshot measurements are in §7.1.6. The limit is per-update cost against update
     rate. Low-rate state was not measured.
@@ -3508,7 +3511,7 @@ checks lose precision, not soundness. Required reachability is the opposite case
   - `<->>` is three checks with different soundness directions: the `related:1` answer
     check can hide a violation, and the `related:0` no-initiation check is exact (plan §4).
 
-  **Still the owner's:**
+  **Decided by the owner, 2026-10-14:**
   - [x] NetPlumber alone for E2, or the comparison set? **Decided (owner, 2026-10-14):**
     NetPlumber with ad6 as sparring partner; the other engines follow once the encoding
     and algorithms are stable (plan §7, §8.2).
@@ -3516,7 +3519,8 @@ checks lose precision, not soundness. Required reachability is the opposite case
     both halves, helper expectations and ICMP errors (plan §8.3).
   - [x] Should reports mark `related:1` checks as resting on an over-approximation?
     **Decided (owner, 2026-10-14):** yes, plus a strict mode. Filed as item 52.
-  - [ ] Does the thesis's decision to leave NAT out (§1.8) still hold? It decides E3.
+  - [x] Does the thesis's decision to leave NAT out (§1.8) still hold? It decides E3.
+    **Decided (owner, 2026-10-14):** lifted; E3a then E3b (plan §7, §8.5).
 
 ---
 
