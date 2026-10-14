@@ -278,6 +278,34 @@ class TestStateShellInterweaving(unittest.TestCase):
                                  [f.name for f in rule.match], table)
 
 
+class TestDroppingStateCheck(unittest.TestCase):
+    """ `--ctstate ESTABLISHED -j DROP`: the state-checking rule has no action
+    (the generator's DROP is `[]`), and interweaving once indexed its first
+    action and raised IndexError (TODO item 53, fixed upstream in 996a4b77).
+    Now every reverse-chain rule is tagged `related=1` and drops, with the
+    shell's own drop `Forward([])`. """
+
+    def test_established_drop_makes_the_whole_state_shell_drop(self):
+        ast = _ruleset(
+            ('p-fwd', ('-P', ('FORWARD', ('DROP',)))),
+            ('fwd-est', ('-A', ('FORWARD',), ('-m', ('conntrack',)),
+                         ('--ctstate', ('ESTABLISHED',)), ('-j', ('DROP',)))),
+            ('fwd-x', ('-A', ('FORWARD',), ('-i', ('eth0',)), ('-d', ('2001:db8::1',)),
+                       ('-j', ('ACCEPT',)))),
+        )
+        model = generate(ast, 'fw', None, ['eth0', 'eth1'], interweaving=True)
+        table = [(_fields(r), r.actions, r.raw_line)
+                 for r in _by_idx(model.tables['fw.forward_filter'])]
+        self.assertEqual(table, [
+            ([('out_port', 'fw.eth0_egress'), ('packet.ipv6.source', '2001:db8::1'),
+              ('related', '1')], [Forward([])], None),
+            ([('related', '1')], [Forward([])], None),
+            ([('in_port', 'fw.eth0_ingress'), ('packet.ipv6.destination', '2001:db8::1')],
+             [Forward(['fw.forward_filter_accept'])], 'fwd-x'),
+            ([], [], 'p-fwd'),
+        ])
+
+
 class TestAdjustHelpers(unittest.TestCase):
     """ Moving a reversed rule into the chain it is woven into. """
 

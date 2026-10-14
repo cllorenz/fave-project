@@ -3615,7 +3615,7 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
   entries added for every role (`policy_builder.py:427`) mean "forbidden" under that
   default, so the iptables output DROPs `role -> role` traffic. Pinned:
   `test_policy_model_edges.py`.
-- [ ] **`iptables/generator.py:489`:** state interweaving raises `IndexError` on
+- [x] **FIXED 2026-10-11 (`996a4b77`, M2 spike F1) — `iptables/generator.py:489`.** The DROP case is now recognised; every reverse-chain rule is tagged `related=1` and drops with `Forward([])` (tests: `test_packet_filter.py::test_dropping_state_check`, and in the fast tier `TestDroppingStateCheck`). Originally: state interweaving raised `IndexError` on
   `--ctstate ESTABLISHED -j DROP`, since a DROP has `actions=[]`. Separate from item 50.
   Not pinned.
 - [ ] **`util/packet_util.py:375`:** `portrange_to_prefix_list` loops `while lower < upper`,
