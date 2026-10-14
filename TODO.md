@@ -3680,16 +3680,26 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
       (many-to-one SNAT); multipath needs a decided semantics.
     - No committed workload uses either: `wl_ifi`'s router builds unchanged.
     - Tested in `test_switch_router_models.py`.
-- [ ] **Tools:**
-  - `fpl_grammar.parse_fpl` lacks `parseAll`, so it silently stops on
-    `fml-paper-policy.txt` and returns 9 of 13 roles.
-  - `print_prosa`'s operator table misses `-/->>`.
-  - `visualize_policies` cannot read `Role.Service` targets.
-  - `visualize_roles_and_services` reads only `def`, not `describe`, which every
-    committed inventory uses.
-  - `Superrole == Role` raises `AttributeError`.
-  Pinned: `policy_translator/test/test_fpl_grammar.py`, `test_visualizers.py`,
-  `test_policy_model_edges.py`.
+- [x] **Tools — FIXED 2026-10-14.**
+  - `fpl_grammar.parse_fpl` now parses with `parseAll`, so it rejects
+    `fml-paper-policy.txt` as the builder does, instead of returning 9 of 13 roles.
+  - `print_prosa` has `-/->>` in its table, and no longer prints a stray space for
+    an empty role.
+  - Both visualizers read FPL through `PolicyBuilder`, so they handle `describe`,
+    `Role.Service`, any spacing, and services without a port.
+  - `Role.__eq__` compares classes, so `Superrole == Role` is False.
+  - All seven expectedFailures are unpinned.
+- [ ] **NEW 2026-10-14 — PolicyBuilder silently DROPS a policy rule it cannot read.**
+  - Found while rewriting the visualizers.
+  - A line in a policies block that the rule regex does not match is skipped,
+    with no error. Measured: an unindented rule (`Clients ---> Web` at column 0),
+    and a mistyped operator (`Clients --> Web`), both give zero rules.
+  - Under `default: allow` a dropped prohibition makes the generated firewall
+    permit what the policy forbids. Under `default: deny`, a dropped permission
+    makes the generated firewall block traffic the policy allows.
+  - This is item 15's defect (a role block that does not parse, dropped),
+    reappearing in the policies block.
+  - Not pinned yet.
 - **Test-order hazard, not a defect in the code under test:** `ad6/translate.py:71`
   prepends the repo-root `ad6/` to `sys.path`. After that, `util/bench_utils.py`'s
   `import test.check_flows` resolves to `ad6/test`. The full fast tier is unaffected

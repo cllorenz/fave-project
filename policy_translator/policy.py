@@ -1118,7 +1118,11 @@ class Role(object):
         self.services = services if services is not None else {}
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Role):
+        # The same CLASS, not isinstance: a Superrole is a Role without
+        # `attributes`, so comparing the two raised AttributeError instead of
+        # answering False (TODO item 53). NotImplemented from both sides makes
+        # `==` fall back to identity, i.e. False.
+        if type(other) is not type(self):
             return NotImplemented
 
         # Compare the services dicts directly: the previous zip(self.services,

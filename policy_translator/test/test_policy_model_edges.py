@@ -30,8 +30,8 @@ Pinned:
     unknown service on a role or as a superrole member's service, an invalid
     attribute key or value on a role or a service;
   * comparing a model object with something else is `NotImplemented`, so
-    `==` is False -- except a Superrole against a Role, which raises
-    AttributeError (expectedFailure, `test_superrole_and_role_...`);
+    `==` is False -- a Superrole against a Role too, which raised
+    AttributeError until TODO item 53 (`test_superrole_and_role_...`);
   * `Superrole.add_subrole(group, service)` resolves the group to its members
     and adds the service through each of them;
   * `IgnorePolicy.update_conditions` keeps the least strict conditions, and
@@ -146,11 +146,8 @@ class TestRefusals(unittest.TestCase):
         self.assertFalse(self.policy.roles['Alpha'] == 'Alpha')
         self.assertFalse(self.policy.roles['Group'] == 'Group')
 
-    # DEFECT (policy.py:1129): `Superrole.__eq__` declines a plain Role, so
-    # Python tries the reflected `Role.__eq__`, which reads `.attributes` --
-    # an attribute `Superrole.__init__` never sets. Comparing a superrole with
-    # a role raises AttributeError instead of answering False.
-    @unittest.expectedFailure
+    # A Superrole is a Role without `attributes`; comparing the two once
+    # raised AttributeError instead of answering False (TODO item 53).
     def test_superrole_and_role_compare_unequal(self):
         self.assertNotEqual(self.policy.roles['Group'],
                             self.policy.roles['Alpha'])
