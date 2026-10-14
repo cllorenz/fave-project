@@ -234,7 +234,11 @@ def parse_fpl(raw_policy: str, use_tests: bool = False) -> Any:
             run_test(*test)
 
     else:
-        res = fpl.parseString(raw_policy)
+        # parseAll: input the grammar cannot read is REJECTED, as the builder
+        # rejects it (TODO item 15). Without it, parsing stopped at the first
+        # unreadable block and returned the prefix as if it were the whole
+        # file: 9 of 13 roles of fml-paper-policy.txt, no error (item 53).
+        res = fpl.parseString(raw_policy, parseAll=True)
         print(res.asList())
         return res.asList()
 
@@ -248,7 +252,7 @@ operator_to_str = {
     '<->>' : 'statefully',
     '--/->' : 'unidirectionally',
     '<-/->' : 'bidirectionally',
-    '<-/->>' : 'statefully'
+    '-/->>' : 'statefully'   # the grammar's spelling (line 137); was '<-/->>' (item 53)
 }
 
 
@@ -274,9 +278,8 @@ def print_prosa(fpl_policy: Any) -> None:
                 'has the attributes ' + prosa_list(attributes)
             ) if attributes else ''
 
-            print(
-                f"The role {role_name} {prosa_list([s for s in [includes_str, offers_str, attributes_str] if s != ''])}."
-            )
+            body = prosa_list([s for s in [includes_str, offers_str, attributes_str] if s != ''])
+            print(f"The role {role_name} {body}." if body else f"The role {role_name}.")
 
         elif head == 'service':
             service_name, attributes = head_tail(tail)

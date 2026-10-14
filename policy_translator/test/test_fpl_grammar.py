@@ -293,15 +293,15 @@ class TestGrammarAgreesWithBuilder(unittest.TestCase):
 
 
 class TestFmlPaperPolicy(unittest.TestCase):
-    """ THE DISAGREEMENT: `examples/fml-paper-policy.txt`.
+    """ `examples/fml-paper-policy.txt`, which both parsers refuse.
 
-    The builder refuses the file -- `protocol = 'arp'` is not an IP protocol
-    (TODO item 21), and the file also has `protocol = 1616`, `port = '67'` and
-    a service without a protocol. The grammar does not refuse it: `parse_fpl`
-    calls `parseString` without `parseAll=True`, so it stops at the first
-    block it cannot read -- `port = '67'` in `def service DHCP`, its `port`
-    takes digits only -- and returns what came before as if that were the
-    whole file. Nine of thirteen roles, no services, no policies, no error.
+    The builder refuses it: `protocol = 'arp'` is not an IP protocol (TODO
+    item 21), and the file also has `protocol = 1616`, `port = '67'` and a
+    service without a protocol. The grammar refuses it too, since TODO item 53.
+    `parse_fpl` once called `parseString` without `parseAll=True`, so it
+    stopped at the first block it could not read -- `port = '67'` in `def
+    service DHCP` -- and returned nine of thirteen roles, no services and no
+    policies, as if that were the whole file.
     """
 
     def setUp(self):
@@ -312,19 +312,6 @@ class TestFmlPaperPolicy(unittest.TestCase):
         with self.assertRaises(UnknownProtocolException):
             PolicyBuilder.build(self.text, Policy())
 
-    def test_grammar_returns_a_silent_prefix(self):
-        tree = _parse(self.text)
-        self.assertEqual([e[0] for e in tree], ['role'] * 9)
-        self.assertEqual(tree[-1][1], 'TestingComputers')
-        self.assertEqual(
-            tree[2], ['role', 'Gateways',
-                      ['hosts', ['gateway.example.com']], ['offers', 'DHCP']])
-
-    # A FINDING, not a decision: should the reference grammar reject input it
-    # cannot consume, like the builder does since TODO item 15? This states
-    # that expectation; fpl_grammar.py:237 (`fpl.parseString(raw_policy)`) is
-    # where it fails. Remove the decorator if parseAll=True is adopted.
-    @unittest.expectedFailure
     def test_grammar_rejects_what_it_cannot_consume(self):
         with self.assertRaises(pp.ParseException):
             _parse(self.text)
@@ -410,15 +397,12 @@ class TestPrintProsa(unittest.TestCase):
 
     def test_unknown_entry_aborts(self):
         lines = _prosa([['role', 'A'], ['bogus', 'x'], ['role', 'B']])
-        self.assertEqual(lines, ["The role A .",
+        self.assertEqual(lines, ["The role A.",
                                  "cannot handle entry: ['bogus', 'x']. Abort!"])
 
-    # DEFECT: `operator_to_str` (fpl_grammar.py:251) spells the forbidding
-    # stateful operator `<-/->>`, but the grammar (and the builder) spell it
-    # `-/->>`. So every policy using it raises KeyError('-/->>') at
-    # fpl_grammar.py:313. Remove the decorator once the key is fixed.
-    @unittest.expectedFailure
     def test_forbidding_stateful_operator_is_rendered(self):
+        """ The operator table once spelled it `<-/->>`, which the grammar
+        never produces, so this raised KeyError (TODO item 53). """
         lines = _prosa(_parse(
             "def role A\nend\n"
             "define policies(default: allow)\n\tA -/->> A\nend\n"))
