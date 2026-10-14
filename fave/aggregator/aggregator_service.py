@@ -415,7 +415,9 @@ class AggregatorService(AbstractAggregator):
         else:
             model = self._model_from_json(j)
             if model.type == 'topology_command':
-                task_type = model.model.type
+                # A delete carries no model, only its type (TODO item 53).
+                task_type = model.model.type if model.model is not None \
+                    else (model.mtype or model.type)
             else:
                 task_type = model.type
 
@@ -736,6 +738,13 @@ class AggregatorService(AbstractAggregator):
                     "switch",
                     "router"
             ]:
+                if cmd.command == "del":
+                    # Not built: designed in INCREMENTAL_PLAN.md §8.1. Refused
+                    # by name rather than crashing on the absent model, which
+                    # is what a device delete did (TODO item 53).
+                    raise NotImplementedError(
+                        "deleting a %s (%s) is not implemented; see "
+                        "INCREMENTAL_PLAN.md §8.1" % (cmd.mtype, cmd.node))
                 model = cmd.model
 
             elif cmd.mtype == "generator":
@@ -772,6 +781,12 @@ class AggregatorService(AbstractAggregator):
                     self.verification_engine.delete_probe(cmd.node)
 
                 return
+
+            elif cmd.command == "del":
+                # Without a type there is nothing to dispatch on; it used to be
+                # dropped silently (TODO item 53).
+                raise ValueError(
+                    "cannot delete %r: the command names no type (-t)" % cmd.node)
 
             else:
                 return

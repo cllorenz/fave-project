@@ -348,18 +348,29 @@ class TestGeneratorsAndProbes(_Base):
         self.engine.add_tables.assert_called_once_with(model)
         self.assertIs(self.aggr.models['fw'], model)
 
-    @unittest.expectedFailure
     def test_a_generator_delete_from_the_wire_reaches_the_engine(self):
-        """ BUG, pinned as expected-failure: `topology.py -c del` sends a
-        TopologyCommand WITHOUT a model, and `_dispatch` reads
-        `model.model.type` for the task name before `_sync_diff` ever sees it,
-        so every non-link delete raises AttributeError and the
-        `delete_generator` / `delete_probe` branches are unreachable from the
-        wire. """
-        self.aggr._dispatch(
+        """ `topology.py -d` sends a TopologyCommand WITHOUT a model, and
+        `_dispatch` once read `model.model.type` for the task name, so every
+        non-link delete raised AttributeError and these branches were
+        unreachable from the wire (TODO item 53). """
+        task = self.aggr._dispatch(
             TopologyCommand('src', 'del', mtype='generator').to_json())
+        self.assertEqual(task, 'generator')
         self.engine.delete_generator.assert_called_once_with('src')
 
+    def test_a_device_delete_is_refused_by_name(self):
+        """ Deleting a device is not built (INCREMENTAL_PLAN.md §8.1): it is
+        refused, naming the device, rather than crashing on the absent model
+        or being dropped. """
+        with self.assertRaises(NotImplementedError) as ctx:
+            self.aggr._sync_diff(TopologyCommand('fw', 'del', mtype='packet_filter'))
+        self.assertIn('fw', str(ctx.exception))
+        self.assertIn('§8.1', str(ctx.exception))
+
+    def test_a_delete_without_a_type_is_refused(self):
+        with self.assertRaises(ValueError):
+            self.aggr._sync_diff(TopologyCommand('x', 'del'))
+        self.assertEqual(self.engine.method_calls, [])
 
 class TestSwitchUpdatesAndDeclaredLpm(_Base):
     """ An incremental switch update sends only the delta to the engine, and a

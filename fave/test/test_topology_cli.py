@@ -278,6 +278,14 @@ class TestMainSendsOneCommand(_MainHarness):
         self.assertEqual(msg, {'node': 'sw', 'type': 'topology_command',
                                'command': 'del'})
 
+    def test_a_delete_carries_its_type(self):
+        """ The aggregator dispatches a delete on its type; the CLI once left
+        it out, so no generator or probe delete could reach an engine (TODO
+        item 53). """
+        msg = self.run_main(['-d', '-t', 'generator', '-n', 'g'])
+        self.assertEqual((msg['node'], msg['command'], msg['mtype']),
+                         ('g', 'del', 'generator'))
+
     def test_ports_imply_add(self):
         msg = self.run_main(['-d', '-t', 'switch', '-n', 'sw', '-p', '1'])
         self.assertEqual(msg['command'], 'add')

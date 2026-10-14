@@ -501,7 +501,10 @@ def main(argv: List[str]) -> None:
             model = LinksModel(args.links)
             topo = TopologyCommand("links", args.command, model)
         else:
-            topo = TopologyCommand(args.node, args.command)
+            # The type travels with the delete: the aggregator dispatches on
+            # it, and without it a generator or probe delete could not reach
+            # the engine (TODO item 53).
+            topo = TopologyCommand(args.node, args.command, mtype=args.type or "")
 
     assert topo is not None
     fave = connect_to_fave(

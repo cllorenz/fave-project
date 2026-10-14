@@ -3650,9 +3650,13 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
   multi-byte UTF-8 character split across the boundary raises. Pinned:
   `test_jsonrpc_wire.py`.
 - [ ] **Aggregator:**
-  - A non-link topology delete carries no model, so `aggregator_service.py:390` raises
-    `AttributeError`, which makes deleting a generator or probe unreachable from the
-    wire.
+  - [x] FIXED 2026-10-14: a non-link topology delete carried no model, so
+    `aggregator_service.py:390` raised `AttributeError`, which made deleting a generator
+    or probe unreachable from the wire.
+    - The CLI now sends the delete's type, and `_dispatch` names the task by it.
+    - A device delete is refused by name (`NotImplementedError`, pointing to
+      INCREMENTAL_PLAN.md §8.1).
+    - A delete without a type is refused instead of dropped.
   - Switch `remove_rule`/`update_rule` get the whole rule list (`:623`). Not pinned.
   - Under `filelock` 3.29, `PreLockedFileLock` (`util/lock_util.py:35`) never releases
     a dump's `.lock`.
