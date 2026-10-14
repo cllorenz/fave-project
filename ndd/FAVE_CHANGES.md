@@ -300,3 +300,14 @@ the same prefix as source and destination.
 The map is now one per field. Test: `NDDAtomizationTest.
 aLabelOnTwoFieldsGetsEachFieldsOwnAtoms` (on the unfixed code the source
 predicate's molecule is TRUE).
+
+## 13. A packet filter's ingress and egress VLAN tags  **[NEW]** (2026-10-14)
+
+`FaveFields` APPENDS `SVLAN = 10` and `DVLAN = 11`, 16 bits each like `VLAN`, so
+indices 0..9 are untouched. They are FaVe's `-i eth1.<v>` and `-o eth1.<v>` tags
+(`iptables/generator.py`): genuine header fields, separate from `VLAN` because a
+forwarded packet carries both, and never used together with `VLAN` in a FaVe
+model. `NddReachabilityEngine` reads them in its one rule reader, `ruleToNDD`, as
+`+ filter` slots 20 and 21 (`withTagSlot`), so the `+ filter`, `+ acl`, NAT-match
+and condition paths all get them. Until then FaVe's adapter dropped both fields
+before they reached this engine (TODO.md item 54).

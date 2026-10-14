@@ -67,7 +67,8 @@
 #              reference dumps' subprocess JVMs, which ask for -Xmx8g
 #              themselves. A 16 GB runner needs 8g: at the default 4 GB the
 #              bison-dependent group and APKeep's unit tests run out of heap
-#              (simulated 2026-10-14, TODO item 44).
+#              (simulated 2026-10-14, TODO item 44); at 6g the unit tests
+#              still do (NddBackendDifferentialTest, 2026-10-14).
 
 set -uo pipefail
 
@@ -171,6 +172,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_apkeep_out_stage.py      # the out-stage becomes APKeep elements (P7c); needs JPype + both jars
     test/test_apkeep_ingress_contract.py  # a table is checked against the ingress ports its rules name; needs JPype + both jars
     test/test_apkeep_tcp_flags.py      # tcp_flags survives the `+ filter` slot layout in BOTH engines; needs JPype + both jars
+    test/test_apkeep_pf_vlan.py        # svlan/dvlan as header fields of BDD-/NDD-APKeep and NDD-flood (TODO item 54); needs JPype + both jars
     # ad6 tests with a NATIVE dependency -- the ad6 bridge itself is pure Python
     # (a sys.executable subprocess), but these reach past it:
     test/test_ad6_wl_stanford.py # full-model structural translation (48 tables, ~1s, ALWAYS runs) + the 256-query differential vs a libnetplumber worker, which is opt-in (AD6_STANFORD_FULL_DIFFERENTIAL) and normally skips

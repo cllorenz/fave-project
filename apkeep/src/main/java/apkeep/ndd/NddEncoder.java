@@ -42,7 +42,9 @@ public final class NddEncoder implements RuleEncoder {
 				NDD.getBDDVars(FaveFields.DST6),
 				NDD.getBDDVars(FaveFields.VLAN),
 				NDD.getBDDVars(FaveFields.REL)[0],
-				NDD.getBDDVars(FaveFields.FLAGS));
+				NDD.getBDDVars(FaveFields.FLAGS),
+				NDD.getBDDVars(FaveFields.SVLAN),
+				NDD.getBDDVars(FaveFields.DVLAN));
 	}
 
 	/** One field label (referenced in the label engine) -> a referenced NDD;
@@ -95,7 +97,7 @@ public final class NddEncoder implements RuleEncoder {
 		boolean src6 = rule.source != null && rule.source.contains(":");
 		boolean dst6 = rule.destination != null && rule.destination.contains(":");
 		// NDD levels in field order (FaveFields): SRC6, DST6, PROTO, SPORT,
-		// DPORT, REL, SRC4, DST4, VLAN, FLAGS.
+		// DPORT, REL, SRC4, DST4, VLAN, FLAGS, SVLAN, DVLAN.
 		int[] level = new int[FaveFields.WIDTH.length];
 		java.util.Arrays.fill(level, BDDACLWrapper.BDDTrue);
 		level[src6 ? FaveFields.SRC6 : FaveFields.SRC4] = parts[BDDACLWrapper.ACL_SRC];
@@ -106,6 +108,8 @@ public final class NddEncoder implements RuleEncoder {
 		level[FaveFields.REL] = parts[BDDACLWrapper.ACL_RELATED];
 		level[FaveFields.VLAN] = parts[BDDACLWrapper.ACL_VLAN];
 		level[FaveFields.FLAGS] = parts[BDDACLWrapper.ACL_FLAGS];
+		level[FaveFields.SVLAN] = parts[BDDACLWrapper.ACL_SVLAN];
+		level[FaveFields.DVLAN] = parts[BDDACLWrapper.ACL_DVLAN];
 
 		BDD engine = NDD.getBDDEngine();
 		boolean empty = false;

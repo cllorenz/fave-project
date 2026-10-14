@@ -3742,6 +3742,71 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
   `import test.check_flows` resolves to `ad6/test`. The full fast tier is unaffected
   only because collection imports `bench_utils` first.
 
+### 54. APKeep's packet-filter path drops match fields it does not name — `svlan`/`dvlan` FIXED 2026-10-14; `icmpv6.type` and `module.limit` OPEN
+
+Found with `wl_tum`'s derived policy (`bench/wl_tum/WORKLOAD.md`). `apkeep/adapter.py`
+`_capture_pf_rule` reads the 5-tuple, `related` and the port qualifiers of a
+packet-filter rule; every OTHER field fell through unread, so the rule acted
+without that condition -- on BDD-APKeep, NDD-APKeep and NDD-flood alike (they
+share the translation). The adapter's own rule elsewhere is to refuse what it
+cannot express (generators, first-match switch tables), never to drop it.
+
+- [x] **`svlan`/`dvlan` -- FIXED 2026-10-14 (owner: VLANs are genuine header
+  fields).** A rule bound to one VLAN (`-i eth1.5`, `-o eth1.7`) acted on all of
+  them; a minimal experiment had both APKeep engines lose reachability that
+  NetPlumber and VeriFlow-FR (and iptables) have. Now two header fields in both
+  forks, beside the existing `vlan` (`apkeep/FAVE_CHANGES.md` §2,
+  `ndd/FAVE_CHANGES.md`), carried by filter rules, first-match switch tables,
+  generator seeds and check conditions. Also: a generator's `in_port` is accepted
+  where it is provably exact -- a terminal filter (no routing) all of whose port
+  qualifiers name that port, as wl_tum's `fw.tum` (every VLAN on `eth1`) -- and
+  refused by name elsewhere.
+  - **Recorded results predate it.** V5's and D11's BDD-/NDD-APKeep `wl_tum`
+    numbers (the single variant) were measured on a firewall WITHOUT its VLAN
+    conditions; their verdict (one check, none in D11) did not depend on it, but
+    their timings are not like-for-like with NetPlumber's and VeriFlow-FR's.
+  - **A model nuance left as it is:** a terminal filter has no routing, so FaVe's
+    model never sets `out_port`; a flow's untagged `out_port` slice passes an
+    `-o eth1.<v>` DROP on NetPlumber and VeriFlow-FR, while APKeep emits the rule
+    port-agnostically (every packet leaves by `eth1`, `fw.tum`'s only egress).
+    Real iptables drops it, as APKeep does.
+- [ ] **`packet.ipv6.icmpv6.type` -- OPEN.** `wl_up`'s host rulesets carry it
+  (16 rules each): on the APKeep engines a rule matching one ICMPv6 type acts on
+  all ICMPv6. Remedy: a header field, as `svlan`/`dvlan`.
+- [ ] **`module.limit` -- OPEN.** `wl_up`'s rate limits (4 rules per host
+  ruleset). A rate limit does not change reachability, so the remedy is a
+  declared ignore (`ACCOMMODATIONS.md`) rather than a field; undecided.
+- Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
+  until both are handled, so it waits for them.
+
+### 55. A fast test leaves state that drops every link of a later in-process APKeep replay — OPEN (found 2026-10-14)
+
+- **Finding:** after `fave/test/test_aggregator_service_paths.py::TestRunOverUnixSocket`
+  has run in a pytest process, an in-process replay on the APKeep adapter in the same
+  process (`InProcessFaVe(APKeepAdapter(...)).replay(...)`) receives **no `add_link` /
+  `add_links_bulk` call at all**. Generators and probes still arrive, so the build then
+  fails or answers on a graph without edges (here: every generator's `in_port`
+  refused, since no source is wired into the firewall).
+- **Reproduction:** `pytest -p no:logging
+  "test/test_aggregator_service_paths.py::TestRunOverUnixSocket" test/test_apkeep_pf_vlan.py
+  -k "RunOverUnix or iptables"` -- the three `*ThroughFaVe::test_the_verdicts_iptables_gives`
+  fail; each passes alone, after each of the module's other test classes, and
+  after `TestRunOverUnixSocket` run under plain `unittest` instead of pytest.
+- **Ruled out:** a shared aggregator queue (it is per instance); the device name (`fw`
+  in both -- renaming mine changed nothing); NetPlumber (an in-process `wl_example`
+  replay after the class passes, `test_incremental_run.py`).
+- **Likely area:** the class starts `AggregatorService.run` on a daemon thread over a
+  patched `aggregator_service.socket` and `barrier.BARRIER_DIR`; something it starts or
+  patches outlives the test and intercepts the link commands that
+  `util/in_process_driver.py` routes through `topology`/`switch`'s patched
+  `connect_to_fave`/`fave_sendmsg`. Not yet localised.
+- **Why it matters:** the fast tier runs every fast module in ONE process, so any fast
+  test after this class that replays a workload on APKeep gets a graph without links --
+  a silent wrong answer if the test does not happen to need an edge. Found when
+  `test_apkeep_pf_vlan.py` was first collected into the fast tier; it is an
+  integration test (its own process) and was moved there, which hides the leak but
+  does not fix it.
+
 ## Python codebase test expansion (fave/ + policy_translator/)
 
 ### 9. Expand Python test coverage per the testing strategy — Phase 1 + Phase 2 DONE (see [`TESTING_STRATEGY_PYTHON.md`](docs/TESTING_STRATEGY_PYTHON.md))

@@ -89,6 +89,12 @@ public class BDDACLWrapper implements Serializable{
       // shift and the P6 layout-lock still holds.
       public final static int tcpFlagsBits = 8;
       int[] tcpFlags;
+      // FaVe fork (2026-10-14): a packet filter's ingress (svlan, `-i eth1.<v>`)
+      // and egress (dvlan, `-o eth1.<v>`) VLAN tags, 12 bits each like `vlan`.
+      // Declared LAST of all (see the ctor), so no existing field's variables
+      // shift and the P6 layout-lock still holds.
+      int[] svlan;
+      int[] dvlan;
       int[] dstIP6;
       // FaVe fork (P9b): source IPv6 (128b). APKeep shipped only a dst IPv6 field
       // (dstIP6, and mis-declared -- see the ctor); a firewall ACL needs both. Both
@@ -150,6 +156,8 @@ public class BDDACLWrapper implements Serializable{
             srcIP6 = new int[ip6Bits];
             vlan = new int[vlanBits];
             tcpFlags = new int[tcpFlagsBits];
+            svlan = new int[vlanBits];
+            dvlan = new int[vlanBits];
 
             /**
              * will try more orders of variables
@@ -171,6 +179,9 @@ public class BDDACLWrapper implements Serializable{
             DeclareRelated();
             // FaVe fork (step 4): TCP flags, declared after it -- same reason.
             DeclareTcpFlags();
+            // FaVe fork (2026-10-14): the packet filter's VLAN tags, after it.
+            DeclareVars(svlan, vlanBits);
+            DeclareVars(dvlan, vlanBits);
 
             mplsLabelField = AndInBatch(mplsLabel);
             mplsLabelFieldDecoration = 
@@ -193,7 +204,7 @@ public class BDDACLWrapper implements Serializable{
        */
       public BDDACLWrapper(BDD engine, int[] protocol, int[] srcPort, int[] dstPort,
                   int[] srcIP, int[] dstIP, int[] srcIP6, int[] dstIP6, int[] vlan,
-                  int relatedVar, int[] tcpFlags)
+                  int relatedVar, int[] tcpFlags, int[] svlan, int[] dvlan)
       {
             this.aclBDD = engine;
             this.protocol = protocol;
@@ -206,6 +217,8 @@ public class BDDACLWrapper implements Serializable{
             this.vlan = vlan;
             this.relatedVar = relatedVar;
             this.tcpFlags = tcpFlags;
+            this.svlan = svlan;
+            this.dvlan = dvlan;
       }
 
       public void createIPinIPPermutation()
@@ -1286,7 +1299,8 @@ public class BDDACLWrapper implements Serializable{
        */
       /** The field slots of {@link #ConvertACLRuleFields}. */
       public static final int ACL_PROTO = 0, ACL_SPORT = 1, ACL_DPORT = 2, ACL_SRC = 3,
-                  ACL_DST = 4, ACL_VLAN = 5, ACL_RELATED = 6, ACL_FLAGS = 7;
+                  ACL_DST = 4, ACL_VLAN = 5, ACL_RELATED = 6, ACL_FLAGS = 7,
+                  ACL_SVLAN = 8, ACL_DVLAN = 9;
 
       public int ConvertACLRule(ACLRule aclr)
       {
@@ -1368,23 +1382,19 @@ public class BDDACLWrapper implements Serializable{
             /**
              * VLAN (FaVe fork, P9a): unconstrained unless the rule carries a tag.
              */
-            int vlanNode = BDDTrue;
-            if(aclr.vlan != null && !aclr.vlan.equalsIgnoreCase("any"))
-            {
-                  // FaVe fork (P7b): the VLAN token may be a comma-separated SET
-                  // (e.g. an ingress admits many VLANs); match their union in ONE
-                  // rule. This collapses ~114 per-VLAN permits per router into a
-                  // single admission rule -- far fewer atomic-predicate splits, so
-                  // the faithful wl_stanford model builds tractably.
-                  String[] vlans = aclr.vlan.split(",");
-                  int[] vlanNodes = new int[vlans.length];
-                  for(int i = 0; i < vlans.length; i++)
-                  {
-                        vlanNodes[i] = ConvertVLAN(Integer.parseInt(vlans[i].trim()));
-                  }
-                  vlanNode = OrInBatch(vlanNodes);
-                  DerefInBatch(vlanNodes);
-            }
+            // FaVe fork (P7b): the VLAN token may be a comma-separated SET
+            // (e.g. an ingress admits many VLANs); match their union in ONE
+            // rule. This collapses ~114 per-VLAN permits per router into a
+            // single admission rule -- far fewer atomic-predicate splits, so
+            // the faithful wl_stanford model builds tractably.
+            int vlanNode = ConvertVLANSet(aclr.vlan, vlan);
+
+            /**
+             * a packet filter's ingress and egress VLAN tags (FaVe fork,
+             * 2026-10-14): unconstrained unless the rule carries them.
+             */
+            int svlanNode = ConvertVLANSet(aclr.svlan, svlan);
+            int dvlanNode = ConvertVLANSet(aclr.dvlan, dvlan);
 
             /**
              * connection state (FaVe fork, Phase 5): unconstrained unless the rule
@@ -1410,7 +1420,8 @@ public class BDDACLWrapper implements Serializable{
 
             //put them together
             int [] fields = {protocolNode,srcPortNode,dstPortNode,
-                        srcIPNode,dstIPNode,vlanNode,relatedNode,tcpFlagsNode};
+                        srcIPNode,dstIPNode,vlanNode,relatedNode,tcpFlagsNode,
+                        svlanNode,dvlanNode};
             return fields;
       }
 
@@ -1640,6 +1651,28 @@ public class BDDACLWrapper implements Serializable{
                   aclBDD.deref(bit);
                   node = next;
             }
+            return node;
+      }
+
+      /**
+       * A VLAN token -- one id or a comma-separated set, null/"any" = any -- over
+       * the given VLAN field's variables (`vlan`, `svlan` or `dvlan`).
+       */
+      private int ConvertVLANSet(String token, int[] vars)
+      {
+            if(token == null || token.equalsIgnoreCase("any"))
+            {
+                  return BDDTrue;
+            }
+            String[] ids = token.split(",");
+            int[] nodes = new int[ids.length];
+            for(int i = 0; i < ids.length; i++)
+            {
+                  int id = Integer.parseInt(ids[i].trim());
+                  nodes[i] = ConvertRange(new Range(id, id), vars, vars.length);
+            }
+            int node = OrInBatch(nodes);
+            DerefInBatch(nodes);
             return node;
       }
 

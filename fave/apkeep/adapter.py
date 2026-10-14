@@ -66,6 +66,13 @@ def _cidr_to_apkeep(cidr: str) -> Tuple[int, int]:
 
 
 _VLAN = 'packet.ether.vlan'
+# A packet filter's ingress and egress VLAN tags (`-i eth1.<v>` / `-o eth1.<v>`,
+# iptables/generator.py). Genuine header fields, separate from `vlan`: a
+# forwarded packet carries both, and no FaVe model uses them together with
+# `vlan`. Carried by both forks since 2026-10-14; until then the packet-filter
+# path dropped them without a word, so a rule bound to one VLAN acted on all.
+_SVLAN = 'packet.ether.svlan'
+_DVLAN = 'packet.ether.dvlan'
 _SRC = 'packet.ipv4.source'
 _SRC6 = 'packet.ipv6.source'      # P9b: IPv6 source (wl_up)
 _DST6 = 'packet.ipv6.destination'
@@ -149,6 +156,8 @@ _COND_SLOTS = {
     # correctly, and by machinery that already existed.
     _VLAN: 'vlan',
     _FLAGS: 'flags',
+    _SVLAN: 'svlan',
+    _DVLAN: 'dvlan',
 }
 
 # --- what a dst-LPM ForwardElement can and cannot say ------------------------
@@ -202,7 +211,7 @@ _NAT_IP_FIELDS = {_SRC: 'src', _DST: 'dst'}
 #: approximated.
 _FILTER_MATCH_FIELDS = frozenset({
     _PROTO, _SRC, _SRC6, _DST, _DST6, _SPORT, _DPORT, _RELATED, _VLAN,
-    _FLAGS})
+    _FLAGS, _SVLAN, _DVLAN})
 
 
 class UntranslatedSemantics(Exception):
@@ -441,6 +450,8 @@ _FILTER_SLOTS = (
     ('vlan',    1, ('null',)),
     ('related', 1, ('null',)),
     ('flags',   1, ('null',)),
+    ('svlan',   1, ('null',)),   # 2026-10-14: a packet filter's VLAN tags
+    ('dvlan',   1, ('null',)),
 )
 
 
@@ -461,7 +472,9 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
                         sport: Optional[Any], dport: Optional[Any],
                         related: Optional[Any], idx: int,
                         vlan: Optional[Any] = None,
-                        flags: Optional[Any] = None) -> str:
+                        flags: Optional[Any] = None,
+                        svlan: Optional[Any] = None,
+                        dvlan: Optional[Any] = None) -> str:
     """ One packet_filter chain rule -> an APKeep "+ filter <device> ..." update
     string for a FilterElement. Token layout matches an ACL rule (accessList number
     action protoLo protoHi src srcWild sPortLo sPortHi dst dstWild dPortLo dPortHi
@@ -488,6 +501,8 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
         'vlan': ("null" if vlan is None else str(vlan),),
         'related': ("null" if related is None else str(related),),
         'flags': ("null" if flags is None else str(flags),),
+        'svlan': ("null" if svlan is None else str(svlan),),
+        'dvlan': ("null" if dvlan is None else str(dvlan),),
     }
     body: List[str] = []
     for name, width, _unconstrained in _FILTER_SLOTS:
@@ -940,6 +955,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         #: per device rather than per rule (wl_tum's tum-ruleset alone
         #: carries 3,286, and a per-rule notice would bury the run).
         self._unresolved_out_iface: Dict[str, int] = {}
+        #: sources whose `in_port` _check_terminal_in_ports proved exact
+        self._gen_in_port_checked: Set[str] = set()
         # device -> (ACCOUNT_*, why). Which mechanism stands in for a semantic
         # the chosen element type cannot carry, and how completely. Read by
         # `_assert_ingress_accounted`; an unlisted device that needs one is
@@ -995,6 +1012,10 @@ class APKeepAdapter(AbstractVerificationEngine):
         # ACLs match on it, so ignoring it made 293 denied pairs look reachable.
         self._gen_fields: Dict[str, Dict[str, Any]] = {}
         self._gen_vlan: Dict[str, str] = {}       # source node -> ingress VLAN
+        #: source node -> (device, port) of the ingress its `in_port` names;
+        #: structural, and accepted only where _build_pf_pipeline proves it
+        #: exact (a terminal filter all of whose qualifiers name that port)
+        self._gen_in_port: Dict[str, Tuple[str, str]] = {}
         # wl_stanford: the HSA model splits every router into in./mid./out.
         # switches. in.=ingress ACL (pass-through here), mid.=dst-IP FIB, and
         # out.=an input-port->output-port permutation (a pure wire) that a dst-IP
@@ -1340,6 +1361,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         shadows the accepts. """
         proto = src = dst = sport = dport = related = None
         in_qual = out_qual = None
+        svlan = dvlan = None
         for field in (rule.match or []):
             if field.name.startswith(_IPV6HDR):
                 return                            # RH0 rule: irrelevant to reachability
@@ -1359,10 +1381,19 @@ class APKeepAdapter(AbstractVerificationEngine):
                 in_qual = _split_port(str(field.value))[1]
             elif field.name == _OUT_PORT:
                 out_qual = _split_port(str(field.value))[1]
+            elif field.name == _SVLAN:
+                svlan = field.value
+            elif field.name == _DVLAN:
+                dvlan = field.value
+            # Any other field still falls through unread: wl_up's
+            # `packet.ipv6.icmpv6.type` and `module.limit` do (found 2026-10-14
+            # with svlan/dvlan, which did too until then; TODO.md item 54).
         out_ports = self._out_ports(rule)
         out_port = out_ports[0] if out_ports else _FILTER_DROP
+        # svlan, dvlan APPENDED (t[10], t[11]) so every earlier index holds
         self._pf_rules.setdefault(device, {}).setdefault(chain, []).append(
-            (out_port, proto, src, dst, sport, dport, related, in_qual, out_qual, rule.idx))
+            (out_port, proto, src, dst, sport, dport, related, in_qual, out_qual, rule.idx,
+             svlan, dvlan))
 
     def _pf_fib(self, device: str) -> List[Tuple[Optional[str], str, int]]:
         """ A packet filter's routes, `_filter_fib` without the drops that
@@ -2062,6 +2093,13 @@ class APKeepAdapter(AbstractVerificationEngine):
                     # source is wired to, not what its packets match.
                     self._gen_vlan[model.node] = str(rfields[0].value)
                     continue
+                if fname == _IN_PORT:
+                    # Structural too: the port the source's packets arrive on.
+                    # Exact only where every port qualifier of the filter it
+                    # enters names that port -- checked when the pipeline is
+                    # built, and refused there otherwise (owner, 2026-10-14).
+                    self._gen_in_port[model.node] = _split_port(str(rfields[0].value))
+                    continue
                 if fname in (_SRC, _SRC6):
                     self._gen_src[model.node] = rfields[0].value
                 elif fname not in _FILTER_MATCH_FIELDS:
@@ -2254,6 +2292,13 @@ class APKeepAdapter(AbstractVerificationEngine):
         # device's role. Terminal filters (wl_tum) stay a single FilterElement.
         edges, pf_elems, pf_rules = self._build_pf_pipeline(
             edges, sorted(self._filter_devices))
+        unproven = sorted(set(self._gen_in_port) - self._gen_in_port_checked)
+        if unproven:
+            # A source's `in_port` is honoured only where the pipeline proved it
+            # exact; anywhere else it would be ignored, so it is refused.
+            raise UntranslatedSemantics(
+                "generator(s) %s inject in_port, which only a terminal filter "
+                "whose port qualifiers all name that port can honour" % unproven)
         # A generator injects the full header space, but a real source emits only
         # its own src-IP. Splice a src-constraining FilterElement at each source
         # (permit src=address, default-drop) so a source cannot reach a probe via a
@@ -2518,7 +2563,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                         match.get(_DST, match.get(_DST6)),
                         match.get(_SPORT), match.get(_DPORT),
                         match.get(_RELATED), int(row['idx']),
-                        vlan=match.get(_VLAN))
+                        vlan=match.get(_VLAN), flags=match.get(_FLAGS),
+                        svlan=match.get(_SVLAN), dvlan=match.get(_DVLAN))
                     rules.append(rule_str)
                     # The NAT reuses this rule's own match, so it rewrites
                     # exactly the packets the rule matched -- see
@@ -2640,7 +2686,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                         in_by.setdefault(t[7], []).append(t)
                         continue
                     rule_strings.append(_filter_rule_string(
-                        elem, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
+                        elem, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9],
+                        svlan=t[10], dvlan=t[11]))
             port_target: Dict[str, str] = {}
             pre_edges: List[str] = []
             for port, prules in in_by.items():
@@ -2648,7 +2695,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                 all_elems.append(pre)
                 for t in prules:
                     rule_strings.append(_filter_rule_string(
-                        pre, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
+                        pre, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9],
+                        svlan=t[10], dvlan=t[11]))
                 # default: pass everything the qualified rules did not drop
                 rule_strings.append(_filter_rule_string(
                     pre, 'fpass', None, None, None, None, None, None, _FILTER_PRIO_BASE))
@@ -2720,6 +2768,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             # No physical ports/routing, so qualifiers cannot be split per-port --
             # emit every rule port-agnostically (matches NP; wl_tum fw.tum). ---
             if not has_input_sink and not is_transit:
+                self._check_terminal_in_ports(dev, new_edges)
                 emit(dev, 'forward_filter', handle_quals=False)
                 if has_routing:
                     new_edges.append("%s forward_filter_accept %s in" % (dev, fib_dev))
@@ -2765,6 +2814,32 @@ class APKeepAdapter(AbstractVerificationEngine):
                 "where it ACCEPTs. Every other device resolves `-o` exactly.",
                 device, count)
         return new_edges, all_elems, rule_strings
+
+    def _check_terminal_in_ports(self, dev: str, edges: List[str]) -> None:
+        """ A terminal filter's rules are emitted without their port
+        qualifiers (it has no physical ports to split them on). That is exact
+        iff every packet entering it arrives on the one port all its `-i`
+        qualifiers name and would leave by the same interface all its `-o`
+        qualifiers name -- wl_tum's fw.tum, every VLAN on eth1. A source that
+        declares that port as its `in_port` is then accepted; any other
+        combination is refused by name (owner, 2026-10-14). """
+        quals = {(q, kind) for chain in self._pf_rules.get(dev, {}).values()
+                 for t in chain for q, kind in ((t[7], 'in'), (t[8], 'out'))
+                 if q is not None}
+        ports = {q for q, _kind in quals}
+        for edge in edges:
+            s_dev, _s_port, d_dev, _d_port = edge.split()
+            if d_dev != dev or s_dev not in self._gen_in_port:
+                continue
+            g_dev, g_port = self._gen_in_port[s_dev]
+            if g_dev != dev or (ports and ports != {g_port}):
+                raise UntranslatedSemantics(
+                    "generator %s injects in_port %s.%s into %s, whose rules "
+                    "qualify ports %s. Its rules are emitted without their port "
+                    "qualifiers, which is exact only when every qualifier names "
+                    "the port every source arrives on." % (
+                        s_dev, g_dev, g_port, dev, sorted(ports) or 'none'))
+            self._gen_in_port_checked.add(s_dev)
 
     def _src_seeded_source(self, cidr: Optional[str]) -> bool:
         """ Phase C1 Lever B: True iff this source's src constraint is applied at
@@ -2831,7 +2906,9 @@ class APKeepAdapter(AbstractVerificationEngine):
                         injected.get(_SRC, injected.get(_SRC6)),
                         injected.get(_DST, injected.get(_DST6)),
                         injected.get(_SPORT), injected.get(_DPORT),
-                        injected.get(_RELATED), 0))
+                        injected.get(_RELATED), 0,
+                        flags=injected.get(_FLAGS),
+                        svlan=injected.get(_SVLAN), dvlan=injected.get(_DVLAN)))
                 new_edges.append("%s %s %s in" % (s_dev, s_port, sf))
                 new_edges.append("%s sfpass %s %s" % (sf, d_dev, d_port))
             else:
@@ -3047,7 +3124,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                             match.get(_DST, match.get(_DST6)),
                             match.get(_SPORT), match.get(_DPORT),
                             match.get(_RELATED), int(row['idx']),
-                            vlan=match.get(_VLAN), flags=match.get(_FLAGS)))
+                            vlan=match.get(_VLAN), flags=match.get(_FLAGS),
+                            svlan=match.get(_SVLAN), dvlan=match.get(_DVLAN)))
                 for out_port in sorted(egress):
                     for d_dev, d_port in out_ext.get((out_dev, out_port), []):
                         kept.append("%s %s %s %s" % (elem, out_port, d_dev, d_port))
@@ -3402,13 +3480,15 @@ class APKeepAdapter(AbstractVerificationEngine):
             args: Dict[str, Any] = {
                 'proto': None, 'src': None, 'dst': None,
                 'sport': None, 'dport': None, 'vlan': None, 'flags': None,
+                'svlan': None, 'dvlan': None,
             }
             args[slot] = _cond_field(field, "value")
             conditions.append((
                 _filter_rule_string(
                     'cond', 'cond', args['proto'], args['src'], args['dst'],
                     args['sport'], args['dport'], None, 0,
-                    vlan=args['vlan'], flags=args['flags']),
+                    vlan=args['vlan'], flags=args['flags'],
+                    svlan=args['svlan'], dvlan=args['dvlan']),
                 bool(_cond_field(field, "negated"))))
         return related, conditions
 

@@ -50,7 +50,8 @@ public final class NddReachabilityEngine {
             PROTO = FaveFields.PROTO, SPORT = FaveFields.SPORT,
             DPORT = FaveFields.DPORT, REL = FaveFields.REL;
     static final int SRC4 = FaveFields.SRC4, DST4 = FaveFields.DST4,
-            VLAN = FaveFields.VLAN, FLAGS = FaveFields.FLAGS;
+            VLAN = FaveFields.VLAN, FLAGS = FaveFields.FLAGS,
+            SVLAN = FaveFields.SVLAN, DVLAN = FaveFields.DVLAN;
     static final int[] W = FaveFields.WIDTH;
     static final String DROP = "__drop__";
 
@@ -65,7 +66,9 @@ public final class NddReachabilityEngine {
     // read past it is length-guarded rather than assumed.
     private static final int SLOT_OUT = 5, SLOT_PROTO = 6, SLOT_SRC = 8,
             SLOT_SPORT = 10, SLOT_DST = 12, SLOT_DPORT = 14, SLOT_PRIO = 16,
-            SLOT_VLAN = 17, SLOT_REL = 18, SLOT_FLAGS = 19;
+            SLOT_VLAN = 17, SLOT_REL = 18, SLOT_FLAGS = 19,
+            // a packet filter's ingress/egress VLAN tags (2026-10-14)
+            SLOT_SVLAN = 20, SLOT_DVLAN = 21;
 
     // NDD's node tables are process-global statics; initialise the field layout
     // exactly once per JVM (the FaVe path builds one network per process).
@@ -126,7 +129,7 @@ public final class NddReachabilityEngine {
      */
     private static int withVlanSlot(int hit, String[] t) {
         if (t.length > SLOT_VLAN && !t[SLOT_VLAN].equals("null")) {
-            return NDD.and(hit, vlanPred(t[SLOT_VLAN]));
+            return NDD.and(hit, vlanPred(VLAN, t[SLOT_VLAN]));
         }
         return hit;
     }
@@ -167,13 +170,22 @@ public final class NddReachabilityEngine {
         return r;
     }
 
-    private static int vlanPred(String vlanSet) {
+    private static int vlanPred(int field, String vlanSet) {
         int r = NDD.getFalse();
         for (String v : vlanSet.split(",")) {
             if (v.isEmpty()) continue;
-            r = NDD.or(r, exact(VLAN, Long.parseLong(v.trim()), W[VLAN]));
+            r = NDD.or(r, exact(field, Long.parseLong(v.trim()), W[field]));
         }
         return r;
+    }
+
+    /** An optional VLAN-tag slot of `field` (SVLAN or DVLAN); absent or "null"
+     *  leaves the predicate unconstrained. */
+    private static int withTagSlot(int hit, String[] t, int slot, int field) {
+        if (t.length > slot && !t[slot].equals("null")) {
+            return NDD.and(hit, vlanPred(field, t[slot]));
+        }
+        return hit;
     }
 
     /**
@@ -625,6 +637,9 @@ public final class NddReachabilityEngine {
         String rel = t.length > SLOT_REL ? t[SLOT_REL] : "null";
         if (!rel.equals("null")) r = NDD.and(r, exact(REL, Long.parseLong(rel), 1));
         r = withFlagsSlot(r, t);
+        // a packet filter's ingress and egress VLAN tags (2026-10-14)
+        r = withTagSlot(r, t, SLOT_SVLAN, SVLAN);
+        r = withTagSlot(r, t, SLOT_DVLAN, DVLAN);
         return r;
     }
 

@@ -82,6 +82,12 @@ public class ACLRule implements Serializable {
 	public String vlan;
 	public String related;
 	public String tcpFlags;
+	// FaVe fork (2026-10-14): a packet filter's ingress and egress VLAN tags --
+	// `-i eth1.<v>` and `-o eth1.<v>` -- each an exact 802.1Q id, null = any.
+	// Separate from `vlan`: a forwarded packet carries both at once, and no
+	// FaVe model uses them together with `vlan`.
+	public String svlan;
+	public String dvlan;
 	public String precedenceKeyword;
 	public String precedence;
 	public String tosKeyword;
@@ -240,6 +246,18 @@ public class ACLRule implements Serializable {
 		if(tokens.length >= 17 && !tokens[16].equals("null")
 				&& !tokens[16].equalsIgnoreCase("any")) {
 			tcpFlags = tokens[16];
+		}
+		// FaVe fork (2026-10-14): optional 18th and 19th tokens carry the
+		// packet filter's ingress (svlan) and egress (dvlan) VLAN tags, after the
+		// TCP-flags slot (token[16]), so every earlier format is unchanged. A
+		// comma-separated set is accepted, as for `vlan`.
+		if(tokens.length >= 18 && !tokens[17].equals("null")
+				&& !tokens[17].equalsIgnoreCase("any")) {
+			svlan = tokens[17];
+		}
+		if(tokens.length >= 19 && !tokens[18].equals("null")
+				&& !tokens[18].equalsIgnoreCase("any")) {
+			dvlan = tokens[18];
 		}
 	}
 

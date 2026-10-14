@@ -74,6 +74,15 @@ so these are additive.
   `RewriteRule` so the matched field (e.g. the dst-IP route) can differ from the
   rewritten field (VLAN); a VLAN-rewrite `NATElement.encodeOneRule` form
   (`+ nat <dev> <port> vlan <dstIP> <dstlen> <vlanN>`). Commit `15d0d119`.
+- **A packet filter's ingress and egress VLAN tags** (2026-10-14; TODO.md item
+  54): `svlan` and `dvlan`, FaVe's `-i eth1.<v>` and `-o eth1.<v>`, as two 12-bit
+  match fields declared LAST of all in `BDDACLWrapper` (after the TCP flags), so
+  no existing field's variables shift; `ACLRule` reads them as optional 18th and
+  19th tokens (one id or a comma-separated set), so every earlier format is
+  unchanged; `ConvertACLRuleFields` gives them as parts `ACL_SVLAN`/`ACL_DVLAN`,
+  which `apkeep.ndd.NddEncoder` lifts onto NDD's fields 10 and 11. Separate from
+  `vlan`: a forwarded packet carries both tags, and no FaVe model uses them
+  together with `vlan`, so they need no rewrite.
 
 ## 3. NAT / rewrite plumbing for reachability  **[NEW]**
 
