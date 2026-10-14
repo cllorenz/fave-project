@@ -1,13 +1,13 @@
 # Incremental reverification — a plan
 
-**Status: M1 and M2 BUILT (2026-10-11); next the D11 run, then the campaign (D10).**
+**Status: M1 and M2 BUILT (2026-10-11); D11 RUN (2026-10-12/13, §10 step 9); next the campaign protocol (D10).**
 Decisions D1–D9 are the owner's, taken in discussion on 2026-10-09 (§4), as are
 O1–O6 (§9). §10 records what is built: NetPlumber, VeriFlow-FR, BDD-APKeep and
 NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
 its witness + dead-ends footprint, the default since 2026-10-11); the harness is
-done. Only indicative (dev) calibrations have run (§10); no reportable
-measurement exists until a `PROTOCOL.txt` with predictions is written. M2 (§8)
-has not started.
+done. Only indicative (dev) runs have run (§10), the last the D11 grid; no
+reportable measurement exists until the campaign's `PROTOCOL.txt` with
+predictions is written.
 **Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -549,6 +549,7 @@ and are listed for confirmation.
 | 7. M2 spike (§8 step 1) | **done 2026-10-11** ([findings](../fave/bench/campaigns/results_m2_spike_20261011/FINDINGS.md)) — stable indices need the last emission: a ruleset alone cannot say which rule "was" where. **Stable renumbering by alignment** (per table: align by content, matched rules keep their index, new runs take free indices, a full gap relabels the smallest window to half the nominal spacing) holds one firewall edit at or near the floor: 500 random edits on `wl_up` pgf all at the floor (2 engine rules, against a dense median of 2,521); 200 head-of-chain inserts 4,528 changes against 304,538. **Design taken (autonomous, for the owner to confirm):** the aligner lives in the AGGREGATOR, which already holds every device's model, so generators and router/switch models stay unchanged; it is OPT-IN on the incremental path (from-zero runs and V5's numbers untouched); its index budget is declared per engine (NetPlumber 2^20−1, APKeep ACL < 70,000). Found: an `ESTABLISHED -j DROP` rule crashed the generator (fixed, `3202461d`) | `dca21368`..`17e1b123` |
 | 5e. VeriFlow-FR footprints (D12) | **done 2026-10-11** (`VERIFLOW_FOOTPRINT_SCOPE.md`, all proposed parts) — witness with one concrete packet per hop carried back through the rewrites, dead ends with a fall-through fate for deletions, per-(source, probe) reporting; `--footprint` as on APKeep, **coarse still the default (owner to decide)**. Every VeriFlow-FR oracle stream with the modes on; negative controls caught (an unpinned carried packet only by its unit test, not by the oracle streams). Indicative ([findings](../fave/bench/campaigns/results_inc_dev_vf_footprints_20261011/FINDINGS.md)): verdicts unchanged everywhere; with both modes `wl_airtel1` S1 51,200 → 0 re-checks and 607 → 0.92 ms per update, `wl_cloud` S1 13,210 → 10 | `647a97f3`, `32b869d9` |
 | 8. M2 built (§8.1) | **done 2026-10-11** — `util/stable_index.py`; the aggregator's opt-in stable path (re-sent device → `delete_rule`/`insert_rule` of what changed, refusals before anything is touched, control-plane tables kept or seeded); `max_rule_index(table)` per engine; `InProcessFaVe.resend_device`/`resend_switch`; S4 (`util/incremental.S4Configs`, `stream_s4`; `incremental_run.py --stream s4` with `t_model`/`t_diff`/`t_update`/`t_recheck`). Under the oracle on all four engines: `wl_example`, `wl_ifi` (router ACLs), `wl_up` (packet filters), `wl_cloud` (switch tables; NetPlumber, VeriFlow-FR, NDD-APKeep), `wl_tum` edits go through rule by rule. Found on the way: a pf's routing table is filled by the control plane and arrives EMPTY in a configuration re-send -- kept, not deleted. The old aggregator deletion path (device `del`, a switch's `remove_rule` command) is untouched and still unfinished | `12ff85dc`..`e96f6b89` |
+| 9. D11 run | **done 2026-10-13** ([findings](../fave/bench/campaigns/results_inc_dev_d11_20261012/FINDINGS.md), [A-cell table](../fave/bench/campaigns/results_inc_dev_d11_20261012/tables.md)) — 433 cells in 38.9 h, each capped at 2 h; 291 measured, 131 did not finish (103 cap, 28 memory), 8 error, 3 refused, **no oracle mismatch**. Found: S4 could delete all of an applied router ACL (the 8 errors, `wl_ifi`; harness fixed for the campaign, owner, `m2`); on `wl_tum` (no checks) VeriFlow-FR and both APKeeps never build their model, so their cells measure nothing; memory sized from 50-update prefixes is too tight for whole streams. Open before the campaign protocol: prefixes or caps for the slow cells, the `wl_tum` build, memory from D11's peaks | `71934eb4` |
 
 Held to the oracle in `test_incremental_{netplumber,veriflow}.py` on
 `wl_example`, `wl_ifi` and `wl_cloud`: after every update, selective equals full
