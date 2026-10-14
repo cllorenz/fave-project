@@ -366,6 +366,14 @@ class TestPacketUtil(unittest.TestCase):
                              (1, 65535), (65534, 65535), (65535, 65535), (7, 7), (2, 40988)]:
             self.assertEqual(covered(lower, upper), set(range(lower, upper + 1)), (lower, upper))
 
+        # Exhaustively over small ranges: the prefixes cover exactly the
+        # range, each port once (no overlapping blocks).
+        for lower in range(0, 70):
+            for upper in range(lower, 70):
+                ports = [p for base, plen in portrange_to_prefix_list(lower, upper)
+                         for p in range(base, base + (1 << (16 - plen)))]
+                self.assertEqual(ports, list(range(lower, upper + 1)), (lower, upper))
+
         with self.assertRaises(AssertionError):
             portrange_to_prefix_list(65535, 65536)
             portrange_to_prefix_list(65536, 65536)
