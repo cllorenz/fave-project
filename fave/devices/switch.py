@@ -90,17 +90,13 @@ class SwitchModel(AbstractDeviceModel):
             self,
             node: str,
             ports: Optional[Iterable[str]] = None,
-            rules: Optional[List[Rule]] = None,
-            table_ids: Optional[Dict[str, int]] = None
+            rules: Optional[List[Rule]] = None
     ) -> None:
         ports = ports if ports is not None else []
 
         super(SwitchModel, self).__init__(node, "switch")
         self.ports = {node+"."+str(p) : node+".1" for p in ports}
         self.tables = {node+".1" : rules if rules is not None else []}
-
-        # always bound (None when absent); to_json emits it only when truthy
-        self.table_ids: Optional[Dict[str, int]] = table_ids if table_ids else None
 
 
     def to_json(self) -> JSONDict:
@@ -113,8 +109,6 @@ class SwitchModel(AbstractDeviceModel):
                 r.to_json() for r in rules
             ] for table, rules in list(self.tables.items())
         }
-        if self.table_ids:
-            j["table_ids"] = {t:i for t, i in list(self.table_ids.items())}
         return j
 
     @staticmethod
@@ -127,9 +121,7 @@ class SwitchModel(AbstractDeviceModel):
 
         jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        table_ids = jd['table_ids'] if 'table_ids' in jd else None
-
-        ofm = SwitchModel(jd['node'], table_ids=table_ids)
+        ofm = SwitchModel(jd['node'])
         ofm.tables = {
             table : [
                 Rule.from_json(r) for r in rules

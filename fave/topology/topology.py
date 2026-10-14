@@ -391,12 +391,6 @@ def main(argv: List[str]) -> None:
         help="add a test path for a probe"
     )
     parser.add_argument(
-        '-I', '--table-ids',
-        dest="table_ids",
-        type=ast.literal_eval,
-        help="add tables with these ids to the switch"
-    )
-    parser.add_argument(
         '-S', '--table-semantics',
         dest="table_semantics",
         type=ast.literal_eval,
@@ -439,7 +433,7 @@ def main(argv: List[str]) -> None:
 
     if args.command == 'add':
         model = {
-            'switch' : lambda: SwitchModel(args.node, ports=args.ports, table_ids=args.table_ids),
+            'switch' : lambda: SwitchModel(args.node, ports=args.ports),
             'packet_filter' : lambda: ip6np_generate(
                 IP6TABLES_PARSER.parse(args.ruleset),
                 args.node,

@@ -66,8 +66,8 @@ import tempfile
 import unittest
 
 _TOPOLOGY = {
-    "devices": [["sw", "switch", ["1", "2", "3", "4"], {"sw": 1}, {}],
-                ["rtr", "switch", ["1", "2"], {"rtr": 2}, {}]],
+    "devices": [["sw", "switch", ["1", "2", "3", "4"], {}],
+                ["rtr", "switch", ["1", "2"], {}]],
     "links": [["sw.3", "rtr.1", False], ["rtr.2", "sw.4", False]]}
 _SOURCES = {"devices": [["source.a", "generator", ["vlan=10", "ipv4_dst=10.0.2.0/24"]]],
             "links": [["source.a.1", "sw.1", True]]}

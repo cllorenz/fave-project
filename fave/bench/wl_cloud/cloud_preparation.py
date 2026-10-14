@@ -395,10 +395,10 @@ def build_model(
     # this workload declares no `lpm` table and orders nothing.
 
     topology: Dict[str, List[Any]] = {'devices': [], 'links': []}
-    for index, node in enumerate(devices, start=1):
+    for node in devices:
         name = device_name(node)
         topology['devices'].append(
-            (name, 'switch', ports.declared(node), {name: index}))
+            (name, 'switch', ports.declared(node)))
 
     sources: Dict[str, List[Any]] = {'devices': [], 'links': []}
     probes: Dict[str, List[Any]] = {'devices': [], 'links': []}

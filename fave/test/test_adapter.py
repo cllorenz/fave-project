@@ -155,21 +155,22 @@ class TestAdapterAddTables(_AdapterTestBase):
         for port, portno in self.adapter.ports.items():
             self.assertEqual(self.adapter.ports[port], portno)
 
-    def test_switch_tables_use_table_ids(self):
+    def test_a_switch_table_is_added_by_name(self):
         switch = SwitchModel('sw', ports=['1', '2'])
         self.adapter.add_tables(switch)
         self.assertEqual(self.jsonrpc.add_table.call_count, 1)
         self.assertIn('sw.1', self.adapter.tables)
 
-    def test_a_declared_table_id_does_not_collide(self):
-        """ wl_tum, 2026-10-14: a switch declaring table id 1 after a packet
+    def test_every_table_gets_a_fresh_index(self):
+        """ wl_tum, 2026-10-14: a switch DECLARING table id 1 after a packet
         filter got index 1 -- already the filter's first table -- and reset
         the fresh counter to 2, so tables shared indices and ports, and
-        NetPlumber passed nothing through the switch. Every table now gets a
-        fresh index by name; a declared id decides nothing. """
+        NetPlumber passed nothing through the switch. Declared ids are gone;
+        every table gets a fresh index by name, the switch's after the
+        filter's, whatever its name (`lin.dc0_leaf1` once broke the lookup). """
         self.adapter.add_tables(PacketFilterModel('fw', ports=['1', '2']))
-        self.adapter.add_tables(SwitchModel('sw', ports=['1000', '1001'], table_ids={'sw': 1}))
-        self.adapter.add_tables(SwitchModel('lin.dc0_leaf1', ports=['1'], table_ids={'lin.dc0_leaf1': 2}))
+        self.adapter.add_tables(SwitchModel('sw', ports=['1000', '1001']))
+        self.adapter.add_tables(SwitchModel('lin.dc0_leaf1', ports=['1']))
         indices = list(self.adapter.tables.values())
         self.assertEqual(len(indices), len(set(indices)), self.adapter.tables)
         ports = list(self.adapter.ports.values())

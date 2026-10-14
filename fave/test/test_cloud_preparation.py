@@ -98,7 +98,7 @@ class TestPortStructure(unittest.TestCase):
     def test_every_device_is_declared_with_its_ports(self):
         self.assertEqual(
             sorted(self.devices), ['lin.dc0_leaf0', 'lout.dc0_leaf0'])
-        for _name, kind, ports, _tid in self.devices.values():
+        for _name, kind, ports in self.devices.values():
             self.assertEqual(kind, 'switch')
             self.assertTrue(ports)
 
@@ -113,7 +113,7 @@ class TestPortStructure(unittest.TestCase):
     def test_a_device_has_one_out_port_per_distinct_neighbour(self):
         """ `lin.dc0_leaf0` forwards only to `lout.dc0_leaf0` (its drop rule has
         no out-port at all), so it needs exactly one out-port. """
-        _name, _kind, ports, _tid = self.devices['lin.dc0_leaf0']
+        _name, _kind, ports = self.devices['lin.dc0_leaf0']
         self.assertEqual(len(ports), 2, "one in-port + one out-port: %s" % ports)
 
     def test_each_out_port_is_linked_to_its_neighbours_in_port(self):

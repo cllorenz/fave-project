@@ -154,13 +154,12 @@ def build_model(
     inserts = list(inserts)
 
     devices: List[Sequence[Any]] = []
-    for index, switch in enumerate(topology.switches, start=1):
+    for switch in topology.switches:
         ports = sorted(topology.ports[switch])
         devices.append((
             device_name(switch), 'switch',
             [str(in_port(switch, p)) for p in ports]
             + [str(out_port(switch, p)) for p in ports],
-            {device_name(switch): index},
             # DECLARE the forwarding table longest-prefix-match on the model
             # itself (TABLE_SEMANTICS_PLAN.md S3b), so the adapters order it
             # rather than depending on a generation-time repair having done so.

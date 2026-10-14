@@ -414,7 +414,7 @@ class AbstractDeviceModel(object):
         }
         # Overrides only, and omitted entirely when there are none -- so every
         # model that declares nothing serialises exactly as it did before this
-        # field existed. Same convention as SwitchModel.table_ids.
+        # field existed.
         if self.table_semantics:
             j["table_semantics"] = dict(self.table_semantics)
         return j

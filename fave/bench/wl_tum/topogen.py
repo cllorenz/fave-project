@@ -34,8 +34,7 @@ def _main(argv):
     eps = layout.endpoints()
     devices = [
         (layout.FW, "packet_filter", ['eth0', 'eth1'], address, ruleset),
-        (layout.DEMUX, "switch", [str(layout.DEMUX_IN)] + [str(port) for _n, port, _e in eps],
-         None),
+        (layout.DEMUX, "switch", [str(layout.DEMUX_IN)] + [str(port) for _n, port, _e in eps]),
     ]
     links = [("%s.forward_filter_accept" % layout.FW, "%s.%d" % (layout.DEMUX, layout.DEMUX_IN), False)]
 

@@ -73,9 +73,8 @@ class TestDeltanetModel(unittest.TestCase):
     def test_one_device_per_switch_with_two_fave_ports_per_trace_port(self):
         devices = self.model['topology']['devices']
         self.assertEqual(len(devices), len(self.topology.switches))
-        for name, kind, ports, tables, semantics in devices:
+        for name, kind, ports, semantics in devices:
             self.assertEqual(kind, 'switch')
-            self.assertIn(name, tables)
             switch = int(name.split('.s')[1])
             self.assertEqual(len(ports), 2 * len(self.topology.ports[switch]))
             # Each switch DECLARES its forwarding table longest-prefix-match, so
@@ -147,7 +146,7 @@ class TestDeltanetModel(unittest.TestCase):
                              "%s has a duplicate rule index" % device)
 
         declared = {name: semantics
-                    for name, _kind, _ports, _tables, semantics
+                    for name, _kind, _ports, semantics
                     in self.model['topology']['devices']}
         for device in by_device:
             self.assertEqual(declared[device], {'%s.1' % device: 'lpm'}, device)

@@ -23,7 +23,7 @@ if __name__ == '__main__':
         # central IFI router with 17 ports
         ("ifi", "router", 17, "bench/wl_ifi/acls.txt"),
         # a switch and generator representing the subnet for external services
-        ("external.ifi", "switch", 3, None)
+        ("external.ifi", "switch", 3)
     ]
 
     sources = [
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     #        2 -> input from the generator,
     #        3 -> output to the subnet)
     devices.extend([
-        (sub, "switch", 3, None) for sub in SUBNETS
+        (sub, "switch", 3) for sub in SUBNETS
     ])
 
     # connect the university proxy to port 1 of the central router

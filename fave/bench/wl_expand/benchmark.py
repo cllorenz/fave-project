@@ -91,8 +91,7 @@ def main(argv):
         (
             "sw0",
             "switch",
-            24,
-            None
+            24
         )
     ]
 

@@ -148,7 +148,7 @@ class TestProducerDeclaresFromConfig(unittest.TestCase):
 
     def test_stanford_declares_mid_and_nothing_else(self):
         topo = json.load(open("%s/device_topology.json" % _STANFORD))
-        declared = {d[0] for d in topo['devices'] if len(d) > 4 and d[4]}
+        declared = {d[0] for d in topo['devices'] if len(d) > 3 and d[3]}
         self.assertEqual(len(declared), 16)
         self.assertEqual({d.split('.', 1)[0] for d in declared}, {'mid'})
 
@@ -159,7 +159,7 @@ class TestProducerDeclaresFromConfig(unittest.TestCase):
         the predecessor of this mechanism hardcoded `mid.` and so did nothing
         at all here -- 3,731 rules shadowed (AD6_PLAN.md §5.5). """
         topo = json.load(open("%s/device_topology.json" % _I2))
-        declared = {d[0] for d in topo['devices'] if len(d) > 4 and d[4]}
+        declared = {d[0] for d in topo['devices'] if len(d) > 3 and d[3]}
         self.assertEqual(len(declared), 9)
         self.assertEqual({d.split('.', 1)[0] for d in declared}, {'out'})
 
@@ -418,10 +418,9 @@ def _mid_models_and_rules(honour_declaration):
     topology = json.load(open("%s/device_topology.json" % _STANFORD))
 
     models = []
-    for name, _type, ports, table_ids, semantics in [
+    for name, _type, ports, semantics in [
             d for d in topology['devices'] if d[0].startswith('mid.')]:
-        model = SwitchModel(name, ports=[str(p) for p in ports],
-                            table_ids=table_ids)
+        model = SwitchModel(name, ports=[str(p) for p in ports])
         if honour_declaration:
             for table, kind in semantics.items():
                 model.set_table_semantics(table, kind)

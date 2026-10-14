@@ -274,8 +274,7 @@ def prepare_benchmark(
             # statement about NAMES the moment it is attached to the table.
             #
             # Keyed `<node>.1` because that is SwitchModel's own table name
-            # (`self.tables = {node+".1": rules}`); `table_ids` above is keyed by
-            # the bare node, which is a different convention in the same tuple.
+            # (`self.tables = {node+".1": rules}`).
             semantics = (
                 { "%s.1" % table_name : LPM } if ttype in set(fib_table_types)
                 else {}
@@ -285,7 +284,6 @@ def prepare_benchmark(
                 table_name,
                 "switch",
                 device_ports,
-                { table_name : table_id },
                 semantics
             ))
 
@@ -295,7 +293,7 @@ def prepare_benchmark(
                 )
 
     # NO LPM re-prioritisation here any more. `fib_table_types` still says which
-    # stage is the FIB, but that is now DECLARED on the model (the fifth element
+    # stage is the FIB, but that is now DECLARED on the model (the fourth element
     # of each device tuple below) and the positional backends order the table
     # themselves -- NetPlumber when it assigns the index it sends, ad6 when it
     # emits the document (TABLE_SEMANTICS_PLAN.md S3a/S3b). The rule index no

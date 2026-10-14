@@ -66,14 +66,24 @@ def _add_application_layer_gateway(name, _type, ports, address, ruleset, use_uni
         "-r", ruleset
     ] + (['-u'] if use_unix else []))
 
-def _add_switch(name, _type, ports, table_ids, table_semantics=None,
+def _add_switch(name, _type, ports, table_semantics=None, *stale,
                 use_unix=False, interweave=False):
-    # `table_semantics` is the OPTIONAL fifth element of a switch device tuple
-    # (TABLE_SEMANTICS_PLAN.md S2): {table: 'lpm'} for the tables that are not
-    # first-match. Optional because every other benchmark emits four-element
-    # tuples and declares nothing, which is the default.
+    # A switch device tuple is (name, 'switch', ports[, table_semantics]):
+    # `table_semantics` (TABLE_SEMANTICS_PLAN.md S2) is {table: 'lpm'} for the
+    # tables that are not first-match, optional because most benchmarks declare
+    # nothing. Until 2026-10-14 the fourth element was `table_ids`, which only
+    # NetPlumber's adapter read -- as its table index, which collided (see
+    # netplumber/adapter.py add_tables) -- and which is gone. A tuple still in
+    # that shape is a stale generated file, refused rather than misread.
+    if stale or (table_semantics is not None and not (
+            isinstance(table_semantics, dict)
+            and all(isinstance(v, str) for v in table_semantics.values()))):
+        raise ValueError(
+            "switch %s: %r is not a table-semantics declaration -- a "
+            "topology.json from before 2026-10-14, whose fourth element was "
+            "table_ids; regenerate the workload's inputs" % (name, table_semantics))
     topo.main(
-        ["-a", "-t", "switch", "-n", name, "-p", str(ports), '-I', str(table_ids)]
+        ["-a", "-t", "switch", "-n", name, "-p", str(ports)]
         + (['-S', str(table_semantics)] if table_semantics else [])
         + (["-u"] if use_unix else [])
     )
