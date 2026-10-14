@@ -3638,6 +3638,13 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     libnetplumber.
   - `delete_rules`, `delete_tables` and `delete_wiring` are broken, but reachable only
     through the uncalled `AggregatorService._delete_model`.
+    - **Owner, 2026-10-14:** removing a device should work through the regular
+      primitives, and re-verify once at the end.
+    - **Designed** in [`INCREMENTAL_PLAN.md`](docs/INCREMENTAL_PLAN.md) §8.2: §8.1's
+      diff against an empty model, removal order, one `track_affected`
+      window, refusal by name, and the three methods replaced.
+    - Owner questions Q-R1 to Q-R4 are open. The `*_KNOWN_DEFECT` tests stay
+      until it is built.
   Pinned: `test_netplumber_adapter_more.py`.
 - [ ] **`netplumber/jsonrpc.py:78`:** each 4096-byte peek is decoded on its own, so a
   multi-byte UTF-8 character split across the boundary raises. Pinned:

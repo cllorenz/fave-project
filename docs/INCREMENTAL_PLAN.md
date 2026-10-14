@@ -7,7 +7,7 @@ NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
 its witness + dead-ends footprint, the default since 2026-10-11); the harness is
 done. Only indicative (dev) runs have run (§10), the last the D11 grid; no
 reportable measurement exists until the campaign's `PROTOCOL.txt` with
-predictions is written.
+predictions is written. §8.2 (2026-10-14) designs device removal; not built, owner questions Q-R1–Q-R4 open.
 **Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -416,6 +416,119 @@ and are listed for confirmation.
    (regenerate), `t_diff` (align + diff), `t_update` (engine), `t_recheck`,
    the engine-rule changes and relabels. `t_total` is the sum -- a
    configuration change to an updated verdict.
+
+### 8.2 Removing a device — DESIGN, not built (2026-10-14)
+
+**Owner's framing (2026-10-14):** *"Adding and deleting whole devices should work
+just like adding and removing rules or links. … In its simplest form, removing a
+device would mean that all comprised tables (including contained rules), all
+internal wiring, and all external links are removed through the regular update
+mechanisms for these primitives. Since this might be quite costly due to
+reverification, one would want to remove everything in one go and reverify
+afterwards."* This section turns that into a design. It was prompted by TODO
+item 53, where fast tests pinned the three broken adapter methods, and it
+extends §8.1 rather than replacing it: §8.1's diff takes rule changes; this
+section adds what §8.1 refuses.
+
+**What is there today, read 2026-10-14.**
+- **A re-sent device, with stable indices** (§8.1, opt-in
+  `stable_indices=True`): `_sync_stable` diffs per (device, table) and applies
+  the difference through `delete_rule`/`insert_rule`, deletes first. A table
+  appearing or vanishing, other ports or wiring, and a changed whole-translated
+  table are refused (`UpdateRefused`). **Without** stable indices, `_sync_diff`
+  still sends only the ADDED part; its removal half stays commented out
+  (`# TODO: fix deletion...`), as §8.1 item 5 decided.
+- **A device `del`** is refused by name (`NotImplementedError`, item 53). Before
+  that, a non-link topology delete carried no model and raised
+  `AttributeError`. Generator and probe deletes reach the engine.
+- **A switch rule removed with `switch.py -d`/`-u`** is refused by name too
+  (item 53). It used to land in the switch's `_deletes`, which nothing reads.
+- **The NetPlumber adapter's `delete_rules`, `delete_tables` and `delete_wiring`
+  are broken and reachable only from the uncalled `_delete_model`.**
+  `delete_rules` indexes a `Rule` as a tuple and passes a table name as an
+  index. `delete_tables` only ever removes index 0, and indices start at 1.
+  `delete_wiring` guesses a port's table by stripping a dotted suffix. All
+  three are pinned as `*_KNOWN_DEFECT` in `test_netplumber_adapter_more.py`.
+- **The engines already have most primitives.** NetPlumber's `remove_table`
+  frees every rule in the table (`net_plumber.cc` `free_table_memory`), and
+  `remove_rule` and `remove_link` propagate. Per adapter (`fave/*/adapter.py`):
+
+  | engine | rule delete | link remove | table/element remove | selective re-check |
+  |---|---|---|---|---|
+  | NetPlumber | `delete_rule` | `remove_link` | engine `remove_table`; the adapter's `delete_tables` is broken | `track_affected`/`take_affected` |
+  | BDD-APKeep, NDD-APKeep | `delete_rule` | `remove_link` | unsurveyed: `Network.updateRule` removes rules, and whether an element can be removed is open | yes |
+  | VeriFlow-FR | `delete_rule` | none in the adapter; the engine's `remove_link` is untested (§2) | n/a: tables are per-switch rule sets | yes |
+  | NDD-flood | none: a from-zero build | — | — | — |
+  | ad6 | n/a: a fresh bridge per check | `remove_link` | n/a | n/a |
+
+**Design.**
+- **D-R1. Removing a device is §8.1's diff against an empty model.** Every
+  rule of every table goes through `delete_rule`, as §8.1 item 4 already does
+  for a rule that left. What §8.1 refuses is added here as primitives of
+  their own: a table vanishing, wiring removed, ports removed, and the links
+  into and out of the device. Removal does not need stable indices: everything
+  goes, so no index has to survive. The stored model and the indexer's last
+  emission for the device are dropped with it, so a later `add` of the same
+  name starts from zero.
+- **D-R2. Order removals to make them cheap.**
+  1. The links INTO the device. In NetPlumber, a device's flows are then
+     retracted once, at its entry, and everything after has no flows left to
+     retract downstream.
+  2. Its rules, then its internal wiring.
+  3. Its tables.
+  4. The links OUT of it, then its ports from `port_to_model`.
+
+  In NetPlumber, step 3's `remove_table` frees the table's rules itself, so
+  step 2's rule deletes may be skippable there; whether that is cheaper than
+  per-rule deletes is measured, not assumed.
+- **D-R3. One re-verification at the end.** The whole removal runs inside one
+  `track_affected(True)` window: every primitive applied, then one
+  `take_affected()` and a selective re-check of the affected checks (M1's
+  mechanism, §6.2). **Caveat for NetPlumber:** it propagates flow changes on
+  every primitive, so batching saves the CHECKS, not the propagation. D-R2's
+  ordering is the lever there.
+- **D-R4. A missing primitive is refused by name, never skipped.** Where an
+  engine lacks a primitive — VeriFlow-FR has no `remove_link` in its adapter,
+  NDD-flood has none — the aggregator raises an `UpdateRefused` naming the
+  engine and the primitive, before anything is touched, as §8.1 item 5 does.
+  A from-zero engine may instead declare that it rebuilds; that is a declared
+  accommodation (`ACCOMMODATIONS.md`), not a silent fallback.
+- **D-R5. The three broken adapter methods go.** `delete_rules`,
+  `delete_tables` and `delete_wiring` are replaced by the composed path, and
+  their `*_KNOWN_DEFECT` tests become tests of it.
+- **D-R6. The same primitives lift §8.1's refusals, later.** Once a table, its
+  wiring and its ports can be removed (and added) one at a time, a re-sent
+  device whose tables, ports or wiring changed can be diffed instead of
+  refused. That is a follow-up, not part of this section's first build.
+
+**Correctness: the oracle we already have.** `util/incremental.py`'s from-zero
+oracle generalises directly. On every engine that has the primitives, removing
+a device and re-checking the affected checks must give the verdicts that a
+build from zero WITHOUT that device gives. Check by check, as M1's and M2's
+tests already do. That also exercises `remove_link` on VeriFlow-FR's engine,
+which §2 lists as untested.
+
+**Owner questions.**
+- **Q-R1. Scope.** Whole-device removal first, and D-R6 (lifting §8.1's
+  refusals for tables, ports and wiring in a re-send) after? Or both in one
+  piece of work? *Recommendation: device removal first. It is self-contained,
+  replaces the refused `del`, and its oracle is cheap; D-R6 reuses its
+  primitives.*
+- **Q-R2. Which engines.** *Recommendation: NetPlumber and BDD/NDD-APKeep
+  first, after a survey of whether APKeep can remove an element. Then
+  VeriFlow-FR, once its adapter has `remove_link`.*
+- **Q-R3. From-zero engines** (NDD-flood, ad6): refuse, or rebuild as a
+  declared accommodation? *Recommendation: refuse for NDD-flood, as today. ad6
+  rebuilds per check by design, so removal is free there and needs no
+  declaration.*
+- **Q-R4. Generators and probes.** They are removed today on their own
+  (`delete_generator`/`delete_probe`, fixed in item 53). When a removed device
+  was a probe's or a generator's only neighbour, does the check stay
+  (vacuously failing or passing), or does the client have to retract it?
+  *Recommendation: the check stays and is re-verified, and its new verdict is
+  reported, not dropped. Flagging it as vacuous needs a report field that does
+  not exist yet; item 52's marking is the natural place for one.*
+
 
 ## 9. Open questions (recommendations, not decisions)
 
