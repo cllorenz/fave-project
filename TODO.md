@@ -3601,7 +3601,7 @@ section that reads the registered checks, not only the violations.
 
 ---
 
-### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; the delete path designed (INCREMENTAL_PLAN.md §8.2)
+### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; device removal built on NetPlumber (INCREMENTAL_PLAN.md §8.2)
 None is fixed. Each is pinned by a test, either as an `expectedFailure` (remove the
 decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behaviour
 (it fails on purpose once fixed). Ordered by likely impact on verdicts.
@@ -3626,7 +3626,7 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
   so it drops the last port of a range that does not end on a prefix boundary (`1:2` →
   port 1 only, `10:20` → 10–19). This reaches the generator's `--sports`/`--dports`
   expansion. Not pinned.
-- [ ] **NetPlumber adapter:**
+- [x] **NetPlumber adapter:**
   - [x] FIXED 2026-10-14: `delete_generator` mutated the list it walks and raised
     `KeyError` on a generator with no links.
   - [x] FIXED 2026-10-14: `delete_generator` and `delete_probe` left the node in
@@ -3646,9 +3646,15 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     - Owner questions answered 2026-10-14: device removal first (re-send
       refusals later); NetPlumber in full, then APKeep and VeriFlow-FR by
       emptying (declared); ad6 removes from its buffers, NDD-flood refuses;
-      orphaned checks stay and are re-verified. The `*_KNOWN_DEFECT` tests
-      stay until it is built.
-  Pinned: `test_netplumber_adapter_more.py`.
+      orphaned checks stay and are re-verified.
+    - **BUILT on NetPlumber 2026-10-14** (§8.2 "Built"): the three methods are
+      replaced by `remove_device`, and their `*_KNOWN_DEFECT` tests by tests of
+      it. A device delete reaches the engine. On wl_example, wl_ifi and
+      wl_cloud, the oracle holds for every device it can build without, and
+      nothing of the device is left in the engine.
+    - Still open: APKeep and VeriFlow-FR by emptying, and ad6 from its
+      buffers. They refuse by name until then.
+  Tested: `test_netplumber_adapter_more.py`, `test_incremental_device_removal.py`.
 - [x] **FIXED 2026-10-14 — `netplumber/jsonrpc.py:78`.** It now reads bytes and decodes once. That also fixes a second bug found on the way: the newline's index in the DECODED peek was used as a BYTE count, so a multi-byte character left the reply's tail on the socket, to corrupt the next reply. Originally: each 4096-byte peek was decoded on its own, so a
   multi-byte UTF-8 character split across the boundary raises. Pinned:
   `test_jsonrpc_wire.py`.
@@ -3657,14 +3663,16 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     `aggregator_service.py:390` raised `AttributeError`, which made deleting a generator
     or probe unreachable from the wire.
     - The CLI now sends the delete's type, and `_dispatch` names the task by it.
-    - A device delete is refused by name (`NotImplementedError`, pointing to
-      INCREMENTAL_PLAN.md §8.2).
+    - A device delete was refused by name (`NotImplementedError`, pointing to
+      INCREMENTAL_PLAN.md §8.2). Since 2026-10-14 it removes the device on
+      NetPlumber, and every other engine refuses it (`UpdateRefused`).
     - A delete without a type is refused instead of dropped.
   - [x] REFUSED 2026-10-14: switch `remove_rule`/`update_rule` got the whole rule list
     (`:623`).
     - Mending the call alone would have made the delete silent: it lands in
       `_deletes`, which nothing reads.
-    - Both are now refused by name until INCREMENTAL_PLAN.md §8.2 is built.
+    - Both are still refused by name. A rule delete is not part of §8.2's
+      device removal.
     - Tested.
   - [x] FIXED 2026-10-14: under `filelock` 3.29, `PreLockedFileLock` (`util/lock_util.py:35`)
     never released a dump's `.lock`, and leaked a descriptor. It now owns its

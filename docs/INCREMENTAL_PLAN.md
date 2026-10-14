@@ -7,7 +7,7 @@ NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
 its witness + dead-ends footprint, the default since 2026-10-11); the harness is
 done. Only indicative (dev) runs have run (§10), the last the D11 grid; no
 reportable measurement exists until the campaign's `PROTOCOL.txt` with
-predictions is written. §8.2 (2026-10-14) designs device removal; not built, owner questions Q-R1–Q-R4 answered.
+predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built on NetPlumber the same day, the other engines refuse it by name.
 **Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -417,7 +417,7 @@ and are listed for confirmation.
    the engine-rule changes and relabels. `t_total` is the sum -- a
    configuration change to an updated verdict.
 
-### 8.2 Removing a device — DESIGN, not built (2026-10-14)
+### 8.2 Removing a device — DESIGN (2026-10-14); NetPlumber BUILT (2026-10-14)
 
 **Owner's framing (2026-10-14):** *"Adding and deleting whole devices should work
 just like adding and removing rules or links. … In its simplest form, removing a
@@ -548,6 +548,70 @@ which §2 lists as untested.
   not exist yet; item 52's marking is the natural place for one.* **Owner,
   2026-10-14: the check stays, is re-verified and its verdict reported; a
   vacuous marking is left to item 52.**
+
+**Built on NetPlumber (2026-10-14).** "What is there today" above is the state
+before this build.
+- **The path.** `topology.py -d -n <device> -t <type>` reaches
+  `AggregatorService._remove_device`. It refuses a device it does not hold, or
+  one of another type, with a `ValueError`. It then hands the engine the
+  stored model and its external links as one `remove_device(model, links)`, a
+  new contract method that every engine but NetPlumber refuses by name
+  (`UpdateRefused`, D-R4). Only after the engine returns does the aggregator
+  forget the links, the ports, the stored model, the indexer's last emission
+  (`StableIndexer.forget`), the commanded tables and the declared-LPM index
+  (D-R1). A refusal leaves all of it as it was.
+- **NetPlumber's `remove_device`** removes, in D-R2's order, the links into the
+  device, its internal wiring, its tables and the links out of it. Then it
+  forgets the device's ports, table indices, rule ids and links. It replaces
+  `delete_rules`, `delete_wiring` and `delete_tables` (D-R5), and their
+  `*_KNOWN_DEFECT` tests became tests of it.
+- **D-R2, measured** on wl_up, removing its largest device, the packet filter
+  `pgf` (2,201 rules):
+
+  | order | time |
+  |---|---|
+  | links in first (built) | 1.0 s |
+  | tables first | 4.3 s |
+  | links in first, then each rule deleted before `remove_table` | 1.05 s |
+
+  So the ordering is the lever, as D-R2 predicted. Per-rule deletes buy
+  nothing: they end in the same rule destructor, and `delete_rule` refuses
+  pre-/post-routing tables anyway. Removing the device does not delete
+  rules one at a time. Removing all 86 of wl_cloud's switches one after
+  another took 0.04 s in every order. Indicative, one run each.
+- **D-R3** needs no code: the removal is ONE aggregator message, and the
+  caller takes the affected set once after it.
+- **The oracle** (`test/test_incremental_device_removal.py`, integration
+  tier; the helper is `test/incremental_oracle.py` `remove_each`). Each device
+  of a workload is removed. Then three things must hold:
+  - the selective re-check equals a full one;
+  - the full verdicts equal a from-zero build of the workload's inputs
+    without the device (its entry, routes and links dropped);
+  - re-adding the device, as `replay` adds it, brings every verdict back.
+
+  Verdicts cannot see leaked engine state: with its links cut, a device whose
+  tables stay answers like an absent one. So NetPlumber's own dump
+  (`dump_plumbing_network`) and the adapter's bookkeeping must also hold
+  nothing of the device.
+
+  | workload | devices removed | verdict changes |
+  |---|---|---|
+  | wl_example | 2 of 3 (`pgf` is every port its probe's test path names) | 10 |
+  | wl_ifi | 17 of 17 | 222 |
+  | wl_cloud | 86 of 86 | 242 |
+  | a tiny two-switch workload | 2 of 2 | 3 |
+
+  Four mutations were run against it, each caught: an engine removal that
+  does nothing, tables kept, links in kept, and an empty affected set. Kept
+  tables and kept links in were caught only by the residue check.
+- **Probe test paths.** The from-zero copy drops the device's ports from probe
+  test paths, since the aggregator resolves a path at build. NetPlumber never
+  reads one: the legacy probe condition is compiled out. In the incremental
+  engine, the probe keeps its path; per Q-R4 its check stays and is
+  re-verified.
+- **Not built:** APKeep and VeriFlow-FR by emptying, and ad6 from its buffers
+  (Q-R2, Q-R3); D-R6. A switch rule delete (`switch.py -d`/`-u`) is still
+  refused by name. It is not a device removal.
 
 
 ## 9. Open questions (recommendations, not decisions)
