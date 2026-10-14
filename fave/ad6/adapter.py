@@ -575,6 +575,25 @@ class Ad6Adapter(AbstractVerificationEngine):
             "built from the recorded topology, which a removal never reached, "
             "so accepting it would leave the link in place." % (sport, dport))
 
+    def remove_device(self, model: Any, links: List[Tuple[str, str]]) -> None:
+        """ INCREMENTAL_PLAN.md §8.2, Q-R3: every check rebuilds the model
+        from the capture buffers, so removing a device is dropping it from
+        them -- its tables, their declared semantics, its wiring, and its
+        external `links` -- and a later `add` of the name starts from zero.
+        A link the buffers do not hold is refused before anything is
+        dropped: the removal would leave the model in a state no build
+        produced. """
+        missing = [link for link in links if list(link) not in self._raw_edges]
+        if missing:
+            raise UpdateRefused(
+                "Ad6Adapter: remove_device(%s): links %s were never added"
+                % (model.node, missing))
+        gone = [list(link) for link in links]
+        self._raw_edges = [e for e in self._raw_edges if e not in gone]
+        self._tables.pop(model.node, None)
+        self._table_semantics.pop(model.node, None)
+        self._wiring.pop(model.node, None)
+
     def delete_generator(self, node: str) -> None:
         self._generators.pop(node, None)
 

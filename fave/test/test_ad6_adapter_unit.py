@@ -196,6 +196,35 @@ class TestBuffering(unittest.TestCase):
         self.assertEqual(self.adapter._raw_edges,
                          [['a.1_egress', 'b.1_ingress'], ['b.2', 'c.1']])
 
+    def _two_devices(self):
+        for node in ('r', 's'):
+            self.adapter.add_rules(_rules_model(
+                node, {node + '.fib': ['f']}, semantics={node + '.fib': 'lpm'}))
+            self.adapter.add_wiring(SimpleNamespace(
+                node=node, wiring=[(node + '.1', node + '.2')]))
+        self.adapter.add_links_bulk([('g.1', 'r.1'), ('r.2', 's.1'), ('s.2', 'p.1')])
+        return SimpleNamespace(node='r')
+
+    def test_remove_device_drops_it_from_every_buffer(self):
+        """ INCREMENTAL_PLAN.md §8.2 Q-R3: every check rebuilds from the
+        buffers, so dropping the device there removes it. """
+        model = self._two_devices()
+        self.adapter.remove_device(model, [('g.1', 'r.1'), ('r.2', 's.1')])
+        self.assertEqual(list(self.adapter._tables), ['s'])
+        self.assertEqual(list(self.adapter._table_semantics), ['s'])
+        self.assertEqual(list(self.adapter._wiring), ['s'])
+        self.assertEqual(self.adapter._raw_edges, [['s.2', 'p.1']])
+        # and the name can come back, under a fresh first batch
+        self.adapter.add_rules(_rules_model('r', {'r.fib': ['f2']}))
+        self.assertEqual(self.adapter._tables['r'], {'r.fib': ['f2']})
+
+    def test_remove_device_refuses_an_unknown_link_and_drops_nothing(self):
+        model = self._two_devices()
+        before = (dict(self.adapter._tables), list(self.adapter._raw_edges))
+        with self.assertRaises(UpdateRefused):
+            self.adapter.remove_device(model, [('g.1', 'r.1'), ('x.1', 'r.3')])
+        self.assertEqual((self.adapter._tables, self.adapter._raw_edges), before)
+
     def test_cond_to_json_normalises_rulefields_and_passes_dicts(self):
         plain = {'name': 'related', 'value': '0', 'negated': False}
         self.assertEqual(
