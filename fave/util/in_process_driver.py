@@ -247,6 +247,19 @@ class InProcessFaVe:
         self._agg.queue.join()
         barrier.wait(guard, directory=self._barrier_dir)
 
+    def delete_device(self, name: str, mtype: str) -> None:
+        """ Delete device `name` of type `mtype` with its links, as
+        `topology.py -d -n <name> -t <mtype>` sends it (INCREMENTAL_PLAN.md
+        §8.2), and block until the aggregator has applied it.
+        Barrier-guarded: a refusal raises `BarrierError`. """
+        from topology.topology import TopologyCommand
+        msg = TopologyCommand(name, 'del', mtype=mtype).to_json()
+        guard = barrier.arm(self._barrier_dir)
+        msg['barrier'] = guard
+        self._agg.queue.put(json.dumps(msg))
+        self._agg.queue.join()
+        barrier.wait(guard, directory=self._barrier_dir)
+
     # -- lifecycle ------------------------------------------------------------
 
     def stop(self) -> None:

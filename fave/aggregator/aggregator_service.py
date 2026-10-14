@@ -756,12 +756,8 @@ class AggregatorService(AbstractAggregator):
                     "router"
             ]:
                 if cmd.command == "del":
-                    # Not built: designed in INCREMENTAL_PLAN.md §8.2. Refused
-                    # by name rather than crashing on the absent model, which
-                    # is what a device delete did (TODO item 53).
-                    raise NotImplementedError(
-                        "deleting a %s (%s) is not implemented; see "
-                        "INCREMENTAL_PLAN.md §8.2" % (cmd.mtype, cmd.node))
+                    self._remove_device(cmd.node, cmd.mtype)
+                    return
                 model = cmd.model
 
             elif cmd.mtype == "generator":
@@ -845,8 +841,8 @@ class AggregatorService(AbstractAggregator):
             #sub = self.models[model.node] - model
 
 # TODO: fix deletion... needs exclusion of pre-, post-routing, state tables
-            # remove unecessary items
-#            self._delete_model(sub)
+            # remove unecessary items (with stable indices: `_sync_stable`;
+            # a whole device: `_remove_device`, INCREMENTAL_PLAN.md §8.2)
 
             # add new items
         # TABLE_SEMANTICS_PLAN.md S4: a table DECLARED longest-prefix-match must
@@ -988,14 +984,39 @@ class AggregatorService(AbstractAggregator):
         model.test_path = Path(new_path)
 
 
-    def _delete_model(self, model: Any) -> None:
+    def _remove_device(self, node: str, mtype: str) -> None:
+        """ INCREMENTAL_PLAN.md §8.2: remove device `node` with its external
+        links, as one engine update -- the caller re-verifies once, after it
+        (D-R3). An engine without the primitives refuses before anything is
+        touched (D-R4), and so does this for a device it does not hold. The
+        stored model and the indexer's last emission go with it, so a later
+        `add` of the same name starts from zero (D-R1). Generators and probes
+        linked to it stay; their checks are re-verified (Q-R4). """
+        model = self.models.get(node)
+        if model is None or model.type != mtype:
+            raise ValueError("cannot delete %s %r: no such device" % (mtype, node))
         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
-            lmsg = "worker: delete %s: %s" % (model.type, model.node)
-            AggregatorService.LOGGER.debug(lmsg)
-        self.verification_engine.delete_rules(model)
-        self.verification_engine.delete_wiring(model)
-        self.verification_engine.delete_tables(model)
+            AggregatorService.LOGGER.debug("worker: delete %s: %s", mtype, node)
+
+        links = [(sport, dport)
+                 for sport, dports in self.links.items() for dport in dports
+                 if self.port_to_model.get(sport) is model
+                 or self.port_to_model.get(dport) is model]
+        self.verification_engine.remove_device(model, [
+            (self.port_to_model[s].egress_port(s),
+             self.port_to_model[d].ingress_port(d)) for s, d in links])
+
+        for sport, dport in links:
+            self.links[sport].remove(dport)
+            if not self.links[sport]:
+                del self.links[sport]
         self._del_ports(model)
+        del self.models[node]
+        if self._indexer is not None:
+            self._indexer.forget(node)
+        self._commanded = {k for k in self._commanded if k[0] != node}
+        for key in [k for k in self._lpm_index if k[0] == node]:
+            del self._lpm_index[key]
 
 
     def _add_model(self, model: Any) -> None:
@@ -1016,7 +1037,8 @@ class AggregatorService(AbstractAggregator):
 
     def _del_ports(self, model: Any) -> None:
         for port in model.ports:
-            del self.port_to_model[port]
+            if self.port_to_model.get(port) is model:
+                del self.port_to_model[port]
 
 
     def _dump_aggregator(self, odir: str) -> None:

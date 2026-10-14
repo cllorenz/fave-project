@@ -47,6 +47,7 @@ from contextlib import redirect_stderr
 from unittest import mock
 
 import aggregator.aggregator_service as aggregator_service
+from aggregator.abstract_engine import UpdateRefused
 from aggregator.aggregator_abstract import TRACE
 from aggregator.aggregator_service import AggregatorService
 from devices.abstract_device import LPM, TableSemanticsError
@@ -357,15 +358,6 @@ class TestGeneratorsAndProbes(_Base):
         self.assertEqual(task, 'generator')
         self.engine.delete_generator.assert_called_once_with('src')
 
-    def test_a_device_delete_is_refused_by_name(self):
-        """ Deleting a device is not built (INCREMENTAL_PLAN.md §8.2): it is
-        refused, naming the device, rather than crashing on the absent model
-        or being dropped. """
-        with self.assertRaises(NotImplementedError) as ctx:
-            self.aggr._sync_diff(TopologyCommand('fw', 'del', mtype='packet_filter'))
-        self.assertIn('fw', str(ctx.exception))
-        self.assertIn('§8.2', str(ctx.exception))
-
     def test_a_delete_without_a_type_is_refused(self):
         with self.assertRaises(ValueError):
             self.aggr._sync_diff(TopologyCommand('x', 'del'))
@@ -444,20 +436,74 @@ class TestSwitchUpdatesAndDeclaredLpm(_Base):
                 self.assertIn('§8.2', str(ctx.exception))
 
 
-class TestDeleteModel(_Base):
-    """ _delete_model is the inverse of _add_model, ports included. """
+class TestRemoveDevice(_Base):
+    """ A device delete (INCREMENTAL_PLAN.md §8.2): the engine gets the device
+    and its external links as one `remove_device`, the aggregator forgets it
+    -- links, ports, stored model, indexer state -- and refuses, touching
+    nothing, a device it does not hold or an engine that cannot remove it. """
 
-    def test_delete_undoes_the_engine_state_and_the_port_map(self):
-        model = PacketFilterModel('fw', ports=['1', '2'])
+    def setUp(self):
+        super().setUp()
+        for node in ('a', 'b', 'c'):
+            self.aggr._sync_diff(PacketFilterModel(node, ports=['1', '2']))
+        self.aggr._sync_diff(TopologyCommand('links', 'add', model=LinksModel([
+            ('a.1', 'b.1', False), ('b.2', 'a.2', False), ('b.2', 'c.1', False),
+            ('c.2', 'a.1', False)])))
+        self.engine.reset_mock()
+
+    def _delete(self, node, mtype='packet_filter'):
+        self.aggr._sync_diff(TopologyCommand(node, 'del', mtype=mtype))
+
+    def test_the_engine_gets_the_device_and_its_links(self):
+        model = self.aggr.models['b']
+        self._delete('b')
+        self.engine.remove_device.assert_called_once_with(model, [
+            ('a.1_egress', 'b.1_ingress'), ('b.2_egress', 'a.2_ingress'),
+            ('b.2_egress', 'c.1_ingress')])
+        self.assertEqual(self.aggr.links, {'c.2': ['a.1']})
+        self.assertNotIn('b', self.aggr.models)
+        self.assertFalse([p for p, m in self.aggr.port_to_model.items() if m is model])
+        self.assertIs(self.aggr.port_to_model['a.1'], self.aggr.models['a'])
+
+    def test_the_same_name_can_be_added_again(self):
+        self._delete('b')
+        again = PacketFilterModel('b', ports=['1', '2'])
+        self.aggr._sync_diff(again)
+        self.engine.add_tables.assert_called_once_with(again)
+        self.assertIs(self.aggr.port_to_model['b.1'], again)
+
+    def test_an_unknown_device_or_a_wrong_type_is_refused(self):
+        for node, mtype in (('x', 'packet_filter'), ('b', 'switch')):
+            with self.subTest(node=node), self.assertRaises(ValueError):
+                self._delete(node, mtype)
+        self.engine.remove_device.assert_not_called()
+        self.assertIn('b', self.aggr.models)
+
+    def test_an_engine_refusal_leaves_everything_as_it_was(self):
+        self.engine.remove_device.side_effect = UpdateRefused('no')
+        links, ports = dict(self.aggr.links), dict(self.aggr.port_to_model)
+        with self.assertRaises(UpdateRefused):
+            self._delete('b')
+        self.assertEqual(self.aggr.links, links)
+        self.assertEqual(self.aggr.port_to_model, ports)
+        self.assertIn('b', self.aggr.models)
+
+    def test_per_device_state_is_forgotten(self):
+        self.aggr._indexer = mock.MagicMock(name='indexer')
+        self.aggr._commanded = {('b', 'b.1'), ('a', 'a.1')}
+        self.aggr._lpm_index = {('b', 'b.1'): {}, ('a', 'a.1'): {}}
         with self.assertLogs('Aggregator', level=logging.DEBUG) as logs:
-            self.aggr._add_model(model)
-            self.assertTrue(self.aggr.port_to_model)
-            self.aggr._delete_model(model)
-        self.assertIn('worker: delete packet_filter: fw', logs.output[-1])
-        self.engine.delete_rules.assert_called_once_with(model)
-        self.engine.delete_wiring.assert_called_once_with(model)
-        self.engine.delete_tables.assert_called_once_with(model)
-        self.assertEqual(self.aggr.port_to_model, {})
+            self._delete('b')
+        self.assertIn('worker: delete packet_filter: b', logs.output[-1])
+        self.aggr._indexer.forget.assert_called_once_with('b')
+        self.assertEqual(self.aggr._commanded, {('a', 'a.1')})
+        self.assertEqual(list(self.aggr._lpm_index), [('a', 'a.1')])
+
+    def test_a_delete_from_the_wire_reaches_the_engine(self):
+        task = self.aggr._dispatch(
+            TopologyCommand('c', 'del', mtype='packet_filter').to_json())
+        self.assertEqual(task, 'packet_filter')
+        self.engine.remove_device.assert_called_once()
 
 
 class TestHandlerBarriers(_Base):
