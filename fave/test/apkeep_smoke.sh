@@ -42,9 +42,18 @@ command -v java >/dev/null 2>&1 || fail "java not found (need JDK 11)"
 #    against (pom.xml, system scope) -- without it the build below fails.
 bash "$HERE/ndd_build.sh" || fail "the NDD jar APKeep compiles against did not build"
 
-# 1. Build the fat jar.
+# 1. Build the fat jar. `package` also runs APKeep's Java unit tests in a
+#    surefire-forked JVM, which FAVE_JVM_XMX does not otherwise reach: its heap
+#    defaults to a quarter of RAM, and APKeep's upstream BDD table (100M nodes)
+#    does not fit 4 GB of a 16 GB runner (simulated 2026-10-14, TODO item 44).
+#    JDK_JAVA_OPTIONS reaches the fork through the `java` launcher and leaves
+#    JaCoCo's argLine alone.
 echo "== apkeep: mvn package =="
-( cd "$APKEEP_DIR" && mvn -q -B package ) || fail "build failed"
+( cd "$APKEEP_DIR" && \
+  if [ -n "${FAVE_JVM_XMX:-}" ]; then
+      export JDK_JAVA_OPTIONS="${JDK_JAVA_OPTIONS:+$JDK_JAVA_OPTIONS }-Xmx$FAVE_JVM_XMX"
+  fi
+  mvn -q -B package ) || fail "build failed"
 JAR="$APKEEP_DIR/target/apkeep-1.0.0.jar"
 [ -f "$JAR" ] || fail "jar not produced: $JAR"
 

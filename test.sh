@@ -62,6 +62,12 @@
 #              Above 1, each process's output is printed when it finishes.
 #              Every JVM takes a quarter of RAM for its heap by default, so
 #              with N jobs set FAVE_JVM_XMX for N heaps to fit.
+#   FAVE_JVM_XMX  Heap for the tier's JVMs (e.g. "8g"): JPype's in-process
+#              JVM, and APKeep's Maven unit tests (apkeep_smoke.sh). Not the
+#              reference dumps' subprocess JVMs, which ask for -Xmx8g
+#              themselves. A 16 GB runner needs 8g: at the default 4 GB the
+#              bison-dependent group and APKeep's unit tests run out of heap
+#              (simulated 2026-10-14, TODO item 44).
 
 set -uo pipefail
 
@@ -259,6 +265,14 @@ FAVE_NDD_TESTS=(
 FAVE_REGENERATING_TESTS=(
     test/test_ad6_cloud_differential.py
     test/test_apkeep_cloud_differential.py
+)
+# Members of FAVE_INTEGRATION_TESTS that run in a pytest process of their own
+# for MEMORY: the bison-dependent group's process holds a JVM whose heap is
+# never returned (NDD alone claims ~2 GB at its first use; FaveFields), so a
+# module that needs much memory of its own must not run beside it. On a 16 GB
+# runner (simulated 2026-10-14, TODO item 44) the two together peaked at 18 GB.
+FAVE_OWN_PROCESS_TESTS=(
+    test/test_ad6_wl_up.py       # ad6's bridge subprocess peaks at ~12.7 GB on wl_up
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
@@ -611,6 +625,13 @@ run_integration() {
         mapfile -t group < <(for t in "${group[@]}"; do
             [[ " ${regen[*]} " == *" $t "* ]] || printf '%s\n' "$t"; done)
     fi
+    for t in "${FAVE_OWN_PROCESS_TESTS[@]}"; do
+        if [[ " ${group[*]} " == *" $t "* ]]; then
+            units+=("own process: ${t#test/}|$t")
+            mapfile -t group < <(for g in "${group[@]}"; do
+                [ "$g" = "$t" ] || printf '%s\n' "$g"; done)
+        fi
+    done
     [ "${#group[@]}" -gt 0 ] && units+=("fave bison-dependent tests (no backend)|${group[*]}")
     for t in "${FAVE_NDD_TESTS[@]}"; do
         units+=("own JVM: ${t#test/}|$t")

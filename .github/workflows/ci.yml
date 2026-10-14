@@ -156,8 +156,13 @@ jobs:
       # this job builds the full APKeep + libnetplumber stack, so the cross-
       # backend differential (FaVe+APKeep == FaVe+NetPlumber on wl_ifi/wl_i2/
       # wl_stanford) is the gate here and must actually run, never skip green.
+      # FAVE_JVM_XMX=8g, FAVE_JOBS left at 1: sized for the standard public
+      # runner (4 cores, 16 GB), simulated 2026-10-14 (TODO item 44). At the
+      # default heap, a quarter of RAM (4 GB), the bison-dependent group and
+      # APKeep's unit tests run out of heap. With 8g the tier peaked at 12.9 GB,
+      # one module at a time; two jobs would not fit.
       - name: Run integration tier (with coverage; backends required)
-        run: COVERAGE=1 FAVE_REQUIRE_BACKENDS=1 bash test.sh integration
+        run: COVERAGE=1 FAVE_REQUIRE_BACKENDS=1 FAVE_JVM_XMX=8g bash test.sh integration
       - name: Upload coverage data
         if: always()
         uses: actions/upload-artifact@v4
