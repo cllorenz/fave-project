@@ -31,7 +31,7 @@ from policy import Policy
 from policy_builder import PolicyBuilder
 from policy_exceptions import (
     NameTakenException, InvalidValueException, InvalidSyntaxException,
-    RoleUnknownException,
+    RoleUnknownException, TrailingContentException, UnparsedPoliciesException,
 )
 
 class TestPolicyBuilder(unittest.TestCase):
@@ -248,9 +248,6 @@ class TestPolicyBuilderErrors(unittest.TestCase):
                 policy
             )
 
-
-if __name__ == '__main__':
-    unittest.main()
 
 
 class TestSuperroleSelfExpansion(unittest.TestCase):
@@ -519,3 +516,61 @@ class TestABlankAttributeValueIsRefused(unittest.TestCase):
         match = self._attr("\tvlan =    23\n")
         self.assertIsNotNone(match)
         self.assertEqual(match.group('value'), '23')
+
+
+class TestAnUnreadablePoliciesBlockIsRefused(unittest.TestCase):
+    """ `policies_regex` must match the WHOLE block, so one unreadable line made
+    it fail, and `build_policies` went on with NO rules and the default, exit
+    0. Content after the block was ignored too. Both are errors now: TODO.md
+    item 53, after item 15's role blocks. """
+
+    INVENTORY = "def role Clients\nend\n\ndef role Web\nend\n\n"
+
+    def _build(self, policies):
+        policy = Policy()
+        PolicyBuilder.build(self.INVENTORY + policies, policy)
+        return policy
+
+    def test_a_readable_block_still_builds(self):
+        policy = self._build("def policies(default: allow)\n"
+                             "    # a comment\n\n\tClients   --/->  Web\nend\n")
+        self.assertEqual(list(policy.raw_policies),
+                         [('Clients', 'Web', None, '--/->')])
+        self.assertTrue(policy.default_policy)
+
+    def test_an_unindented_rule_is_named(self):
+        with self.assertRaises(UnparsedPoliciesException) as ctx:
+            self._build("def policies(default: allow)\n\tWeb ---> Clients\n"
+                        "Clients --/-> Web\nend\n")
+        self.assertIn("line 2", ctx.exception.message)
+        self.assertIn("'Clients --/-> Web'", ctx.exception.message)
+
+    def test_a_mistyped_operator_is_named(self):
+        with self.assertRaises(UnparsedPoliciesException) as ctx:
+            self._build("def policies(default: deny)\n\tClients --> Web\nend\n")
+        self.assertIn("'\\tClients --> Web'", ctx.exception.message)
+
+    def test_a_malformed_header_is_refused(self):
+        with self.assertRaises(UnparsedPoliciesException) as ctx:
+            self._build("def policies(default: maybe)\n\tClients ---> Web\nend\n")
+        self.assertIn("the policies block cannot be read", ctx.exception.message)
+
+    def test_a_second_block_is_refused(self):
+        """ wl_ifi's inventories carried a copy of the policies block until
+        2026-10-14; the second of two blocks was ignored. """
+        block = "def policies(default: deny)\n\tClients ---> Web\nend\n"
+        with self.assertRaises(TrailingContentException):
+            self._build(block + "\n" + block)
+
+    def test_comments_and_blanks_may_follow(self):
+        policy = self._build("def policies(default: deny)\n\tClients ---> Web\nend\n"
+                             "\n# trailing remark\n\n")
+        self.assertEqual(len(policy.raw_policies), 1)
+
+    def test_no_policies_block_is_no_policy(self):
+        """ An inventory alone is still fine: nothing is declared. """
+        self.assertEqual(self._build("").raw_policies, {})
+
+
+if __name__ == '__main__':
+    unittest.main()

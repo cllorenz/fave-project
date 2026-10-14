@@ -67,6 +67,41 @@ class UnparsedBlockException(PolicyException):
             "fpl_grammar.py."
         ) % listing
 
+class UnparsedPoliciesException(PolicyException):
+    """A policies block the file DECLARES but the parser could not read.
+
+    `policies_regex` must match the WHOLE block, so one unreadable line --
+    an unindented rule, a mistyped operator -- made it fail to match, and
+    `build_policies` went on with no rules and the default `deny`, and exit
+    0. Every rule was dropped, silently: TODO.md item 15's defect, in the
+    policies block (item 53).
+    """
+
+    def __init__(self, line_no: Optional[int], line: Optional[str]) -> None:
+        where = (
+            "line %d of the policies block cannot be read: %r" % (line_no, line)
+            if line_no is not None else
+            "the policies block cannot be read"
+        )
+        self.message = (
+            "Unreadable policies block: %s. It was skipped rather than "
+            "rejected. A rule is indented (a tab or four spaces) and reads "
+            "`Role OP Role[.Service|.*]`, OP one of ---> <--> <->> --/-> <-/-> "
+            "-/->>; a line may also be blank or a comment." % where
+        )
+
+
+class TrailingContentException(PolicyException):
+    """Content after the policies block that no parser reads. It was ignored,
+    so a second block, or a rule after `end`, vanished (TODO.md item 53)."""
+
+    def __init__(self, text: str) -> None:
+        self.message = (
+            "Unread content after the policies block: %r. Only blank lines "
+            "and comments may follow its `end`." % text
+        )
+
+
 class NoServicesOfferedException(PolicyException):
     """`X ---> Y.*` where `Y` offers nothing, which cannot mean what it says.
 

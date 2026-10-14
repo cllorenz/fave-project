@@ -3689,7 +3689,7 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     `Role.Service`, any spacing, and services without a port.
   - `Role.__eq__` compares classes, so `Superrole == Role` is False.
   - All seven expectedFailures are unpinned.
-- [ ] **NEW 2026-10-14 — PolicyBuilder silently DROPS a policy rule it cannot read.**
+- [x] **FIXED 2026-10-14 — PolicyBuilder silently DROPPED a policy rule it could not read.**
   - Found while rewriting the visualizers.
   - A line in a policies block that the rule regex does not match is skipped,
     with no error. Measured: an unindented rule (`Clients ---> Web` at column 0),
@@ -3699,7 +3699,18 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     makes the generated firewall block traffic the policy allows.
   - This is item 15's defect (a role block that does not parse, dropped),
     reappearing in the policies block.
-  - Not pinned yet.
+  - **It was worse than single lines.** `policies_regex` must match the whole block,
+    so one unreadable line dropped EVERY rule and the `default:`.
+  - **The fix.** A declared block that does not parse raises
+    `UnparsedPoliciesException`, naming the first unreadable line. Content after the
+    block raises `TrailingContentException`.
+  - **Measured on every committed policy** (cloud, example, generic_fw, i2, ifi,
+    shadow, stanford, up), strict and loose: the same rules and the same default as
+    before. So no recorded workload was affected.
+  - **The one hit was `wl_ifi`.** Its inventories carried a second, byte-identical
+    copy of the block, which the old builder ignored. The copies were removed
+    (owner, `b0428765`), and the regenerated CSVs are byte-identical.
+  - Tests: `TestAnUnreadablePoliciesBlockIsRefused`.
 - **Test-order hazard, not a defect in the code under test:** `ad6/translate.py:71`
   prepends the repo-root `ad6/` to `sys.path`. After that, `util/bench_utils.py`'s
   `import test.check_flows` resolves to `ad6/test`. The full fast tier is unaffected

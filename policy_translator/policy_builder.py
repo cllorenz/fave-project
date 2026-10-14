@@ -24,10 +24,11 @@ from __future__ import annotations
 
 import re
 
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Tuple
 
 from policy import Policy, Superrole
 from policy_exceptions import InvalidSyntaxException, UnparsedBlockException
+from policy_exceptions import TrailingContentException, UnparsedPoliciesException
 from policy_logger import PT_LOGGER
 
 class PolicyBuilder(object):
@@ -180,6 +181,33 @@ class PolicyBuilder(object):
     ((\r\n|[\r\n]) | %s)*
     [ \t]* (?P<role_from> %s?) [ \t]* (?P<op> --->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* (?P<role_to>  %s)(.(?P<service_to> (%s | [*])))? (\r\n|[\r\n])+
     """ % (comment_pattern, name_pattern, name_pattern, name_pattern), re.X)
+
+    # A policies block's HEADER alone, and one line of its body as
+    # `policies_regex` accepts it: what lets an unreadable block be REJECTED,
+    # and the offending line named, instead of the whole block being skipped
+    # (TODO.md item 53).
+    policies_header_regex = re.compile(
+        r"^[ \t]* %s [ ] (policies|policy) \b" % define_pattern, re.X | re.M)
+    policy_line_regex = re.compile(r"""
+    ^( [ \t]* (\# .*)?
+     | (\t | [ ]{4}) %s [ \t]* (--->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* %s(.(%s | [*]))?
+     )$
+    """ % (name_pattern, name_pattern, name_pattern), re.X)
+
+    @classmethod
+    def _unreadable_policy_line(cls, policy_chars: str) -> Tuple[Optional[int], Optional[str]]:
+        """ The first body line of the declared policies block that is neither
+        a rule, a comment nor blank, numbered from 1; (None, None) if every
+        line reads (then the header itself is the problem). """
+        header = cls.policies_header_regex.search(policy_chars)
+        assert header is not None
+        lines = policy_chars[header.end():].splitlines()[1:]
+        for no, line in enumerate(lines, start=1):
+            if line.strip() == 'end':
+                break
+            if not cls.policy_line_regex.match(line):
+                return no, line
+        return None, None
 
     @classmethod
     def build(cls, policy_chars: str, policy: "Policy") -> None:
@@ -374,6 +402,18 @@ class PolicyBuilder(object):
         if policy_matches:
             for policy_match in policy_matches:
                 PT_LOGGER.trace(policy_match.groupdict())
+
+        # A DECLARED block that did not parse is an error, not an empty
+        # policy: one unreadable line used to drop every rule and the default,
+        # with exit 0 (TODO.md item 53, after item 15's role blocks).
+        if not policy_matches and cls.policies_header_regex.search(policy_chars):
+            raise UnparsedPoliciesException(*cls._unreadable_policy_line(policy_chars))
+        if policy_matches:
+            rest = policy_chars[policy_matches[0].end():]
+            unread = [l for l in rest.splitlines()
+                      if l.strip() and not l.strip().startswith('#')]
+            if unread:
+                raise TrailingContentException(unread[0])
 
         if policy_matches:
             PT_LOGGER.debug("fetch first match")
