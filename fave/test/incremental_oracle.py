@@ -266,23 +266,23 @@ def _strip_path_ports(policies, ports):
     return None if emptied else policies
 
 
-def _without(prefix, work, name, ports):
-    """ Write `prefix`'s inputs to `work` WITHOUT device `name`: its entry,
-    its routes, every link one of its `ports` ends and its ports in probe
-    test paths. Config paths in the entries are relative to the working
-    directory, so the copy needs no other file. None when a probe's test
-    path names nothing but the device's ports. """
+def _without(prefix, work, names, ports):
+    """ Write `prefix`'s inputs to `work` WITHOUT the devices `names`: their
+    entries, their routes, every link one of their `ports` ends and their
+    ports in probe test paths. Config paths in the entries are relative to
+    the working directory, so the copy needs no other file. None when a
+    probe's test path names nothing but their ports. """
     for fname in _INPUTS:
         with open(os.path.join(prefix, fname)) as raw:
             data = json.load(raw)
         if fname == 'routes.json':
-            data = [r for r in data if r[0] != name]
+            data = [r for r in data if r[0] not in names]
         else:
             if fname == 'policies.json':
                 data = _strip_path_ports(data, ports)
                 if data is None:
                     return None
-            data['devices'] = [d for d in data['devices'] if d[0] != name]
+            data['devices'] = [d for d in data['devices'] if d[0] not in names]
             data['links'] = [l for l in data['links']
                              if l[0] not in ports and l[1] not in ports]
         with open(os.path.join(work, fname), 'w') as out:
@@ -308,33 +308,42 @@ def _readd(fave, prefix, entry, ports):
     fave._agg.queue.join()
 
 
-def remove_each(test, make, prefix, names=None, residue=None):
+def remove_each(test, make, prefix, names=None, residue=None, readd=True,
+                refusals=False):
     """ §8.2's oracle: remove each device of `prefix` (all, or `names`) from
     a built engine with its links, as ONE update, then re-verify the checks
     the engine reports as affected. The selective re-verification must
     leave the cache equal to a full one, and the full verdicts must equal a
-    from-zero build of the workload WITHOUT the device. The device is then
-    added again, as `replay` adds it, and every verdict must be back.
+    from-zero build of the workload WITHOUT the device. With `readd`, the
+    device is then added again, as `replay` adds it, and every verdict must
+    be back. Without it (an engine that removes by emptying, and so cannot
+    take the name again), removals ACCUMULATE: each is compared with a
+    from-zero build without every device removed so far.
 
     Verdicts cannot see what the engine leaks: a device whose links are cut
     answers like an absent one with its tables still held. `residue(engine,
     model)`, called before the removal, returns a callable listing what the
     engine still holds of the device after it; that list must be empty.
 
-    A device whose ports are ALL a probe's test path names is skipped
-    (`_without`): there is no from-zero build to compare against. Returns
-    the run's counts. """
+    With `refusals`, a removal the engine refuses is counted in
+    `stats['refused']`, and must leave every verdict and the aggregator's
+    model as they were. A device whose ports are ALL a probe's test path
+    names is skipped (`_without`): there is no from-zero build to compare
+    against. Returns the run's counts. """
+    from util.barrier import BarrierError
     from util.in_process_driver import InProcessFaVe
     checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
     with open(os.path.join(prefix, 'topology.json')) as raw:
         entries = json.load(raw)['devices']
-    stats = {'removed': 0, 'skipped': [], 'verdict_changes': 0, 'rechecked': 0}
+    stats = {'removed': 0, 'skipped': [], 'refused': [], 'verdict_changes': 0,
+             'rechecked': 0}
+    gone, gone_ports = set(), set()
     engine = make()
     with InProcessFaVe(engine) as fave:
         fave.replay(prefix)
         engine.track_affected(True)
         cache = inc.VerdictCache(fave, engine, checks)
-        before = cache.full()
+        before = previous = cache.full()
         engine.take_affected()
         for entry in entries:
             name = entry[0]
@@ -343,12 +352,24 @@ def remove_each(test, make, prefix, names=None, residue=None):
             model = fave._agg.models[name]
             ports = {p for p, m in fave._agg.port_to_model.items() if m is model}
             work = tempfile.TemporaryDirectory(prefix='removal_')
-            if _without(prefix, work.name, name, ports) is None:
+            if _without(prefix, work.name, gone | {name}, gone_ports | ports) is None:
                 work.cleanup()
                 stats['skipped'].append(name)
                 continue
             left = residue(engine, model) if residue is not None else list
-            fave.delete_device(name, model.type)
+            try:
+                fave.delete_device(name, model.type)
+            except BarrierError as err:
+                work.cleanup()
+                if not refusals or 'UpdateRefused' not in str(err):
+                    raise
+                stats['refused'].append((name, str(err)))
+                cache.selective(engine.take_affected())
+                test.assertEqual(cache.ask(checks), previous,
+                                 "%s, removing %s: a refused removal changed a "
+                                 "verdict" % (prefix, name))
+                test.assertIs(fave._agg.models.get(name), model)
+                continue
             test.assertEqual(left(), [], "%s, removing %s: the engine still "
                              "holds part of it" % (prefix, name))
             stats['rechecked'] += len(cache.selective(engine.take_affected()))
@@ -357,12 +378,19 @@ def remove_each(test, make, prefix, names=None, residue=None):
                              "%s, removing %s: selective re-verification "
                              "missed a change" % (prefix, name))
             stats['verdict_changes'] += sum(
-                1 for line in full if full[line] != before[line])
+                1 for line in full if full[line] != previous[line])
             with work:
-                zero = inc.from_zero(make, work.name, checks, set(), set())
+                zero = inc.from_zero(make, work.name, checks, set(), set(),
+                                     like=engine)
             test.assertEqual(full, zero,
                              "%s, removing %s: the incremental engine disagrees "
                              "with a from-zero build without it" % (prefix, name))
+            stats['removed'] += 1
+            if not readd:
+                gone.add(name)
+                gone_ports |= ports
+                previous = full
+                continue
 
             _readd(fave, prefix, entry, ports)
             cache.selective(engine.take_affected())
@@ -372,6 +400,5 @@ def remove_each(test, make, prefix, names=None, residue=None):
             test.assertEqual(cache.ask(checks), before,
                              "%s, re-adding %s: the engine did not come back"
                              % (prefix, name))
-            stats['removed'] += 1
     test.assertGreater(stats['removed'], 0, "no device was removed")
     return stats
