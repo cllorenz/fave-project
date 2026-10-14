@@ -1443,6 +1443,12 @@ then applied to one of the two halves.
   `policy_translator/fpl_grammar.py` (`policy_builder` has its own parser),
   `util/dynamic_distribution.py` (which lint already skips) and `util/parallel_utils.py`.
   For those the first question is whether they are dead code or untested tools.
+  - [x] **Decided 2026-10-14 (owner), module by module.** `util/dynamic_distribution.py`,
+    `util/parallel_utils.py` and `aggregator/aggregator_mock.py` are dead: moved to
+    `fave/deprecated/` (`dde620de`), which coverage, lint and pytest already leave out.
+    That drops 175 missed statements from A′. `policy_translator/fpl_grammar.py` stays as
+    the reference grammar, and the two `visualize_*.py` tools stay as user tools; all
+    three get fast tests.
 - **Deferred:** coverage of fast and integration combined. The integration tier already uploads
   coverage, but merging the two waits for item 44's refactor of that tier.
 
