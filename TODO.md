@@ -3601,7 +3601,7 @@ section that reads the registered checks, not only the violations.
 
 ---
 
-### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; the delete path designed (INCREMENTAL_PLAN.md §8.1)
+### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; the delete path designed (INCREMENTAL_PLAN.md §8.2)
 None is fixed. Each is pinned by a test, either as an `expectedFailure` (remove the
 decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behaviour
 (it fails on purpose once fixed). Ordered by likely impact on verdicts.
@@ -3655,7 +3655,7 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     or probe unreachable from the wire.
     - The CLI now sends the delete's type, and `_dispatch` names the task by it.
     - A device delete is refused by name (`NotImplementedError`, pointing to
-      INCREMENTAL_PLAN.md §8.1).
+      INCREMENTAL_PLAN.md §8.2).
     - A delete without a type is refused instead of dropped.
   - [x] REFUSED 2026-10-14: switch `remove_rule`/`update_rule` got the whole rule list
     (`:623`).
