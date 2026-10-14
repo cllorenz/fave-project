@@ -74,10 +74,11 @@ source enters the forward chain as from its VLAN (`in_port` eth1's ingress,
    `0ca9dbf5`): `--dports 21:22` was port 21 alone -- 244 of this ruleset's
    356 ranges, on every engine. NetPlumber disagreed with the evaluator on
    exactly six checks, all such a bound; after the fix on none.
-2. **NetPlumber's adapter takes a switch's declared table id as its table
-   index** and resets its counter after it (`netplumber/adapter.py`,
-   `table_ids`): id 1 put `vlans.tum` on `fw.tum`'s first table and nothing
-   passed. `vlans.tum` uses id 100 (`layout.DEMUX_TABLE`).
+2. **NetPlumber's adapter took a switch's declared table id as its table
+   index**, unchecked, and reset its counter after it: `vlans.tum` declaring
+   id 1 landed on `fw.tum`'s first table and nothing passed. Fixed: the
+   adapter picks a fresh index per table name (owner, 2026-10-14), and
+   `vlans.tum` declares no id.
 3. **A switch port named `1` is its table's name** (`devices/switch.py`
    names a switch's table `<node>.1`): `vlans.tum` numbers its ports from 1000.
 4. **Both APKeep engines drop `svlan` and `dvlan` from packet-filter rules**

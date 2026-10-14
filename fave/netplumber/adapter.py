@@ -516,20 +516,19 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             name = table
 
             if name not in self.tables:
-                # truthiness, not presence: SwitchModel always binds table_ids
-                # (None when unset); a None/absent value means fresh index.
-                if getattr(model, 'table_ids', None):
-                    # A SUFFIX strip, not a character-set one. `rstrip('.1')`
-                    # ate the separator and then kept eating '1's out of the
-                    # device name -- `lin.dc0_leaf1.1` resolved to
-                    # `lin.dc0_leaf` and raised KeyError. A switch's table is
-                    # always `<node>.1` (SwitchModel.__init__), so removing
-                    # exactly that suffix is the intent.
-                    idx = model.table_ids[name.removesuffix('.1')]
-                    self.fresh_table_index = idx + 1 # XXX: only works if tables appear in order
-                else:
-                    idx = self.fresh_table_index
-                    self.fresh_table_index += 1
+                # A FRESH index per table name, always: tables are told apart
+                # by name in FaVe, and the index is only NetPlumber's handle
+                # for one (and the high half of its ports, `_calc_port`).
+                # Until 2026-10-14 a switch's declared `table_ids` was used
+                # AS the index, unchecked, and reset the counter to id+1 --
+                # so a declared id already taken collided with that table and
+                # every later fresh index reused taken ones: wl_tum's VLAN
+                # demultiplexer, declared 1, landed on fw.tum's first table
+                # and NetPlumber passed nothing through it. The HSA datasets'
+                # original ids need not survive (owner, 2026-10-14): one fresh
+                # index per name is a bijection with them by construction.
+                idx = self.fresh_table_index
+                self.fresh_table_index += 1
 
                 self.tables[name] = idx
 

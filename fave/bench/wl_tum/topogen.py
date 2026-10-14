@@ -35,7 +35,7 @@ def _main(argv):
     devices = [
         (layout.FW, "packet_filter", ['eth0', 'eth1'], address, ruleset),
         (layout.DEMUX, "switch", [str(layout.DEMUX_IN)] + [str(port) for _n, port, _e in eps],
-         {layout.DEMUX: layout.DEMUX_TABLE}),
+         None),
     ]
     links = [("%s.forward_filter_accept" % layout.FW, "%s.%d" % (layout.DEMUX, layout.DEMUX_IN), False)]
 

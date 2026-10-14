@@ -20,12 +20,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MATRIX = os.path.join(HERE, 'service_matrix.json')
 FW = 'fw.tum'
 DEMUX = 'vlans.tum'
-#: Not 1: NetPlumber's adapter takes a switch's declared table id AS its
-#: table index and resets its counter to id+1 (netplumber/adapter.py,
-#: `table_ids`, "XXX: only works if tables appear in order"), so id 1 put the
-#: demultiplexer on fw.tum's first table and NetPlumber passed nothing through
-#: it. wl_cloud, all switches, never met it. Well above fw.tum's tables.
-DEMUX_TABLE = 100
+#: The table a route names: a FaVe switch has one, `<node>.1` (devices/switch.py),
+#: so 1, as in wl_cloud. Not a table id -- the switch declares none.
+DEMUX_TABLE = 1
 #: the demultiplexer's input port; endpoints take the ports after it. Not 1:
 #: a FaVe switch's table is named `<node>.1` (devices/switch.py), and a port
 #: of that name is the table's name too -- with it, every probe saw every flow.
