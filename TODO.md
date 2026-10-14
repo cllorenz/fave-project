@@ -1526,11 +1526,23 @@ Found while preparing item 51.
   `RELATED,ESTABLISHED,UNTRACKED`, but its benchmark parses a preprocessed copy that
   has `ESTABLISHED` only. Any real `iptables-save` input is exposed, since
   `RELATED,ESTABLISHED` is the most common idiom there.
-- [ ] **Fix:** represent the value as a set of states. Weave a rule whose set contains
-  `ESTABLISHED` into the shell, and refuse loudly any state the model cannot express,
-  instead of dropping its condition. A full model of `RELATED` and `UNTRACKED` is item 51's
-  job; until then, refusing is the honest answer. A parse error must fail the parse, not
-  print a warning.
+- [ ] **Fix:** represent the value as a set of states, and project each state onto the
+  model's packet universe, NEW (`related=0`) and ESTABLISHED (`related=1`), instead of
+  dropping the condition. **Interim semantics decided by the owner, 2026-10-14,** until
+  item 51 models the other states:
+  - `NEW` → `related=0`, and `ESTABLISHED` → the shell, as today.
+  - `INVALID` matches no modelled packet, so a rule matching it alone is dropped. This
+    is exact: the common `--ctstate INVALID -j DROP` costs nothing.
+  - `RELATED` matches no modelled packet either. It is removed from the set **with a
+    warning**: `RELATED,ESTABLISHED` weaves as `ESTABLISHED`, and `RELATED` alone drops the
+    rule. This under-approximates real traffic, as the thesis's limitation does (§7.1.7).
+  - `UNTRACKED` is treated as **stateless**: the condition is dropped and the rule
+    matches both values of `related`. **With a warning** that this assumes a raw-table
+    `NOTRACK` rule covers the rule's match. FaVe does not parse the raw table, so it does
+    not check this. Translator output meets the assumption by construction, because it
+    emits both rules from one pair; a hand-written rule set need not.
+  - A parse error fails the parse instead of printing a warning.
+  Each warning names the rule's line, so a reader can find what was projected.
 - [ ] **Pinning tests** for each spelling above. They fail today, so they land with the fix.
 - [ ] **`--ctstate NEW,NOTRACK` departs from the thesis — ANSWERED 2026-10-14 from the
   thesis, fix OPEN.** Thesis §7.3 (*Templates for Stateless Rules*): `-j NOTRACK` is the
@@ -1543,6 +1555,11 @@ Found while preparing item 51.
     generator would turn every `--ctstate UNTRACKED -j ACCEPT` into an unconditional
     accept (Finding above). So the generator must be fixed before the translator, or
     together with it.
+  - **Translator fix (with the generator fix):** emit the §7.3 template, a raw
+    `-j NOTRACK` rule plus `--ctstate UNTRACKED -j ACCEPT`. Under the interim semantics
+    above, FaVe reads the second as stateless, which is correct for this output. FaVe's
+    input path must then skip or accept the raw-table lines rather than fail on them;
+    check what it does with `-t raw` before the change.
 
 ---
 
