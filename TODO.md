@@ -3611,7 +3611,7 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
   vector first) reads port 20. The same flaw affects node-scoped fields (`:478`) and
   `_rewrites` (`int(field.value)`). Whether any workload emits such vectors is unknown.
   Pinned: `test_ad6_translate_pure.py`.
-- [ ] **PolicyTranslator, non-strict mode with `default: allow`:** the self-reachability
+- [x] **FIXED 2026-10-14 — PolicyTranslator, non-strict mode with `default: allow`.** The loop now runs under `default: deny` only. No committed workload uses `default: allow`, so no generated input changes. Originally: the self-reachability
   entries added for every role (`policy_builder.py:427`) mean "forbidden" under that
   default, so the iptables output DROPs `role -> role` traffic. Pinned:
   `test_policy_model_edges.py`.

@@ -424,7 +424,12 @@ class PolicyBuilder(object):
                     else:
                         PT_LOGGER.debug("operator %s not permitted with default %s", op_, policy.default_policy)
 
-        if not policy.strict:
+        # Only under `default: deny`. There an entry in `policies` PERMITS, so
+        # adding `role ---> role` lets a role reach itself. Under `default:
+        # allow` an entry FORBIDS, so the same loop made every role unable to
+        # reach itself -- `"Alpha to Alpha" -j DROP` in the iptables output --
+        # while self traffic is already allowed by the default (TODO item 53).
+        if not policy.strict and not policy.default_policy:
             PT_LOGGER.debug("add default self reachability policies")
             # SORTED, and this is the site that is easy to miss. The two in
             # `to_iptables` reorder a block directly; this one reorders the

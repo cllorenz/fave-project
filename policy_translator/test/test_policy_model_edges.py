@@ -40,8 +40,8 @@ Pinned:
   * `vlans_to_csv` on `examples/ifi-policy.txt`;
   * `to_prosa` names an operator neither of its tables knows.
 
-And a finding, as an expectedFailure: non-strict mode's self-reachability
-rules are PROHIBITIONS under `default: allow`
+And non-strict mode's self-reachability rules, which were PROHIBITIONS under
+`default: allow` until TODO item 53 fixed them
 (`TestDefaultAllowSelfReachability`).
 """
 
@@ -248,21 +248,29 @@ class TestRenderers(unittest.TestCase):
 
 
 class TestDefaultAllowSelfReachability(unittest.TestCase):
-    """ FINDING. Non-strict mode adds `role ---> role` for every atomic role
-    (`PolicyBuilder.build_policies`, policy_builder.py:427), to let a role
-    reach itself without an explicit rule. Under `default: allow` an entry in
-    `Policy.policies` is a PROHIBITION, so the same loop forbids every role
-    to reach itself: `to_iptables` emits `... "Alpha to Alpha" -j DROP`.
-    Remove the decorator once the loop is limited to `default: deny`.
+    """ Non-strict mode adds `role ---> role` for every atomic role
+    (`PolicyBuilder.build_policies`) so a role reaches itself without an
+    explicit rule. Under `default: allow` an entry in `Policy.policies` is a
+    PROHIBITION, so that loop once forbade every role to reach itself:
+    `to_iptables` emitted `... "Alpha to Alpha" -j DROP` (TODO item 53). It now
+    runs under `default: deny` only.
     """
 
-    @unittest.expectedFailure
     def test_self_traffic_is_not_dropped(self):
         policy = _build(_INVENTORY + (
             "def policies(default: allow)\n"
             "    Alpha --/-> Beta\n"
             "end\n"))
+        self.assertFalse(policy.policy_exists('Alpha', 'Alpha'))
         self.assertNotIn('"Alpha to Alpha" -j DROP', policy.to_iptables())
+
+    def test_under_default_deny_self_reachability_is_still_added(self):
+        policy = _build(_INVENTORY + (
+            "def policies(default: deny)\n"
+            "    Alpha ---> Beta\n"
+            "end\n"))
+        self.assertTrue(policy.policy_exists('Alpha', 'Alpha'))
+        self.assertTrue(policy.policy_exists('Beta', 'Beta'))
 
     def test_explicit_prohibition_is_dropped(self):
         policy = _build(_INVENTORY + (
