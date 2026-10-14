@@ -57,15 +57,13 @@ class TestSwitchModel(unittest.TestCase):
         return Rule('sw', 7, idx, match=Match([RuleField('packet.upper.dport', '80')]),
                     actions=[Forward([port])])
 
-    def test_json_round_trip_with_table_ids(self):
-        switch = SwitchModel('sw', ports=['1', '2'], rules=[self._rule(0)],
-                             table_ids={'sw.1': 3})
+    def test_json_round_trip(self):
+        switch = SwitchModel('sw', ports=['1', '2'], rules=[self._rule(0)])
         j = switch.to_json()
-        self.assertEqual(j['table_ids'], {'sw.1': 3})
         back = SwitchModel.from_json(json.dumps(j))
-        self.assertEqual(back.table_ids, {'sw.1': 3})
         self.assertEqual(back.to_json(), j)
-        self.assertNotIn('table_ids', SwitchModel('sw').to_json())
+        # table_ids is gone since 0149c8dc
+        self.assertNotIn('table_ids', j)
 
     def test_add_rules_rehome_the_rule_into_the_single_table(self):
         switch = SwitchModel('sw', ports=['1', '2'])

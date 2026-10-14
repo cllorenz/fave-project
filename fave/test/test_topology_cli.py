@@ -244,15 +244,15 @@ class TestMainSendsOneCommand(_MainHarness):
     """ `main()` builds the model its options describe and sends it as ONE
     TopologyCommand to the default aggregator address. """
 
-    def test_add_switch_with_table_ids_and_semantics(self):
+    def test_add_switch_with_table_semantics(self):
         msg = self.run_main(['-a', '-t', 'switch', '-n', 'sw', '-p', '2',
-                             '-I', "{'sw.1': 1}", '-S', "{'sw.1': 'lpm'}"])
+                             '-S', "{'sw.1': 'lpm'}"])
         self.connect.assert_called_with(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
         self.assertEqual(msg['type'], 'topology_command')
         self.assertEqual((msg['node'], msg['command'], msg['mtype']),
                          ('sw', 'add', 'switch'))
         self.assertEqual(msg['model']['ports'], {'sw.1': 'sw.1', 'sw.2': 'sw.1'})
-        self.assertEqual(msg['model']['table_ids'], {'sw.1': 1})
+        self.assertNotIn('table_ids', msg['model'])
         self.assertEqual(msg['model']['table_semantics'], {'sw.1': 'lpm'})
 
     def test_an_unknown_table_semantics_is_refused_before_sending(self):

@@ -47,8 +47,8 @@ from util.in_process_driver import InProcessFaVe
 
 _WORKLOAD = {
     'topology.json': {
-        'devices': [['sw1', 'switch', 2, {'sw1.1': 1}],
-                    ['sw2', 'switch', 2, {'sw2.1': 1}]],
+        'devices': [['sw1', 'switch', 2],
+                    ['sw2', 'switch', 2]],
         'links': [['sw1.2', 'sw2.1', False]],
     },
     'routes.json': [
