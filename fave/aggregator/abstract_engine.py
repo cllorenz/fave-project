@@ -149,6 +149,13 @@ class AbstractVerificationEngine(object):
         raise UpdateRefused(
             "%s: set_link is not implemented" % type(self).__name__)
 
+    #: Whether `remove_device` REMOVES the device, so that its name can be
+    #: added again, rather than emptying it in place (VeriFlow-FR, APKeep:
+    #: `ACCOMMODATIONS.md`). A re-sent device whose structure changed is
+    #: applied as a replacement only where this holds (INCREMENTAL_PLAN.md
+    #: §8.2, D-R6); elsewhere it is refused.
+    REMOVES_DEVICES = False
+
     def remove_device(self, model: Any, links: List[Tuple[str, str]]) -> None:
         """ Remove the device `model` -- its tables with their rules, its
         wiring, its ports -- and its external `links`, FaVe (egress, ingress)

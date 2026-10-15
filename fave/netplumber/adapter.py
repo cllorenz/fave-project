@@ -189,6 +189,10 @@ class NetPlumberAdapter(AbstractVerificationEngine):
     IMPL = 'authors+fave'
     UPSTREAM = 'hassel-public master 697b35c9'
 
+    #: `remove_device` removes tables, wiring, links and ports for good
+    #: (INCREMENTAL_PLAN.md §8.2), so the name can be added again.
+    REMOVES_DEVICES = True
+
     def __init__(
         self,
         socks: List[Any],

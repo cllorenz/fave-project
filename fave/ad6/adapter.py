@@ -161,6 +161,10 @@ class Ad6Adapter(AbstractVerificationEngine):
     #: know that this row is not independent of the person reporting it.
     IMPL = 'first-party'
 
+    #: `remove_device` drops the device from the capture buffers, so the name
+    #: can be added again (INCREMENTAL_PLAN.md §8.2, Q-R3).
+    REMOVES_DEVICES = True
+
     def __init__(self, logger: TraceLogger,
                  grounding: str = GROUNDING_RANK,
                  solver: str = SOLVER_MINISAT22,
@@ -598,6 +602,12 @@ class Ad6Adapter(AbstractVerificationEngine):
         self._tables.pop(model.node, None)
         self._table_semantics.pop(model.node, None)
         self._wiring.pop(model.node, None)
+        # the aggregator's copy of the adjacency, which it fills on `add`
+        for sport, dport in links:
+            if dport in self.links.get(sport, []):
+                self.links[sport].remove(dport)
+                if not self.links[sport]:
+                    del self.links[sport]
 
     def delete_generator(self, node: str) -> None:
         self._generators.pop(node, None)
