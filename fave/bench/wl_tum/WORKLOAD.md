@@ -17,7 +17,8 @@ Since 2026-10-14 (owner) wl_tum has **two models**:
 | used by | the incremental campaign (D10) onwards | V5, the D11 run, `test_apkeep_tum`, `test_apkeep_ndd_fwd`, `test_veriflow_differential` |
 
 `test/gen_wl_tum_inputs.sh` generates both; `bench/wl_tum/benchmark.py` runs
-the policy model. A replay of the single variant is `replay('bench/wl_tum/single')`.
+the policy model and, since 2026-10-15, its 8,497 checks (before, it only
+waited for FaVe, and every `cell_run.py` cell had no verdict; TODO item 58). A replay of the single variant is `replay('bench/wl_tum/single')`.
 
 ## The policy is FABRICATED, and derived
 

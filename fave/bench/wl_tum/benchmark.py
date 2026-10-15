@@ -42,10 +42,10 @@ class TUMBenchmark(GenericBenchmark):
         )
 
 
-    def _compliance(self):
-        self.logger.info("wait for fave")
-        os.system("%s misc/await_fave.py" % PYTHON)
-        self.logger.info("fave stopped successfully")
+    # No `_compliance` of its own: since the derived policy (2026-10-14,
+    # WORKLOAD.md) wl_tum has checks.json, and the generic step runs them.
+    # The override that only waited for FaVe dates from when the workload had
+    # none, and left every cell without a verdict (TODO item 58).
 
 
 RULESET = 'bench/wl_tum/rulesets/tum-ruleset'

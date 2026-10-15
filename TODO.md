@@ -3779,7 +3779,7 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
-### 58. Two cell-harness gaps found in the stable-index re-measurement — OPEN (found 2026-10-15)
+### 58. Two cell-harness gaps found in the stable-index re-measurement — `wl_tum` FIXED 2026-10-15; the stale lock OPEN
 
 - [ ] **A stale dump lock blocks every cell forever.** `misc/await_fave.py`
   waits on `np_dump/.lock` (`SoftFileLock`, `timeout=-1`). One written
@@ -3788,12 +3788,18 @@ cannot express (generators, first-match switch tables), never to drop it.
   (`bench/campaigns/results_stable_default_20261015/FINDINGS.md`). Options:
   `./test.sh doctor` reports a lock whose PID or host is not alive; or the
   wait gets a timeout and names the lock.
-- [ ] **`wl_tum` cells cannot have a valid verdict.** Since the derived policy
+- [x] **`wl_tum` cells could not have a valid verdict.** Since the derived policy
   (2026-10-14) the workload has a `checks.json` (8,497 checks), but
-  `bench/wl_tum/benchmark.py` runs no compliance check, so `cell_run.py` marks
-  every `wl_tum` cell `error` (all five engines, both arms of the
-  re-measurement). Needed before the campaign: the benchmark runs the checks
-  of the model it builds.
+  `bench/wl_tum/benchmark.py` overrode `_compliance` with a bare wait for FaVe
+  (from when it had no checks), so `cell_run.py` marked every `wl_tum` cell
+  `error` (all five engines, both arms of the re-measurement). **Fixed
+  2026-10-15:** the override is gone and the generic step runs the checks.
+  Verified through `cell_run.py`: NetPlumber 0 of 8,497 violated, verdict
+  valid, 34 s (compliance 0.45 s); BDD-APKeep 0 of 8,497, 154 s (compliance
+  137 s, against 142 s in-process on 2026-10-14). A `wl_tum` cell now costs
+  what its checks cost: NDD-APKeep about 30 min and VeriFlow-FR about 3 h 20
+  min in-process (WORKLOAD.md), where V5's cells, on the single variant with
+  no checks, took 4-33 s.
 
 ### 57. A from-zero build dropped a failed device without a word — in-process replay and refusals FIXED 2026-10-15; three paths OPEN
 
