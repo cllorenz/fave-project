@@ -219,6 +219,12 @@ def _owner_alive(directory: str = None) -> Tuple[bool, str]:
     return True, ""
 
 
+def owner_alive(directory: str = None) -> Tuple[bool, str]:
+    """ `(alive, reason_if_not)` for the registered aggregator, for waiters
+    that wait on something other than a barrier (`misc/await_fave.py`). """
+    return _owner_alive(directory)
+
+
 def _unlink(path: str) -> None:
     """ Remove `path`, tolerating its absence. """
     try:

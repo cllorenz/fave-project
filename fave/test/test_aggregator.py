@@ -471,6 +471,28 @@ class TestDumpAggregator(_AggregatorTestBase):
         shifted = rule_key >> 12
         self.assertEqual(dump['id_to_rule'], {'111': shifted, '222': shifted})
 
+    def test_an_engine_without_an_id_map_writes_no_fave_json(self):
+        """ TODO item 57: fave.json is NetPlumber's; every other engine raised
+        AttributeError here. """
+        self.engine.mapping = None
+        with tempfile.TemporaryDirectory() as odir:
+            self.aggr._dump_aggregator(odir)
+            self.assertFalse(os.path.exists(os.path.join(odir, 'fave.json')))
+
+    def test_a_failed_dump_still_releases_the_dumpers_lock(self):
+        """ TODO item 58: the lock used to outlive a failed dump, and the next
+        run's `misc/await_fave.py` waited on it forever. """
+        self.engine.dump_flow_trees.side_effect = RuntimeError('boom')
+        with tempfile.TemporaryDirectory() as odir:
+            lock = os.path.join(odir, '.lock')
+            open(lock, 'w').close()
+            with self.assertRaises(RuntimeError):
+                self.aggr._dispatch({'type': 'dump', 'dir': odir, 'fave': False,
+                                     'flows': False, 'network': False,
+                                     'pipes': False, 'trees': True,
+                                     'simple': False})
+            self.assertFalse(os.path.exists(lock))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -495,7 +495,12 @@ class GenericBenchmark(object):
 
     def _wait_for_fave(self):
         self.logger.info("wait for fave")
-        os.system("%s misc/await_fave.py" % PYTHON)
+        code = _exit_code(os.system("%s misc/await_fave.py" % PYTHON))
+        if code != 0:
+            # FaVe died before releasing the dump lock: whatever follows would
+            # read a dump, or a stop, that never happened (TODO item 58)
+            raise RuntimeError("waiting for FaVe FAILED (exit %s): see "
+                               "misc/await_fave.py's message above" % code)
 
 
     def _compliance(self):

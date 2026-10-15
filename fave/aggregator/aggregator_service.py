@@ -406,19 +406,24 @@ class AggregatorService(AbstractAggregator):
 
             task_type = "dump %s" % ','.join([k for k in dump if k not in ['type', 'dir']])
 
-            if dump['fave']:
-                self._dump_aggregator(odir)
-            if dump['flows']:
-                self.verification_engine.dump_flows(odir)
-            if dump['network']:
-                self.verification_engine.dump_plumbing_network(odir)
-            if dump['pipes']:
-                self.verification_engine.dump_pipes(odir)
-            if dump['trees']:
-                self.verification_engine.dump_flow_trees(odir, dump['simple'])
-
-            lock = PreLockedFileLock("%s/.lock" % odir)
-            lock.release()
+            try:
+                if dump['fave']:
+                    self._dump_aggregator(odir)
+                if dump['flows']:
+                    self.verification_engine.dump_flows(odir)
+                if dump['network']:
+                    self.verification_engine.dump_plumbing_network(odir)
+                if dump['pipes']:
+                    self.verification_engine.dump_pipes(odir)
+                if dump['trees']:
+                    self.verification_engine.dump_flow_trees(odir, dump['simple'])
+            finally:
+                # The dumper's lock goes whatever happened: a dump that failed
+                # used to leave it, and `misc/await_fave.py` then waited on it
+                # forever -- in the next run, in another container
+                # (TODO item 58).
+                lock = PreLockedFileLock("%s/.lock" % odir)
+                lock.release()
 
 
         elif j['type'] == 'check_anomalies':
@@ -1201,6 +1206,15 @@ class AggregatorService(AbstractAggregator):
     def _dump_aggregator(self, odir: str) -> None:
         os.system("mkdir -p %s" % odir)
         os.system("rm -f %s/*" % odir)
+
+        if getattr(self.verification_engine, 'mapping', None) is None:
+            # fave.json is NetPlumber's id map (its field mapping, the `<< 12`
+            # rule ids); no other engine keeps one. It failed on every other
+            # engine with an AttributeError (TODO item 57).
+            AggregatorService.LOGGER.info(
+                "dump: no fave.json: backend %s keeps no NetPlumber id map",
+                self.backend)
+            return
 
         with open("%s/fave.json" % odir, "w") as ofile:
             j: Dict[str, Any] = {}

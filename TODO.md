@@ -3779,15 +3779,25 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
-### 58. Two cell-harness gaps found in the stable-index re-measurement — `wl_tum` FIXED 2026-10-15; the stale lock OPEN
+### 58. Two cell-harness gaps found in the stable-index re-measurement — both FIXED 2026-10-15
 
-- [ ] **A stale dump lock blocks every cell forever.** `misc/await_fave.py`
-  waits on `np_dump/.lock` (`SoftFileLock`, `timeout=-1`). One written
+- [x] **A stale dump lock blocked every cell forever.** `misc/await_fave.py`
+  waited on `np_dump/.lock` (`SoftFileLock`, `timeout=-1`). One written
   2026-10-09 by a process of an earlier container was never released, and the
   first cell waited 11 minutes until the lock was removed by hand
-  (`bench/campaigns/results_stable_default_20261015/FINDINGS.md`). Options:
-  `./test.sh doctor` reports a lock whose PID or host is not alive; or the
-  wait gets a timeout and names the lock.
+  (`bench/campaigns/results_stable_default_20261015/FINDINGS.md`). **Cause:** the
+  aggregator removed the dumper's lock only after a SUCCESSFUL dump, and the
+  dump failed on every engine but NetPlumber (`fave.json`, item 57). The PID
+  in the lock is the dumper's, which exits at once, so it says nothing about
+  staleness. **Fixed 2026-10-15:**
+  - the aggregator releases the lock in a `finally`;
+  - `fave.json` is skipped, and said so, on an engine without NetPlumber's id map;
+  - `misc/await_fave.py` tells the states apart as `util.barrier` does: a lock
+    older than the running aggregator's registration is a leftover -- removed,
+    with a warning naming it; with no live aggregator it exits 1 instead of
+    waiting; otherwise it waits;
+  - `GenericBenchmark._wait_for_fave` no longer ignores that exit status.
+  Tests: `test_await_fave.py`, `test_aggregator.py` (`TestDumpAggregator`).
 - [x] **`wl_tum` cells could not have a valid verdict.** Since the derived policy
   (2026-10-14) the workload has a `checks.json` (8,497 checks), but
   `bench/wl_tum/benchmark.py` overrode `_compliance` with a bare wait for FaVe
@@ -3822,9 +3832,11 @@ cannot express (generators, first-match switch tables), never to drop it.
   failures of device tasks told apart from the rest.
 - [ ] **A switch command for an unknown datapath** is printed to stderr
   (`no such dp`) and dropped, not raised (`AggregatorService._sync_diff`).
-- [ ] **`_dump_aggregator` fails on every engine but NetPlumber**
+- [x] **`_dump_aggregator` failed on every engine but NetPlumber**
   (`AttributeError: ... has no attribute 'mapping'`), after the report, e.g. in
-  every V5 `wl_ifi` log. Harmless to the verdict; still a failed task.
+  every V5 `wl_ifi` log. Not harmless after all: the failure left the dumper's
+  lock behind (item 58). **Fixed 2026-10-15:** `fave.json` is NetPlumber's id
+  map and is skipped, with a log line, on the other engines.
 
 ### 56. An integration-tier test once took 54 minutes instead of 7 seconds — OPEN (found 2026-10-14)
 
