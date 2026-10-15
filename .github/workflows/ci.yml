@@ -106,8 +106,13 @@ jobs:
       # 2026-10-14, TODO item 47: MET. Three dead modules moved to deprecated/
       # (owner) and fast tests added across the scope: 97% of 6,652 statements
       # on `./test.sh fast --clean`. This step is expected to PASS again.
+      #
+      # 2026-10-15: RAISED 78 -> 90 (owner), at 95% measured (7,079 statements,
+      # 345 missed, `./test.sh fast --clean`). The five points between are
+      # deliberate headroom: a moderate drop during experimental development is
+      # acceptable; the floor itself is not lowered.
       - name: Run fast tier (with coverage ratchet)
-        run: COVERAGE=1 COVERAGE_MIN=78 bash test.sh fast
+        run: COVERAGE=1 COVERAGE_MIN=90 bash test.sh fast
 
   # --- Lint: non-gating until TODO item 2 makes lint_test.sh fail on errors. ---
   lint:

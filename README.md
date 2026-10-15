@@ -194,10 +194,11 @@ floor up as coverage rises, never down.
 The `fast` tier measures a declared scope, [`coverage-fast.ini`](coverage-fast.ini):
 FaVe's library packages and PolicyTranslator. Every module in it counts, whether
 a fast test imports it or not, and test code and native-only modules are left
-out. Other tiers keep coverage's defaults. `COVERAGE=1 COVERAGE_MIN=78 ./test.sh
+out. Other tiers keep coverage's defaults. `COVERAGE=1 COVERAGE_MIN=90 ./test.sh
 fast --clean` reproduces CI's verdict exactly. That scope measured 64.33% on
-2026-10-12 against the floor of 78, and 97% on 2026-10-14 after coverage was
-raised (TODO item 47).
+2026-10-12 against the then floor of 78, and 97% on 2026-10-14 after coverage
+was raised (TODO item 47). The floor is 90 since 2026-10-15, at 95% measured:
+the gap is headroom for experimental development, by the owner's decision.
 
 Set `FAVE_SKIP_AD6=1` to leave every ad6 test module (`fave/test/test_ad6_*.py`)
 out of every tier (`FAVE_SKIP_AD6=1 ./test.sh integration`). ad6 is the costly

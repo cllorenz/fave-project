@@ -1362,7 +1362,7 @@ then applied to one of the two halves.
   - **What unpinned still allows:** a new pylint release can turn the gate red. When it does,
     every environment sees it on the same day, and the version is in the gate's first line.
 
-### 47. The `fast` coverage floor has never been met as CI measures it, and the number measures the import graph — SCOPE DECLARED 2026-10-12; floor MET 2026-10-14 (97%)
+### 47. The `fast` coverage floor has never been met as CI measures it, and the number measures the import graph — SCOPE DECLARED 2026-10-12; floor MET 2026-10-14 (97%); floor RAISED 78 -> 90 2026-10-15 (owner)
 - **Finding:** CI's `fast` job gates on `COVERAGE=1 COVERAGE_MIN=78 bash test.sh fast`
   (`ci.yml:94`). Measured the way that job sees the tree (a `git archive` export and a venv
   holding `requirements.txt` only, i.e. `./test.sh fast --clean`), with each commit's own
@@ -1435,7 +1435,7 @@ then applied to one of the two halves.
   was already failing at 68.87% under the old measure. `ci.yml` and the README say so.
   `COVERAGE=1 COVERAGE_MIN=78 ./test.sh fast --clean` reproduces the verdict
   (`Coverage failure: total of 64 is less than fail-under=78`).
-- [x] **Raise coverage within A′ to the floor** — DONE 2026-10-14: **97%** (6,652 statements, 207 missed) on `./test.sh fast --clean`, 1,309 passed. Commits `094284e1` (ad6), `682fd750` (aggregator, CLIs, reporter), `707f502b` (policy_translator), `641cba64` (NetPlumber client, adapter, CLIs), `05291b75` (topology, devices, generator, incremental). The defects the new tests found are item 53. The floor stays 78 until the owner decides to raise it. Originally: That is about 930 more covered
+- [x] **Raise coverage within A′ to the floor** — DONE 2026-10-14: **97%** (6,652 statements, 207 missed) on `./test.sh fast --clean`, 1,309 passed. Commits `094284e1` (ad6), `682fd750` (aggregator, CLIs, reporter), `707f502b` (policy_translator), `641cba64` (NetPlumber client, adapter, CLIs), `05291b75` (topology, devices, generator, incremental). The defects the new tests found are item 53. The floor stays 78 until the owner decides to raise it — **RAISED to 90 on 2026-10-15 (owner)**, at 95% measured on `./test.sh fast --clean` (7,079 statements, 345 missed, 1,360 passed); the gap is headroom: a moderate drop during experimental development is acceptable. Originally: That is about 930 more covered
   statements (78% of 6,827 is 5,325; 4,392 are covered today). The largest gaps:
   `ad6/translate.py` (270 missed), `aggregator/aggregator_service.py` (232),
   `netplumber/adapter.py` (173), `policy_translator/fpl_grammar.py` (158, at 0%),
