@@ -3798,8 +3798,8 @@ cannot express (generators, first-match switch tables), never to drop it.
   - shared barrier or state directories (private per in-process instance);
   - a concurrent rewrite of `bench/wl_tum/single` (no test writes it).
 - **Next time:** run the tier with `PYTEST_ADDOPTS="-o faulthandler_timeout=600"`,
-  so that a recurrence dumps the stuck stack. Making that the tier's default is an
-  owner decision.
+  so that a recurrence dumps the stuck stack. Not the tier's default (owner,
+  2026-10-15: keep the tier as it is for now).
 
 ### 55. A fast test leaves state that drops every link of a later in-process APKeep replay — OPEN (found 2026-10-14)
 
