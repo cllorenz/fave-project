@@ -23,6 +23,9 @@ We published our results in a series of scientific papers:
  - C. Lorenz, V. Clemens, M. Schrötter, and B. Schnor, “Continuous Verification of Network Security Compliance,” in IEEE TNSM, 2021, [DOI: 10.1109/TNSM.2021.3130290](https://doi.org/10.1109/TNSM.2021.3130290).
  - C. Lorenz and B. Schnor, “Firewall Management: Rapid Anomaly Detection,“ in HPCC, 2022, [DOI: 10.1109/HPCC-DSS-SmartCity-DependSys57074.2022.00226](https://doi.org/10.1109/HPCC-DSS-SmartCity-DependSys57074.2022.00226).
 
+And in my PhD Thesis:
+
+ - C. Lorenz, “Continuously verified Compliance: Achieving and Maintaining Network Security,” University of Potsdam, 2026, [DOI: 10.25932/publishup-70481](https://doi.org/10.25932/publishup-70481).
 
 ## Repository Overview
 
