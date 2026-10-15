@@ -1,0 +1,129 @@
+diff --git a/ndd/src/main/java/org/ants/jndd/diagram/AtomizedNDD.java b/ndd/src/main/java/org/ants/jndd/diagram/AtomizedNDD.java
+index 4115a06f..629d2ba5 100644
+--- a/ndd/src/main/java/org/ants/jndd/diagram/AtomizedNDD.java
++++ b/ndd/src/main/java/org/ants/jndd/diagram/AtomizedNDD.java
+@@ -127,6 +127,8 @@ public class AtomizedNDD extends NDD {
+         if (cacheEnable && andCache.getEntry(a, b)) {
+             return andCache.result;
+         }
++        // VARIANT D: the slot of THIS miss (the recursion overwrites hashValue)
++        final int slot = andCache.hashValue;
+ 
+         AtomizedNDD result = null;
+         HashMap<AtomizedNDD, HashSet<Integer>> edges = new HashMap<>();
+@@ -171,7 +173,7 @@ public class AtomizedNDD extends NDD {
+         // protect the node during the operation
+         atomizedTemporarilyProtect.add(result);
+         if (cacheEnable) {
+-            andCache.setEntry(andCache.hashValue, a, b, result);
++            andCache.setEntry(slot, a, b, result);
+         }
+         return result;
+     }
+@@ -510,11 +512,20 @@ public class AtomizedNDD extends NDD {
+     }
+ 
+     private static void collectAtoms(AtomizedNDD current, HashSet<Integer>[] atoms) {
+-        if(current.isTerminal()) {
++        // VARIANT (FaVe experiment, not upstream): visit each node once. The
++        // union is idempotent, so the result is the upstream one; upstream
++        // walks the DAG as a tree, once per path to a shared node.
++        collectAtoms(current, atoms, java.util.Collections.newSetFromMap(
++            new java.util.IdentityHashMap<AtomizedNDD, Boolean>()));
++    }
++
++    private static void collectAtoms(AtomizedNDD current, HashSet<Integer>[] atoms,
++                                     java.util.Set<AtomizedNDD> seen) {
++        if(current.isTerminal() || !seen.add(current)) {
+         } else {
+             for(Map.Entry<AtomizedNDD, HashSet<Integer>> entry : current.getAtomizedEdges().entrySet()) {
+                 atoms[current.field].addAll(entry.getValue());
+-                collectAtoms(entry.getKey(), atoms);
++                collectAtoms(entry.getKey(), atoms, seen);
+             }
+         }
+     }
+diff --git a/ndd/src/main/java/org/ants/jndd/diagram/NDD.java b/ndd/src/main/java/org/ants/jndd/diagram/NDD.java
+index 19b38157..03851591 100644
+--- a/ndd/src/main/java/org/ants/jndd/diagram/NDD.java
++++ b/ndd/src/main/java/org/ants/jndd/diagram/NDD.java
+@@ -1016,6 +1016,10 @@ public class NDD {
+         if (isTrue(a) || isFalse(b) || a == b) return b;
+ 
+         if (andCache.getEntry(a, b)) return andCache.result;
++        // VARIANT D: the slot of THIS miss -- the recursion below overwrites
++        // andCache.hashValue, and storing at it put every entry above the leaves
++        // into another operation's slot, where no lookup finds it
++        final int slot = andCache.hashValue;
+ 
+         int frameStart = stackTop;
+ 
+@@ -1053,7 +1057,7 @@ public class NDD {
+ 
+         int res = edgeFlush(frameStart, aField);
+         temporarilyProtect.add(res);
+-        andCache.setEntry(andCache.hashValue, a, b, res);
++        andCache.setEntry(slot, a, b, res);
+         return res;
+     }
+ 
+@@ -1079,6 +1083,10 @@ public class NDD {
+         if (isFalse(a) || isTrue(b) || a == b) return b;
+ 
+         if (orCache.getEntry(a, b)) return orCache.result;
++        // VARIANT D: the slot of THIS miss -- the recursion below overwrites
++        // orCache.hashValue, and storing at it put every entry above the leaves
++        // into another operation's slot, where no lookup finds it
++        final int slot = orCache.hashValue;
+ 
+         int frameStart = stackTop;
+ 
+@@ -1151,7 +1159,7 @@ public class NDD {
+ 
+         int res = edgeFlush(frameStart, aField);
+         temporarilyProtect.add(res);
+-        orCache.setEntry(orCache.hashValue, a, b, res);
++        orCache.setEntry(slot, a, b, res);
+         return res;
+     }
+ 
+@@ -1176,6 +1184,10 @@ public class NDD {
+         if (isFalse(a)) return TRUE;
+ 
+         if (notCache.getEntry(a)) return notCache.result;
++        // VARIANT D: the slot of THIS miss -- the recursion below overwrites
++        // notCache.hashValue, and storing at it put every entry above the leaves
++        // into another operation's slot, where no lookup finds it
++        final int slot = notCache.hashValue;
+ 
+         int frameStart = stackTop;
+         int field = nodeTable.getField(a);
+@@ -1195,7 +1207,7 @@ public class NDD {
+ 
+         int result = edgeFlush(frameStart, field);
+         temporarilyProtect.add(result);
+-        notCache.setEntry(notCache.hashValue, a, result);
++        notCache.setEntry(slot, a, result);
+         return result;
+     }
+ 
+@@ -1220,6 +1232,10 @@ public class NDD {
+         if (isTrue(a)) return notRec(b);
+ 
+         if (diffCache.getOrderedEntry(a, b)) return diffCache.result;
++        // VARIANT D: the slot of THIS miss -- the recursion below overwrites
++        // diffCache.hashValue, and storing at it put every entry above the leaves
++        // into another operation's slot, where no lookup finds it
++        final int slot = diffCache.hashValue;
+ 
+         int frameStart = stackTop;
+         int aField = nodeTable.getField(a);
+@@ -1273,7 +1289,7 @@ public class NDD {
+ 
+         int result = edgeFlush(frameStart, Math.min(aField, bField));
+         temporarilyProtect.add(result);
+-        diffCache.setOrderedEntry(diffCache.hashValue, a, b, result);
++        diffCache.setOrderedEntry(slot, a, b, result);
+         return result;
+     }
+ 

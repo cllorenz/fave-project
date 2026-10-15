@@ -1,0 +1,20 @@
+== test/test_ndd_apkeep.py
+NddPorts from file:/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/ndd-variant/apkeep/target/apkeep-1.0.0.jar
+6 passed in 67.18s (0:01:07)
+== test/test_apkeep_ndd_fwd.py
+NddPorts from file:/home/ubuntu/fave-project/apkeep/target/apkeep-1.0.0.jar
+6 passed in 85.06s (0:01:25)
+== test/test_apkeep_ndd_wlup.py
+NddPorts from file:/home/ubuntu/fave-project/apkeep/target/apkeep-1.0.0.jar
+2 passed in 2.87s
+== test/test_ndd_apkeep_reference.py
+== test/test_incremental_m2_apkeep.py
+NddPorts from file:/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/ndd-variant/apkeep/target/apkeep-1.0.0.jar
+5 passed in 107.34s (0:01:47)
+== test/test_incremental_device_removal.py
+NddPorts from file:/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/ndd-variant/apkeep/target/apkeep-1.0.0.jar
+22 passed, 2 subtests passed in 218.36s (0:03:38)
+== test/test_incremental_apkeep.py
+NddPorts from file:/tmp/claude-1000/-home-ubuntu-fave-project/9c0634c3-9d13-4de9-addb-00b10f22f12f/scratchpad/ndd-variant/apkeep/target/apkeep-1.0.0.jar
+38 passed in 692.24s (0:11:32)
+DONE
