@@ -241,8 +241,11 @@ class TestRemoveDeviceAd6(unittest.TestCase):
 
 
 class _Emptying(unittest.TestCase):
-    """ Removal by emptying, accumulating, for `MAKE` with `RESIDUE`. """
+    """ Removal by emptying, accumulating, for `MAKE` with `RESIDUE`. Not
+    collected itself (pytest collects every TestCase, whatever its name: it
+    ran VeriFlow-FR's tests a second time, ungated); each engine's is. """
 
+    __test__ = False
     MAKE = staticmethod(_vf)
     RESIDUE = staticmethod(_vf_residue)
 
@@ -286,6 +289,10 @@ class TestEmptyingVeriFlow(_Emptying):
     """ Measured 2026-10-14: wl_example 2 of 3, wl_ifi 15 of 17 (the last
     two would leave a probe's test path empty), wl_cloud 86 of 86. """
 
+    __test__ = True
+    MAKE = staticmethod(_vf)
+    RESIDUE = staticmethod(_vf_residue)
+
     def test_wl_cloud(self):
         self.assertEqual(self._remove('bench/wl_cloud')['removed'], 86)
 
@@ -295,6 +302,7 @@ class TestEmptyingBddApkeep(_Emptying):
     """ Not on wl_cloud: BDD-APKeep builds it in 3.24 h, and every removal
     needs a build from zero. """
 
+    __test__ = True
     MAKE = staticmethod(_apkeep('bdd'))
     RESIDUE = staticmethod(_ap_residue)
 
@@ -303,6 +311,7 @@ class TestEmptyingBddApkeep(_Emptying):
 class TestEmptyingNddApkeep(_Emptying):
     """ wl_cloud: 86 of 86, ~2 min (2026-10-14). """
 
+    __test__ = True
     MAKE = staticmethod(_apkeep('ndd-apkeep'))
     RESIDUE = staticmethod(_ap_residue)
 
