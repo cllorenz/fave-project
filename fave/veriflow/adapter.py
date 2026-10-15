@@ -62,9 +62,11 @@ def available() -> bool:
 
 
 #: The selectable footprints of VERIFLOW_FOOTPRINT_SCOPE.md §4, as on APKeep
-#: (APKEEP_FOOTPRINTS.md). None is on by default: the owner decides the default
-#: after the evidence (§4.5).
+#: (APKEEP_FOOTPRINTS.md).
 FOOTPRINT_MODES = ('witness', 'dead-ends')
+#: Both modes, as on APKeep (owner, 2026-10-15, §4.5); () selects the coarse
+#: footprint, kept as the ablation row
+DEFAULT_FOOTPRINT = FOOTPRINT_MODES
 
 
 class DidNotFinish(Exception):
@@ -103,7 +105,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
     def __init__(self, logger: Any = None, invert_lpm: bool = False,
                  slicing: str = "device", budget: int = 0,
                  revisit: str = "state", fields: str = "4+10",
-                 footprint: Tuple[str, ...] = (),
+                 footprint: Optional[Tuple[str, ...]] = None,
                  witness_point: bool = True) -> None:
         if slicing not in ("device", "network"):
             raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
@@ -115,6 +117,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             raise RuntimeError(
                 "libveriflow_fr is not built; run "
                 "veriflow_fr/python/build_libveriflow_fr.sh")
+        if footprint is None:
+            footprint = DEFAULT_FOOTPRINT
         unknown = [m for m in footprint if m not in FOOTPRINT_MODES]
         if unknown:
             raise ValueError("unknown footprint mode(s) %s; known: %s"

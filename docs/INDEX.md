@@ -33,7 +33,7 @@ has no design document of its own; the other three families each have one.
 | [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md) | 1,877 | **INTEGRATED.** Atomic-predicate verifier, two engines (BDD-APKeep and NDD-flood) behind one adapter. Faithful-VLAN model is the default. No open defect in §10. |
 | [`AD6_PLAN.md`](AD6_PLAN.md) | 7,671 | **Built.** A generic SAT/QBF model checker as a backend, first-party. The largest document here — use its section numbers, which source comments cite directly. |
 | [`VERIFLOW_PLAN.md`](VERIFLOW_PLAN.md) | 1,121 | **V1–V4 done.** VeriFlow-FR, an *independent reimplementation* — explicitly not "VeriFlow", and no result from it is reported as VeriFlow's (§9, D2). |
-| [`VERIFLOW_FOOTPRINT_SCOPE.md`](VERIFLOW_FOOTPRINT_SCOPE.md) | 185 | **BUILT; default open for the owner.** Whether VeriFlow-FR's incremental footprint gets APKeep's witness and dead ends: what its walk does today, the best case from the calibration records (`wl_airtel1` S1/S2: every update re-walks every source for no verdict change), a design with soundness sketches, an estimate, owner questions. |
+| [`VERIFLOW_FOOTPRINT_SCOPE.md`](VERIFLOW_FOOTPRINT_SCOPE.md) | 185 | **BUILT; both modes the default since 2026-10-15.** Whether VeriFlow-FR's incremental footprint gets APKeep's witness and dead ends: what its walk does today, the best case from the calibration records (`wl_airtel1` S1/S2: every update re-walks every source for no verdict change), a design with soundness sketches, an estimate, owner questions. |
 
 ## APKeep in depth
 

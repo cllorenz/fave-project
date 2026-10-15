@@ -114,13 +114,14 @@ def parse_footprint(text):
 
 def effective_footprint(engine, footprint):
     """ The footprint modes an engine runs with, as a list; [] when coarse or
-    NetPlumber. APKeep's default is both modes (owner, 2026-10-11);
-    VeriFlow-FR's is coarse until the owner decides
-    (VERIFLOW_FOOTPRINT_SCOPE.md §4.5). """
+    NetPlumber. The default is both modes on APKeep (owner, 2026-10-11) and
+    on VeriFlow-FR (owner, 2026-10-15; VERIFLOW_FOOTPRINT_SCOPE.md §4.5). """
     from apkeep.lib_apkeep import DEFAULT_FOOTPRINT
     if engine == 'veriflow':
+        from veriflow.adapter import DEFAULT_FOOTPRINT as VF_DEFAULT
+        modes = VF_DEFAULT if footprint is None else footprint
         # in the adapter's order, which is what its stamp records
-        return [m for m in ('witness', 'dead-ends') if m in (footprint or ())]
+        return [m for m in ('witness', 'dead-ends') if m in modes]
     if engine not in ('apkeep', 'ndd-apkeep'):
         return []
     return list(DEFAULT_FOOTPRINT if footprint is None else footprint)
@@ -141,8 +142,9 @@ def make_engine(name, footprint=None):
         # footprint None: the adapter's default (both modes)
         return lambda: APKeepAdapter(log, engine=apkeep_engine, footprint=footprint)
     from veriflow.adapter import VeriFlowAdapter
-    # footprint None: VeriFlow-FR's default, the coarse footprint
-    return lambda: VeriFlowAdapter(log, footprint=tuple(footprint or ()))
+    # footprint None: the adapter's default (both modes)
+    return lambda: VeriFlowAdapter(
+        log, footprint=None if footprint is None else tuple(footprint))
 
 
 def build_stream(kind, rules, links, fraction, seed):
@@ -221,9 +223,10 @@ def run(args):
         'workload': args.workload, 'engine': args.engine, 'files': files,
         'stream': args.stream, 'fraction': args.fraction, 'seed': args.seed,
         'batch': args.batch, 'limit_updates': args.limit_updates,
-        # the footprints of APKEEP_INCREMENTAL_SCOPE.md §9 in effect; [] = the
-        # coarse footprint (and every record before 2026-10-11, when it was the
-        # default); a non-APKeep engine has none
+        # the footprint modes in effect (APKEEP_INCREMENTAL_SCOPE.md §9,
+        # VERIFLOW_FOOTPRINT_SCOPE.md §4); [] = the coarse footprint, the
+        # default on APKeep before 2026-10-11 and on VeriFlow-FR before
+        # 2026-10-15; NetPlumber has none
         'footprint': effective_footprint(args.engine, args.footprint),
         'oracle': ({'sample': args.oracle_sample, 'every': args.oracle_every,
                     'seed': args.oracle_seed} if oracle else None),
@@ -510,7 +513,7 @@ def main(argv=None):
                              "comma-separated (witness, dead-ends; "
                              "APKEEP_INCREMENTAL_SCOPE.md §9, "
                              "VERIFLOW_FOOTPRINT_SCOPE.md §4), or 'coarse'; "
-                             "default both on APKeep, coarse on VeriFlow-FR")
+                             "default both")
     args = parser.parse_args(argv)
     if args.footprint is not None and args.engine not in ('apkeep', 'ndd-apkeep', 'veriflow'):
         parser.error("--footprint needs an APKeep engine or VeriFlow-FR")

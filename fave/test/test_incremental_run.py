@@ -336,7 +336,7 @@ class TestEveryUpdateRefused(_Tmp):
 
 
 class TestFootprintOption(unittest.TestCase):
-    """ --footprint: both modes by default on APKeep, 'coarse' for the coarse
+    """ --footprint: both modes by default, 'coarse' for the coarse
     footprint, recorded in head.json as the modes in effect. """
 
     def test_parse(self):
@@ -352,9 +352,10 @@ class TestFootprintOption(unittest.TestCase):
         self.assertEqual(eff('apkeep', ()), [])
         self.assertEqual(eff('apkeep', ('dead-ends',)), ['dead-ends'])
         self.assertEqual(eff('netplumber', None), [])
-        # VeriFlow-FR: coarse unless asked (VERIFLOW_FOOTPRINT_SCOPE.md §4.5),
-        # in the adapter's order
-        self.assertEqual(eff('veriflow', None), [])
+        # VeriFlow-FR: both by default too (owner, 2026-10-15;
+        # VERIFLOW_FOOTPRINT_SCOPE.md §4.5), in the adapter's order
+        self.assertEqual(eff('veriflow', None), ['witness', 'dead-ends'])
+        self.assertEqual(eff('veriflow', ()), [])
         self.assertEqual(eff('veriflow', ('dead-ends', 'witness')), ['witness', 'dead-ends'])
 
 

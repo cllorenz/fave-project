@@ -1,6 +1,6 @@
 # VeriFlow-FR footprints — a scoping pass
 
-**Status: BUILT 2026-10-11 (`647a97f3`; owner decision: all proposed parts, 4.4 out). Measured, indicative: `../fave/bench/campaigns/results_inc_dev_vf_footprints_20261011/FINDINGS.md`. Open for the owner: the default (§4.5) -- coarse until decided.** Asked for by the owner (decision C on
+**Status: BUILT 2026-10-11 (`647a97f3`; owner decision: all proposed parts, 4.4 out). Measured, indicative: `../fave/bench/campaigns/results_inc_dev_vf_footprints_20261011/FINDINGS.md`. Default since 2026-10-15 (owner, §4.5): witness + dead ends, as on APKeep; coarse is the ablation row.** Asked for by the owner (decision C on
 the plan's question 3, 2026-10-11): before deciding whether VeriFlow-FR gets
 APKeep's witness and dead-end footprints, find out what that means for its walk,
 what it could save, and what it costs. **Owner:** Claas Lorenz. **Branch:**
@@ -140,8 +140,12 @@ from-zero numbers measure (`VERIFLOW_PLAN.md` D6, the thesis's bulk device
 walk). Out of scope unless asked.
 
 **4.5 Modes, as on APKeep.** `--footprint coarse|witness|dead-ends|witness,dead-ends`,
-stamped in every cell. The default is decided by the owner after the evidence,
-and the ablation table gets VeriFlow-FR rows.
+stamped in every cell. The ablation table gets VeriFlow-FR rows. **Decided
+(owner, 2026-10-15): both modes are the default**, as on APKeep, after the
+indicative evidence (verdicts unchanged everywhere, the oracle holding); coarse
+stays selectable (`--footprint coarse`, `footprint=()`) as the ablation row.
+Until then the default was coarse, so the D11 run's VeriFlow-FR A cells are
+coarse and its modes are D cells.
 
 ## 5. Tests and evidence, mirroring APKeep's
 

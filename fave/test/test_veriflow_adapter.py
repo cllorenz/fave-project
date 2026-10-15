@@ -44,7 +44,8 @@ class TestConfigurationStamp(unittest.TestCase):
         self.assertEqual(stamp, {"impl": "reimpl-literature", "vf_fields": "4+10",
                                  "vf_revisit": "state", "vf_slicing": "device",
                                  "vf_budget": 0, "vf_invert_lpm": False,
-                                 "footprint": [], "witness_point": True})
+                                 "footprint": ["witness", "dead-ends"],
+                                 "witness_point": True})
 
     def test_the_model_stamps_are_logged_at_build(self):
         from devices.switch import SwitchModel
