@@ -1,0 +1,35 @@
+== test_veriflow_adapter
+2 passed in 0.03s
+== test_veriflow_airtel
+SKIPPED [2] test/test_veriflow_airtel.py:160: libnetplumber is not built
+SKIPPED [2] test/test_veriflow_airtel.py:151: libnetplumber is not built
+SKIPPED [2] test/test_veriflow_airtel.py:148: libnetplumber is not built
+SKIPPED [2] test/test_veriflow_airtel.py:175: libnetplumber is not built
+SKIPPED [2] test/test_veriflow_airtel.py:183: libnetplumber is not built
+12 skipped in 0.03s
+== test_veriflow_differential
+=========================== short test summary info ============================
+SKIPPED [4] test/test_veriflow_differential.py:108: libnetplumber is not built
+SKIPPED [1] test/test_veriflow_differential.py:159: libnetplumber is not built
+5 skipped in 0.03s
+== test_incremental_veriflow
+fave/test/test_incremental_veriflow.py: 2652 warnings
+
+19 passed, 5304 warnings in 150.81s (0:02:30)
+== test_veriflow_census
+
+=========================== short test summary info ============================
+SKIPPED [1] test/test_veriflow_census.py:63: bench/wl_airtel2 inputs not generated
+3 passed, 1 skipped, 264 warnings in 18.52s
+DONE
+== test_veriflow_airtel
+SKIPPED [1] test/test_veriflow_airtel.py:148: bench/wl_airtel2 inputs not generated (run test/gen_deltanet_inputs.sh)
+SKIPPED [1] test/test_veriflow_airtel.py:175: bench/wl_airtel2 inputs not generated (run test/gen_deltanet_inputs.sh)
+SKIPPED [1] test/test_veriflow_airtel.py:183: bench/wl_airtel2 inputs not generated (run test/gen_deltanet_inputs.sh)
+6 passed, 6 skipped in 10.47s
+== test_veriflow_differential
+...s.                                                                    [100%]
+=========================== short test summary info ============================
+SKIPPED [1] test/test_veriflow_differential.py:108: wl_i2 takes minutes per engine: set VERIFLOW_FULL_DIFFERENTIAL=1
+4 passed, 1 skipped in 2.02s
+DONE

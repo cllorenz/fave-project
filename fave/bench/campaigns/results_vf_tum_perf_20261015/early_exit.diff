@@ -1,0 +1,172 @@
+diff --git a/fave/veriflow/adapter.py b/fave/veriflow/adapter.py
+index 622374ee..f6b00b61 100644
+--- a/fave/veriflow/adapter.py
++++ b/fave/veriflow/adapter.py
+@@ -297,6 +297,19 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
+                 if self._tracking:
+                     self._sets_of[key] = keys[key]
+ 
++        # VARIANT (vf-early-exit, FAVE_VF_EARLY_EXIT=1): with tracking off,
++        # a start's walk stops once every probe asked of its key is delivered
++        # -- the verdicts need nothing more; footprints would
++        early_exit = (not self._tracking
++                      and os.environ.get('FAVE_VF_EARLY_EXIT') == '1')
++        asked: Dict[Tuple[str, Tuple[Any, ...]], Set[int]] = {}
++        if early_exit:
++            for dst, checks in rules.items():
++                for src, _negated, cond in checks:
++                    key = (src, tuple((f.name, str(f.value), f.negated) for f in cond))
++                    if dst in ir.probes:
++                        asked.setdefault(key, set()).add(ir.probes[dst])
++        self.early_exits = getattr(self, 'early_exits', 0)
+         by_set: Dict[str, List[Tuple[str, Tuple[Any, ...]]]] = {}
+         for key, sets in keys.items():
+             for qs in sets:
+@@ -321,7 +334,9 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
+             else:
+                 walked = self.net.local_deliveries(
+                     qs, starts, self.budget, self.revisit == "state", self._scan,
+-                    self._tracking, witness)
++                    self._tracking, witness,
++                    [sorted(asked.get(key, ())) for key in owner_of] if early_exit else [])
++                self.early_exits += self.net.last_early_exits
+                 (answers, finished, stopped_at, predicted, single, local_ecs, hops,
+                  per_table) = walked[:8]
+                 if self._tracking:
+diff --git a/veriflow_fr/python/libveriflow_fr.cpp b/veriflow_fr/python/libveriflow_fr.cpp
+index 04f4b772..07f20e65 100644
+--- a/veriflow_fr/python/libveriflow_fr.cpp
++++ b/veriflow_fr/python/libveriflow_fr.cpp
+@@ -100,13 +100,15 @@ class PyNetwork {
+                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
+                              uint64_t budget, bool state,
+                              const std::vector<bool> &scan,
+-                             bool footprint, bool witness) const {
++                             bool footprint, bool witness,
++                             const std::vector<std::vector<uint32_t>> &targets) const {
+     LocalResult r;
+     {
+       py::gil_scoped_release release;
+       r = vf::local_deliveries(net_, range, starts, budget,
+                                state ? Revisit::STATE : Revisit::PATH, scan,
+-                               footprint || witness, witness);
++                               footprint || witness, witness, targets);
++      last_early_exits_ = r.early_exits;
+     }
+     if (witness)
+       return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
+@@ -186,6 +188,9 @@ class PyNetwork {
+     return py::make_tuple(c.per_field, exact, c.approx);
+   }
+ 
++  // VARIANT (vf-early-exit): starts the last local_deliveries stopped early
++  mutable uint64_t last_early_exits_ = 0;
++
+  private:
+   static Layout make_layout(const std::vector<std::pair<std::string, unsigned>> &fields) {
+     std::vector<Field> fs;
+@@ -231,7 +236,10 @@ PYBIND11_MODULE(libveriflow_fr, m) {
+       .def("local_deliveries", &PyNetwork::local_deliveries, py::arg("range"),
+            py::arg("starts"), py::arg("budget"), py::arg("state"),
+            py::arg("scan") = std::vector<bool>(), py::arg("footprint") = false,
+-           py::arg("witness") = false)
++           py::arg("witness") = false,
++           py::arg("targets") = std::vector<std::vector<uint32_t>>())
++      .def_property_readonly("last_early_exits",
++                             [](const PyNetwork &n) { return n.last_early_exits_; })
+       .def("remove_rule", &PyNetwork::remove_rule)
+       .def("unload_rule", &PyNetwork::unload_rule)
+       .def("footprint_hits_rule", &PyNetwork::footprint_hits_rule)
+diff --git a/veriflow_fr/src/queries.cc b/veriflow_fr/src/queries.cc
+index 3edd85a7..0e734945 100644
+--- a/veriflow_fr/src/queries.cc
++++ b/veriflow_fr/src/queries.cc
+@@ -180,6 +180,15 @@ struct Slicer {
+   // the path being walked (pushed before a hop recurses, popped after).
+   std::map<uint32_t, Witness> *wit = nullptr;
+   std::vector<Hop> hops;
++  // VARIANT (vf-early-exit): this start's asked tables; null or empty: none.
++  const std::vector<uint32_t> *target = nullptr;
++  struct Found {};
++  void reached(const std::set<uint32_t> &out) const {
++    if (!target || target->empty()) return;
++    for (uint32_t t : *target)
++      if (!out.count(t)) return;
++    throw Found{};
++  }
+ 
+   // A concrete packet of `set` minus `excl` (its lowest corner), or false.
+   static bool pick(const Box &set, const std::vector<Box> &excl, Box &point) {
+@@ -394,6 +403,7 @@ struct Slicer {
+         if (r.consume) {
+           out.insert(table);
+           record_witness(table);
++          reached(out);
+         } else if (!r.out_ports.empty()) {
+           forward46(arrival, r, share, share_excl, path, out);
+         }
+@@ -491,6 +501,7 @@ struct Slicer {
+       if (best && best->consume) {
+         out.insert(table);
+         record_witness(table);
++        reached(out);
+       } else if (best) {
+         Box next = ec;
+         for (const auto &rw : best->rewrites) next[rw.first] = rw.second;
+@@ -534,7 +545,8 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
+                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
+                              uint64_t budget, Revisit revisit,
+                              const std::vector<bool> &scan,
+-                             bool record_footprint, bool record_witness) {
++                             bool record_footprint, bool record_witness,
++                             const std::vector<std::vector<uint32_t>> &targets) {
+   LocalResult res;
+   res.delivered.resize(starts.size());
+   if (record_witness) res.witnesses.resize(starts.size());
+@@ -564,12 +576,17 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
+       s.visited46.clear();
+       s.hops.clear();
+       if (record_witness) s.wit = &res.witnesses[i];
++      s.target = i < targets.size() ? &targets[i] : nullptr;
+       std::vector<uint32_t> path;
+-      if (v3b) {
+-        s.walk46(starts[i].first, starts[i].second, box, {}, path, res.delivered[i]);
+-        continue;
++      try {
++        if (v3b) {
++          s.walk46(starts[i].first, starts[i].second, box, {}, path, res.delivered[i]);
++          continue;
++        }
++        s.walk(starts[i].first, starts[i].second, box, path, res.delivered[i]);
++      } catch (const Slicer::Found &) {
++        ++res.early_exits;
+       }
+-      s.walk(starts[i].first, starts[i].second, box, path, res.delivered[i]);
+     }
+   } catch (const Slicer::Abort &) {
+   }
+diff --git a/veriflow_fr/src/queries.h b/veriflow_fr/src/queries.h
+index d0b7afbb..302d4a13 100644
+--- a/veriflow_fr/src/queries.h
++++ b/veriflow_fr/src/queries.h
+@@ -181,6 +181,7 @@ struct LocalResult {
+   // per start, per table delivered at: the first path found there (§4.1);
+   // filled only when asked for (record_witness)
+   std::vector<std::map<uint32_t, Witness>> witnesses;
++  uint64_t early_exits = 0;   // VARIANT (vf-early-exit): starts stopped early
+ };
+ 
+ // Bulk checks the thesis's way: device by device. At each table a packet set
+@@ -209,7 +210,11 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
+                              uint64_t budget = 0, Revisit revisit = Revisit::PATH,
+                              const std::vector<bool> &scan = {},
+                              bool record_footprint = false,
+-                             bool record_witness = false);
++                             bool record_witness = false,
++                             // VARIANT (vf-early-exit): per start, the tables
++                             // the caller asks about; once all are delivered
++                             // the start's walk stops. Empty: walk everything.
++                             const std::vector<std::vector<uint32_t>> &targets = {});
+ 
+ // Whether a rule (table, in_port, match) could be a candidate at any state of
+ // `fp` -- i.e. whether inserting or deleting it can change that walk.

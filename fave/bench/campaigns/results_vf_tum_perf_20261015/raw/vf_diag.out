@@ -1,0 +1,1 @@
+{"engine": "veriflow", "footprint": ["witness", "dead-ends"], "replay_s": 1.2, "checks_s": 11944.0, "violated": 0, "walks": 2158, "walks_s": 11943.0, "builds": [{"fields": ["related"], "s": 0.4472383710090071}], "unfinished": 0}

@@ -102,3 +102,10 @@ All four agree with the evaluator, so none reports a violation:
 ¹ For its first 15 minutes, light diagnostics shared the machine (16 cores,
 memory ample): the verdicts are unaffected, but the time is not a clean
 measurement.
+
+Why NDD-APKeep and VeriFlow-FR are slow here, with measured remedies (all
+variants out of tree, for the owner to decide):
+`bench/campaigns/results_ndd_tum_perf_20261015/FINDINGS.md` and
+`bench/campaigns/results_vf_tum_perf_20261015/FINDINGS.md` (2026-10-15:
+VeriFlow-FR re-measured at 11,944 s; 99.5 % in the 246 VLAN → internet
+checks; ~57 GB peak from the `state` revisit rule's visited set).
