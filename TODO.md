@@ -3793,6 +3793,10 @@ cannot express (generators, first-match switch tables), never to drop it.
   - under PYTHONHASHSEED 0-7 (7-8 s each, the same update times);
   - in a second full tier run at `FAVE_JVM_XMX=8g`, with a 10-minute
     `faulthandler_timeout` (2026-10-14 18:19Z): under 23 s, group 14 min, tier PASSED.
+- **Again, unconfirmed (2026-10-15):** the tier after the rebase onto `ai`
+  (`FAVE_JOBS=6 FAVE_JVM_XMX=8g`, PASSED) took 1 h 10 min for the same group
+  (562 tests). The run recorded no per-test times, so which test was slow is not
+  known. That makes 2 of 3 recorded tier runs at about 70 min, one at 14 min.
 - **Ruled out:**
   - the S2 draw (fixed seed, insensitive to hash order);
   - shared barrier or state directories (private per in-process instance);
