@@ -7,7 +7,7 @@ NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
 its witness + dead-ends footprint, the default since 2026-10-11); the harness is
 done. Only indicative (dev) runs have run (§10), the last the D11 grid; no
 reportable measurement exists until the campaign's `PROTOCOL.txt` with
-predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built the same day on NetPlumber, on ad6 from its buffers, and by emptying on VeriFlow-FR and BDD-/NDD-APKeep; NDD-flood refuses it by name.
+predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built the same day on NetPlumber, on ad6 from its buffers, and by emptying on VeriFlow-FR and BDD-/NDD-APKeep; NDD-flood refuses it by name. D-R6 (a structurally changed re-send replaces the device) built 2026-10-15 on NetPlumber and ad6.
 **Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -417,7 +417,7 @@ and are listed for confirmation.
    the engine-rule changes and relabels. `t_total` is the sum -- a
    configuration change to an updated verdict.
 
-### 8.2 Removing a device — DESIGN (2026-10-14); NetPlumber, VeriFlow-FR, APKeep BUILT (2026-10-14)
+### 8.2 Removing a device — DESIGN (2026-10-14); BUILT on every engine but NDD-flood (2026-10-14/15); D-R6 BUILT on NetPlumber and ad6 (2026-10-15)
 
 **Owner's framing (2026-10-14):** *"Adding and deleting whole devices should work
 just like adding and removing rules or links. … In its simplest form, removing a
@@ -497,7 +497,8 @@ section adds what §8.1 refuses.
 - **D-R5. The three broken adapter methods go.** `delete_rules`,
   `delete_tables` and `delete_wiring` are replaced by the composed path, and
   their `*_KNOWN_DEFECT` tests become tests of it.
-- **D-R6. The same primitives lift §8.1's refusals, later.** Once a table, its
+- **D-R6. The same primitives lift §8.1's refusals, later** (built
+  2026-10-15 as a replacement, below). Once a table, its
   wiring and its ports can be removed (and added) one at a time, a re-sent
   device whose tables, ports or wiring changed can be diffed instead of
   refused. That is a follow-up, not part of this section's first build.
@@ -686,9 +687,65 @@ accommodation.
   kept, and tables kept. Each was caught by the residue check and, without
   it, by the verdicts alone, or loudly: with a removed device's links kept,
   ad6's translator refuses a port that belongs to no device.
-- **Not built:** D-R6. A switch rule delete (`switch.py -d`/`-u`) is still
+- **Not built here:** a switch rule delete (`switch.py -d`/`-u`) is still
   refused by name; it is not a device removal. NDD-flood refuses
   (`_require_updatable`).
+
+**D-R6 — owner questions, answered 2026-10-15.** What §8.1 refuses in a
+re-send with stable indices is a table appearing or vanishing, other ports or
+wiring, and a change to a whole-translated table (`pre_routing`,
+`post_routing`). On the workloads that means a device gaining or losing an
+interface, or its address changing; no S4 edit makes one (D11 refused none).
+- **Q-R5. Mechanism.** Replace the device — §8.2's removal, then the new
+  model added as a new device and its links added again, one update — or
+  diff per table, leaving unchanged tables in the engine? *Recommendation:
+  replace; it reuses what is built, and its cost is measured.* **Owner:
+  replace the device.**
+- **Q-R6. A link at a dropped port.** *Recommendation: refused by name; the
+  topology owns links, so the client deletes the link first.* **Owner:
+  refused by name.**
+- **Q-R7. Engines that only empty** (VeriFlow-FR, APKeep) cannot add an
+  emptied name again, so cannot replace. *Recommendation: keep refusing
+  there.* **Owner: keep refusing.**
+
+**D-R6 built on NetPlumber and ad6 (2026-10-15).**
+- **The path.** `AggregatorService._sync_stable` names the structural change
+  and hands it to `_replace_device`. That refuses, before anything is
+  touched, a link at a port the re-send drops (naming it), an engine whose
+  `REMOVES_DEVICES` is false (a new contract attribute: true on NetPlumber and
+  ad6, false on the emptying engines and by default), and an invalid
+  declared-LPM table. Then: `_remove_device` (§8.2), the new model spaced and
+  added as a new device, its links added again through the same bookkeeping
+  as a topology `add` (`_record_link`). A table the control plane filled
+  (a packet filter's routing table) arrives empty in a configuration
+  re-send; it keeps its rules at the sender's indices and stays commanded,
+  as in a diff. `update_stats` carries `replaced` with the reason.
+- **The oracle** (`test/test_incremental_device_replacement.py`,
+  `incremental_oracle.replace_each`). Each device is re-sent with one
+  unlinked port more, then as it was; both are replacements. After each:
+  selective equals full re-verification, and full equals a from-zero build of
+  the inputs with the entry as sent. At the end every verdict is back.
+  Verdicts cannot see an old device left beside the new one, so on NetPlumber
+  the engine's own dump must also hold no table the adapter does not know and
+  no link twice.
+
+  | engine | tiny | wl_example | wl_ifi | wl_cloud |
+  |---|---|---|---|---|
+  | NetPlumber | 2 of 2 | 3 of 3 | 17 of 17 (1.5 s) | 86 of 86 (28 s) |
+  | ad6 | 2 of 2 | 3 of 3 | a sample: `ifi`, `external.ifi` (54 s) | not run |
+
+  VeriFlow-FR refuses, naming the engine, with the stored model unchanged.
+  Mutations caught: links not added again, and the commanded routing table
+  dropped, by the verdicts; the old device never removed, by the dump check
+  only.
+- **Cost, measured** on wl_up's `pgf` (2,201 rules, 50 links), NetPlumber,
+  one run each: a replacement takes 4.5 s; building all of wl_up from zero
+  takes 4.7 s; an unchanged re-send 0.25 s. Replacing re-propagates every rule
+  of the device, so a structural change to a large device costs about a
+  build. Q-R5's alternative, a per-table diff, is the lever if that matters.
+- **Found on the way:** pytest collects every `TestCase` whatever its name, so
+  `test_incremental_device_removal.py`'s `_Emptying` base ran VeriFlow-FR's
+  tests a second time, ungated. Bases are now `__test__ = False`.
 
 
 ## 9. Open questions (recommendations, not decisions)

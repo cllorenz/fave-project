@@ -3601,7 +3601,7 @@ section that reads the registered checks, not only the violations.
 
 ---
 
-### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; device removal built on NetPlumber, ad6, VeriFlow-FR and APKeep (INCREMENTAL_PLAN.md §8.2)
+### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; device removal built on NetPlumber, ad6, VeriFlow-FR and APKeep, and device replacement (D-R6) on NetPlumber and ad6 (INCREMENTAL_PLAN.md §8.2)
 None is fixed. Each is pinned by a test, either as an `expectedFailure` (remove the
 decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behaviour
 (it fails on purpose once fixed). Ordered by likely impact on verdicts.
@@ -3660,7 +3660,15 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     - **BUILT on ad6 2026-10-14** (§8.2): the device is dropped from the
       capture buffers every check rebuilds from, and can be added again. The
       oracle holds, re-adding included. NDD-flood refuses by name for good.
-  Tested: `test_netplumber_adapter_more.py`, `test_incremental_device_removal.py`.
+    - **D-R6 BUILT 2026-10-15 on NetPlumber and ad6** (§8.2, owner answers
+      Q-R5–Q-R7): a re-send with other tables, ports or wiring, or a changed
+      whole-translated table, replaces the device as one update instead of
+      being refused. A link at a dropped port is refused by name; VeriFlow-FR
+      and APKeep keep refusing. Under the oracle on tiny, wl_example, wl_ifi
+      and wl_cloud. A replacement of wl_up's `pgf` costs about a build of
+      wl_up (4.5 s against 4.7 s).
+  Tested: `test_netplumber_adapter_more.py`, `test_incremental_device_removal.py`,
+  `test_incremental_device_replacement.py`.
 - [x] **FIXED 2026-10-14 — `netplumber/jsonrpc.py:78`.** It now reads bytes and decodes once. That also fixes a second bug found on the way: the newline's index in the DECODED peek was used as a BYTE count, so a multi-byte character left the reply's tail on the socket, to corrupt the next reply. Originally: each 4096-byte peek was decoded on its own, so a
   multi-byte UTF-8 character split across the boundary raises. Pinned:
   `test_jsonrpc_wire.py`.
