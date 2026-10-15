@@ -441,13 +441,18 @@ class Ad6Adapter(AbstractVerificationEngine):
         every_rule = [rule for tables in self._tables.values()
                       for table_rules in tables.values() for rule in table_rules]
         mutable = translate.rewritten_fields(every_rule)
-        # Generic fields that are MATCHED also reach a <fieldmatch> and also
-        # need a declared width, even though nothing rewrites them.
-        matched_generic = translate.matched_generic_fields(every_rule)
-
         for source in self._generators:
             devices[source] = translate.generator_device(
                 source, self._gen_fields.get(source), mutable=mutable)
+        # Generic fields that are MATCHED also reach a <fieldmatch> and also
+        # need a declared width, even though nothing rewrites them -- the
+        # generators' own rules included: a generator constraint on a field no
+        # device rewrites stays a match (`generator_device`), e.g. wl_ifi's
+        # `vlan` once the router that rewrites it is removed.
+        matched_generic = translate.matched_generic_fields(
+            every_rule + [rule for source in self._generators
+                          for rules in devices[source]['tables'].values()
+                          for rule in rules])
         for probe in self._probes:
             devices[probe] = translate.probe_device(probe)
 

@@ -271,6 +271,22 @@ class TestPayload(unittest.TestCase):
                          {'vlan': 12, 'related': 8})
 
 
+class TestGeneratorMatches(unittest.TestCase):
+
+    def test_a_generator_matched_field_no_device_rewrites_is_declared(self):
+        """ wl_ifi with its router removed: nothing rewrites `vlan`, so a
+        source's `vlan=48` stays a match on the generator's own rule -- and
+        ad6 refuses a <fieldmatch> on a field `MutableFields` never declared.
+        Found by the device-removal oracle (INCREMENTAL_PLAN.md §8.2). """
+        adapter = Ad6Adapter(_log())
+        _network(adapter)
+        adapter.add_generator(SimpleNamespace(
+            node='v', fields={'packet.ether.vlan': [
+                RuleField('packet.ether.vlan', '48')]}))
+        adapter.add_links_bulk([('v.1', 'sw.1')])
+        self.assertIn('vlan', adapter._build_literal()['mutable_fields'])
+
+
 class TestCheckCompliance(unittest.TestCase):
 
     def setUp(self):
