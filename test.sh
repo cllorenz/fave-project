@@ -247,7 +247,7 @@ FAVE_NDD_TESTS=(
     # 16 cores (TODO item 44); the rest take a few minutes together.
     test/test_incremental_apkeep.py # update streams on BDD- and NDD-APKeep, selective re-check == full == from-zero
     test/test_incremental_m2_apkeep.py # M2's S4 on BDD- and NDD-APKeep, under the oracle
-    test/test_incremental_device_removal.py # INCREMENTAL_PLAN.md §8.2: device removal under the oracle -- NetPlumber removes and re-adds, VeriFlow-FR and BDD-/NDD-APKeep empty; ~3 min
+    test/test_incremental_device_removal.py # INCREMENTAL_PLAN.md §8.2: device removal under the oracle -- NetPlumber and ad6 remove and re-add, VeriFlow-FR and BDD-/NDD-APKeep empty; ~4 min
     test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs

@@ -25,12 +25,12 @@ one update; the selective re-verification must equal a full one, and the
 full verdicts a from-zero build of the workload WITHOUT the device
 (`test.incremental_oracle.remove_each`).
 
-NetPlumber removes the device, and adding it again must bring every verdict
-back. VeriFlow-FR and APKeep EMPTY it (Q-R2, ACCOMMODATIONS.md): its rules
-go, its tables or elements stay -- VeriFlow-FR also takes its external links
-down, APKeep leaves them -- and the name cannot be added again, so there the
-removals accumulate, each compared with a build without every device removed
-so far.
+NetPlumber and ad6 (from its buffers, Q-R3) remove the device, and adding it
+again must bring every verdict back. VeriFlow-FR and APKeep EMPTY it (Q-R2,
+ACCOMMODATIONS.md): its rules go, its tables or elements stay -- VeriFlow-FR
+also takes its external links down, APKeep leaves them -- and the name cannot
+be added again, so there the removals accumulate, each compared with a build
+without every device removed so far.
 """
 
 import json
@@ -39,6 +39,7 @@ import os
 import tempfile
 import unittest
 
+from ad6.adapter import Ad6Adapter, available as ad6_available
 from apkeep.adapter import APKeepAdapter
 from apkeep.lib_apkeep import available as apkeep_available
 from netplumber import lib_adapter
@@ -100,6 +101,25 @@ def _ap_residue(engine, model):
                 if r.split()[2] == node
                 or r.split()[2].startswith((node + '@', node + '_'))]
     return left
+
+
+def _ad6_residue(engine, model):
+    """ What ad6's capture buffers still hold of `model`: a table, its
+    semantics or wiring, or a link at one of its ports. """
+    ports = set(model.ports)
+
+    def left():
+        return [(buf, model.node) for buf in ('_tables', '_table_semantics', '_wiring')
+                if model.node in getattr(engine, buf)] + [
+            ('link', s, d) for s, d in engine._raw_edges
+            if s in ports or d in ports]
+    return left
+
+
+def _ad6():
+    log = logging.getLogger("test_incremental_device_removal")
+    log.setLevel(logging.WARNING)
+    return Ad6Adapter(log)
 
 
 def _vf():
@@ -185,6 +205,39 @@ class TestRemoveDevice(unittest.TestCase):
 
     def test_wl_cloud(self):
         self.assertEqual(self._remove('bench/wl_cloud')['skipped'], [])
+
+
+@require_or_skip(ad6_available(), "the ad6 bridge is missing")
+class TestRemoveDeviceAd6(unittest.TestCase):
+    """ ad6 drops the device from the buffers every check rebuilds from
+    (Q-R3), so it is removed and added again like on NetPlumber. Every check
+    rebuilds the model, five per removal, so wl_ifi is a sample here; all 17
+    took 345 s (2026-10-15), and three of wl_cloud's 86 took 40 min. """
+
+    def _remove(self, prefix, names=None):
+        if not inputs_present(prefix):
+            require_or_skip(False, "%s inputs not generated" % prefix)(lambda: None)()
+            self.skipTest("%s inputs not generated" % prefix)
+        stats = remove_each(self, _ad6, prefix, names=names, residue=_ad6_residue)
+        self.assertGreater(stats['verdict_changes'], 0,
+                           "no removal changed a verdict: the oracle was not tested")
+        return stats
+
+    def test_tiny(self):
+        with tempfile.TemporaryDirectory(prefix='removal_tiny_') as work:
+            stats = remove_each(self, _ad6, _tiny(work), residue=_ad6_residue)
+        self.assertEqual(stats['removed'], 2)
+        self.assertGreater(stats['verdict_changes'], 0)
+
+    def test_wl_example(self):
+        self.assertEqual(self._remove('bench/wl_example')['skipped'], ['pgf'])
+
+    def test_wl_ifi_sample(self):
+        """ The router `ifi` is the only device that rewrites `vlan`;
+        without it the sources' `vlan` stays a match ad6 must be told of. """
+        stats = self._remove('bench/wl_ifi',
+                             names={'ifi', 'external.ifi', 'staff_1.ifi'})
+        self.assertEqual(stats['removed'], 3)
 
 
 class _Emptying(unittest.TestCase):
