@@ -402,3 +402,87 @@ def remove_each(test, make, prefix, names=None, residue=None, readd=True,
                              % (prefix, name))
     test.assertGreater(stats['removed'], 0, "no device was removed")
     return stats
+
+
+# --- replacing a device whose structure changed (§8.2, D-R6) ----------------
+
+def _with_extra_port(entry):
+    """ Topology `entry` with one port more: a count grows by one, a list
+    of numeric names gets the next free one. """
+    entry = copy.deepcopy(entry)
+    if isinstance(entry[2], int):
+        entry[2] += 1
+    else:
+        entry[2] = list(entry[2]) + [str(max(int(p) for p in entry[2]) + 1)]
+    return entry
+
+
+def _with_entry(prefix, work, entry):
+    """ Write `prefix`'s inputs to `work` with `entry` replacing the
+    topology entry of its name. """
+    for fname in _INPUTS:
+        with open(os.path.join(prefix, fname)) as raw:
+            data = json.load(raw)
+        if fname == 'topology.json':
+            data['devices'] = [entry if d[0] == entry[0] else d
+                               for d in data['devices']]
+        with open(os.path.join(work, fname), 'w') as out:
+            json.dump(data, out)
+    return work
+
+
+def replace_each(test, make, prefix, names=None, leaks=None):
+    """ D-R6's oracle: re-send each device of `prefix` (all, or `names`)
+    with one port more, unlinked -- a structural change, so the aggregator
+    REPLACES the device (§8.2's removal, the new model added, its links
+    added again) as one update. The selective re-verification must equal a
+    full one, and the full verdicts a from-zero build of the edited inputs.
+    Then the original is re-sent, a replacement again (it drops the extra
+    port, which no link uses), and every verdict must be back. A dropped
+    link or a lost rule shows up as a verdict that differs from the build;
+    an old device left in the engine beside the new one does not, so
+    `leaks(engine)`, after each re-send, must list nothing. Returns the
+    run's counts. """
+    from util.in_process_driver import InProcessFaVe
+    checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
+    with open(os.path.join(prefix, 'topology.json')) as raw:
+        entries = json.load(raw)['devices']
+    stats = {'replaced': 0, 'verdict_changes': 0, 'rechecked': 0}
+    engine = make()
+    with InProcessFaVe(engine, stable_indices=True) as fave:
+        fave.replay(prefix)
+        engine.track_affected(True)
+        cache = inc.VerdictCache(fave, engine, checks)
+        before = cache.full()
+        engine.take_affected()
+        for entry in entries:
+            name = entry[0]
+            if names is not None and name not in names:
+                continue
+            for sent, label in ((_with_extra_port(entry), 'with a port more'),
+                                (entry, 'as it was')):
+                fave.resend_device(sent)
+                test.assertIn('replaced', fave._agg.update_stats,
+                              "%s, %s %s: not replaced" % (prefix, name, label))
+                if leaks is not None:
+                    test.assertEqual(leaks(engine), [], "%s, re-sending %s %s: "
+                                     "the engine holds what no device has"
+                                     % (prefix, name, label))
+                stats['rechecked'] += len(cache.selective(engine.take_affected()))
+                full = cache.ask(checks)
+                test.assertEqual(cache.verdict, full,
+                                 "%s, re-sending %s %s: selective re-verification "
+                                 "missed a change" % (prefix, name, label))
+                with tempfile.TemporaryDirectory(prefix='replace_') as work:
+                    zero = inc.from_zero(make, _with_entry(prefix, work, sent),
+                                         checks, set(), set(), like=engine)
+                test.assertEqual(full, zero,
+                                 "%s, re-sending %s %s: the incremental engine "
+                                 "disagrees with a from-zero build" % (prefix, name, label))
+                stats['verdict_changes'] += sum(
+                    1 for line in full if full[line] != before[line])
+            test.assertEqual(full, before, "%s, %s: a verdict did not come back"
+                             % (prefix, name))
+            stats['replaced'] += 1
+    test.assertGreater(stats['replaced'], 0, "no device was replaced")
+    return stats

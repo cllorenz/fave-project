@@ -150,6 +150,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_incremental_netplumber.py # INCREMENTAL_PLAN.md M1: update streams on NetPlumber, selective re-check == full == from-zero; skips if libnetplumber unbuilt
     test/test_incremental_veriflow.py  # the same on VeriFlow-FR, affected checks from walk footprints; skips if libveriflow_fr unbuilt
     test/test_incremental_m2.py  # INCREMENTAL_PLAN.md M2: S4 config edits through the aggregator with stable indices, NetPlumber + VeriFlow-FR, under the oracle
+    test/test_incremental_device_replacement.py  # INCREMENTAL_PLAN.md §8.2 D-R6: a structurally changed re-send replaces the device, NetPlumber + ad6 under the oracle, VeriFlow-FR refuses; ~2 min
     test/test_incremental_run.py       # bench/incremental_run.py, the M1 development driver, on both engines
     test/test_apkeep_incremental_core.py  # APKeep's update path in Java: each removal fix against a build without the rule (BDD)
     test/test_packet_filter_out_iface.py  # `-o` means the routed egress (owner decision A1): NetPlumber, VeriFlow-FR and APKeep agree from zero
@@ -260,8 +261,8 @@ FAVE_NDD_TESTS=(
 # Members of FAVE_INTEGRATION_TESTS that REWRITE a shared workload's inputs:
 # both wl_cloud differentials regenerate bench/wl_cloud/*.json in their
 # setUpClass, and test_ndd_apkeep, test_incremental_apkeep,
-# test_incremental_m2_apkeep and test_incremental_device_removal read those
-# files.
+# test_incremental_m2_apkeep, test_incremental_device_removal and
+# test_incremental_device_replacement read those files.
 # The tier runs them first, before anything else, so with FAVE_JOBS > 1 no
 # reader can meet a half-written file (TODO item 44).
 FAVE_REGENERATING_TESTS=(
