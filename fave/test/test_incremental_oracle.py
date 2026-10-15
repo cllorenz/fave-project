@@ -72,6 +72,8 @@ def _engine(violated=()):
     """ A recording engine: every call is a MagicMock call, and a compliance
     check reports `violated` (source, probe) names. """
     engine = mock.MagicMock(name='engine')
+    # stable indices are on by default (§8.1): the engine declares a budget
+    engine.max_rule_index.return_value = 2**20 - 1
     state = {'results': []}
     engine.check_compliance.side_effect = lambda _rules: state.__setitem__(
         'results', [(s, p, True, []) for s, p in violated])
@@ -118,6 +120,16 @@ class TestReplay(_WorkloadCase):
         self.assertEqual(engine.add_probe.call_args.args[0].node, 'probe.p')
         self.assertEqual([g.node for g in engine.add_generators_bulk.call_args.args[0]],
                          ['source.s'])
+
+    def test_a_failed_device_fails_the_replay(self):
+        """ The build's messages carry no barrier; a device the aggregator
+        failed on used to be logged and left out, and the engine answered
+        for another network. """
+        engine = _engine()
+        engine.add_rules.side_effect = [RuntimeError('boom')] + [None] * 100
+        with InProcessFaVe(engine) as fave:
+            with self.assertRaisesRegex(RuntimeError, 'failed: RuntimeError: boom'):
+                fave.replay(self.prefix)
 
     def test_files_override_the_default_names(self):
         os.rename(os.path.join(self.prefix, 'policies.json'),

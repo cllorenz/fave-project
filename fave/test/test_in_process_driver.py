@@ -70,6 +70,9 @@ class _RaisingEngine:
     def stop(self):
         pass
 
+    def max_rule_index(self, table):
+        return 2**20 - 1
+
 
 def _drive(engine, timeout=30.0):
     """ Run one check_compliance through the harness on a thread, so a

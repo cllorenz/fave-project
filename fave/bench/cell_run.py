@@ -526,6 +526,10 @@ def read_verdict(workload, out_dir, stem, gc_log):
         found['vlan_rewrite_rules'] = int(denom.group(1)) if denom else None
         found['vlan_admission_rules'] = int(denom.group(2)) if denom else None
         found['vlan_stage_tables'] = int(denom.group(3)) if denom else None
+        # INCREMENTAL_PLAN.md §8.1 (owner, 2026-10-15): a device the engine
+        # cannot take -- more rules than index slots -- is refused, and the
+        # network built is not the workload's.
+        found['refused'] = _REFUSED.findall(text)
     else:
         found['check_compliance_s'] = []
         found['report_task_s'] = []
@@ -604,14 +608,19 @@ def read_verdict(workload, out_dir, stem, gc_log):
     #
     # Both must appear exactly ONCE: twice means the log spans more than one
     # run and the report cannot be attributed to either.
+    #
+    # And no device of the workload may have been refused (§8.1): the verdict
+    # would be about a network without it.
     found['verdict_valid'] = bool(
-        found['report']
+        not found.get('refused')
+        and found['report']
         and len(found['report_task_s']) == 1
         and (len(found['check_compliance_s']) == 1
              if 'checks' in found else not found['check_compliance_s']))
     return found
 
 
+_REFUSED = re.compile(r'^worker: REFUSED, with no one waiting: (.*)$', re.MULTILINE)
 _BACKEND_LINE = re.compile(r'^backend: (\S+)(?: (\{.*\}))?\s*$', re.MULTILINE)
 
 

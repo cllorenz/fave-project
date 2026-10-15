@@ -74,6 +74,8 @@ class _Base(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
         self.engine = mock.MagicMock(name='engine')
+        # stable indices are on by default (§8.1): the engine declares a budget
+        self.engine.max_rule_index.return_value = 2**20 - 1
         self.engine.asyncore_socks = {}
         self.engine.links = {}
         # global_port: an injective stand-in for the adapter's port numbering
@@ -365,7 +367,41 @@ class TestGeneratorsAndProbes(_Base):
 
 class TestSwitchUpdatesAndDeclaredLpm(_Base):
     """ An incremental switch update sends only the delta to the engine, and a
-    table declared longest-prefix-match is validated ACROSS batches. """
+    table declared longest-prefix-match is validated ACROSS batches.
+
+    On the generators' indices (`--no-stable-indices`): these switches arrive
+    WITH rules and are then commanded into the same table, which stable
+    indices refuse (`test_stable_indices_refuse_a_command_into_a_numbered_table`).
+    No workload sends a switch with rules; topology.py creates them empty. """
+
+    def setUp(self):
+        super().setUp()
+        self.aggr = AggregatorService(
+            {}, {}, engine=self.engine, reporter=self.reporter,
+            stable_indices=False)
+
+    def test_stable_indices_refuse_a_command_into_a_numbered_table(self):
+        from aggregator.abstract_engine import UpdateRefused
+        aggr = AggregatorService({}, {}, engine=self.engine, reporter=self.reporter)
+        aggr._dispatch(SwitchModel('sw', ports=['1', '2'],
+                                   rules=[self._rule(0, '10.0.0.0/8', 'sw.2')]).to_json())
+        self.engine.reset_mock()
+        new = self._rule(1, '10.1.0.0/16', 'sw.2')
+        with self.assertRaises(UpdateRefused) as ctx:
+            aggr._dispatch(SwitchCommand('sw', 'add_rules', [new]).to_json())
+        self.assertIn('sw.1', str(ctx.exception))
+        self.engine.add_rules.assert_not_called()
+        self.assertEqual(len(aggr.models['sw'].tables['sw.1']), 1)
+
+    def test_stable_indices_take_commands_into_an_empty_switch(self):
+        """ How every workload builds a switch: empty, then commanded. """
+        aggr = AggregatorService({}, {}, engine=self.engine, reporter=self.reporter)
+        aggr._dispatch(SwitchModel('sw', ports=['1', '2']).to_json())
+        for idx, prefix in ((0, '10.0.0.0/8'), (1, '10.1.0.0/16')):
+            aggr._dispatch(SwitchCommand(
+                'sw', 'add_rules', [self._rule(idx, prefix, 'sw.2')]).to_json())
+        self.assertEqual([r.idx for r in aggr.models['sw'].tables['sw.1']], [0, 1])
+        self.assertIn(('sw', 'sw.1'), aggr._commanded)
 
     @staticmethod
     def _rule(idx, prefix, out):

@@ -316,6 +316,13 @@ class Ad6Adapter(AbstractVerificationEngine):
         })
         return stamp
 
+    def max_rule_index(self, table: str) -> int:
+        """ INCREMENTAL_PLAN.md §8.1: ad6 only SORTS a table by index
+        (`translate.py`) and numbers the rules by position, so no index is too
+        large for it; NetPlumber's 2^20 - 1, the default, would refuse tables
+        ad6 takes. """
+        return 2**63 - 1
+
     @property
     def lite_acyclic_applies(self) -> bool:
         """ Whether the requested `lite_acyclic` actually affects the answers.

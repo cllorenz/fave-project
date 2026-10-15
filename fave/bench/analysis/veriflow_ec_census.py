@@ -93,7 +93,9 @@ def census(prefix: str, files: Optional[Dict[str, str]] = None) -> Dict[str, Any
 
     tr = Translator()
     with raise_thread_errors():
-        with InProcessFaVe(tr) as fave:
+        # the generators' indices: a match-set census does not depend on
+        # them, and a Translator is no engine (it declares no index budget)
+        with InProcessFaVe(tr, stable_indices=False) as fave:
             fave.replay(prefix, files=files)
     rec = RecordingEngine()
     with raise_thread_errors():

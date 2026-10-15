@@ -61,6 +61,25 @@ class TestStableIndexer(unittest.TestCase):
         self.assertEqual([key(r) for r in sorted(second, key=lambda r: r.idx)],
                          [key(r) for r in edited])
 
+    def test_the_common_numbering_unless_the_table_outgrows_it(self):
+        """ §8.1: every engine gets the aggregator's common numbering; the
+        engine's own limit takes over only for a table that does not fit it,
+        and stays for a table already numbered past it. """
+        ix = StableIndexer(lambda _t: 1000, lambda _t: 10_000)
+        self.assertEqual([r.idx for r in _emit(ix, [_rule(i) for i in range(4)])],
+                         [100, 200, 300, 400])
+        big = StableIndexer(lambda _t: 10, lambda _t: 10_000)
+        self.assertEqual(max(r.idx for r in _emit(big, [_rule(i) for i in range(20)])),
+                         10_000 // 42 * 20)
+        # numbered past the common room: shrinking keeps the engine's room
+        out = _emit(big, [_rule(i) for i in range(3)])
+        self.assertTrue(all(a.idx < b.idx for a, b in zip(out, out[1:])))
+        self.assertGreater(out[-1].idx, 10)
+        # an engine tighter than the common numbering bounds it
+        tight = StableIndexer(lambda _t: 1000, lambda _t: 100)
+        self.assertEqual([r.idx for r in _emit(tight, [_rule(i) for i in range(4)])],
+                         [10, 20, 30, 40])
+
     def test_raw_line_metadata_is_not_content(self):
         a, b = _rule(1), _rule(1)
         a.raw_line_no, b.raw_line_no = 3, 4

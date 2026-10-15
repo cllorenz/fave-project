@@ -34,9 +34,11 @@ per (node, table), and re-numbers every new emission against it:
 * a run that does not fit its gap relabels the smallest window around it to
   half the nominal spacing (the spike's R4c), counted in `stats`.
 
-Order is preserved by construction, and asserted. Indices stay within the
-`budget` the engine declares for the table (`max_rule_index`); the first
-emission spaces a table at budget / (2(n+1)), leaving half the range for growth.
+Order is preserved by construction, and asserted. A table is spaced within
+`budget(table)` -- the aggregator's numbering, common to every engine -- unless
+it holds more rules than that, or already reaches past it; then within
+`limit(table)`, the engine's own (`max_rule_index`). The first emission spaces
+a table at cap / (2(n+1)), leaving half the range for growth.
 """
 
 from __future__ import annotations
@@ -67,8 +69,10 @@ class StableIndexer:
     one against it. `budget(table)` is the largest index the engine takes in
     that table. """
 
-    def __init__(self, budget: Callable[[str], int]) -> None:
+    def __init__(self, budget: Callable[[str], int],
+                 limit: Optional[Callable[[str], int]] = None) -> None:
         self.budget = budget
+        self.limit = limit
         self._last: Dict[Tuple[str, str], List[Tuple[int, Key]]] = {}
         #: relabelled windows, and the old rules they moved to a new index
         self.stats = {'windows': 0, 'moved': 0}
@@ -91,9 +95,9 @@ class StableIndexer:
     def emit(self, node: str, table: str, rules: List[Any]) -> List[Any]:
         """ `rules` in their table order (first-match order: as the modelling
         engine indexed them) -> copies carrying stable indices. """
-        cap = self.budget(table)
         keys = [key(r) for r in rules]
         prev = self._last.get((node, table))
+        cap = self._cap(table, len(keys), prev)
         if prev is None:
             idxs = self._spaced(len(keys), cap)
         else:
@@ -108,6 +112,19 @@ class StableIndexer:
             new.idx = idx
             out.append(new)
         return out
+
+    def _cap(self, table: str, n: int, prev: Optional[List[Tuple[int, Key]]]) -> int:
+        """ The common numbering's room for `table`, or -- for a table that
+        does not fit it, or was already numbered past it -- the engine's. """
+        cap = self.budget(table)
+        if self.limit is None:
+            return cap
+        limit = self.limit(table)
+        if limit <= cap:
+            return limit
+        if n > cap or (prev and prev[-1][0] > cap):
+            return limit
+        return cap
 
     @staticmethod
     def _step(n: int, cap: int) -> int:

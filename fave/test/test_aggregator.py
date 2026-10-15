@@ -37,7 +37,7 @@ import unittest
 
 from unittest import mock
 
-from aggregator.aggregator_service import AggregatorService, _parse_servers
+from aggregator.aggregator_service import AggregatorService, _parse_servers, build_parser
 from devices.packet_filter import PacketFilterModel
 from devices.switch import SwitchCommand
 from netplumber.slice import SlicingCommand
@@ -75,6 +75,8 @@ class _AggregatorTestBase(unittest.TestCase):
         # the plain stdlib logger -- which lacks .trace() -- is never called).
         logging.getLogger('Aggregator').setLevel(logging.WARNING)
         self.engine = mock.MagicMock(name='engine')
+        # stable indices are on by default (§8.1): the engine declares a budget
+        self.engine.max_rule_index.return_value = 2**20 - 1
         self.reporter = mock.MagicMock(name='reporter')
         self.aggr = AggregatorService(
             {}, {}, engine=self.engine, reporter=self.reporter
@@ -141,12 +143,68 @@ class TestSyncStable(_AggregatorTestBase):
         return [(r.idx, r.match[0].value) for r in
                 sorted(aggr.models['fw'].tables['fw.forward_filter'], key=lambda r: r.idx)]
 
-    def test_off_by_default(self):
-        self.assertFalse(self.aggr.stable_indices)
-        self.aggr._sync_diff(_fw([10, 20]))
-        self.aggr._sync_diff(_fw([10, 15, 20]))
+    def test_on_by_default(self):
+        """ Owner, 2026-10-15: stable indices are the default. """
+        self.assertTrue(self.aggr.stable_indices)
+        self.assertTrue(build_parser().parse_args([]).stable_indices)
+
+    def test_off_nothing_changes(self):
+        """ `--no-stable-indices`: as V5 measured, on the generators' indices. """
+        self.assertFalse(build_parser().parse_args(
+            ['--no-stable-indices']).stable_indices)
+        aggr = AggregatorService({}, {}, engine=self.engine, reporter=self.reporter,
+                                 stable_indices=False)
+        aggr._sync_diff(_fw([10, 20]))
+        aggr._sync_diff(_fw([10, 15, 20]))
         self.engine.insert_rule.assert_not_called()
         self.engine.delete_rule.assert_not_called()
+        self.engine.max_rule_index.assert_not_called()
+
+    def test_a_new_table_over_budget_is_refused_untouched(self):
+        """ Owner, 2026-10-15: more rules than the engine has index slots is
+        refused, before the indexer or the engine is touched. """
+        from aggregator.abstract_engine import UpdateRefused
+        aggr = self._stable()
+        self.engine.max_rule_index.side_effect = \
+            lambda table: 2 if table == 'fw.forward_filter' else 1000
+        with self.assertRaises(UpdateRefused) as ctx:
+            aggr._sync_diff(_fw([10, 20, 30]))
+        self.assertIn('fw.forward_filter holds 3 rules', str(ctx.exception))
+        self.assertIn('indices up to 2', str(ctx.exception))
+        self.engine.add_tables.assert_not_called()
+        self.engine.add_rules.assert_not_called()
+        self.assertNotIn('fw', aggr.models)
+        self.assertIsNone(aggr._indexer.last('fw', 'fw.forward_filter'))
+        # a budget of b holds b rules: spaced from 1
+        aggr._sync_diff(_fw([10, 20]))
+        self.assertEqual(self._ff(aggr), [(1, '10'), (2, '20')])
+
+    def test_a_resend_over_budget_is_refused_untouched(self):
+        from aggregator.abstract_engine import UpdateRefused
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20, 30]))
+        self.engine.reset_mock()
+        self.engine.max_rule_index.return_value = 3
+        with self.assertRaises(UpdateRefused):
+            aggr._sync_diff(_fw([10, 15, 20, 30]))
+        self.engine.insert_rule.assert_not_called()
+        self.engine.delete_rule.assert_not_called()
+        self.assertEqual(self._ff(aggr), [(125, '10'), (250, '20'), (375, '30')])
+        self.assertEqual([i for i, _k in aggr._indexer.last('fw', 'fw.forward_filter')],
+                         [125, 250, 375])
+
+    def test_a_replacement_over_budget_is_refused_before_the_removal(self):
+        from aggregator.abstract_engine import UpdateRefused
+        self.engine.REMOVES_DEVICES = True
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20]))
+        self.engine.reset_mock()
+        self.engine.max_rule_index.return_value = 2
+        with self.assertRaises(UpdateRefused):
+            aggr._sync_diff(_fw([10, 15, 20], ports=('1', '2', '3')))
+        self.engine.remove_device.assert_not_called()
+        self.engine.add_rules.assert_not_called()
+        self.assertEqual(self._ff(aggr), [(166, '10'), (332, '20')])
 
     def test_first_send_is_spaced_and_added_whole(self):
         aggr = self._stable()
@@ -299,13 +357,16 @@ class TestSyncDiffCommands(_AggregatorTestBase):
         device.node = 'sw'
         self.aggr.models['sw'] = device
 
-        cmd = SwitchCommand('sw', 'add_rule', ['RULE'])
+        from rule.rule_model import Rule
+        rule = Rule('sw', 'sw.1', 0)
+        cmd = SwitchCommand('sw', 'add_rule', [rule])
         self.aggr._sync_diff(cmd)
 
-        device.add_rule.assert_called_once_with(['RULE'])
+        device.add_rule.assert_called_once_with([rule])
 
     def test_switch_command_unknown_node_is_ignored(self):
-        cmd = SwitchCommand('ghost', 'add_rule', ['RULE'])
+        from rule.rule_model import Rule
+        cmd = SwitchCommand('ghost', 'add_rule', [Rule('ghost', 'ghost.1', 0)])
         self.aggr._sync_diff(cmd)
         # nothing applied to the engine for an unknown datapath
         self.engine.add_tables.assert_not_called()
@@ -356,6 +417,19 @@ class TestHandlerDispatch(_AggregatorTestBase):
         self.engine.check_anomalies.assert_called_once_with(
             use_shadow=False, use_reach=True, use_general=False
         )
+
+    def test_an_unguarded_refusal_is_kept_and_logged_on_its_own_line(self):
+        """ A device of a from-zero build carries no barrier: its failure is
+        kept for the build's driver, and a refusal gets a line `cell_run.py`
+        reads (owner, 2026-10-15). """
+        self.engine.max_rule_index.return_value = 1
+        with self.assertLogs('Aggregator', level='ERROR') as logs:
+            self._run_handler_with(_fw([10, 20]).to_json())
+        self.assertEqual(len(self.aggr.unguarded_failures), 1)
+        self.assertTrue(self.aggr.unguarded_failures[0].startswith('UpdateRefused: '))
+        self.assertTrue(any('worker: REFUSED, with no one waiting: ' in line
+                            for line in logs.output))
+        self.assertNotIn('fw', self.aggr.models)
 
     def test_device_model_is_synced(self):
         model = PacketFilterModel('fw', ports=['1'])

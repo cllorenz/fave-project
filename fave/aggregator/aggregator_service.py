@@ -72,6 +72,20 @@ from util.stable_index import StableIndexer, diff as stable_diff, key as stable_
 
 from rule.rule_model import RuleField
 
+def common_index_budget(table: str) -> int:
+    """ INCREMENTAL_PLAN.md §8.1: the room the aggregator numbers `table` in,
+    the SAME on every engine -- so a model, an update stream and its records
+    carry the same indices whichever engine runs them, and cells compare
+    across engines. It is the tightest any engine has for that kind of table:
+    APKeep's router ACLs (priority 70000 - idx), NetPlumber's 20 rule-index
+    bits everywhere else. An engine's own `max_rule_index` decides only what
+    is refused, and the room of a table that outgrows this one
+    (`test_aggregator_backend` pins it below every engine's). """
+    if table.endswith(('.acl_in', '.acl_out')):
+        return 69_999
+    return 2**20 - 1
+
+
 #: device models that arrive WHOLE -- the ones stable indices apply to
 #: (INCREMENTAL_PLAN.md §8.1); a switch's control-plane commands keep the
 #: indices their sender chose
@@ -223,7 +237,7 @@ class AggregatorService(AbstractAggregator):
             self, socks: Dict[Any, Any], asyncore_socks: Dict[Any, Any],
             mapping: Optional[Any] = None,
             engine: Optional[Any] = None, reporter: Optional[Any] = None,
-            backend: str = BACKEND_NETPLUMBER, stable_indices: bool = False,
+            backend: str = BACKEND_NETPLUMBER, stable_indices: bool = True,
             **backend_options: Any
     ) -> None:
         self.queue: Queue[Any] = Queue()
@@ -257,15 +271,18 @@ class AggregatorService(AbstractAggregator):
         # produce) a verdict -- see reporting/reporter.py's
         # `_backend_checks_anomalies`.
         self.backend = backend
-        # INCREMENTAL_PLAN.md §8.1: OPT-IN stable indices. Off, every path is
-        # as it was (V5's numbers were measured on the generators' indices).
-        # On, a device model that arrives whole is re-numbered against its last
-        # emission, and a re-sent device reaches the engine as the rules that
-        # changed (`_sync_stable`).
+        # INCREMENTAL_PLAN.md §8.1: stable indices, ON by default since
+        # 2026-10-15 (owner). A device model that arrives whole is re-numbered
+        # against its last emission, within the engine's index budget, and a
+        # re-sent device reaches the engine as the rules that changed
+        # (`_sync_stable`). Off (`--no-stable-indices`), every path is as V5
+        # measured it, on the generators' indices.
         self.stable_indices = stable_indices
         self._indexer: Optional[StableIndexer] = (
-            StableIndexer(self.verification_engine.max_rule_index)
+            StableIndexer(common_index_budget, self.verification_engine.max_rule_index)
             if stable_indices else None)
+        #: failed tasks no barrier reported, as "<exception>: <message>"
+        self.unguarded_failures: List[str] = []
         #: per-device-update counts of the stable path, for the S4 driver
         self.update_stats: Dict[str, Any] = {}
         #: (node, table) a control-plane command has filled -- a packet
@@ -492,6 +509,16 @@ class AggregatorService(AbstractAggregator):
                 # happens to live, turning a loud error into a silent hang.
                 error = "%s: %s" % (type(exc).__name__, exc)
                 AggregatorService.LOGGER.exception("worker: task failed:")
+                if not barrier_path:
+                    # No one waits on this task -- a device sent during a
+                    # from-zero build. Kept, so the build's driver can say the
+                    # network is not the one sent (`InProcessFaVe.replay`); a
+                    # refusal also gets a line of its own, which `cell_run.py`
+                    # reads (owner, 2026-10-15: a refusal must be clear).
+                    self.unguarded_failures.append(error)
+                    if isinstance(exc, UpdateRefused):
+                        AggregatorService.LOGGER.error(
+                            "worker: REFUSED, with no one waiting: %s", exc)
             finally:
                 barrier.release(barrier_path, error=error)
 
@@ -658,6 +685,10 @@ class AggregatorService(AbstractAggregator):
             model.type == 'topology_command' and model.mtype in _WHOLE_DEVICE_TYPES
             and model.command == 'add'))
         commanded = model.type in ["switch_command", 'state_command', 'relay_command']
+        #: the tables a control-plane command fills, at its sender's indices --
+        #: read from what the device buffered, not from the rules' `tid`: a
+        #: packet filter turns a route into rules of its `.routing` table
+        command_tables: set = set()
 
 
         # handle minor model changes (e.g. updates by the control plane)
@@ -674,7 +705,16 @@ class AggregatorService(AbstractAggregator):
                     % (model.command, model.node))
             if model.node in self.models:
                 device = self.models[model.node]
+                before = {t: len(rules) for t, rules in device._adds.items()}
                 getattr(device, model.command)(model.rules)
+                command_tables = {t for t, rules in device._adds.items()
+                                  if len(rules) > before.get(t, 0)}
+                if self._indexer is not None:
+                    try:
+                        self._refuse_mixed_numbering(model.node, command_tables)
+                    except UpdateRefused:
+                        device.reset()      # nothing of the command is kept
+                        raise
                 model = device
 
             else:
@@ -860,7 +900,7 @@ class AggregatorService(AbstractAggregator):
             # at the indices its sender chose; what the engine now holds is the
             # stored model, and the next whole re-send is diffed against that
             for table, rules in self.models[model.node].tables.items():
-                if rules:
+                if rules and table in command_tables:
                     self._commanded.add((model.node, table))
                 self._indexer.seed(model.node, table, rules)
 
@@ -918,6 +958,8 @@ class AggregatorService(AbstractAggregator):
 
         carried = {t for t, rules in model.tables.items()
                    if not rules and ordered[t] and (node, t) in self._commanded}
+        self._check_index_budget(
+            node, {t: rules for t, rules in ordered.items() if t not in carried})
         t0 = time.perf_counter()
         self._remove_device(node, old.type)
 
@@ -942,6 +984,43 @@ class AggregatorService(AbstractAggregator):
             'node': node, 'new': False, 'replaced': why,
             'links': len(links), 't_update_s': time.perf_counter() - t0,
         }
+
+
+    def _refuse_mixed_numbering(self, node: str, tables: set) -> None:
+        """ §8.1: a control-plane command's rules carry the indices its sender
+        chose; a table the aggregator numbered from a whole model carries the
+        indexer's. The two do not order against each other -- a sender's rule
+        1 meant to follow rule 0 would land before the rule the indexer put at
+        262,143 -- so a command into such a table is refused, not guessed
+        at. """
+        indexer = self._indexer
+        assert indexer is not None
+        numbered = sorted(t for t in tables
+                          if indexer.last(node, t) and (node, t) not in self._commanded)
+        if numbered:
+            raise UpdateRefused(
+                "%s: a control-plane command adds to %s, whose rules the "
+                "aggregator numbered from the device model (stable indices); "
+                "the command's indices do not order against them. Re-send the "
+                "device whole, or run with --no-stable-indices"
+                % (node, ', '.join(numbered)))
+
+
+    def _check_index_budget(self, node: str, tables: Dict[str, List[Any]]) -> None:
+        """ INCREMENTAL_PLAN.md §8.1 (3), owner 2026-10-15: a table with more
+        rules than the engine has index slots in it is REFUSED, before the
+        indexer or the engine is touched -- not truncated, wrapped or squeezed
+        into indices the engine would misread. The indexer spaces from 1, so a
+        budget of `b` holds `b` rules. """
+        engine = self.verification_engine
+        over = ["%s holds %d rules, the engine takes indices up to %d"
+                % (table, len(rules), engine.max_rule_index(table))
+                for table, rules in sorted(tables.items())
+                if len(rules) > engine.max_rule_index(table)]
+        if over:
+            raise UpdateRefused(
+                "%s: %s: more rules than index slots: %s"
+                % (type(engine).__name__, node, '; '.join(over)))
 
 
     def _sync_stable(self, model: Any) -> None:
@@ -972,6 +1051,7 @@ class AggregatorService(AbstractAggregator):
                     ordered[table] = sorted(old.tables[table], key=lambda r: r.idx)
 
         if old is None:
+            self._check_index_budget(node, ordered)
             model.tables = {t: indexer.emit(node, t, rules) for t, rules in ordered.items()}
             self._validate_declared_tables(model)
             self._add_model(model)
@@ -995,6 +1075,7 @@ class AggregatorService(AbstractAggregator):
             self._replace_device(old, model, ordered, why)
             return
 
+        self._check_index_budget(node, ordered)
         t0 = time.perf_counter()
         windows, moved = indexer.stats['windows'], indexer.stats['moved']
         deletes: List[Tuple[str, int]] = []
@@ -1277,6 +1358,11 @@ def build_parser() -> argparse.ArgumentParser:
     # order such a table themselves; see `build_engine`.
     parser.add_argument('--invert-lpm', dest='invert_lpm', action='store_true',
                         default=False)
+    # INCREMENTAL_PLAN.md §8.1: stable indices are the default since
+    # 2026-10-15 (owner); off reproduces V5, which ran on the generators'
+    # indices.
+    parser.add_argument('--no-stable-indices', dest='stable_indices',
+                        action='store_false', default=True)
 
     return parser
 
@@ -1338,7 +1424,7 @@ def main(argv: List[str]) -> None:
             faithful_vlan=args.faithful_vlan,
             vf_fields=args.vf_fields, vf_revisit=args.vf_revisit,
             vf_slicing=args.vf_slicing, vf_budget=args.vf_budget,
-            invert_lpm=args.invert_lpm)
+            invert_lpm=args.invert_lpm, stable_indices=args.stable_indices)
     except ValueError as err:
         # A malformed backend option (an unknown solver, or a solver/grounding
         # combination that would silently answer the wrong question). Reported
@@ -1355,7 +1441,10 @@ def main(argv: List[str]) -> None:
     # `cell_run.py` parses this line back out of the log, so its shape is a
     # contract, not a convenience: `backend: <name> {<stamp dict>}`.
     engine = AGGREGATOR.verification_engine
-    detail = " %s" % (engine.configuration_stamp(),)
+    # the aggregator's own measurement-affecting setting rides along: with or
+    # without stable indices the engine sees other indices (§8.1)
+    detail = " %s" % (dict(engine.configuration_stamp(),
+                           stable_indices=AGGREGATOR.stable_indices),)
     AggregatorService.LOGGER.info("backend: %s%s", args.backend, detail)
 
     register_signals()

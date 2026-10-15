@@ -725,6 +725,17 @@ class TestTheQueueResumes(unittest.TestCase):
             write('report', 'report')
             self.assertFalse(cell_run.read_verdict(
                 'wl_tum', self.dir, 'c', '/x')['verdict_valid'])
+
+            # A refused device (INCREMENTAL_PLAN.md §8.1: more rules than
+            # index slots) means the network built is not the workload's.
+            write('packet_filter', 'report')
+            with open(log, 'a') as handle:
+                handle.write('worker: REFUSED, with no one waiting: X: fw: '
+                             'more rules than index slots\n')
+            found = cell_run.read_verdict('wl_tum', self.dir, 'c', '/x')
+            self.assertFalse(found['verdict_valid'])
+            self.assertEqual(found['refused'],
+                             ['X: fw: more rules than index slots'])
         finally:
             cell_run.AGGREGATOR_LOG, cell_run.REPORT, cell_run.BENCH = prev
 

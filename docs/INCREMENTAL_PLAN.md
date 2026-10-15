@@ -364,11 +364,11 @@ Then **S4**: synthetic firewall edits — insert, delete or modify one rule at a
 sampled position — on `wl_up`, `wl_tum`, `wl_ifi`, `wl_cloud`, measured end to
 end from a configuration change to an updated verdict, which is TNSM'21's claim.
 
-### 8.1 M2 design after the spike (2026-10-11, autonomous; owner to confirm)
+### 8.1 M2 design after the spike (2026-10-11, autonomous; choices DECIDED by the owner 2026-10-15)
 
 The spike (`results_m2_spike_20261011/FINDINGS.md`) settled the mechanism;
 this is how it is built. Choices marked *(choice)* were taken without the owner
-and are listed for confirmation.
+and listed for confirmation; the owner's answers follow the list.
 
 1. **`util/stable_index.py`, a `StableIndexer`.** Per (device, table) it holds
    the last emission `[(idx, content key)]` and emits a new rule list with
@@ -416,6 +416,45 @@ and are listed for confirmation.
    (regenerate), `t_diff` (align + diff), `t_update` (engine), `t_recheck`,
    the engine-rule changes and relabels. `t_total` is the sum -- a
    configuration change to an updated verdict.
+
+**Owner, 2026-10-15.**
+- **The aligner in the aggregator, within each engine's limits (1 with 3).**
+  Kept as built. *"If a workload requires more table entries than an engine
+  can process, a clear refusal would be the most honest outcome."* Built:
+  `_check_index_budget` refuses (`UpdateRefused`, naming the table, its rule
+  count and the budget) a table with more rules than the engine has index
+  slots, BEFORE the indexer or the engine is touched -- on a new device, a
+  re-send and a replacement alike. ad6 declares its real bound (2^63 − 1: it
+  only sorts by index) instead of inheriting NetPlumber's 2^20 − 1.
+  **One numbering for every engine.** Spacing each table in its own engine's
+  budget gave the same rule different indices on NetPlumber (2^20 − 1),
+  VeriFlow-FR (2^40 − 1) and APKeep, so update streams -- built from the
+  indices -- no longer hashed alike and cells stopped comparing across
+  engines (the integration tier's cross-engine tests caught it). So the
+  aggregator numbers every table in the tightest room any engine has for it
+  (`common_index_budget`: 69,999 for router ACLs, APKeep's; 2^20 − 1
+  elsewhere, NetPlumber's; pinned below every engine's limit by a test), and
+  an engine's own limit decides only refusal -- and the room of a table that
+  outgrows the common one, which then numbers differently there. A
+  control-plane command into a table the aggregator numbered from a whole
+  model is refused too: the sender's indices do not order against the
+  indexer's. No grid workload does either: switches are created empty and
+  commanded, and every table fits its budget. The one model that does is the
+  snapshot packet filter, whose state tables start with a default rule at
+  65535 and take `add_state` commands; only the retired
+  `bench/legacy/wl_state_snapshots` uses it, and it now needs
+  `--no-stable-indices`.
+- **On by default (2).** *"I do not see the latest measurements ... as
+  important as the longer term perspective. Hence, after remeasuring a few
+  of the fast running cells, I would turn stable indices on as default."*
+  `AggregatorService` and `InProcessFaVe` default to `stable_indices=True`;
+  `--no-stable-indices` reproduces V5's generator indices, and the `backend:`
+  stamp carries `stable_indices`, so a cell says which it ran. Re-measured:
+  `bench/campaigns/results_stable_default_20261015/`.
+- **Making the refusal clear in a from-zero build** needed one more piece: a
+  build's messages carry no barrier, so a failed device was only logged.
+  `InProcessFaVe.replay` now raises on one, and `cell_run.py` makes a verdict
+  with a refused device invalid (TODO item 57).
 
 ### 8.2 Removing a device — DESIGN (2026-10-14); BUILT on every engine but NDD-flood (2026-10-14/15); D-R6 BUILT on NetPlumber and ad6 (2026-10-15)
 

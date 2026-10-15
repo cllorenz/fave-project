@@ -1,0 +1,44 @@
+PROTOCOL -- stable indices as the default: a paired re-measurement of fast cells
+Declared 2026-10-15, BEFORE any cell of this run started. Not edited afterwards.
+INCREMENTAL_PLAN.md §8.1 (2), (3).
+
+WHY
+  The owner decided (2026-10-15) to turn stable indices on by default, "after
+  remeasuring a few of the fast running cells". With them on, a device model
+  that arrives whole (packet filter, router, ALG, a switch sent with rules) is
+  numbered by the aggregator's StableIndexer -- spaced within a room common
+  to every engine (common_index_budget), refused beyond the engine's own
+  limit -- instead of carrying the generators' dense indices. [Corrected
+  before any cell ran: the first draft said "within the engine's index
+  budget"; the integration tier showed per-engine spacing breaks cross-engine
+  comparison, and the numbering was made common.] Rule
+  ORDER is unchanged by construction; only the index values change. So every
+  verdict must be unchanged, and any cost is the indexer's.
+
+WHAT IS RUN
+  queue.json: 21 cells of V5 phase A (bench/campaigns/v5_phase_a_main.json),
+  each TWICE, as a pair on the same code:
+    <cell>_stable   the new default
+    <cell>_dense    the same cell with --no-stable-indices (V5's indices)
+  Workloads wl_example, wl_ifi, wl_tum, wl_cloud on netplumber, apkeep ndd,
+  veriflow 4+10, ad6 (rank, cadical195) and apkeep bdd (bdd x wl_cloud is not
+  in phase A); and wl_up on netplumber and apkeep ndd. Left out: the wl_up
+  cells of 6-11 min (bdd, veriflow, ad6), the vfplain ablation, and every
+  workload whose cells take longer. Limits, engine options and expected
+  violations are phase A's, unchanged; only the name and the one flag differ.
+  Run consecutively by bench/cell_queue.py, after the integration tier has
+  finished, with nothing else heavy on the machine.
+
+PREDICTIONS (scored afterwards, never edited)
+  S1  Every pair has the SAME outcome, the same violation count and the same
+      violation lines. Falsified by any difference: that would be a defect in
+      the indexer or in an engine's use of indices, and stops the default.
+  S2  No cell is refused (no `worker: REFUSED` line): every table of these
+      workloads fits its engine's budget.
+  S3  Wall time of a pair differs by at most max(1 s, 10 %), and peak RSS by
+      at most 10 %. These cells take 2-60 s, so 1 s is start-up noise.
+      Falsified by a larger difference in either direction; then the cost is
+      measured again with repetitions before anything is concluded.
+  S4  The `backend:` stamp of every _stable cell says stable_indices True and
+      of every _dense cell False -- the arms can be told apart from the
+      result alone.

@@ -255,6 +255,9 @@ class _FakeEngine:
     def configuration_stamp(self):
         return {'impl': 'first-party', 'solver': 'stub'}
 
+    def max_rule_index(self, table):
+        return 2**20 - 1
+
 
 class TestMain(unittest.TestCase):
     """ aggregator_service.main: flags reach the service, the backend stamp is
@@ -316,7 +319,8 @@ class TestMain(unittest.TestCase):
             ('cadical', 'full', True))
         self.run.assert_called_once_with(FAVE_DEFAULT_UNIX)
         self.assertIn(
-            "backend: ad6 {'impl': 'first-party', 'solver': 'stub'}", self._log())
+            "backend: ad6 {'impl': 'first-party', 'solver': 'stub', "
+            "'stable_indices': True}", self._log())
         self.assertEqual(AggregatorService.LOGGER.level, logging.INFO)
         self.assertIsNotNone(aggregator_service.AGGREGATOR)
 

@@ -387,9 +387,36 @@ class TestServiceWiring(unittest.TestCase):
     def test_an_injected_engine_still_wins(self):
         """ The seam the tests rely on must survive: if both are given, the
         explicit object is used. """
-        sentinel = object()
+        sentinel = mock.MagicMock(name='sentinel')
         service = self._service(engine=sentinel, backend=BACKEND_AD6)
         self.assertIs(service.verification_engine, sentinel)
+
+
+class TestCommonIndexBudget(unittest.TestCase):
+    """ INCREMENTAL_PLAN.md §8.1: the aggregator's common numbering lies
+    within every engine's own limit, so no engine is handed an index it
+    would misread, and every engine gets the same indices. """
+
+    TABLES = ('r.acl_in', 'r.acl_out', 'fw.forward_filter', 'fw.routing',
+              'sw.1', 'r.fib')
+
+    def test_within_every_engine(self):
+        from aggregator.abstract_engine import AbstractVerificationEngine
+        from aggregator.aggregator_service import common_index_budget
+        from ad6.adapter import Ad6Adapter
+        from apkeep.adapter import APKeepAdapter
+        from veriflow.adapter import VeriFlowAdapter
+        # NetPlumber's adapter keeps the base class's 2^20 - 1
+        for cls in (AbstractVerificationEngine, Ad6Adapter, APKeepAdapter,
+                    VeriFlowAdapter):
+            for table in self.TABLES:
+                with self.subTest(engine=cls.__name__, table=table):
+                    self.assertLessEqual(common_index_budget(table),
+                                         cls.max_rule_index(None, table))
+        self.assertEqual(common_index_budget('r.acl_in'),
+                         APKeepAdapter.max_rule_index(None, 'r.acl_in'))
+        self.assertEqual(common_index_budget('fw.forward_filter'),
+                         AbstractVerificationEngine.max_rule_index(None, 'x'))
 
 
 if __name__ == '__main__':

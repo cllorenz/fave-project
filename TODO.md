@@ -3779,6 +3779,31 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
+### 57. A from-zero build dropped a failed device without a word — in-process replay and refusals FIXED 2026-10-15; three paths OPEN
+
+- **Finding:** a build's device messages carry no barrier, so when the aggregator
+  failed on one (or, since stable indices are the default, refused it: more rules
+  than the engine has index slots, INCREMENTAL_PLAN.md §8.1), the failure was only
+  logged. The device was left out and the engine answered for another network.
+  Found while making that refusal clear (owner, 2026-10-15).
+- **Fixed:**
+  - the aggregator keeps every failed task no barrier reported
+    (`unguarded_failures`), and `InProcessFaVe.replay` raises on them;
+  - a refusal also gets its own log line, `worker: REFUSED, with no one waiting:`,
+    and `cell_run.py` records it (`refused`) and makes the verdict invalid.
+- **Checked:** no V5 cell lost a device this way. Ten recorded aggregator logs
+  hold a `worker: task failed`; each is a compliance check (barrier-guarded, the
+  cell knew) or the dump after the report (below).
+- [ ] **A device that fails for any other reason, over the socket path:**
+  `cell_run.py` reads only refusals. Reading every `task failed` would also catch
+  the dump below and turn completed cells into errors; it would need the
+  failures of device tasks told apart from the rest.
+- [ ] **A switch command for an unknown datapath** is printed to stderr
+  (`no such dp`) and dropped, not raised (`AggregatorService._sync_diff`).
+- [ ] **`_dump_aggregator` fails on every engine but NetPlumber**
+  (`AttributeError: ... has no attribute 'mapping'`), after the report, e.g. in
+  every V5 `wl_ifi` log. Harmless to the verdict; still a failed task.
+
 ### 56. An integration-tier test once took 54 minutes instead of 7 seconds — OPEN (found 2026-10-14)
 
 - **Finding:** in the worktree's integration tier (`FAVE_JOBS=6 FAVE_JVM_XMX=6g`,

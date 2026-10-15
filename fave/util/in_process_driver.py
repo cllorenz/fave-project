@@ -63,7 +63,7 @@ class InProcessFaVe:
         # engine now holds the built network + compliance results
     """
 
-    def __init__(self, engine: Any, stable_indices: bool = False) -> None:
+    def __init__(self, engine: Any, stable_indices: bool = True) -> None:
         # Import here so merely importing this module does not drag in the whole
         # aggregator/bench stack (and its native deps) for callers that only
         # want the class symbol.
@@ -74,7 +74,8 @@ class InProcessFaVe:
         # commands, which we never send.
         reporter = SimpleNamespace(daemon=False, start=lambda: None)
         # `stable_indices`: INCREMENTAL_PLAN.md §8.1 -- re-sent devices reach
-        # the engine as the rules that changed (the S4 path); off by default
+        # the engine as the rules that changed (the S4 path); on by default,
+        # as in the aggregator (owner, 2026-10-15)
         self._agg = AggregatorService(
             {}, {}, mapping=None, engine=engine, reporter=reporter,
             stable_indices=stable_indices
@@ -154,6 +155,7 @@ class InProcessFaVe:
             names.update(files)
         files = {k: "%s/%s" % (prefix, v) for k, v in names.items()}
 
+        failed = len(self._agg.unguarded_failures)
         with open(files["topology"]) as raw:
             topo = json.load(raw)
             create_topology(topo["devices"], topo["links"],
@@ -168,6 +170,13 @@ class InProcessFaVe:
             add_sources(src["devices"], src["links"], use_unix=False)
 
         self._agg.queue.join()
+        # The build's messages carry no barrier, so a device the aggregator
+        # failed on or refused (§8.1: more rules than index slots) used to be
+        # logged and left out, and the engine answered for another network.
+        errors = self._agg.unguarded_failures[failed:]
+        if errors:
+            raise RuntimeError("replay of %s: %d of the build's messages failed: %s"
+                               % (prefix, len(errors), '; '.join(errors[:5])))
 
     def check_compliance(self, rules: Dict[str, List[Any]]) -> None:
         """ Issue a check_compliance command (same shape the live benchmark
