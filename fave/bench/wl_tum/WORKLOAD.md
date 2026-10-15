@@ -81,6 +81,23 @@ source enters the forward chain as from its VLAN (`in_port` eth1's ingress,
    `vlans.tum` declares no id.
 3. **A switch port named `1` is its table's name** (`devices/switch.py`
    names a switch's table `<node>.1`): `vlans.tum` numbers its ports from 1000.
-4. **Both APKeep engines drop `svlan` and `dvlan` from packet-filter rules**
-   (`apkeep/adapter.py`, `_capture_pf_rule`), so a rule bound to one VLAN acts
-   on all of them. See TODO.md.
+4. **Both APKeep engines dropped `svlan` and `dvlan` from packet-filter rules**
+   (`apkeep/adapter.py`, `_capture_pf_rule`), so a rule bound to one VLAN acted
+   on all of them. Fixed in `b17a70f8`: BDD-APKeep, NDD-APKeep and NDD-flood
+   carry both as header fields (owner: VLANs are genuine header fields). TODO.md
+   item 54 lists what the packet-filter path still drops.
+
+## The engines on the 8,497 checks (2026-10-14)
+
+All four agree with the evaluator, so none reports a violation:
+
+| engine | violated | wall time |
+|---|---|---|
+| NetPlumber | 0 | -- (after fix 1) |
+| BDD-APKeep | 0 | 142 s |
+| NDD-APKeep | 0 | 1,839 s |
+| VeriFlow-FR | 0 | 11,994 s (3 h 20 min, under its 4 h limit)¹ |
+
+¹ For its first 15 minutes, light diagnostics shared the machine (16 cores,
+memory ample): the verdicts are unaffected, but the time is not a clean
+measurement.

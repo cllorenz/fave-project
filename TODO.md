@@ -3779,6 +3779,28 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
+### 56. An integration-tier test once took 54 minutes instead of 7 seconds — OPEN (found 2026-10-14)
+
+- **Finding:** in the worktree's integration tier (`FAVE_JOBS=6 FAVE_JVM_XMX=6g`,
+  2026-10-14 13:48Z), `test/test_incremental_m2.py::TestS4Harness::test_a_workload_without_checks_records_its_updates`
+  took **3,227 s**: three NetPlumber S2 updates on `bench/wl_tum/single`, and its
+  group took 1 h 08 min. An earlier main-tree run of the tier hung in the same
+  group for over an hour and was stopped. Which test hung there is not known.
+- **Not reproduced:**
+  - alone (6.8 s);
+  - in its module (7.6 s);
+  - after the group's 12 preceding modules in one process (7.6 s);
+  - under PYTHONHASHSEED 0-7 (7-8 s each, the same update times);
+  - in a second full tier run at `FAVE_JVM_XMX=8g`, with a 10-minute
+    `faulthandler_timeout` (2026-10-14 18:19Z): under 23 s, group 14 min, tier PASSED.
+- **Ruled out:**
+  - the S2 draw (fixed seed, insensitive to hash order);
+  - shared barrier or state directories (private per in-process instance);
+  - a concurrent rewrite of `bench/wl_tum/single` (no test writes it).
+- **Next time:** run the tier with `PYTEST_ADDOPTS="-o faulthandler_timeout=600"`,
+  so that a recurrence dumps the stuck stack. Making that the tier's default is an
+  owner decision.
+
 ### 55. A fast test leaves state that drops every link of a later in-process APKeep replay — OPEN (found 2026-10-14)
 
 - **Finding:** after `fave/test/test_aggregator_service_paths.py::TestRunOverUnixSocket`
