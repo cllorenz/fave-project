@@ -7,7 +7,7 @@ NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
 its witness + dead-ends footprint, the default since 2026-10-11); the harness is
 done. Only indicative (dev) runs have run (§10), the last the D11 grid; no
 reportable measurement exists until the campaign's `PROTOCOL.txt` with
-predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built the same day on NetPlumber and, by emptying, on VeriFlow-FR and BDD-/NDD-APKeep; ad6 and NDD-flood refuse it by name.
+predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built the same day on NetPlumber, on ad6 from its buffers, and by emptying on VeriFlow-FR and BDD-/NDD-APKeep; NDD-flood refuses it by name.
 **Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
@@ -460,7 +460,7 @@ section adds what §8.1 refuses.
   | BDD-APKeep, NDD-APKeep | `delete_rule` | none: the adapter's `remove_link` raises `UpdateRefused`, since the model is built from the recorded topology; `set_link(up=False)` takes a link down | none: `Network.java` removes rules (`removeOneRule`), never an element or a topology edge | yes |
   | VeriFlow-FR | `delete_rule` | none in the adapter (the engine's `remove_link` is untested, §2); `set_link(up=False)` takes a link down | n/a: tables are per-switch rule sets | yes |
   | NDD-flood | none: a from-zero build, refused by name | — | — | — |
-  | ad6 | none (the contract's default refuses) | none: `remove_link` raises `UpdateRefused` | none; but every check rebuilds from the capture buffers `_tables` and `_raw_edges` | n/a |
+  | ad6 | none (the contract's default refuses) | none: `remove_link` raises `UpdateRefused` | none; but every check rebuilds from the capture buffers `_tables` and `_raw_edges` (a whole device is removed there since 2026-10-14) | n/a |
 
 **Design.**
 - **D-R1. Removing a device is §8.1's diff against an empty model.** Every
@@ -652,9 +652,43 @@ Q-R2's accommodation, declared in `ACCOMMODATIONS.md`.
     batch emptied, and an empty affected set.
   - APKeep's residue check reads the adapter's record of what the engine
     holds (`_live`), not the JVM.
-- **Not built:** ad6 from its buffers (Q-R3), and D-R6. A switch rule delete
-  (`switch.py -d`/`-u`) is still refused by name; it is not a device
-  removal. NDD-flood refuses (`_require_updatable`).
+**Built on ad6 from its buffers (2026-10-14/15).** Q-R3: a real removal, not an
+accommodation.
+- **`Ad6Adapter.remove_device`** drops the device's tables, their declared
+  semantics, its wiring and its external links from the capture buffers that
+  every check rebuilds the model from. A link the buffers do not hold is
+  refused before anything is dropped. The name can be added again, and its
+  first batch is accepted as on a fresh adapter.
+- **No selective re-check:** ad6 reports no affected set, so every check is
+  re-verified (the contract's `None`).
+- **The oracle** (same module, `remove_each`, with re-adding as on
+  NetPlumber). The residue check asks the buffers for the device's tables,
+  semantics, wiring and any link at its ports.
+
+  | workload | devices removed | verdict changes | time |
+  |---|---|---|---|
+  | wl_example | 2 of 3 (`pgf`, as on NetPlumber) | 10, as on NetPlumber | 6 s |
+  | wl_ifi | 17 of 17 | 222, as on NetPlumber | 345 s |
+  | wl_cloud | 3 of 86, a sample (`core.dc0_core`, `lin.dc0_leaf0`, `gw.internet`) | 21 | 2,408 s |
+  | a tiny two-switch workload | 2 of 2 | 3, as on NetPlumber | 1 s |
+
+  Every check rebuilds the model, five per removal, so the module runs
+  wl_ifi as a sample (the router and two switches, ~1 min) and wl_cloud not
+  at all. The full runs above were one-off, 2026-10-15, one run each.
+- **A translator bug it found.** wl_ifi without its router failed: the
+  router's rewrite was the only one of `vlan`, so the sources' `vlan`
+  constraint stayed a match on the generator's own rule, and the declared
+  field widths were collected from device rules only. ad6 refused the
+  undeclared `<fieldmatch>`. Fixed: generator rules count too
+  (`Ad6Adapter._build_literal`, a unit test in `test_ad6_adapter_unit.py`).
+
+  Mutations caught on tiny and wl_example: a no-op, links kept, links in
+  kept, and tables kept. Each was caught by the residue check and, without
+  it, by the verdicts alone, or loudly: with a removed device's links kept,
+  ad6's translator refuses a port that belongs to no device.
+- **Not built:** D-R6. A switch rule delete (`switch.py -d`/`-u`) is still
+  refused by name; it is not a device removal. NDD-flood refuses
+  (`_require_updatable`).
 
 
 ## 9. Open questions (recommendations, not decisions)

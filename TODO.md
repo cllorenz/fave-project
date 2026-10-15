@@ -3601,7 +3601,7 @@ section that reads the registered checks, not only the violations.
 
 ---
 
-### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; device removal built on NetPlumber, VeriFlow-FR and APKeep (INCREMENTAL_PLAN.md §8.2)
+### 53. Defects found while raising fast-tier coverage — FIXED OR REFUSED 2026-10-14; device removal built on NetPlumber, ad6, VeriFlow-FR and APKeep (INCREMENTAL_PLAN.md §8.2)
 None is fixed. Each is pinned by a test, either as an `expectedFailure` (remove the
 decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behaviour
 (it fails on purpose once fixed). Ordered by likely impact on verdicts.
@@ -3657,8 +3657,9 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
       APKeep leaves them up, since taking them down changed another device's
       element structure on wl_example. The oracle holds on every workload
       run. The name cannot be added again on either engine.
-    - Still open: ad6 from its buffers. It refuses by name until then, as
-      NDD-flood does for good.
+    - **BUILT on ad6 2026-10-14** (§8.2): the device is dropped from the
+      capture buffers every check rebuilds from, and can be added again. The
+      oracle holds, re-adding included. NDD-flood refuses by name for good.
   Tested: `test_netplumber_adapter_more.py`, `test_incremental_device_removal.py`.
 - [x] **FIXED 2026-10-14 — `netplumber/jsonrpc.py:78`.** It now reads bytes and decodes once. That also fixes a second bug found on the way: the newline's index in the DECODED peek was used as a BYTE count, so a multi-byte character left the reply's tail on the socket, to corrupt the next reply. Originally: each 4096-byte peek was decoded on its own, so a
   multi-byte UTF-8 character split across the boundary raises. Pinned:
@@ -3670,7 +3671,8 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
     - The CLI now sends the delete's type, and `_dispatch` names the task by it.
     - A device delete was refused by name (`NotImplementedError`, pointing to
       INCREMENTAL_PLAN.md §8.2). Since 2026-10-14 it removes the device on
-      NetPlumber, and every other engine refuses it (`UpdateRefused`).
+      NetPlumber and ad6, empties it on VeriFlow-FR and APKeep, and NDD-flood
+      refuses it (`UpdateRefused`).
     - A delete without a type is refused instead of dropped.
   - [x] REFUSED 2026-10-14: switch `remove_rule`/`update_rule` got the whole rule list
     (`:623`).
