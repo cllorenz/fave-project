@@ -1,0 +1,111 @@
+{
+  "workload": "wl_cloud",
+  "backend": "apkeep",
+  "engine": "ndd",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-15T11:43:53.450500+00:00",
+  "git_head": "79b152c174017c1be079403dd79d7d67d8aacf40",
+  "engine_commit": "4f2366fe80499e9e8c53ee1d650cfbf51e1a72d6 2026-10-14",
+  "apkeep_engine": "ndd",
+  "engine_options": "--apkeep-engine ndd",
+  "driver": "bench/wl_cloud/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "6c8165317109"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 2.273,
+  "memory_stop": null,
+  "deadline_stop": null,
+  "peak_rss_mb": 2037,
+  "peak_rss_by_process_mb": {
+    "python3": 34,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 1857,
+    "sleep": 1,
+    "pandoc": 109,
+    "pdflatex": 36
+  },
+  "least_available_mb": 60480,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0,
+    "pandoc": 0,
+    "pdflatex": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_cloud_ndd_stable.status.jsonl",
+  "check_compliance_s": [
+    0.12338924407958984
+  ],
+  "report_task_s": [
+    0.0009484291076660156
+  ],
+  "switch_command_s": 0.029683828353881836,
+  "switch_commands": 86,
+  "vlan_rewrite_rules": 0,
+  "vlan_admission_rules": 0,
+  "vlan_stage_tables": 0,
+  "refused": [],
+  "loop_reports": null,
+  "blackhole_reports": null,
+  "gc": {
+    "pauses": 9,
+    "full_pauses": 4,
+    "pause_s": 0.028,
+    "max_heap_after_gc_mb": 1735,
+    "max_heap_committed_mb": 2896
+  },
+  "report": true,
+  "violations": 57,
+  "violation_lines": [
+    "- `source.internet` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc0_leaf1_host1` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc1_leaf0_host20` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc1_leaf5_host5` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc1_leaf6_host0` does not reach `probe.dc0_leaf1_host1` with ",
+    "- `source.dc1_leaf6_host0` reaches `probe.dc0_leaf1_host1` with ",
+    "- `source.dc1_leaf6_host2` reaches `probe.dc0_leaf1_host1` with ",
+    "- `source.dc2_leaf7_host6` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc4_leaf3_host22` reaches `probe.dc0_leaf1_host1`",
+    "- `source.dc0_leaf1_host1` reaches `probe.dc1_leaf0_host20`"
+  ],
+  "checks": 71,
+  "verdict_valid": true,
+  "apkeep_jar": "440f2b207fe571d089adf3379b8bf1781717b3f36061686ac7070ba9cd8e0bc9",
+  "ndd_jar": "2dd56b5bcdb20453500cf5a726883046d10f092e6ad69a3f6553cf0bf2eda106",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+    "engine": "ndd",
+    "faithful_vlan": true,
+    "stable_indices": true
+  },
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+  "expected_violations": null,
+  "outcome": "measured"
+}

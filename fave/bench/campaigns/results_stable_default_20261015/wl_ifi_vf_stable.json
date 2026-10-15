@@ -1,0 +1,109 @@
+{
+  "workload": "wl_ifi",
+  "backend": "veriflow",
+  "engine": "veriflow",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-15T11:44:48.781808+00:00",
+  "git_head": "79b152c174017c1be079403dd79d7d67d8aacf40",
+  "engine_commit": "975996eef8a440efe2cbcf8b3f22219a4f7dd9d7 2026-10-15",
+  "vf_fields": "4+10",
+  "vf_budget": 0,
+  "engine_options": "--vf-fields 4+10 --vf-budget 0",
+  "driver": "bench/wl_ifi/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "6c8165317109"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 2.016,
+  "memory_stop": null,
+  "deadline_stop": null,
+  "peak_rss_mb": 66,
+  "peak_rss_by_process_mb": {
+    "python3": 30,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 33,
+    "sleep": 2
+  },
+  "least_available_mb": 62358,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_ifi_vf_stable.status.jsonl",
+  "check_compliance_s": [
+    0.02175283432006836
+  ],
+  "report_task_s": [
+    0.0008232593536376953
+  ],
+  "switch_command_s": 0.0018508434295654297,
+  "switch_commands": 17,
+  "vlan_rewrite_rules": null,
+  "vlan_admission_rules": null,
+  "vlan_stage_tables": null,
+  "refused": [],
+  "loop_reports": null,
+  "blackhole_reports": null,
+  "gc": null,
+  "report": true,
+  "violations": 27,
+  "violation_lines": [
+    "- `source.Internet` reaches `probe.admin.ifi` with ",
+    "- `source.external.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.internal.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.lab.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.office.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.pool.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.slb.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.staff_1.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.staff_2.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.Internet` reaches `probe.lab.ifi` with "
+  ],
+  "checks": 299,
+  "verdict_valid": true,
+  "apkeep_jar": "440f2b207fe571d089adf3379b8bf1781717b3f36061686ac7070ba9cd8e0bc9",
+  "ndd_jar": "2dd56b5bcdb20453500cf5a726883046d10f092e6ad69a3f6553cf0bf2eda106",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "reimpl-literature",
+    "vf_fields": "4+10",
+    "footprint": [
+      "witness",
+      "dead-ends"
+    ],
+    "witness_point": true,
+    "vf_revisit": "state",
+    "vf_slicing": "device",
+    "vf_budget": 0,
+    "vf_invert_lpm": false,
+    "stable_indices": true
+  },
+  "impl": "reimpl-literature",
+  "upstream": null,
+  "expected_violations": null,
+  "outcome": "measured"
+}

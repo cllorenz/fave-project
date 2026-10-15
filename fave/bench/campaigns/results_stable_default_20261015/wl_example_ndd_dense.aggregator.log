@@ -1,0 +1,31 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)', 'engine': 'ndd', 'faithful_vlan': True, 'stable_indices': False}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.0005903244018554688 seconds.
+worker: completed task switch in 5.793571472167969e-05 seconds.
+worker: completed task switch in 2.47955322265625e-05 seconds.
+worker: completed task links in 3.910064697265625e-05 seconds.
+worker: completed task switch_command in 0.0003266334533691406 seconds.
+worker: completed task switch_command in 8.082389831542969e-05 seconds.
+worker: completed task switch_command in 0.00014829635620117188 seconds.
+worker: completed task probe in 8.177757263183594e-05 seconds.
+worker: completed task probe in 4.482269287109375e-05 seconds.
+worker: completed task probe in 4.00543212890625e-05 seconds.
+worker: completed task links in 2.47955322265625e-05 seconds.
+worker: completed task generators in 0.00011301040649414062 seconds.
+worker: completed task links in 2.8371810913085938e-05 seconds.
+apkeep: VLAN guardrail denominator: 0 rewrite rule(s), 0 admission rule(s), across 0 HSA stage table(s); faithful_vlan=True (modelled)
+apkeep: dmz discriminates among its ingress ports; demultiplexed into 2 element(s): dmz@1, dmz@2
+apkeep: office discriminates among its ingress ports; demultiplexed into 2 element(s): office@1, office@2
+apkeep: ingress demultiplexing split 2 device(s) into 4 element(s) -- a representational cost of the AP model, not a change to the FaVe model
+worker: completed task check_compliance in 0.030504226684570312 seconds.
+worker: completed task report in 0.0007748603820800781 seconds.
+worker: initiate stopping
+worker: completed task stop in 7.295608520507812e-05 seconds.
+worker: stop handler after 0.8377032279968262 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

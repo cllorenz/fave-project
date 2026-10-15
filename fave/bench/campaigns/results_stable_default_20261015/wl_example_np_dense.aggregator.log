@@ -1,0 +1,28 @@
+backend: netplumber {'impl': 'authors+fave', 'upstream': 'hassel-public master 697b35c9', 'np_invert_lpm': False, 'stable_indices': False}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.0027472972869873047 seconds.
+worker: completed task switch in 9.512901306152344e-05 seconds.
+worker: completed task switch in 5.459785461425781e-05 seconds.
+worker: completed task links in 0.0003540515899658203 seconds.
+worker: completed task switch_command in 0.00044608116149902344 seconds.
+worker: completed task switch_command in 0.00014448165893554688 seconds.
+worker: completed task switch_command in 0.00011920928955078125 seconds.
+worker: completed task probe in 0.00015735626220703125 seconds.
+worker: completed task probe in 0.00011539459228515625 seconds.
+worker: completed task probe in 9.131431579589844e-05 seconds.
+worker: completed task links in 0.0001201629638671875 seconds.
+worker: completed task generators in 0.0002524852752685547 seconds.
+worker: completed task links in 0.00019979476928710938 seconds.
+worker: completed task check_compliance in 0.00045228004455566406 seconds.
+worker: completed task check_anomalies in 0.0002541542053222656 seconds.
+worker: completed task report in 0.0007603168487548828 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.0004220008850097656 seconds.
+worker: stop handler after 1.7670044898986816 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

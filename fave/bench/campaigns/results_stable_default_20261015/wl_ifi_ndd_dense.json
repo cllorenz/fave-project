@@ -1,0 +1,107 @@
+{
+  "workload": "wl_ifi",
+  "backend": "apkeep",
+  "engine": "ndd",
+  "mutated": false,
+  "mutated_cell": null,
+  "jvm_xmx": null,
+  "reuse_inputs": false,
+  "memory_floor_mb": 2000,
+  "when": "2026-10-15T11:43:48.698951+00:00",
+  "git_head": "79b152c174017c1be079403dd79d7d67d8aacf40",
+  "engine_commit": "4f2366fe80499e9e8c53ee1d650cfbf51e1a72d6 2026-10-14",
+  "apkeep_engine": "ndd",
+  "engine_options": "--apkeep-engine ndd --no-stable-indices",
+  "driver": "bench/wl_ifi/benchmark.py",
+  "limit_class": "v5",
+  "limit_wall_s": 86400.0,
+  "limit_rss_mb": 32768,
+  "limit_tripped": "none",
+  "machine": {
+    "ram_mb": 64294,
+    "swap_mb": 0,
+    "cores": 16,
+    "kernel": "7.0.0-31-generic",
+    "node": "6c8165317109"
+  },
+  "status": "completed",
+  "exit": 0,
+  "wall_s": 2.073,
+  "memory_stop": null,
+  "deadline_stop": null,
+  "peak_rss_mb": 1822,
+  "peak_rss_by_process_mb": {
+    "python3": 30,
+    "benchmark": 1,
+    "bash": 3,
+    "aggregator": 1788,
+    "sleep": 1
+  },
+  "least_available_mb": 60438,
+  "swap_used_at_start_mb": 0,
+  "peak_swap_used_mb": 0,
+  "peak_swap_by_process_mb": {
+    "python3": 0,
+    "benchmark": 0,
+    "bash": 0,
+    "aggregator": 0,
+    "sleep": 0
+  },
+  "swap_pages": {
+    "pswpin": 0,
+    "pswpout": 0
+  },
+  "orphans_killed": [],
+  "status_trail": "wl_ifi_ndd_dense.status.jsonl",
+  "check_compliance_s": [
+    0.02533411979675293
+  ],
+  "report_task_s": [
+    0.0008289813995361328
+  ],
+  "switch_command_s": 0.002095460891723633,
+  "switch_commands": 17,
+  "vlan_rewrite_rules": 0,
+  "vlan_admission_rules": 0,
+  "vlan_stage_tables": 0,
+  "refused": [],
+  "loop_reports": null,
+  "blackhole_reports": null,
+  "gc": {
+    "pauses": 6,
+    "full_pauses": 2,
+    "pause_s": 0.016,
+    "max_heap_after_gc_mb": 1022,
+    "max_heap_committed_mb": 1112
+  },
+  "report": true,
+  "violations": 27,
+  "violation_lines": [
+    "- `source.Internet` reaches `probe.admin.ifi` with ",
+    "- `source.external.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.internal.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.lab.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.office.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.pool.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.slb.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.staff_1.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.staff_2.ifi` reaches `probe.admin.ifi` with ",
+    "- `source.Internet` reaches `probe.lab.ifi` with "
+  ],
+  "checks": 299,
+  "verdict_valid": true,
+  "apkeep_jar": "440f2b207fe571d089adf3379b8bf1781717b3f36061686ac7070ba9cd8e0bc9",
+  "ndd_jar": "2dd56b5bcdb20453500cf5a726883046d10f092e6ad69a3f6553cf0bf2eda106",
+  "impl_source": "backend configuration stamp",
+  "backend_stamp": {
+    "impl": "authors+fave",
+    "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+    "engine": "ndd",
+    "faithful_vlan": true,
+    "stable_indices": false
+  },
+  "impl": "authors+fave",
+  "upstream": "XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)",
+  "expected_violations": null,
+  "outcome": "measured"
+}

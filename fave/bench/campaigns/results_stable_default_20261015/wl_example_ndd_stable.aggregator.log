@@ -1,0 +1,31 @@
+backend: apkeep {'impl': 'authors+fave', 'upstream': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)', 'engine': 'ndd', 'faithful_vlan': True, 'stable_indices': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task packet_filter in 0.0008056163787841797 seconds.
+worker: completed task switch in 6.222724914550781e-05 seconds.
+worker: completed task switch in 2.956390380859375e-05 seconds.
+worker: completed task links in 4.00543212890625e-05 seconds.
+worker: completed task switch_command in 0.000362396240234375 seconds.
+worker: completed task switch_command in 8.940696716308594e-05 seconds.
+worker: completed task switch_command in 7.033348083496094e-05 seconds.
+worker: completed task probe in 7.557868957519531e-05 seconds.
+worker: completed task probe in 4.410743713378906e-05 seconds.
+worker: completed task probe in 3.62396240234375e-05 seconds.
+worker: completed task links in 2.4557113647460938e-05 seconds.
+worker: completed task generators in 0.00011229515075683594 seconds.
+worker: completed task links in 2.4318695068359375e-05 seconds.
+apkeep: VLAN guardrail denominator: 0 rewrite rule(s), 0 admission rule(s), across 0 HSA stage table(s); faithful_vlan=True (modelled)
+apkeep: dmz discriminates among its ingress ports; demultiplexed into 2 element(s): dmz@1, dmz@2
+apkeep: office discriminates among its ingress ports; demultiplexed into 2 element(s): office@1, office@2
+apkeep: ingress demultiplexing split 2 device(s) into 4 element(s) -- a representational cost of the AP model, not a change to the FaVe model
+worker: completed task check_compliance in 0.03290390968322754 seconds.
+worker: completed task report in 0.0007958412170410156 seconds.
+worker: initiate stopping
+worker: completed task stop in 8.344650268554688e-05 seconds.
+worker: stop handler after 0.8483192920684814 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

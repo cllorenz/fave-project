@@ -449,8 +449,11 @@ and listed for confirmation; the owner's answers follow the list.
   of the fast running cells, I would turn stable indices on as default."*
   `AggregatorService` and `InProcessFaVe` default to `stable_indices=True`;
   `--no-stable-indices` reproduces V5's generator indices, and the `backend:`
-  stamp carries `stable_indices`, so a cell says which it ran. Re-measured:
-  `bench/campaigns/results_stable_default_20261015/`.
+  stamp carries `stable_indices`, so a cell says which it ran. Re-measured
+  (`bench/campaigns/results_stable_default_20261015/`): 21 fast V5 cells, each
+  with and without; every pair has the same outcome, violation count and lines,
+  none was refused, and wall time and peak RSS agree (two single-run memory
+  differences were the sampler's: equal medians over 5 repetitions per arm).
 - **Making the refusal clear in a from-zero build** needed one more piece: a
   build's messages carry no barrier, so a failed device was only logged.
   `InProcessFaVe.replay` now raises on one, and `cell_run.py` makes a verdict

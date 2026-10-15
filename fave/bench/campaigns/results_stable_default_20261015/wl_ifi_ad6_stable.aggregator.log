@@ -1,0 +1,81 @@
+backend: ad6 {'impl': 'first-party', 'translation': 'literal', 'grounding': 'rank', 'solver': 'cadical195', 'lite_acyclic': False, 'stable_indices': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task router in 0.0032944679260253906 seconds.
+worker: completed task switch in 7.200241088867188e-05 seconds.
+worker: completed task switch in 2.4080276489257812e-05 seconds.
+worker: completed task switch in 1.7881393432617188e-05 seconds.
+worker: completed task switch in 1.71661376953125e-05 seconds.
+worker: completed task switch in 1.5735626220703125e-05 seconds.
+worker: completed task switch in 1.52587890625e-05 seconds.
+worker: completed task switch in 1.5020370483398438e-05 seconds.
+worker: completed task switch in 1.430511474609375e-05 seconds.
+worker: completed task switch in 1.8596649169921875e-05 seconds.
+worker: completed task switch in 1.4781951904296875e-05 seconds.
+worker: completed task switch in 1.4781951904296875e-05 seconds.
+worker: completed task switch in 1.3589859008789062e-05 seconds.
+worker: completed task switch in 1.7404556274414062e-05 seconds.
+worker: completed task switch in 1.3828277587890625e-05 seconds.
+worker: completed task switch in 1.2636184692382812e-05 seconds.
+worker: completed task switch in 1.2636184692382812e-05 seconds.
+worker: completed task links in 5.698204040527344e-05 seconds.
+worker: completed task switch_command in 0.0013051033020019531 seconds.
+worker: completed task switch_command in 6.318092346191406e-05 seconds.
+worker: completed task switch_command in 4.57763671875e-05 seconds.
+worker: completed task switch_command in 3.5762786865234375e-05 seconds.
+worker: completed task switch_command in 3.2901763916015625e-05 seconds.
+worker: completed task switch_command in 3.24249267578125e-05 seconds.
+worker: completed task switch_command in 3.123283386230469e-05 seconds.
+worker: completed task switch_command in 3.170967102050781e-05 seconds.
+worker: completed task switch_command in 3.170967102050781e-05 seconds.
+worker: completed task switch_command in 3.0994415283203125e-05 seconds.
+worker: completed task switch_command in 3.266334533691406e-05 seconds.
+worker: completed task switch_command in 3.24249267578125e-05 seconds.
+worker: completed task switch_command in 3.147125244140625e-05 seconds.
+worker: completed task switch_command in 3.075599670410156e-05 seconds.
+worker: completed task switch_command in 2.9802322387695312e-05 seconds.
+worker: completed task switch_command in 2.9802322387695312e-05 seconds.
+worker: completed task switch_command in 2.9325485229492188e-05 seconds.
+worker: completed task probe in 7.843971252441406e-05 seconds.
+worker: completed task probe in 4.7206878662109375e-05 seconds.
+worker: completed task probe in 3.9577484130859375e-05 seconds.
+worker: completed task probe in 3.7670135498046875e-05 seconds.
+worker: completed task probe in 3.552436828613281e-05 seconds.
+worker: completed task probe in 3.3855438232421875e-05 seconds.
+worker: completed task probe in 3.457069396972656e-05 seconds.
+worker: completed task probe in 3.314018249511719e-05 seconds.
+worker: completed task probe in 3.409385681152344e-05 seconds.
+worker: completed task probe in 3.2901763916015625e-05 seconds.
+worker: completed task probe in 1.1682510375976562e-05 seconds.
+worker: completed task probe in 1.1682510375976562e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.0728836059570312e-05 seconds.
+worker: completed task probe in 1.1205673217773438e-05 seconds.
+worker: completed task probe in 1.0967254638671875e-05 seconds.
+worker: completed task links in 3.504753112792969e-05 seconds.
+worker: completed task generators in 0.0001900196075439453 seconds.
+worker: completed task links in 3.3855438232421875e-05 seconds.
+worker: completed task check_compliance in 2.113435983657837 seconds.
+worker: completed task report in 0.0009326934814453125 seconds.
+worker: task failed:
+Traceback (most recent call last):
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 505, in _handler
+    task_type = self._dispatch(j)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 410, in _dispatch
+    self._dump_aggregator(odir)
+  File "/home/ubuntu/fave-project/fave/aggregator/aggregator_service.py", line 1207, in _dump_aggregator
+    j["mapping"] = self.verification_engine.mapping.to_json()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Ad6Adapter' object has no attribute 'mapping'
+worker: completed task unknown in 0.00416874885559082 seconds.
+worker: initiate stopping
+worker: completed task stop in 2.6941299438476562e-05 seconds.
+worker: stop handler after 3.7749619483947754 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter

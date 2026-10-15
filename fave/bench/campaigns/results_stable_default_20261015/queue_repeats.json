@@ -1,0 +1,233 @@
+[
+ {
+  "name": "wl_example_np_stable_rerun",
+  "workload": "wl_example",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "expect-violations": 0
+ },
+ {
+  "name": "wl_ifi_np_stable_rep1",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_ifi_np_dense_rep1",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_ifi_np_stable_rep2",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_ifi_np_dense_rep2",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_ifi_np_stable_rep3",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_ifi_np_dense_rep3",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_ifi_np_stable_rep4",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_ifi_np_dense_rep4",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_ifi_np_stable_rep5",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_ifi_np_dense_rep5",
+  "workload": "wl_ifi",
+  "backend": "netplumber",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_cloud_vf_stable_rep1",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_cloud_vf_dense_rep1",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_cloud_vf_stable_rep2",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_cloud_vf_dense_rep2",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_cloud_vf_stable_rep3",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_cloud_vf_dense_rep3",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_cloud_vf_stable_rep4",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_cloud_vf_dense_rep4",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ },
+ {
+  "name": "wl_cloud_vf_stable_rep5",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60
+ },
+ {
+  "name": "wl_cloud_vf_dense_rep5",
+  "workload": "wl_cloud",
+  "backend": "veriflow",
+  "vf-fields": "4+10",
+  "limit-class": "v5",
+  "limit-wall": 86400,
+  "limit-rss": 32768,
+  "memory-floor": 2000,
+  "status-every": 60,
+  "engine-options": "--no-stable-indices"
+ }
+]

@@ -1,0 +1,11 @@
+[0.006s][info][gc] Using G1
+[0.092s][info][gc] GC(0) Pause Full (System.gc()) 10M->3M(80M) 7.032ms
+[0.102s][info][gc] GC(1) Pause Full (System.gc()) 4M->3M(32M) 5.020ms
+[0.126s][info][gc] GC(2) Pause Young (Concurrent Start) (G1 Humongous Allocation) 8M->6M(32M) 1.361ms
+[0.126s][info][gc] GC(3) Concurrent Undo Cycle
+[0.127s][info][gc] GC(3) Concurrent Undo Cycle 0.085ms
+[0.164s][info][gc] GC(4) Pause Young (Concurrent Start) (G1 Humongous Allocation) 102M->102M(128M) 1.441ms
+[0.164s][info][gc] GC(5) Concurrent Mark Cycle
+[0.390s][info][gc] GC(5) Pause Remark 654M->654M(1112M) 1.033ms
+[0.538s][info][gc] GC(5) Pause Cleanup 1022M->1022M(1112M) 0.044ms
+[0.541s][info][gc] GC(5) Concurrent Mark Cycle 377.022ms

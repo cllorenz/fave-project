@@ -3779,6 +3779,22 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
+### 58. Two cell-harness gaps found in the stable-index re-measurement — OPEN (found 2026-10-15)
+
+- [ ] **A stale dump lock blocks every cell forever.** `misc/await_fave.py`
+  waits on `np_dump/.lock` (`SoftFileLock`, `timeout=-1`). One written
+  2026-10-09 by a process of an earlier container was never released, and the
+  first cell waited 11 minutes until the lock was removed by hand
+  (`bench/campaigns/results_stable_default_20261015/FINDINGS.md`). Options:
+  `./test.sh doctor` reports a lock whose PID or host is not alive; or the
+  wait gets a timeout and names the lock.
+- [ ] **`wl_tum` cells cannot have a valid verdict.** Since the derived policy
+  (2026-10-14) the workload has a `checks.json` (8,497 checks), but
+  `bench/wl_tum/benchmark.py` runs no compliance check, so `cell_run.py` marks
+  every `wl_tum` cell `error` (all five engines, both arms of the
+  re-measurement). Needed before the campaign: the benchmark runs the checks
+  of the model it builds.
+
 ### 57. A from-zero build dropped a failed device without a word — in-process replay and refusals FIXED 2026-10-15; three paths OPEN
 
 - **Finding:** a build's device messages carry no barrier, so when the aggregator
@@ -3822,6 +3838,9 @@ cannot express (generators, first-match switch tables), never to drop it.
   (`FAVE_JOBS=6 FAVE_JVM_XMX=8g`, PASSED) took 1 h 10 min for the same group
   (562 tests). The run recorded no per-test times, so which test was slow is not
   known. That makes 2 of 3 recorded tier runs at about 70 min, one at 14 min.
+- **Not again (2026-10-15, twice):** two tier runs on the stable-index change
+  (`FAVE_JOBS` default, `FAVE_JVM_XMX=8g`, `--durations=30`) took 16 min 35 s
+  for the group both times. Now 2 of 5 recorded runs at about 70 min.
 - **Ruled out:**
   - the S2 draw (fixed seed, insensitive to hash order);
   - shared barrier or state directories (private per in-process instance);

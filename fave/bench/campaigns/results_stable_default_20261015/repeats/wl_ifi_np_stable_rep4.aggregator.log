@@ -1,0 +1,72 @@
+backend: netplumber {'impl': 'authors+fave', 'upstream': 'hassel-public master 697b35c9', 'np_invert_lpm': False, 'stable_indices': True}
+master: open and bind unix socket
+master: start handler thread
+master: listen on socket
+worker: completed task router in 0.009132623672485352 seconds.
+worker: completed task switch in 0.00024080276489257812 seconds.
+worker: completed task switch in 0.00017261505126953125 seconds.
+worker: completed task switch in 6.937980651855469e-05 seconds.
+worker: completed task switch in 5.626678466796875e-05 seconds.
+worker: completed task switch in 5.8650970458984375e-05 seconds.
+worker: completed task switch in 4.9591064453125e-05 seconds.
+worker: completed task switch in 4.839897155761719e-05 seconds.
+worker: completed task switch in 4.8160552978515625e-05 seconds.
+worker: completed task switch in 4.935264587402344e-05 seconds.
+worker: completed task switch in 4.839897155761719e-05 seconds.
+worker: completed task switch in 4.792213439941406e-05 seconds.
+worker: completed task switch in 5.054473876953125e-05 seconds.
+worker: completed task switch in 4.9591064453125e-05 seconds.
+worker: completed task switch in 4.696846008300781e-05 seconds.
+worker: completed task switch in 5.3882598876953125e-05 seconds.
+worker: completed task switch in 4.7206878662109375e-05 seconds.
+worker: completed task links in 0.0012905597686767578 seconds.
+worker: lpm ordering: ifi.routing, 10 rules, longest-first
+worker: completed task switch_command in 0.0018296241760253906 seconds.
+worker: completed task switch_command in 0.000164031982421875 seconds.
+worker: completed task switch_command in 0.00013065338134765625 seconds.
+worker: completed task switch_command in 0.00010538101196289062 seconds.
+worker: completed task switch_command in 0.00010037422180175781 seconds.
+worker: completed task switch_command in 9.608268737792969e-05 seconds.
+worker: completed task switch_command in 0.00010538101196289062 seconds.
+worker: completed task switch_command in 0.00010037422180175781 seconds.
+worker: completed task switch_command in 0.00010085105895996094 seconds.
+worker: completed task switch_command in 9.5367431640625e-05 seconds.
+worker: completed task switch_command in 9.489059448242188e-05 seconds.
+worker: completed task switch_command in 9.489059448242188e-05 seconds.
+worker: completed task switch_command in 9.751319885253906e-05 seconds.
+worker: completed task switch_command in 0.00010824203491210938 seconds.
+worker: completed task switch_command in 9.179115295410156e-05 seconds.
+worker: completed task switch_command in 9.441375732421875e-05 seconds.
+worker: completed task switch_command in 0.00010013580322265625 seconds.
+worker: completed task probe in 0.00015854835510253906 seconds.
+worker: completed task probe in 0.00011157989501953125 seconds.
+worker: completed task probe in 8.988380432128906e-05 seconds.
+worker: completed task probe in 9.1552734375e-05 seconds.
+worker: completed task probe in 8.749961853027344e-05 seconds.
+worker: completed task probe in 8.034706115722656e-05 seconds.
+worker: completed task probe in 8.034706115722656e-05 seconds.
+worker: completed task probe in 8.702278137207031e-05 seconds.
+worker: completed task probe in 0.00021719932556152344 seconds.
+worker: completed task probe in 9.179115295410156e-05 seconds.
+worker: completed task probe in 5.340576171875e-05 seconds.
+worker: completed task probe in 5.078315734863281e-05 seconds.
+worker: completed task probe in 5.269050598144531e-05 seconds.
+worker: completed task probe in 4.9114227294921875e-05 seconds.
+worker: completed task probe in 4.982948303222656e-05 seconds.
+worker: completed task probe in 4.863739013671875e-05 seconds.
+worker: completed task probe in 4.839897155761719e-05 seconds.
+worker: completed task links in 0.0006434917449951172 seconds.
+worker: completed task generators in 0.0006952285766601562 seconds.
+worker: completed task links in 0.0009684562683105469 seconds.
+worker: completed task check_compliance in 0.0013477802276611328 seconds.
+worker: completed task check_anomalies in 0.00023674964904785156 seconds.
+worker: completed task report in 0.0010077953338623047 seconds.
+worker: completed task dump fave,flows,network,pipes,trees,simple in 0.009122610092163086 seconds.
+worker: initiate stopping
+worker: completed task stop in 0.00064849853515625 seconds.
+worker: stop handler after 1.71864652633667 seconds.
+master: close receiving socket
+master: join queue
+master: join handler thread
+master: finished run
+master: stop reporter
