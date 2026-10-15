@@ -717,15 +717,10 @@ class AggregatorService(AbstractAggregator):
                                 hex(dportno),
                                 (" as bulk" if bulk else "")
                             )
-                        nlink = (smodel.egress_port(sport), dmodel.ingress_port(dport))
+                        nlink = self._record_link(sport, dport)
                         if bulk:
                             links.append(nlink)
-                        self.links.setdefault(sport, [])
-                        self.links[sport].append(dport)
-                        self.verification_engine.links.setdefault(sportno, [])
-                        self.verification_engine.links[sportno].append(dportno)
-
-                        if not bulk:
+                        else:
                             self.verification_engine.add_link(*nlink)
 
                     elif cmd.command == "del":
@@ -870,6 +865,85 @@ class AggregatorService(AbstractAggregator):
                 self._indexer.seed(model.node, table, rules)
 
 
+    def _record_link(self, sport: str, dport: str) -> Tuple[str, str]:
+        """ Record the link sport -> dport, in the aggregator's and the
+        engine's adjacency, and return it as the engine names it: the
+        (egress, ingress) pair `add_link` takes. """
+        nlink = (self.port_to_model[sport].egress_port(sport),
+                 self.port_to_model[dport].ingress_port(dport))
+        self.links.setdefault(sport, []).append(dport)
+        engine = self.verification_engine
+        engine.links.setdefault(engine.global_port(nlink[0]), []).append(
+            engine.global_port(nlink[1]))
+        return nlink
+
+
+    def _links_of(self, model: Any) -> List[Tuple[str, str]]:
+        """ The external links of the stored `model`, in either direction. """
+        return [(sport, dport)
+                for sport, dports in self.links.items() for dport in dports
+                if self.port_to_model.get(sport) is model
+                or self.port_to_model.get(dport) is model]
+
+
+    def _replace_device(self, old: Any, model: Any,
+                        ordered: Dict[str, List[Any]], why: str) -> None:
+        """ INCREMENTAL_PLAN.md §8.2, D-R6: a re-sent device whose structure
+        changed (`why`) replaces the stored one, as ONE update: §8.2's
+        removal, then the new model added like a new device and its links
+        added again. Refused before anything is touched when a link uses a
+        port the new model drops (the client deletes the link first), when
+        the engine only empties a removed device, or when the new model's
+        declared-LPM tables are invalid. A table the control plane filled
+        and the re-send left empty keeps its rules, as in a diff. """
+        node = model.node
+        links = self._links_of(old)
+        dead = [(s, d) for s, d in links
+                if (self.port_to_model[s] is old and s not in model.ports)
+                or (self.port_to_model[d] is old and d not in model.ports)]
+        if dead:
+            raise UpdateRefused(
+                "%s: the re-sent model drops ports its links use: %s. Delete "
+                "the links first." % (node, ', '.join('%s -> %s' % l for l in dead)))
+        engine = self.verification_engine
+        if not engine.REMOVES_DEVICES:
+            raise UpdateRefused(
+                "%s: %s: the re-sent model %s, and this engine cannot replace "
+                "a device" % (type(engine).__name__, node, why))
+        semantics_of = getattr(model, 'semantics_of', None)
+        if semantics_of is not None:
+            for table, rules in ordered.items():
+                if semantics_of(table) == LPM and rules:
+                    validate_lpm_rules(node, table, rules, {})
+
+        carried = {t for t, rules in model.tables.items()
+                   if not rules and ordered[t] and (node, t) in self._commanded}
+        t0 = time.perf_counter()
+        self._remove_device(node, old.type)
+
+        indexer = self._indexer
+        assert indexer is not None
+        model.tables = {}
+        for table, rules in ordered.items():
+            if table in carried:
+                # as the control plane left it: its indices are the sender's
+                model.tables[table] = rules
+                indexer.seed(node, table, rules)
+                self._commanded.add((node, table))
+            else:
+                model.tables[table] = indexer.emit(node, table, rules)
+        self._validate_declared_tables(model)
+        self._add_model(model)
+        self.models[node] = model
+        nlinks = [self._record_link(s, d) for s, d in links]
+        for nlink in nlinks:
+            engine.add_link(*nlink)
+        self.update_stats = {
+            'node': node, 'new': False, 'replaced': why,
+            'links': len(links), 't_update_s': time.perf_counter() - t0,
+        }
+
+
     def _sync_stable(self, model: Any) -> None:
         """ INCREMENTAL_PLAN.md §8.1: a device model that arrived WHOLE, with
         stable indices. New: every table is spaced in its index budget and the
@@ -878,7 +952,8 @@ class AggregatorService(AbstractAggregator):
         index left or whose content changed are deleted, the new ones
         inserted, deletes first. What the engines cannot take rule by rule (a
         table appearing or vanishing, other ports or wiring, a whole-translated
-        table that changed) is refused before anything is touched. """
+        table that changed) replaces the device (`_replace_device`, D-R6) or
+        is refused before anything is touched. """
         indexer = self._indexer
         assert indexer is not None
         node = model.node
@@ -904,17 +979,21 @@ class AggregatorService(AbstractAggregator):
             self.update_stats = {'node': node, 'new': True}
             return
 
+        why = None
         if set(ordered) != set(old.tables):
-            raise UpdateRefused("%s: the re-sent model has other tables (%s)" % (
-                node, sorted(set(ordered) ^ set(old.tables))))
-        if model.ports != old.ports or model.wiring != old.wiring:
-            raise UpdateRefused("%s: the re-sent model has other ports or wiring" % node)
-        for table in ordered:
-            if table.endswith(_WHOLE_TABLES) and \
-                    [stable_key(r) for r in ordered[table]] != \
-                    [k for _i, k in indexer.last(node, table) or []]:
-                raise UpdateRefused("%s: %s is translated as a whole and changed"
-                                    % (node, table))
+            why = "has other tables (%s)" % sorted(set(ordered) ^ set(old.tables))
+        elif model.ports != old.ports or model.wiring != old.wiring:
+            why = "has other ports or wiring"
+        else:
+            for table in ordered:
+                if table.endswith(_WHOLE_TABLES) and \
+                        [stable_key(r) for r in ordered[table]] != \
+                        [k for _i, k in indexer.last(node, table) or []]:
+                    why = "changed %s, which is translated as a whole" % table
+                    break
+        if why is not None:
+            self._replace_device(old, model, ordered, why)
+            return
 
         t0 = time.perf_counter()
         windows, moved = indexer.stats['windows'], indexer.stats['moved']
@@ -998,10 +1077,7 @@ class AggregatorService(AbstractAggregator):
         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             AggregatorService.LOGGER.debug("worker: delete %s: %s", mtype, node)
 
-        links = [(sport, dport)
-                 for sport, dports in self.links.items() for dport in dports
-                 if self.port_to_model.get(sport) is model
-                 or self.port_to_model.get(dport) is model]
+        links = self._links_of(model)
         self.verification_engine.remove_device(model, [
             (self.port_to_model[s].egress_port(s),
              self.port_to_model[d].ingress_port(d)) for s, d in links])

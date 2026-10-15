@@ -183,7 +183,10 @@ class TestSyncStable(_AggregatorTestBase):
         self.assertEqual(names, ['delete_rule', 'insert_rule'])
 
     def test_what_the_engine_cannot_take_is_refused_untouched(self):
+        """ A structural change on an engine that only empties a removed
+        device (VeriFlow-FR, APKeep). """
         from aggregator.abstract_engine import UpdateRefused
+        self.engine.REMOVES_DEVICES = False
         aggr = self._stable()
         aggr._sync_diff(_fw([10, 20]))
         self.engine.reset_mock()
@@ -191,8 +194,74 @@ class TestSyncStable(_AggregatorTestBase):
             aggr._sync_diff(_fw([10, 15, 20], ports=('1', '2', '3')))
         self.engine.insert_rule.assert_not_called()
         self.engine.delete_rule.assert_not_called()
+        self.engine.remove_device.assert_not_called()
         # the stored model and its indices are unchanged by a refusal
         self.assertEqual(self._ff(aggr), [(166, '10'), (332, '20')])
+
+    def _linked(self, aggr):
+        """ fw built and linked to a switch on fw.1 and fw.2. """
+        from devices.switch import SwitchModel
+        aggr._sync_diff(_fw([10, 20]))
+        aggr._sync_diff(SwitchModel('sw', ports=['1', '2']))
+        for link in (('sw.1', 'fw.1'), ('fw.2', 'sw.2')):
+            aggr.links.setdefault(link[0], []).append(link[1])
+        self.engine.reset_mock()
+
+    def test_a_structural_change_replaces_the_device(self):
+        """ INCREMENTAL_PLAN.md §8.2, D-R6: removed with its links, added as
+        new, its links added again -- one update. """
+        self.engine.REMOVES_DEVICES = True
+        aggr = self._stable()
+        self._linked(aggr)
+        old = aggr.models['fw']
+        aggr._sync_diff(_fw([10, 15, 20], ports=('1', '2', '3')))
+        self.engine.remove_device.assert_called_once()
+        self.assertIs(self.engine.remove_device.call_args[0][0], old)
+        self.assertEqual(sorted(self.engine.remove_device.call_args[0][1]),
+                         [('fw.2_egress', 'sw.2'), ('sw.1', 'fw.1_ingress')])
+        names = [c[0] for c in self.engine.mock_calls
+                 if c[0] in ('remove_device', 'add_rules', 'add_link')]
+        self.assertEqual(names, ['remove_device', 'add_rules', 'add_link', 'add_link'])
+        self.engine.insert_rule.assert_not_called()
+        self.assertIsNot(aggr.models['fw'], old)
+        self.assertIn('fw.3', aggr.port_to_model)
+        self.assertEqual(aggr.links, {'sw.1': ['fw.1'], 'fw.2': ['sw.2']})
+        # spaced afresh, as a new device
+        self.assertEqual(self._ff(aggr), [(125, '10'), (250, '15'), (375, '20')])
+        self.assertEqual(aggr.update_stats['replaced'], 'has other ports or wiring')
+
+    def test_a_replacement_keeps_the_commanded_routing_table(self):
+        """ A pf's routing table comes from the control plane and arrives
+        EMPTY in a configuration re-send: the new device keeps its rules, at
+        the sender's indices, and the next re-send still diffs against them. """
+        from rule.rule_model import Rule, Match, RuleField
+        self.engine.REMOVES_DEVICES = True
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20]))
+        route = Rule('fw', 'fw.routing', 7,
+                     match=Match([RuleField('packet.ipv6.destination', '2001:db8::/32')]))
+        aggr._sync_diff(SwitchCommand('fw', 'add_rules', [route]))
+        held = [r.idx for r in aggr.models['fw'].tables['fw.routing']]
+        aggr._sync_diff(_fw([10, 20], ports=('1', '2', '3')))
+        self.engine.remove_device.assert_called_once()
+        self.assertEqual([r.idx for r in aggr.models['fw'].tables['fw.routing']], held)
+        self.assertIn(('fw', 'fw.routing'), aggr._commanded)
+        self.engine.reset_mock()
+        aggr._sync_diff(_fw([10, 20], ports=('1', '2', '3')))
+        self.engine.delete_rule.assert_not_called()
+        self.engine.remove_device.assert_not_called()
+
+    def test_a_dropped_port_with_a_link_is_refused_untouched(self):
+        from aggregator.abstract_engine import UpdateRefused
+        self.engine.REMOVES_DEVICES = True
+        aggr = self._stable()
+        self._linked(aggr)
+        old = aggr.models['fw']
+        with self.assertRaises(UpdateRefused) as ctx:
+            aggr._sync_diff(_fw([10, 20], ports=('1', '3')))
+        self.assertIn('fw.2 -> sw.2', str(ctx.exception))
+        self.engine.remove_device.assert_not_called()
+        self.assertIs(aggr.models['fw'], old)
 
     def test_a_switch_filled_by_commands_is_re_sent_as_its_difference(self):
         from rule.rule_model import Rule, Match, RuleField
