@@ -3855,6 +3855,14 @@ checks in the D11 runs (D13).
   on the argument that the footprints held the same states anyway -- which no
   longer holds. Keeping only the states on the current path (plus a bounded
   cache) gives the same answers and would lift this floor.
+  - **Option c DONE 2026-10-16 (owner):** a walk ends at a state on its path
+    or at a remembered explored one; it remembers at most `vf_state_cache`
+    (default 1,000,000; 0 = all). `wl_tum`'s worst walk with merged footprint
+    and witness: 1,244 s at **1.3 GB** (4.4 GB at 4 M) instead of 55.7 GB;
+    `wl_i2`: no extra work at 1 M or 100 k, +80 % local ECs at 10 k, the same
+    70 pairs at every size (`vf_cache.py`, `vf_i2.py`). `state_cache_unit.cc`.
+  - [ ] The whole `wl_tum` check set in the incremental regime (`vf_incr.py`,
+    tracking on): running.
 
 ### 58. Two cell-harness gaps found in the stable-index re-measurement — both FIXED 2026-10-15
 
