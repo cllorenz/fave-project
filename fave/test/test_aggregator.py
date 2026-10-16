@@ -77,6 +77,8 @@ class _AggregatorTestBase(unittest.TestCase):
         self.engine = mock.MagicMock(name='engine')
         # stable indices are on by default (§8.1): the engine declares a budget
         self.engine.max_rule_index.return_value = 2**20 - 1
+        # a live engine (NetPlumber): rules always arrive as add_rules
+        self.engine.takes_updates.return_value = False
         self.reporter = mock.MagicMock(name='reporter')
         self.aggr = AggregatorService(
             {}, {}, engine=self.engine, reporter=self.reporter

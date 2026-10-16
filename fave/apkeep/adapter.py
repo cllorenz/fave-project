@@ -3927,6 +3927,9 @@ class APKeepAdapter(AbstractVerificationEngine):
                 return k
         return None
 
+    def takes_updates(self) -> bool:
+        return self._built
+
     def insert_rule(self, rule: Any) -> None:
         op = "insert_rule(%s, %s, %s)" % (rule.node, rule.tid, rule.idx)
         self._require_updatable(op)

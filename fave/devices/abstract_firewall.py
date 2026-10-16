@@ -25,7 +25,7 @@
 
 from __future__ import annotations
 
-from typing import Collection, Iterable, List, Optional
+from typing import Collection, Iterable, List, Optional, Tuple
 
 from copy import copy, deepcopy
 
@@ -190,14 +190,20 @@ class AbstractFirewallModel(AbstractDeviceModel):
         super(AbstractFirewallModel, self).add_rules(routes)
 
 
-    def remove_rule(self, idx: int) -> None:
-        """ Remove the route at index `idx` -- both of its rules. """
+    def insertion_order(self, rules: List[Rule]) -> List[Rule]:
+        """ A route's drop before its keep: a drop alone is a discard route,
+        a keep alone a tag nothing binds (APKeep refuses it). Removal goes
+        the other way (`_removal_candidates`). """
+        routing = self.node + ".routing"
+        return sorted(rules, key=lambda r: (r.tid == routing, r.tid, r.idx // _ROUTING_SLOTS, -r.idx)
+                      if r.tid == routing else (False, '', 0, 0))
+
+
+    def _removal_candidates(self, idx: int) -> List[Tuple[str, int]]:
+        """ Route `idx` became rules 2i (keep) and 2i+1 (drop) of the routing
+        table; a route without an egress, the drop alone. """
         table = self.node + ".routing"
-        derived = {_ROUTING_SLOTS * idx, _ROUTING_SLOTS * idx + 1}
-        for rule_idx in sorted(derived):
-            super(AbstractFirewallModel, self).remove_rule(rule_idx)
-        self.tables[table] = [r for r in self.tables.get(table, [])
-                              if r.idx not in derived]
+        return [(table, _ROUTING_SLOTS * idx), (table, _ROUTING_SLOTS * idx + 1)]
 
 
     def update_rule(self, idx: int, rule: "Rule") -> None:

@@ -184,6 +184,51 @@ TNSM'21 measures only build-from-zero plus one verification.
   measured them so; only S4 went through the aggregator. Consequence: S1-S3 are
   redefined as FaVe-level changes before the campaign, and D11's S1-S3 numbers
   are engine-level, indicative only.
+  *Built 2026-10-16 (owner: "build the switch-command deletion with batches -
+  test first"):* FIB routes now leave and return through FaVe's control-plane
+  command, `switch_command`, the one every benchmark already fills its FIBs
+  with (`switch.py -a -r`, a batch per table).
+  - **Client:** `switch.py -d -r` and `-u -r` send a batch as one
+    `remove_rule` / `update_rule` (a delete needs node, table and index); a
+    batch names one node.
+  - **Devices:** a rule is named by its sender's index, not its list position
+    (switch and router deleted by position before). `removal_keys` says which
+    engine rules a sender's rule became -- a packet filter's route `i` is
+    keep 2i and drop 2i+1 of `.routing` -- in one pass per table;
+    `drop_rules` takes them out and records `(table, index)` in `_deletes`.
+  - **Aggregator:** `_remove_commanded` refuses the whole batch untouched for
+    an unknown device or index, or a table it numbered itself; else one
+    `delete_rule` per engine rule, and the stored model, the stable indexer
+    (`StableIndexer.drop`) and the LPM index (now reference-counted per
+    prefix) forget them. `update_rule` is that delete, then the add path.
+  - **Adds to a built lazy engine:** VeriFlow-FR and APKeep record
+    `add_rules` until their first check builds the model and refused every
+    later one; an engine now says so (`takes_updates()`, default False;
+    NetPlumber stays on `add_rules`), and the aggregator then sends a
+    command's rules as `insert_rule`, as S4's re-send already did.
+  - **Found on the way, both fixed:** (1) a packet-filter route inserted keep
+    first passes through a keep without its drop, which APKeep cannot express
+    (`UntranslatedSemantics`); inserts now go drop first
+    (`insertion_order`), deletes keep first, so every state between is a
+    route an engine can express. (2) An add at an index the table still holds
+    -- left by a partly refused delete -- was appended in the stored model
+    while the engine refused it, so the two diverged; such an add is now
+    refused untouched (a modify is `update_rule`). No workload's routes repeat
+    an index (checked over all, `wl_berkeley`'s 4.48 M included), so no build
+    changes.
+  - **An engine refusal mid-batch** (APKeep's structural one, §6.3) leaves the
+    rules deleted before it gone from engine and model alike, the rest in
+    both, and propagates; a route can so end half deleted, which is a
+    discard route.
+  - **Tested:** 21 new fast-tier tests (aggregator, devices, client);
+    `test_incremental_route_commands.py` (integration) holds every engine to
+    the oracle with seeded route streams -- selective = full after every
+    command, = a from-zero build of the model the aggregator holds at
+    checkpoints -- on `wl_example` (every route, one by one and in batches of
+    3) and `wl_cloud` (5 %, 87 routes, one by one and in batches of 10);
+    BDD-APKeep only on `wl_example`. 14 passed; APKeep refuses 2 commands
+    (deleting and re-adding `pgf`'s default route). Two mutations (the engine
+    never told of a delete; of an insert) fail it.
 - **D15. The campaign grid, cut (owner, 2026-10-16).** `wl_example` and
   `wl_ifi` leave the campaign entirely: they answer functional questions, not
   performance ones (S4 then runs on `wl_cloud`, `wl_up`, `wl_tum`).

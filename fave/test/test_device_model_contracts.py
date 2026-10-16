@@ -187,9 +187,10 @@ class TestAbstractDeviceModel(unittest.TestCase):
 
     def test_buffers_and_reset(self):
         self.model.add_rule(self.rule)
-        self.model.remove_rule(7)
+        self.model.remove_rule(1)
         self.assertEqual(self.model._adds['n.a'], [self.rule])
-        self.assertEqual(self.model._deletes, [7])
+        self.assertEqual(self.model._deletes, [('n.a', 1)])
+        self.assertEqual(self.model.tables['n.a'], [])
         self.model.reset()
         self.assertEqual(self.model._adds, {'n.a': [], 'n.b': []})
         self.assertEqual(self.model._deletes, [])
@@ -278,12 +279,14 @@ class TestAbstractFirewall(unittest.TestCase):
         self.fw.tables['fw.routing'] = [
             Rule('fw', 'fw.routing', i, match=Match([dst])) for i in (2, 3, 4)]
         self.fw.remove_rule(1)
-        self.assertEqual(self.fw._deletes, [2, 3])
+        self.assertEqual(self.fw._deletes, [('fw.routing', 2), ('fw.routing', 3)])
         self.assertEqual([r.idx for r in self.fw.tables['fw.routing']], [4])
 
+        # route 2 is rules 4 and 5; a discard route has only its drop rule
         new = Rule('fw', 'fw.routing', 99, match=Match([dst]), actions=[Forward(['1'])])
         self.fw.update_rule(2, new)
-        self.assertEqual(self.fw._deletes, [2, 3, 4, 5])
+        self.assertEqual(self.fw._deletes, [('fw.routing', 2), ('fw.routing', 3),
+                                            ('fw.routing', 4)])
         self.assertEqual(sorted(r.idx for r in self.fw._adds['fw.routing']), [4, 5])
 
     def test_diff_is_the_add_buffer(self):

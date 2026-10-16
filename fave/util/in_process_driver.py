@@ -256,6 +256,25 @@ class InProcessFaVe:
         self._agg.queue.join()
         barrier.wait(guard, directory=self._barrier_dir)
 
+    def switch(self, argv: List[str]) -> None:
+        """ Send ONE control-plane command exactly as `switch.py <argv>`
+        sends it -- e.g. a batch of routes added (`-a -r`), deleted (`-d -r`)
+        or replaced (`-u -r`), INCREMENTAL_PLAN.md D14 -- and block until the
+        aggregator has applied it. Barrier-guarded: a refusal raises
+        `BarrierError` with the aggregator's message. """
+        import devices.switch as switch_mod
+        guard = barrier.arm(self._barrier_dir)
+        self._guard, self._guarded_sends = guard, 0
+        try:
+            switch_mod.main(argv)
+        finally:
+            self._guard = None
+        if self._guarded_sends != 1:
+            raise RuntimeError("switch: %d messages for one command, expected one"
+                               % self._guarded_sends)
+        self._agg.queue.join()
+        barrier.wait(guard, directory=self._barrier_dir)
+
     def delete_device(self, name: str, mtype: str) -> None:
         """ Delete device `name` of type `mtype` with its links, as
         `topology.py -d -n <name> -t <mtype>` sends it (INCREMENTAL_PLAN.md

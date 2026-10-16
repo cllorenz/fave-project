@@ -76,6 +76,8 @@ class _Base(unittest.TestCase):
         self.engine = mock.MagicMock(name='engine')
         # stable indices are on by default (§8.1): the engine declares a budget
         self.engine.max_rule_index.return_value = 2**20 - 1
+        # a live engine (NetPlumber): rules always arrive as add_rules
+        self.engine.takes_updates.return_value = False
         self.engine.asyncore_socks = {}
         self.engine.links = {}
         # global_port: an injective stand-in for the adapter's port numbering
@@ -458,18 +460,197 @@ class TestSwitchUpdatesAndDeclaredLpm(_Base):
         self.aggr._validate_declared_tables(types.SimpleNamespace(node='x'))
         self.assertEqual(self.aggr._lpm_index, {})
 
-    def test_rule_delete_and_update_are_refused_by_name(self):
-        """ `switch.py -d`/`-u` send `remove_rule`/`update_rule`. Their
-        deletions would never reach the engine (the `_deletes` buffer is not
-        read; INCREMENTAL_PLAN.md §8.2), so they are refused rather than
-        crashing (TypeError, as before) or silently keeping the rule (TODO
-        item 53). """
-        for command in ('remove_rule', 'update_rule'):
-            with self.subTest(command=command):
-                cmd = SwitchCommand('sw', command, [self._rule(1, '10.0.0.0/8', 'sw.2')])
-                with self.assertRaises(NotImplementedError) as ctx:
-                    self.aggr._sync_diff(cmd)
-                self.assertIn('§8.2', str(ctx.exception))
+
+class TestCommandedRuleDeletion(_Base):
+    """ `remove_rule` and `update_rule` switch commands (INCREMENTAL_PLAN.md
+    D14: S1 and S2 go through FaVe). A command names rules by the index its
+    sender gave them, in a batch; the device turns each into the engine
+    rules it made of it, the engine deletes exactly those, and the stored
+    model, the stable indexer and the LPM index forget them. A batch naming
+    a device or index the aggregator does not hold is refused before
+    anything is touched. As on every workload, the switch arrives empty and
+    is filled by commands, with stable indices on (the default). """
+
+    @staticmethod
+    def _rule(idx, prefix, out, node='sw'):
+        return Rule(node, node + '.1', idx,
+                    match=Match([RuleField('packet.ipv4.destination', prefix)]),
+                    actions=[Forward([out])] if out else [])
+
+    def _switch(self, *rules, lpm=False):
+        switch = SwitchModel('sw', ports=['1', '2', '3'])
+        if lpm:
+            switch.set_table_semantics('sw.1', LPM)
+        self.aggr._dispatch(switch.to_json())
+        self.aggr._dispatch(SwitchCommand('sw', 'add_rules', list(rules)).to_json())
+        self.engine.reset_mock()
+
+    def _command(self, command, *rules, node='sw'):
+        self.aggr._dispatch(SwitchCommand(node, command, list(rules)).to_json())
+
+    def _held(self, node='sw', table='sw.1'):
+        return [r.idx for r in self.aggr.models[node].tables[table]]
+
+    def test_a_batch_delete_reaches_the_engine_rule_by_rule(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'),
+                     self._rule(7, '10.1.0.0/16', 'sw.3'),
+                     self._rule(9, '10.2.0.0/16', 'sw.2'))
+        self._command('remove_rule', self._rule(7, '0.0.0.0/0', None),
+                      self._rule(3, '0.0.0.0/0', None))
+        self.assertEqual(self.engine.delete_rule.call_args_list,
+                         [mock.call('sw', 'sw.1', 7), mock.call('sw', 'sw.1', 3)])
+        self.engine.add_rules.assert_not_called()
+        self.assertEqual(self._held(), [9])
+        self.assertEqual(self.aggr.models['sw']._deletes, [])
+
+    def test_the_index_names_the_rule_not_its_list_position(self):
+        self._switch(self._rule(5, '10.0.0.0/8', 'sw.2'), self._rule(1, '10.1.0.0/16', 'sw.2'))
+        self._command('remove_rule', self._rule(1, '0.0.0.0/0', None))
+        self.assertEqual(self._held(), [5])
+
+    def test_an_unknown_index_refuses_the_whole_batch_untouched(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'))
+        with self.assertRaisesRegex(UpdateRefused, r'sw.*\b4\b'):
+            self._command('remove_rule', self._rule(3, '0.0.0.0/0', None),
+                          self._rule(4, '0.0.0.0/0', None))
+        self.engine.delete_rule.assert_not_called()
+        self.assertEqual(self._held(), [3])
+
+    def test_an_unknown_device_is_refused(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'))
+        with self.assertRaisesRegex(UpdateRefused, 'nosuch'):
+            self._command('remove_rule', self._rule(3, '0.0.0.0/0', None, node='nosuch'),
+                          node='nosuch')
+        self.engine.delete_rule.assert_not_called()
+
+    def test_an_engine_refusal_mid_batch_leaves_model_and_engine_alike(self):
+        """ An engine refuses a rule before changing anything (§6.2), so the
+        rules deleted before the refusal are gone from both, the rest stay
+        in both. """
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'), self._rule(7, '10.1.0.0/16', 'sw.3'))
+        self.engine.delete_rule.side_effect = [None, UpdateRefused('no')]
+        with self.assertRaises(UpdateRefused):
+            self._command('remove_rule', self._rule(3, '0.0.0.0/0', None),
+                          self._rule(7, '0.0.0.0/0', None))
+        self.assertEqual(self._held(), [7])
+
+    def test_the_stable_indexer_forgets_the_deleted_rules(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'), self._rule(7, '10.1.0.0/16', 'sw.3'))
+        self._command('remove_rule', self._rule(3, '0.0.0.0/0', None))
+        self.assertEqual([i for i, _ in self.aggr._indexer.last('sw', 'sw.1')], [7])
+
+    def test_a_batch_add_after_deletes_is_still_a_command(self):
+        """ S1's insert half: the table stays commanded, so the sender's
+        indices are taken again rather than refused as mixed numbering. """
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'))
+        self._command('remove_rule', self._rule(3, '0.0.0.0/0', None))
+        self._command('add_rules', self._rule(3, '10.0.0.0/8', 'sw.2'))
+        self.assertEqual(self._held(), [3])
+        (delta,), _ = self.engine.add_rules.call_args
+        self.assertEqual([r.idx for r in delta.tables['sw.1']], [3])
+
+    def test_update_deletes_then_adds_the_new_rule(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'), self._rule(7, '10.1.0.0/16', 'sw.3'))
+        self._command('update_rule', self._rule(7, '10.1.0.0/16', 'sw.2'))
+        self.engine.delete_rule.assert_called_once_with('sw', 'sw.1', 7)
+        (delta,), _ = self.engine.add_rules.call_args
+        [rule] = delta.tables['sw.1']
+        self.assertEqual((rule.idx, rule.actions), (7, [Forward(['sw.2'])]))
+        self.assertEqual(self._held(), [3, 7])
+
+    def test_a_deleted_lpm_prefix_may_return_with_another_action(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'), lpm=True)
+        self._command('remove_rule', self._rule(3, '0.0.0.0/0', None))
+        self._command('add_rules', self._rule(4, '10.0.0.0/8', None))   # now a discard
+        self.assertEqual(self._held(), [4])
+
+    def test_an_lpm_prefix_another_rule_still_holds_stays_bound(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'),
+                     self._rule(5, '10.0.0.0/8', 'sw.2'), lpm=True)
+        self._command('remove_rule', self._rule(3, '0.0.0.0/0', None))
+        with self.assertRaises(TableSemanticsError):
+            self._command('add_rules', self._rule(6, '10.0.0.0/8', None))
+
+    def test_a_built_lazy_engine_gets_added_rules_as_inserts(self):
+        """ VeriFlow-FR and APKeep record `add_rules` until their first check
+        builds the model, and take rule changes only as `insert_rule` after
+        it: a command's rules then reach them one by one. """
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'))
+        self.engine.takes_updates.return_value = True
+        self._command('add_rules', self._rule(5, '10.1.0.0/16', 'sw.3'),
+                      self._rule(6, '10.2.0.0/16', 'sw.3'))
+        self.engine.add_rules.assert_not_called()
+        self.engine.add_tables.assert_not_called()
+        self.assertEqual([c.args[0].idx for c in self.engine.insert_rule.call_args_list], [5, 6])
+        self.assertEqual(self._held(), [3, 5, 6])
+
+    def test_a_built_lazy_engine_gets_an_update_as_delete_and_insert(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'))
+        self.engine.takes_updates.return_value = True
+        self._command('update_rule', self._rule(3, '10.0.0.0/8', 'sw.3'))
+        self.engine.delete_rule.assert_called_once_with('sw', 'sw.1', 3)
+        [call] = self.engine.insert_rule.call_args_list
+        self.assertEqual(call.args[0].actions, [Forward(['sw.3'])])
+
+    def test_an_insert_refused_mid_batch_leaves_model_and_engine_alike(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'))
+        self.engine.takes_updates.return_value = True
+        self.engine.insert_rule.side_effect = [None, UpdateRefused('no')]
+        with self.assertRaises(UpdateRefused):
+            self._command('add_rules', self._rule(5, '10.1.0.0/16', 'sw.3'),
+                          self._rule(6, '10.2.0.0/16', 'sw.3'))
+        self.assertEqual(self._held(), [3, 5])
+
+    def test_adding_an_index_the_table_holds_is_refused_untouched(self):
+        """ A modify is `update_rule`; an add naming an index the table
+        holds would duplicate it in the stored model while the engine
+        refuses it (or, live, holds two rules at one index). """
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'))
+        for lazy in (False, True):
+            with self.subTest(built_lazy_engine=lazy):
+                self.engine.takes_updates.return_value = lazy
+                with self.assertRaisesRegex(UpdateRefused, r'sw.*\b3\b'):
+                    self._command('add_rules', self._rule(5, '10.1.0.0/16', 'sw.3'),
+                                  self._rule(3, '10.2.0.0/16', 'sw.3'))
+                self.engine.insert_rule.assert_not_called()
+                self.engine.add_rules.assert_not_called()
+                self.assertEqual(self._held(), [3])
+                self.assertEqual(self.aggr.models['sw']._adds, {'sw.1': []})
+
+    def test_a_packet_filter_route_is_inserted_drop_first(self):
+        """ Route i is keep 2i and drop 2i+1. Deleted keep first and inserted
+        drop first, every state in between is a route an engine can express
+        (a drop alone is a discard route); a keep alone is not (APKeep
+        refuses it, `UntranslatedSemantics`). """
+        self.aggr._dispatch(PacketFilterModel('pf', ports=['1', '2']).to_json())
+        self.engine.reset_mock()
+        self.engine.takes_updates.return_value = True
+        route = Rule('pf', 'pf.routing', 4,
+                     match=Match([RuleField('packet.ipv6.destination', '2001:db8::/32')]),
+                     actions=[Forward(['1'])])
+        self._command('add_rules', route, node='pf')
+        self.assertEqual([c.args[0].idx for c in self.engine.insert_rule.call_args_list], [9, 8])
+
+    def test_lpm_validation_holds_for_inserts_too(self):
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'), lpm=True)
+        self.engine.takes_updates.return_value = True
+        with self.assertRaises(TableSemanticsError):
+            self._command('add_rules', self._rule(4, '10.0.0.0/8', None))
+        self.engine.insert_rule.assert_not_called()
+
+    def test_a_packet_filter_route_deletes_both_of_its_rules(self):
+        """ wl_up's routes: a packet filter turns route i into rules 2i
+        (keep) and 2i+1 (drop) of its routing table. """
+        self.aggr._dispatch(PacketFilterModel('pf', ports=['1', '2']).to_json())
+        route = Rule('pf', 'pf.routing', 4,
+                     match=Match([RuleField('packet.ipv6.destination', '2001:db8::/32')]),
+                     actions=[Forward(['1'])])
+        self._command('add_rules', route, node='pf')
+        self.engine.reset_mock()
+        self._command('remove_rule', Rule('pf', 'pf.routing', 4), node='pf')
+        self.assertEqual(self.engine.delete_rule.call_args_list,
+                         [mock.call('pf', 'pf.routing', 8), mock.call('pf', 'pf.routing', 9)])
+        self.assertEqual(self._held('pf', 'pf.routing'), [])
 
 
 class TestRemoveDevice(_Base):

@@ -58,7 +58,7 @@ from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP
 from netplumber.adapter import NetPlumberAdapter
 
 from netplumber.slice import SlicingCommand
-from devices.abstract_device import LPM, restore_table_semantics, validate_lpm_rules
+from devices.abstract_device import LPM, _lpm_key, restore_table_semantics, validate_lpm_rules
 from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel, StateCommand
 from devices.switch import SwitchModel, SwitchCommand
@@ -215,12 +215,13 @@ def build_engine(
         from veriflow.adapter import VeriFlowAdapter
         if vf_early_exit not in ('on', 'off'):
             raise ValueError("--vf-early-exit is 'on' or 'off', not %r" % vf_early_exit)
+        # the adapter's own default unless one is given
+        cache: Dict[str, Any] = ({} if vf_state_cache is None
+                                 else {'state_cache': vf_state_cache})
         return VeriFlowAdapter(logger, slicing=vf_slicing, budget=vf_budget,
                                revisit=vf_revisit, fields=vf_fields,
                                early_exit=vf_early_exit == 'on',
-                               **({} if vf_state_cache is None
-                                  else {'state_cache': vf_state_cache}),
-                               invert_lpm=invert_lpm)
+                               invert_lpm=invert_lpm, **cache)
 
     if backend == BACKEND_APKEEP:
         from apkeep.adapter import APKeepAdapter
@@ -258,6 +259,9 @@ class AggregatorService(AbstractAggregator):
         # declared-LPM ambiguity check. Carried across syncs because rules
         # arrive in batches and a collision between two batches is still one.
         self._lpm_index: Dict[Tuple[str, str], Dict[Any, str]] = {}
+        #: how many held rules match each prefix of `_lpm_index`, so that a
+        #: deleted rule frees its prefix only with the last rule matching it
+        self._lpm_refs: Dict[Tuple[str, str], Dict[Any, int]] = {}
         self.port_to_model: Dict[str, Any] = {}
         self.links: Dict[Any, List[Any]] = {}
         self.stop = False
@@ -690,6 +694,10 @@ class AggregatorService(AbstractAggregator):
                 continue
             index = self._lpm_index.setdefault((model.node, table), {})
             validate_lpm_rules(model.node, table, rules, index)
+            refs = self._lpm_refs.setdefault((model.node, table), {})
+            for rule in rules:
+                prefix = _lpm_key(rule)[0]
+                refs[prefix] = refs.get(prefix, 0) + 1
 
 
     def _sync_diff(self, model: Any) -> None:
@@ -711,19 +719,18 @@ class AggregatorService(AbstractAggregator):
         # handle minor model changes (e.g. updates by the control plane)
         if model.type in ["switch_command", 'state_command', 'relay_command']:
             if model.command in ('remove_rule', 'update_rule'):
-                # Refused by name until the deletion half of the diff exists
-                # (INCREMENTAL_PLAN.md §8.2). Before, `remove_rule` got the
-                # whole rule list and raised TypeError; with that mended it
-                # would only fill `_deletes`, which nothing reads, so the
-                # engine would keep the rule SILENTLY (TODO item 53).
-                raise NotImplementedError(
-                    "%s on %s is not implemented: rule deletions do not reach "
-                    "the engine yet; see INCREMENTAL_PLAN.md §8.2"
-                    % (model.command, model.node))
+                # INCREMENTAL_PLAN.md D14: the deletion half of a command
+                self._remove_commanded(model)
+                if model.command == 'remove_rule':
+                    return
+                # an update is the delete above, then the add below
+                model = copy.copy(model)
+                model.command = 'add_rules'
             if model.node in self.models:
                 device = self.models[model.node]
                 before = {t: len(rules) for t, rules in device._adds.items()}
                 getattr(device, model.command)(model.rules)
+                self._refuse_held_indices(device)
                 command_tables = {t for t, rules in device._adds.items()
                                   if len(rules) > before.get(t, 0)}
                 if self._indexer is not None:
@@ -908,7 +915,10 @@ class AggregatorService(AbstractAggregator):
         # whole table per batch would be quadratic (wl_i2 sends 77,451).
         self._validate_declared_tables(model)
 
-        self._add_model(model)
+        if commanded and self.verification_engine.takes_updates():
+            self._insert_commanded(model)
+        else:
+            self._add_model(model)
 
         self.models.setdefault(model.node, model)
 
@@ -1001,6 +1011,103 @@ class AggregatorService(AbstractAggregator):
             'node': node, 'new': False, 'replaced': why,
             'links': len(links), 't_update_s': time.perf_counter() - t0,
         }
+
+
+    def _remove_commanded(self, cmd: Any) -> None:
+        """ INCREMENTAL_PLAN.md D14: a `remove_rule` (or the delete half of
+        an `update_rule`) command names rules by the indices its sender gave
+        them, as a batch. The device says which engine rules each became
+        (a packet filter's route is two); the engine deletes exactly those,
+        one by one, and the stored model, the stable indexer and the LPM
+        index forget them. A device, or an index, the aggregator does not
+        hold refuses the WHOLE batch before anything is touched, as does a
+        table the aggregator numbered itself. An engine refuses a rule before
+        changing anything (§6.2): the rules deleted before its refusal are
+        then gone from both the engine and the stored model, the rest stay in
+        both, and the refusal propagates. """
+        node = cmd.node
+        device = self.models.get(node)
+        if device is None:
+            raise UpdateRefused("%s: no such device; cannot %s" % (node, cmd.command))
+        try:
+            keys = device.removal_keys([r.idx for r in cmd.rules])
+        except ValueError as err:
+            raise UpdateRefused("%s: %s" % (cmd.command, err)) from None
+        if self._indexer is not None:
+            self._refuse_mixed_numbering(node, {table for table, _ in keys})
+        engine = self.verification_engine
+        done: List[Tuple[str, int]] = []
+        try:
+            for table, idx in keys:
+                engine.delete_rule(node, table, idx)
+                done.append((table, idx))
+        finally:
+            if done:
+                removed = device.drop_rules(done)
+                device._deletes = []
+                self._forget_rules(node, removed)
+
+
+    def _refuse_held_indices(self, device: Any) -> None:
+        """ A command adds rules at indices its table already holds, or names
+        one twice: refused, the command's rules dropped from the device's add
+        buffer. A modify is `update_rule`; an add would hold two rules at one
+        index in the stored model (and, live, in the engine). """
+        clash = []
+        for table, rules in device._adds.items():
+            if not rules:
+                continue
+            held = {r.idx for r in device.tables.get(table, [])}
+            seen: set = set()
+            for rule in rules:
+                if rule.idx in held or rule.idx in seen:
+                    clash.append("%s %d" % (table, rule.idx))
+                seen.add(rule.idx)
+        if clash:
+            device.reset()
+            raise UpdateRefused(
+                "%s: the command adds rules at indices the table already holds "
+                "(%s); a modify is update_rule" % (device.node, ', '.join(clash)))
+
+
+    def _insert_commanded(self, added: Any) -> None:
+        """ A command's rules, for an engine that has built its model (D14):
+        one `insert_rule` each. The stored model already holds them; if the
+        engine refuses one (before changing anything, §6.2), the rules not
+        inserted leave the stored model again, so both hold the same, and the
+        refusal propagates. """
+        rules = self.models[added.node].insertion_order(
+            [rule for table in added.tables.values() for rule in table])
+        engine = self.verification_engine
+        for n, rule in enumerate(rules):
+            try:
+                engine.insert_rule(rule)
+            except Exception:
+                device = self.models[added.node]
+                removed = device.drop_rules((r.tid, r.idx) for r in rules[n:])
+                device._deletes = []
+                self._forget_rules(added.node, removed)
+                raise
+
+
+    def _forget_rules(self, node: str, removed: List[Any]) -> None:
+        """ The stable indexer's and the LPM index's side of a deletion. """
+        by_table: Dict[str, List[Any]] = {}
+        for rule in removed:
+            by_table.setdefault(rule.tid, []).append(rule)
+        for table, rules in by_table.items():
+            if self._indexer is not None:
+                self._indexer.drop(node, table, [r.idx for r in rules])
+            refs = self._lpm_refs.get((node, table))
+            if refs is None:
+                continue
+            index = self._lpm_index[(node, table)]
+            for rule in rules:
+                prefix = _lpm_key(rule)[0]
+                refs[prefix] -= 1
+                if refs[prefix] <= 0:
+                    del refs[prefix]
+                    index.pop((prefix,), None)
 
 
     def _refuse_mixed_numbering(self, node: str, tables: set) -> None:
@@ -1191,6 +1298,8 @@ class AggregatorService(AbstractAggregator):
         self._commanded = {k for k in self._commanded if k[0] != node}
         for key in [k for k in self._lpm_index if k[0] == node]:
             del self._lpm_index[key]
+        for key in [k for k in self._lpm_refs if k[0] == node]:
+            del self._lpm_refs[key]
 
 
     def _add_model(self, model: Any) -> None:

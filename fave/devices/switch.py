@@ -28,7 +28,7 @@ import sys
 import argparse
 import json
 
-from typing import Dict, Iterable, List, Optional, Sequence, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from copy import copy
 
@@ -140,24 +140,18 @@ class SwitchModel(AbstractDeviceModel):
         super(SwitchModel, self).add_rules(rules)
 
 
-    def remove_rule(self, idx: int) -> None:
-        """ Removes a rule from the switch.
-
-        Keyword arguments:
-        idx -- a rule index
-        """
-        super(SwitchModel, self).remove_rule(idx)
-        del self.tables[self.node+".1"][idx]
+    def _removal_candidates(self, idx: int) -> List[Tuple[str, int]]:
+        return [(self.node+".1", idx)]
 
 
     def update_rule(self, idx: int, rule: Rule) -> None:
-        """ Replaces a rule in the switch.
+        """ Replaces the rule at index `idx`: `rule` takes its index.
 
         Keyword arguments:
         idx -- a rule index
         rule -- a rule
         """
-
+        rule.idx = idx
         self.remove_rule(idx)
         self.add_rules([rule])
 
@@ -294,9 +288,26 @@ def main(argv: List[str]) -> None:
 
     cmd: Optional[SwitchCommand] = None
 
+    if args.rules and len({r[0] for r in args.rules}) > 1:
+        parser.error("a batch (-r) names one node, not %s"
+                     % ', '.join(sorted({r[0] for r in args.rules})))
+
+    def _batch() -> List[Rule]:
+        """ -r: node$table$idx[$in_ports$fields$commands]#... -- a delete
+        needs only node, table and index. """
+        out = []
+        for node, table_no, idx, *rest in args.rules:
+            in_ports, fields, commands = (rest + ['', '', ''])[:3]
+            out.append(Rule(
+                node, node+'.'+table_no, int(idx),
+                [p for p in in_ports.split(',') if p],
+                Match(_fields_to_match(fields)),
+                _commands_to_actions(commands)
+            ))
+        return out
+
     if args.command == 'add':
         if args.rules:
-            switch_rules = []
             switch_rules = [
                 Rule(
                     node,
@@ -319,24 +330,32 @@ def main(argv: List[str]) -> None:
 
 
     elif args.command == 'del':
-        rule = Rule(
-            table, table, args.index,
-            in_ports=args.in_ports,
-            match=Match([]),
-            actions=[]
-        )
-        # wrap in a list: to_json iterates rules (a bare Rule is not iterable)
-        cmd = SwitchCommand(args.node, 'remove_rule', [rule])
+        if args.rules:
+            batch = _batch()
+            cmd = SwitchCommand(batch[0].node, 'remove_rule', batch)
+        else:
+            rule = Rule(
+                table, table, args.index,
+                in_ports=args.in_ports,
+                match=Match([]),
+                actions=[]
+            )
+            # wrap in a list: to_json iterates rules (a bare Rule is not iterable)
+            cmd = SwitchCommand(args.node, 'remove_rule', [rule])
 
 
     elif args.command == 'upd':
-        rule = Rule(
-            table, table, args.index,
-            in_ports=args.in_ports,
-            match=Match(args.fields),
-            actions=args.actions
-        )
-        cmd = SwitchCommand(args.node, 'update_rule', [rule])
+        if args.rules:
+            batch = _batch()
+            cmd = SwitchCommand(batch[0].node, 'update_rule', batch)
+        else:
+            rule = Rule(
+                table, table, args.index,
+                in_ports=args.in_ports,
+                match=Match(args.fields),
+                actions=args.actions
+            )
+            cmd = SwitchCommand(args.node, 'update_rule', [rule])
 
 
     else:

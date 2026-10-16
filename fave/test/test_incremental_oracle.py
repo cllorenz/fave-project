@@ -74,6 +74,8 @@ def _engine(violated=()):
     engine = mock.MagicMock(name='engine')
     # stable indices are on by default (§8.1): the engine declares a budget
     engine.max_rule_index.return_value = 2**20 - 1
+    # a live engine (NetPlumber): rules always arrive as add_rules
+    engine.takes_updates.return_value = False
     state = {'results': []}
     engine.check_compliance.side_effect = lambda _rules: state.__setitem__(
         'results', [(s, p, True, []) for s, p in violated])

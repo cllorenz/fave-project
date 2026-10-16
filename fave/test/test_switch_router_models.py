@@ -73,15 +73,30 @@ class TestSwitchModel(unittest.TestCase):
         self.assertEqual(switch._adds['sw.1'], [rule])
 
     def test_remove_and_update(self):
-        switch = SwitchModel('sw', ports=['1'], rules=[self._rule(0), self._rule(1, 'sw.3')])
-        switch.remove_rule(0)
-        self.assertEqual(switch._deletes, [0])
-        self.assertEqual([r.idx for r in switch.tables['sw.1']], [1])
+        """ A rule is named by its index, not its list position; the delete
+        buffer holds the (table, index) of every rule taken out. """
+        switch = SwitchModel('sw', ports=['1'], rules=[self._rule(4), self._rule(1)])
+        switch.remove_rule(1)
+        self.assertEqual(switch._deletes, [('sw.1', 1)])
+        self.assertEqual([r.idx for r in switch.tables['sw.1']], [4])
         new = self._rule(5)
-        switch.update_rule(0, new)
-        self.assertEqual(switch._deletes, [0, 0])
+        switch.update_rule(4, new)
+        self.assertEqual(switch._deletes, [('sw.1', 1), ('sw.1', 4)])
         self.assertEqual(switch.tables['sw.1'], [])
         self.assertEqual(switch._adds['sw.1'], [new])
+        self.assertEqual(new.idx, 4)
+
+    def test_removing_an_index_the_switch_does_not_hold_changes_nothing(self):
+        switch = SwitchModel('sw', ports=['1'], rules=[self._rule(4)])
+        with self.assertRaisesRegex(ValueError, 'sw.*9'):
+            switch.remove_rule(9)
+        self.assertEqual([r.idx for r in switch.tables['sw.1']], [4])
+        self.assertEqual(switch._deletes, [])
+
+    def test_removal_keys_do_not_change_the_switch(self):
+        switch = SwitchModel('sw', ports=['1'], rules=[self._rule(4)])
+        self.assertEqual(switch.removal_keys([4]), [('sw.1', 4)])
+        self.assertEqual([r.idx for r in switch.tables['sw.1']], [4])
 
     def test_diff_is_the_add_buffer(self):
         switch = SwitchModel('sw', ports=['1'])
@@ -143,6 +158,27 @@ class TestSwitchMain(unittest.TestCase):
         self.assertEqual(msg['command'], 'remove_rule')
         [rule] = msg['rules']
         self.assertEqual((rule['tid'], rule['idx'], rule['actions']), ('sw.1', 4, []))
+
+    def test_delete_a_batch(self):
+        """ `-d -r`: one remove_rule for the batch; only node and index of a
+        rule matter, the rest of the rule string may be left out. """
+        msg = self._main(['-d', '-r', 'sw$1$4#sw$1$9$sw.1$ipv4_dst=10.0.0.0/8$fd=sw.2'])
+        self.assertEqual((msg['node'], msg['command']), ('sw', 'remove_rule'))
+        self.assertEqual([r['idx'] for r in msg['rules']], [4, 9])
+
+    def test_update_a_batch(self):
+        msg = self._main(['-u', '-r', 'sw$1$4$$ipv4_dst=10.0.0.0/8$fd=sw.2#'
+                                      'sw$1$9$$ipv4_dst=10.1.0.0/16$fd=sw.3'])
+        self.assertEqual((msg['node'], msg['command']), ('sw', 'update_rule'))
+        self.assertEqual([(r['idx'], r['actions'][0]['ports']) for r in msg['rules']],
+                         [(4, ['sw.2']), (9, ['sw.3'])])
+
+    def test_a_batch_names_one_node(self):
+        for verb in ('-a', '-d', '-u'):
+            with self.subTest(verb=verb):
+                with self.assertRaises(SystemExit):
+                    switch_mod.main([verb, '-r', 'sw$1$4$$$#other$1$9$$$'])
+                self.assertEqual(self.sent, [])
 
     def test_update(self):
         msg = self._main(['-u', '-n', 'sw', '-t', '2', '-i', '1', '-c', 'fd=sw.9'])
@@ -247,14 +283,17 @@ class TestRouterModel(unittest.TestCase):
         self.assertEqual(self.router._adds['r.routing'], [rule])
 
     def test_remove_and_update_a_route(self):
+        self.router.tables['r.routing'] = [Rule('r', 'r.routing', 3), Rule('r', 'r.routing', 0)]
+        self.router.remove_rule(3)          # the index, not the list position
+        self.assertEqual(self.router._deletes, [('r.routing', 3)])
         self.router.remove_rule(0)
-        self.assertEqual(self.router._deletes, [0])
+        self.assertEqual(self.router._deletes, [('r.routing', 3), ('r.routing', 0)])
         self.assertEqual(self.router.tables['r.routing'], [])
 
         self.router.tables['r.routing'] = [Rule('r', 'r.routing', 0)]
         new = Rule('r', 'r.routing', 0, actions=[Forward(['r.2'])])
         self.router.update_rule(0, new)
-        self.assertEqual(self.router._deletes, [0, 0])
+        self.assertEqual(self.router._deletes[-1], ('r.routing', 0))
         self.assertEqual(self.router._adds['r.routing'], [new])
 
     def test_diff_is_the_add_buffer(self):

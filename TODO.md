@@ -3696,6 +3696,11 @@ decorator once fixed) or as a `*_KNOWN_DEFECT` test that asserts today's behavio
       `_deletes`, which nothing reads.
     - Both are still refused by name. A rule delete is not part of §8.2's
       device removal.
+    - **BUILT 2026-10-16 (owner: "build the switch-command deletion with
+      batches - test first"; INCREMENTAL_PLAN.md D14).** `remove_rule` and
+      `update_rule` take batches (`switch.py -d -r` / `-u -r`) and reach the
+      engine as `delete_rule` per engine rule (a packet filter's route is
+      two). See INCREMENTAL_PLAN.md D14 for the details and findings.
     - Tested.
   - [x] FIXED 2026-10-14: under `filelock` 3.29, `PreLockedFileLock` (`util/lock_util.py:35`)
     never released a dump's `.lock`, and leaked a descriptor. It now owns its
@@ -4032,7 +4037,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 - [x] **#2 `devices/application_layer_gateway.py:160`** — wired `relays_out` but port is `relay_out`. FIXED + wiring-invariant test. Commit `0c040243`.
 - [x] **#3 `util/tree_util.py`** — `Tree.__eq__` `zip` ignored length. FIXED (len check) + regression. Commit `4e83a205`.
 - [x] **#4 `util/match_util.py`** — `'upd_src'`→`udp_src` typo (test had enshrined it). FIXED. Commit `a7b46f01`.
-- [ ] **#5 `devices/abstract_firewall.py:194` — LEFT FLAGGED (your call).** Broken beyond the `_routing`/`.routing` typo: `add_rules` buffers into `_adds` but `remove_rule` reads `self.tables` and the band-indexed `del`s would `IndexError`. Correct semantics aren't determinable from the code (likely-dead path); not auto-fixed to avoid a speculative rewrite of verification buffer logic.
+- [x] **#5 `devices/abstract_firewall.py:194` — RESOLVED 2026-10-16** with the switch-command deletion (INCREMENTAL_PLAN.md D14): a route `i` is removed as its rules 2i and 2i+1 of `.routing`, by index, from the stored tables, and reaches the engine; tested in `test_device_model_contracts.py` and, under the oracle, `test_incremental_route_commands.py`. *Originally:* Broken beyond the `_routing`/`.routing` typo: `add_rules` buffers into `_adds` but `remove_rule` reads `self.tables` and the band-indexed `del`s would `IndexError`. Correct semantics aren't determinable from the code (likely-dead path); not auto-fixed to avoid a speculative rewrite of verification buffer logic.
 - [x] **#6 (found while testing) `util/aggregator_utils.py`** — `fave_sendmsg` framed `len(chars)` not `len(bytes)`, truncating non-ASCII payloads. FIXED + socketpair regression. Commit `f6be8b50`.
 - [x] **`_calc_port` fallback** — caught only `KeyError` but `port_index` raises `ValueError`, making the fallback unreachable. FIXED. Commit `a7b46f01`.
 - Lower-severity (still flagged, not fixed): `bench_utils.py:134` dead `-s` append; `router._build_cidr` `round(log2)` (exact for valid contiguous masks — only non-contiguous/invalid masks are affected); router `persist` CAPACITY=16 VLAN `aid` collision; dead `else: raise` in two `ip6np_util` normalizers.

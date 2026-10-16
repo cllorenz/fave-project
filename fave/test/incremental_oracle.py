@@ -106,6 +106,93 @@ def run(test, make, prefix, stream_of, every, refusals=False, from_zero=True):
     return stats
 
 
+def _route_arg(route, delete=False):
+    """ A routes.json entry [node, table, idx, fields, commands, in_ports] as
+    one rule of `switch.py -r`, as `util.bench_utils._add_rules` writes it;
+    a delete names node, table and index only. """
+    node, table, idx, fields, commands, in_ports = route
+    if delete:
+        return '$'.join((node, str(table), str(idx)))
+    return '$'.join((node, str(table), str(idx), ','.join(in_ports),
+                     ';'.join(fields), ','.join(commands)))
+
+
+def _held_keys(fave):
+    """ (node, table, index) of every rule the aggregator holds. """
+    return {(node, table, rule.idx) for node, model in fave._agg.models.items()
+            for table, rules in model.tables.items() for rule in rules}
+
+
+def route_commands(test, make, prefix, fraction, seed, batch, every,
+                   refusals=False):
+    """ INCREMENTAL_PLAN.md D14: S2 through FaVe. A seeded `fraction` of the
+    workload's routes is deleted with `switch.py -d -r` commands, then added
+    again with `switch.py -a -r`, up to `batch` routes of one node per
+    command. The oracle as in `run`: after every command the selective
+    re-verification equals a full one; every `every`-th command and the last,
+    the full verdicts equal a from-zero build of the model the aggregator
+    then holds. The rules withheld from that build are read off the
+    aggregator, so a command the engine refused in part (with `refusals`,
+    counted) is compared with what was really applied. """
+    import random
+    from util.barrier import BarrierError
+    from util.in_process_driver import InProcessFaVe
+    checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
+    with open(os.path.join(prefix, 'routes.json')) as raw:
+        routes = json.load(raw)
+    drawn = random.Random(seed).sample(routes, max(1, int(round(fraction * len(routes)))))
+    if batch > 1:   # a command holds the routes of one node
+        drawn.sort(key=lambda r: r[0])
+    groups = []
+    for route in drawn:
+        if groups and groups[-1][0][0] == route[0] and len(groups[-1]) < batch:
+            groups[-1].append(route)
+        else:
+            groups.append([route])
+    commands = [('-d', g) for g in groups] + [('-a', g) for g in groups]
+    stats = {'commands': 0, 'routes': len(drawn), 'verdict_changes': 0,
+             'rechecked': 0, 'refused': []}
+    engine = make()
+    with InProcessFaVe(engine) as fave:
+        fave.replay(prefix)
+        engine.track_affected(True)
+        cache = inc.VerdictCache(fave, engine, checks)
+        previous = cache.full()
+        engine.take_affected()
+        built = _held_keys(fave)
+        for n, (verb, group) in enumerate(commands, start=1):
+            try:
+                fave.switch([verb, '-r', '#'.join(_route_arg(r, verb == '-d') for r in group)])
+            except BarrierError as err:
+                if not refusals or 'UpdateRefused' not in str(err):
+                    raise
+                stats['refused'].append((verb, [r[2] for r in group], str(err)))
+            stats['rechecked'] += len(cache.selective(engine.take_affected()))
+            full = cache.ask(checks)
+            test.assertEqual(cache.verdict, full,
+                             "%s, command %d (%s %d routes of %s): selective "
+                             "re-verification missed a change"
+                             % (prefix, n, verb, len(group), group[0][0]))
+            stats['verdict_changes'] += sum(1 for c in full if full[c] != previous[c])
+            previous = full
+            if n % every == 0 or n == len(commands):
+                deleted = built - _held_keys(fave)
+                test.assertEqual(
+                    full, inc.from_zero(make, prefix, checks, deleted, set(), like=engine),
+                    "%s, command %d (%s %d routes of %s): the engine disagrees with "
+                    "a from-zero build of the model the aggregator holds"
+                    % (prefix, n, verb, len(group), group[0][0]))
+        stats['commands'] = len(commands)
+        if not stats['refused']:
+            test.assertEqual(_held_keys(fave), built,
+                             "%s: every route was added again, but the model differs" % prefix)
+    test.assertGreater(stats['verdict_changes'], 0,
+                       "no command changed a verdict: the oracle was not tested")
+    test.assertLess(len(stats['refused']), stats['commands'],
+                    "every command was refused: the stream tested nothing")
+    return stats
+
+
 def _misordered_routes(rules, declared, table=None, pairs=None):
     """ The routes of declared-LPM tables that file order puts on the wrong
     side of a covering route: a longer prefix inside a shorter one with a

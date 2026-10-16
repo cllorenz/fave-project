@@ -407,6 +407,9 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
     # its port. "The check's set does not meet the rule" would be unsound: a
     # rewrite upstream can carry the set into the rule.
 
+    def takes_updates(self) -> bool:
+        return self.ir is not None and self.net is not None
+
     def _require_built(self, op: str) -> Ir:
         if self.ir is None or self.net is None:
             raise UpdateRefused("VeriFlowAdapter: %s before the model was built" % op)

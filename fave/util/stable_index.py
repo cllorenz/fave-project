@@ -46,7 +46,7 @@ from __future__ import annotations
 import copy
 import difflib
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 #: (table, in-ports, match, actions): what an engine sees of a rule. Index and
 #: the raw-line metadata are not part of it -- `raw_line_no` shifts with every
@@ -87,6 +87,14 @@ class StableIndexer:
         table the indexer has not emitted -- a switch table filled by
         control-plane commands, with the indices their sender chose. """
         self._last[(node, table)] = [(r.idx, key(r)) for r in sorted(rules, key=lambda r: r.idx)]
+
+    def drop(self, node: str, table: str, idxs: Iterable[int]) -> None:
+        """ Rules a control-plane command deleted from a table: the last
+        emission no longer holds them. """
+        prev = self._last.get((node, table))
+        if prev is not None:
+            gone = set(idxs)
+            self._last[(node, table)] = [e for e in prev if e[0] not in gone]
 
     def last(self, node: str, table: str) -> Optional[List[Tuple[int, Key]]]:
         """ The last emission of (node, table): [(idx, key)] in order. """

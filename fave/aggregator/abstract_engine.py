@@ -134,6 +134,14 @@ class AbstractVerificationEngine(object):
     # update affected says so (None), which makes the caller re-verify every
     # check -- never fewer.
 
+    def takes_updates(self) -> bool:
+        """ Whether rules added to a device the engine already holds must
+        come as `insert_rule` (INCREMENTAL_PLAN.md D14). A lazy engine
+        (VeriFlow-FR, APKeep) records `add_rules` until its first check
+        builds the model, and takes rule changes only as updates from then
+        on; a live one (NetPlumber) applies `add_rules` as it arrives. """
+        return False
+
     def insert_rule(self, rule: Any) -> None:
         """ Insert one rule into a table the built model already has. """
         raise UpdateRefused(

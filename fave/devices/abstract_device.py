@@ -255,7 +255,8 @@ class AbstractDeviceModel(object):
         self.wiring: List[Tuple[str, str]] = wiring if wiring is not None else []
         # keyed by table name on reset but by rule.tid (int or str) on insert
         self._adds: Dict[Any, List["Rule"]] = {t : [] for t in self.tables}
-        self._deletes: List[int] = []
+        #: (table, index) of every rule `drop_rules` took out since `reset`
+        self._deletes: List[Tuple[str, int]] = []
         # OVERRIDES ONLY -- see `semantics_of`. Not materialised per table,
         # because tables are created lazily (RouterModel.persist calls
         # `self.tables.setdefault(...)` in four places), so a dict filled in here
@@ -301,10 +302,70 @@ class AbstractDeviceModel(object):
             self._adds[rule.tid].append(rule)
 
 
+    def _removal_candidates(self, idx: int) -> List[Tuple[str, int]]:
+        """ The (table, index) pairs the rule a control plane calls `idx` may
+        have become. A model that turns a sender's rule into rules of its
+        own (a packet filter's route) says which; here, any table. """
+        return [(table, idx) for table in self.tables]
+
+
+    def removal_keys(self, idxs: Iterable[int]) -> List[Tuple[str, int]]:
+        """ The (table, index) of every rule the rules `idxs` (as their sender
+        numbered them) became, in that order, without changing the model.
+        Raises ValueError, naming them, for indices the model holds no rule
+        for or names twice. One pass per table, so a batch costs the size of
+        the tables touched plus the batch. """
+        idxs = list(idxs)
+        twice = sorted({i for i in idxs if idxs.count(i) > 1}) if len(set(idxs)) < len(idxs) else []
+        if twice:
+            raise ValueError("%s: the rules %s are named twice"
+                             % (self.node, ', '.join(map(str, twice))))
+        held: Dict[str, set] = {}
+        keys: List[Tuple[str, int]] = []
+        missing: List[int] = []
+        for idx in idxs:
+            found = []
+            for table, ridx in self._removal_candidates(idx):
+                if table not in held:
+                    held[table] = {r.idx for r in self.tables.get(table, [])}
+                if ridx in held[table]:
+                    found.append((table, ridx))
+            if not found:
+                missing.append(idx)
+            keys.extend(found)
+        if missing:
+            raise ValueError("%s holds no rule with index %s"
+                             % (self.node, ', '.join(map(str, missing))))
+        return keys
+
+
+    def insertion_order(self, rules: List["Rule"]) -> List["Rule"]:
+        """ `rules`, added to a built model, in the order an engine takes them
+        one by one: every state in between must be one it can express. """
+        return rules
+
+
+    def drop_rules(self, keys: Iterable[Tuple[str, int]]) -> List["Rule"]:
+        """ Take the rules (table, index) out of the model, record them in
+        the delete buffer and return them. One pass per table. """
+        keys = list(keys)
+        by_table: Dict[str, set] = {}
+        for table, idx in keys:
+            by_table.setdefault(table, set()).add(idx)
+        removed: List["Rule"] = []
+        for table, idxs in by_table.items():
+            keep: List["Rule"] = []
+            for rule in self.tables.get(table, []):
+                (removed if rule.idx in idxs else keep).append(rule)
+            self.tables[table] = keep
+        self._deletes.extend(keys)
+        return removed
+
+
     def remove_rule(self, idx: int) -> None:
-        """ Add rule to delete buffer.
-        """
-        self._deletes.append(idx)
+        """ Remove the rule its sender numbered `idx` (ValueError if the
+        model holds none). """
+        self.drop_rules(self.removal_keys([idx]))
 
 
     def ingress_port(self, port: str) -> str:

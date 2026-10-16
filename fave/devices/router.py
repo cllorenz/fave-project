@@ -437,14 +437,9 @@ class RouterModel(AbstractDeviceModel):
         super(RouterModel, self).add_rules(rules)
 
 
-    def remove_rule(self, idx: int) -> None:
-        """ Remove a rule from the post_routing chain.
-
-        Keyword arguments:
-        idx -- a rule index
-        """
-        super(RouterModel, self).remove_rule(idx)
-        del self.tables[self.node+".routing"][idx]
+    def _removal_candidates(self, idx: int) -> List[Tuple[str, int]]:
+        """ A route stays one rule of the routing table, at its index. """
+        return [(self.node+".routing", idx)]
 
 
     def update_rule(self, idx: int, rule: Rule) -> None:
@@ -457,6 +452,7 @@ class RouterModel(AbstractDeviceModel):
 
         assert isinstance(rule, Rule)
 
+        rule.idx = idx
         self.remove_rule(idx)
         self.add_rule(rule)
 
