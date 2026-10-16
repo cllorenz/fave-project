@@ -3792,7 +3792,7 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
-### 59. VeriFlow-FR's footprints do not fit `wl_tum` in the incremental regime — OPEN (2026-10-16)
+### 59. VeriFlow-FR's footprints do not fit `wl_tum` in the incremental regime — RESOLVED 2026-10-16: the whole check set fits in 3.0 GB
 
 With tracking on, every walk records its footprint: every (table, arrival,
 packet set) state it reached (`fp->states`, both walk functions), kept per
@@ -3866,8 +3866,19 @@ checks in the D11 runs (D13).
     and witness: 1,244 s at **1.3 GB** (4.4 GB at 4 M) instead of 55.7 GB;
     `wl_i2`: no extra work at 1 M or 100 k, +80 % local ECs at 10 k, the same
     70 pairs at every size (`vf_cache.py`, `vf_i2.py`). `state_cache_unit.cc`.
-  - [ ] The whole `wl_tum` check set in the incremental regime (`vf_incr.py`,
-    tracking on): running.
+  - [x] **The whole `wl_tum` check set in the incremental regime, measured
+    2026-10-16** (`vf_incr.py`, tracking on, the 1 M state cache, merged
+    footprints and witnesses, no early exit; raw:
+    `bench/campaigns/results_vf_tum_perf_20261015/raw/vf_incr.out`,
+    `vf_incr_verdicts.json.gz`): 8,497 checks in **14,654 s** (stock
+    full-check run 11,944 s: +23 %), **peak RSS 2,960 MB** (estimated
+    ~780 GB with per-state footprints; 57 GB for the stock full-check run's
+    visited set), 2,158 walks, 806 M local ECs (the same as stock), 559
+    footprints holding 1,014,235 merged boxes. **0 violated, and every one of
+    the 8,497 verdicts equals the early-exit full-check run's.** It fits a
+    32 GB cell by a factor of ten; step 3 (an element -> checks index) is not
+    needed for memory and stays open only should re-check selection prove
+    slow.
 
 ### 58. Two cell-harness gaps found in the stable-index re-measurement — both FIXED 2026-10-15
 

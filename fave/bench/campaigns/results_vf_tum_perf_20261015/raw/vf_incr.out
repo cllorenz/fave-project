@@ -1,0 +1,1 @@
+{"tracking": true, "state_cache": 1000000, "early_exit_applied": 0, "replay_s": 1.2, "checks_s": 14654.1, "checks": 8497, "violated": 0, "walks": 2158, "local_ecs": 806136543, "footprints": 559, "footprint_boxes": 1014235, "peak_rss_mb": 2960}
