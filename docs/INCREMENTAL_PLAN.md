@@ -184,6 +184,17 @@ TNSM'21 measures only build-from-zero plus one verification.
   measured them so; only S4 went through the aggregator. Consequence: S1-S3 are
   redefined as FaVe-level changes before the campaign, and D11's S1-S3 numbers
   are engine-level, indicative only.
+- **D15. The campaign grid, cut (owner, 2026-10-16).** `wl_example` and
+  `wl_ifi` leave the campaign entirely: they answer functional questions, not
+  performance ones (S4 then runs on `wl_cloud`, `wl_up`, `wl_tum`).
+  `wl_airtel2` stays although it resembles `wl_airtel1`: either it shows
+  unexpected differences between two workloads of similar size, or it supports
+  the hypothesis that equally sized workloads need similar effort. *Proposed,
+  not yet decided:* the footprint ablation reduced to coarse against witness +
+  dead ends on every workload, with witness and dead ends alone only as
+  indicative cells (D11: witness + dead ends re-checked least in 39 of 39
+  complete groups, and was fastest in 27; the other 12 within 1-14 %, each a
+  sub-second cell or an S3 cell where dead ends cannot act).
 
 ## 5. What is measured, per update
 
