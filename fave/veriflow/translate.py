@@ -262,6 +262,11 @@ class Translator:
     def add_probe(self, model: Any) -> None:
         self._probes.append(model)
 
+    def takes_updates(self) -> bool:
+        """ Never: a recorder takes every rule as `add_rules` (the
+        aggregator asks, AbstractVerificationEngine.takes_updates). """
+        return False
+
     # -- translation ----------------------------------------------------------
 
     def translate(self, extra_fields: Sequence[str] = ()) -> Ir:
