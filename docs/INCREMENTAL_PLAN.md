@@ -174,6 +174,16 @@ TNSM'21 measures only build-from-zero plus one verification.
   NDD-Flood (no incremental path; a per-update rebuild is their V5 from-zero
   cost, which the break-even share already cites); `wl_berkeley` (may join the
   campaign as a size point after the D11 numbers).
+- **D14. Every measurement is driven through FaVe (owner, 2026-10-09,
+  restated 2026-10-16).** Updates enter through the aggregator, as an end user's
+  would, never directly at an engine or adapter: only that makes the engines'
+  numbers comparable from an end user's perspective. Direct engine interaction
+  stays allowed for limited experimentation (feature development, bug fixing).
+  The 2026-10-09 ruling ("our goal is to run the incremental benchmarks through
+  FaVe") was not carried into §6, so S1-S3 were applied at the adapter and D11
+  measured them so; only S4 went through the aggregator. Consequence: S1-S3 are
+  redefined as FaVe-level changes before the campaign, and D11's S1-S3 numbers
+  are engine-level, indicative only.
 
 ## 5. What is measured, per update
 
@@ -196,6 +206,9 @@ build** of the same final model on the same engine. A mismatch is a defect and
 stops the stream; over-approximation is allowed and shows up as `precision`.
 
 ## 6. Milestone 1 — the engine layer
+
+*Superseded for measurements by D14 (2026-10-16): measured streams go through
+FaVe. What follows describes M1 as built.*
 
 Updates are applied **directly at the adapter**, bypassing the aggregator, which
 cannot delete (§2). This isolates the engines, needs no modelling-engine work,
