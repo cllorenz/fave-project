@@ -13,6 +13,8 @@ record of enhancements for any publication. Every item below is a FaVe
 modification, not upstream behaviour. Each is grounded in the commit(s) that
 introduced it (all reachable via `git log -- apkeep/`).
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 The changes fall into three kinds:
 
 - **[NEW]** — a capability APKeep did not have (chiefly: reachability queries, and
@@ -329,15 +331,15 @@ rewrite table, which a dirty flag would remove, is worth only that 1.4 %.
 
 Measured on wl_cloud, where FaVe emits the 25 NAT rules **before** ~550
 first-match filter rules, so every rewrite output was stale by the end of the
-build: APKeep-BDD returned **53 of 64** reachable pairs where NDD and NetPlumber
+build: APKeep-BDD returned **53 of 64** reachable pairs where NDD-Flood and NetPlumber
 both return **59**, losing exactly the six internet-sourced ones -- the DNAT
 delivered nothing. Reduced to a **70-rule, 0.4 s** repro (one DC, one leaf, one
 NAT rule) and then to the four-rule model in
 `../fave/test/test_apkeep_nat_rewrite.py`.
 
 Patched, a 343-rule prune of the same model -- the endpoint-bearing leaves only,
-on which NDD reproduces the full 64-cell matrix exactly -- goes **53/64 ->
-59/64, cell for cell identical to both NDD and NetPlumber**. The partition grows
+on which NDD-Flood reproduces the full 64-cell matrix exactly -- goes **53/64 ->
+59/64, cell for cell identical to both NDD-Flood and NetPlumber**. The partition grows
 little (`ap_num` 16 485 -> 17 925, +8.7 %) but the build slows 2.8x (150 s ->
 427 s); `dc0` goes 2/4 -> 3/4 at `ap_num` 4 329 -> 5 584 and 9.6 s -> 22.6 s. FaVe-side context: `../docs/CLOUD_BENCH_PLAN.md` §1.7.3, `../TODO.md` item 29.
 
@@ -493,7 +495,7 @@ and the Python APKeep tests are unchanged):
 **The NDD side (`apkeep/ndd/`):**
 - `NddEncoder` -- the same `BDDACLWrapper` field encoders run over the NDD
   library's per-field variables, the fields assembled as NDD levels. The field
-  layout is `org.ants.jndd.fave.FaveFields`, shared with NDD-flood (NDD's tables
+  layout is `org.ants.jndd.fave.FaveFields`, shared with NDD-Flood (NDD's tables
   are process-global; `../ndd/FAVE_CHANGES.md` §10).
 - `NddPorts` -- the atom layer. Per port a molecule (`AtomizedNDD`) and the plain
   predicate it stands for. Ported from the reference: a change tuple's cube

@@ -21,7 +21,7 @@
 
 """ A packet filter's ingress and egress VLAN tags -- `svlan` (`-i eth1.<v>`)
 and `dvlan` (`-o eth1.<v>`) -- as header fields of BDD-APKeep, NDD-APKeep and
-NDD-flood (TODO.md item 54; owner, 2026-10-14: VLANs are genuine header fields).
+NDD-Flood (TODO.md item 54; owner, 2026-10-14: VLANs are genuine header fields).
 
 Until then the adapter's packet-filter path dropped both without a word, so a
 rule bound to one VLAN acted on all of them. Found with wl_tum's derived policy;
@@ -244,7 +244,7 @@ class TestNddAPKeepThroughFaVe(_ThroughFaVe):
 
 @require_or_skip(ndd_available(), "the NDD jar is unavailable")
 class TestNddFloodThroughFaVe(_ThroughFaVe):
-    engine = 'ndd'
+    engine = 'ndd-flood'
 
 
 if __name__ == '__main__':

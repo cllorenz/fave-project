@@ -22,7 +22,7 @@
 """ IPv4 forwarding benchmarks on the NDD engine (APKEEP_NDD_PLAN §2.6, incr 1):
 wl_i2 (77k dst-IP ForwardElement routes), wl_stanford P7a (in/mid collapsed
 forwarding) and wl_tum (IPv4 5-tuple FilterElement). Each is driven through the
-same adapter with engine='ndd' and gated at EXACT parity:
+same adapter with engine='ndd-flood' and gated at EXACT parity:
 
   * wl_i2       -> the tracked ground truth reachable.json (role matrix), the
                   same oracle the BDD test asserts (so NDD == BDD == oracle).
@@ -32,6 +32,9 @@ same adapter with engine='ndd' and gated at EXACT parity:
 The stanford/tum oracles are live NetPlumber in the BDD tests; here we use the
 already-gated BDD engine as the baseline (differential vs BDD is the plan's
 primary NDD correctness lever), which keeps these tests self-contained.
+
+Naming (2026-10-16): "the NDD engine" here is NDD-Flood, adapter engine
+`ndd-flood` (`ndd` before that date, which selects NDD-APKeep since).
 """
 
 import json
@@ -119,7 +122,7 @@ class TestNddIPv4Forwarding(unittest.TestCase):
         same `test/i2_oracle.py` the BDD gate uses -- see that module on what its
         three properties do and do not detect. Equality with the oracle is a real
         assertion only for the faithful model: the test below. """
-        _eng, sources, probes, reach = _matrix(_I2_PREFIX, 'ndd', files=_I2_FILES)
+        _eng, sources, probes, reach = _matrix(_I2_PREFIX, 'ndd-flood', files=_I2_FILES)
         all_pairs = {(_base(s), _base(p)) for p in probes for s in sources
                      if _base(s) != _base(p)}
         got = {(_base(s), _base(p)) for p in probes for s in sources
@@ -136,7 +139,7 @@ class TestNddIPv4Forwarding(unittest.TestCase):
         query so source-matching ACLs bite; a probe.X<-source.X self-reach never
         hits the router (not ACL-filtered), so it is excluded as reachable.json
         omits it. """
-        eng, sources, probes, reach = _matrix(_IFI_PREFIX, 'ndd')
+        eng, sources, probes, reach = _matrix(_IFI_PREFIX, 'ndd-flood')
         got = {
             _base(p): set(_base(s) for s in sources
                           if (s, p) in reach and _base(s) != _base(p))
@@ -157,7 +160,7 @@ class TestNddIPv4Forwarding(unittest.TestCase):
     def test_stanford_p7a_matches_bdd(self):
         """ wl_stanford P7a forwarding: NDD == BDD, pair-for-pair. """
         _, _, _, bdd = _matrix(_ST_PREFIX, 'bdd', files=_ST_FILES)
-        _, _, _, ndd = _matrix(_ST_PREFIX, 'ndd', files=_ST_FILES)
+        _, _, _, ndd = _matrix(_ST_PREFIX, 'ndd-flood', files=_ST_FILES)
         self.assertEqual(bdd - ndd, set(), "UNSOUND: BDD-reachable pairs NDD drops")
         self.assertEqual(ndd - bdd, set(), "OVER: pairs NDD adds vs BDD")
 
@@ -166,7 +169,7 @@ class TestNddIPv4Forwarding(unittest.TestCase):
     def test_tum_matches_bdd(self):
         """ wl_tum IPv4 5-tuple firewall: NDD == BDD, pair-for-pair. """
         _, _, _, bdd = _matrix(_TUM_PREFIX, 'bdd')
-        _, _, _, ndd = _matrix(_TUM_PREFIX, 'ndd')
+        _, _, _, ndd = _matrix(_TUM_PREFIX, 'ndd-flood')
         self.assertEqual(bdd - ndd, set(), "UNSOUND: BDD-reachable pairs NDD drops")
         self.assertEqual(ndd - bdd, set(), "OVER: pairs NDD adds vs BDD")
 
@@ -188,7 +191,7 @@ class TestNddIPv4Forwarding(unittest.TestCase):
         and this gate passed for months while APKeep reported all 72 pairs
         reachable (APKEEP_BACKEND.md Sec. 9/10). """
         eng, sources, probes, reach = _matrix(
-            _I2_PREFIX, 'ndd', files=_I2_FILES, faithful=True)
+            _I2_PREFIX, 'ndd-flood', files=_I2_FILES, faithful=True)
         got = {
             (_base(s), _base(p)) for p in probes for s in sources
             if (s, p) not in reach and _base(s) != _base(p)
@@ -219,7 +222,7 @@ class TestNddIPv4Forwarding(unittest.TestCase):
         np_pairs = {(p, s) for p, ss in np.items() for s in ss}
 
         _, sources, probes, reach = _matrix(
-            _ST_PREFIX, 'ndd', files=_ST_FILES, faithful=True)
+            _ST_PREFIX, 'ndd-flood', files=_ST_FILES, faithful=True)
         ndd_pairs = {
             (_base(p), _base(s)) for p in probes for s in sources
             if (s, p) in reach and _base(s) != _base(p)

@@ -8,16 +8,18 @@ Every table here is **generated** — `python3 bench/campaigns/cell_table.py` �
 not typed. Phase A's matrix was assembled by hand, which is how a `wl_cloud`
 row came to say "refuses (structural)" for a cell that answered.
 
-**Naming (2026-10-09, owner).** The column **NDD-flood** is FaVe's own engine on
+**Naming (2026-10-09, owner).** The column **NDD-Flood** is FaVe's own engine on
 the authors' NDD library (`ndd/src/main/java/org/ants/jndd/fave/`): per-device
 port predicates and a per-source flood, with no atomic predicates and no
 `updateRule`. It is **not** the NDD paper's APKeep(NDD); that name, **NDD-APKeep**,
 is reserved for a faithful port, scoped in `docs/APKEEP_INCREMENTAL_SCOPE.md` and
-not built. The verdicts stand; the times and memory are NDD-flood's. The run
+not built. The verdicts stand; the times and memory are NDD-Flood's. The run
 records under `results_*` (PROTOCOL, FINDINGS, INVESTIGATION) were written before
-the rename and say "NDD-APKeep" for NDD-flood; they are left as written. The cells'
+the rename and say "NDD-APKeep" for NDD-Flood; they are left as written. The cells'
 `impl` stamp, `authors+fave` with the NDD library as upstream, is accurate as it
 stands: the authors' code is the library, FaVe's is the verifier on it.
+
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood. The campaign queue files (`v5_*.json`) keep `"apkeep-engine": "ndd"`; re-run now, they measure NDD-APKeep. NDD-APKeep, "not built" in the 2026-10-09 note above, has been built since 2026-10-10 (`apkeep/FAVE_CHANGES.md` §12).
 
 ## 1. The matrix — what each engine says
 
@@ -28,7 +30,7 @@ python3 bench/campaigns/cell_table.py results_v5_20261002 \
     --over results_v5_i2_ad6_flow_20261008
 ```
 
-| workload | NetPlumber | NDD-flood | BDD-APKeep | ad6 | VeriFlow-FR | VF-plain |
+| workload | NetPlumber | NDD-Flood | BDD-APKeep | ad6 | VeriFlow-FR | VF-plain |
 |---|---|---|---|---|---|---|
 | wl_example | 0/10 | 0/10 | 0/10 | 0/10 | 0/10 | 0/10 |
 | wl_ifi | 27/299 | 27/299 | 27/299 | 27/299 | 27/299 | 27/299 |
@@ -67,7 +69,7 @@ declared ablation and was deferred, never run.
 
 ## 2. Cost
 
-| workload | NetPlumber | NDD-flood | BDD-APKeep | ad6 | VeriFlow-FR | VF-plain |
+| workload | NetPlumber | NDD-Flood | BDD-APKeep | ad6 | VeriFlow-FR | VF-plain |
 |---|---|---|---|---|---|---|
 | wl_example | 2.2 s / 86 MB | 2.1 s / 1816 MB | 2.2 s / 366 MB | 2.4 s / 215 MB | 2.1 s / 67 MB | 2.1 s / 67 MB |
 | wl_ifi | 2.1 s / 81 MB | 2.0 s / 1414 MB | 2.1 s / 399 MB | 4.2 s / 212 MB | 2.1 s / 66 MB | 2.1 s / 64 MB |
@@ -88,7 +90,7 @@ is the runtime, not the workload.
 97,709, 186.9 MiB of BDD memory at `-Xmx8g`. The query is **0.785 s**: 99.99% of
 the cell is the build, 87% of the build is merge. It reports **59 reachable
 pairs, not the 53** of the 2026-09-25/27 runs — corroborated by the post-NAT-fix
-BDD probe and by NDD independently. **The first completion on a correct binary**
+BDD probe and by NDD-Flood independently. **The first completion on a correct binary**
 (§5.3's S1/S4), and `reachable_pairs` is not the matrix's `violations/checks`.
 
 **The two faithful probes** stand: compared at matched rule count, stanford
@@ -105,14 +107,14 @@ sampler is proportional to three decimals, so the shape is constant across k.
 | k=30 (459,202 rules) | NetPlumber | 210.0 s | 2,382 MB | 0/520 |
 | k=10 (1,351,800) | NetPlumber | 3,083.4 s | 7,159 MB | 0/520 |
 | **k=3 (4,476,240)** | NetPlumber | **16.05 h** | 23,333 MB | 0/520 |
-| k=30 | NDD-flood | 28.3 s | 4,128 MB | 0/520 |
-| k=10 | NDD-flood | 116.4 s | 7,953 MB | 0/520 |
-| k=3 | NDD-flood | 339.6 s | 20,932 MB | 0/520 |
-| **k=1 (13,402,846)** | NDD-flood | **1,129.6 s** | 44,681 MB | 0/520 |
+| k=30 | NDD-Flood | 28.3 s | 4,128 MB | 0/520 |
+| k=10 | NDD-Flood | 116.4 s | 7,953 MB | 0/520 |
+| k=3 | NDD-Flood | 339.6 s | 20,932 MB | 0/520 |
+| **k=1 (13,402,846)** | NDD-Flood | **1,129.6 s** | 44,681 MB | 0/520 |
 | k=3 | BDD-APKeep | 775.7 s | 18,698 MB | 0/520 |
 | **k=1** | BDD-APKeep | **3,405.0 s** | 47,433 MB | 0/520 |
 
-**Both APKeep engines answer the full 13.4 M-rule model**; BDD is 3.01× NDD at
+**Both APKeep engines answer the full 13.4 M-rule model**; BDD is 3.01× NDD-Flood at
 k=1 (2.28× at k=3, so it loses ground with size), and the whole difference is
 the compliance check — rule load is a dead heat, 672.6 s against 687.0 s.
 
@@ -178,7 +180,7 @@ stopped a 10× speed-up being credited to the author's own change.
   `wl_i2` by 11.
 * **`bdd × wl_stanford` and `bdd × wl_i2` are the faithful cells**, and both are
   24 h did-not-finishes. That is the expected result, not a surprise:
-  `APKEEP_BACKEND.md` records that the APKeep engine default moved to NDD
+  `APKEEP_BACKEND.md` records that the APKeep engine default moved to NDD-Flood
   *because* faithful-on-BDD completes on neither. The matrix prints them as
   bare DNFs, which reads as "BDD is slow" rather than "BDD cannot carry the
   faithful VLAN model at this size".

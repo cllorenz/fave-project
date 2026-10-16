@@ -7,6 +7,11 @@ It records the FaVe/APKeep backend in its **BDD** engine state — the published
 *baseline* the later NDD engine is compared against, and the differential **oracle**
 NDD must reproduce.
 
+> **Naming (2026-10-16):** the "later NDD engine" this document plans was built as
+> **NDD-Flood** (`--apkeep-engine ndd-flood`; called "NDD" and selected by
+> `--apkeep-engine ndd` before 2026-10-16). Since then `--apkeep-engine ndd` selects
+> NDD-APKeep. Names of earlier result cells and files keep the old name.
+
 Owner: Claas Lorenz. Companions: [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md),
 [`APKEEP_TUM_UP_PLAN.md`](APKEEP_TUM_UP_PLAN.md), [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md),
 `apkeep/FAVE_CHANGES.md`.

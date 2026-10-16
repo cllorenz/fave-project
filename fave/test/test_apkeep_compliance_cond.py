@@ -179,7 +179,7 @@ class TestBothEnginesForceTheStateBit(unittest.TestCase):
     field REL -- so neither covers the other. """
 
     def test_the_state_the_filter_demands_is_the_only_one_that_gets_through(self):
-        for engine in ('bdd', 'ndd'):
+        for engine in ('bdd', 'ndd-apkeep', 'ndd-flood'):
             with self.subTest(engine=engine):
                 adapter = _stateful_firewall(engine)
                 seen = {}
@@ -212,7 +212,7 @@ class TestWlUpStateConditions(unittest.TestCase):
 
         log = logging.getLogger("test_apkeep_compliance_cond")
         log.setLevel(logging.WARNING)
-        cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd')
+        cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd-apkeep')
 
         with InProcessFaVe(cls.engine) as fave:
             fave.replay(_PREFIX)

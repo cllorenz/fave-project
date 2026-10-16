@@ -4,6 +4,8 @@ Running results for the NDD integration of `APKEEP_NDD_PLAN.md` Part 2. Companio
 the frozen BDD baseline (`APKEEP_BDD_BASELINE.md`), which is the differential oracle.
 Sibling cross-family effort: [`AD6_PLAN.md`](AD6_PLAN.md) (ad6 as a generic SAT/QBF backend).
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 **NDD upstream:** `github.com/XJTU-NetVerify/NDD` @ `c8414b43` (2026-08-05, "Update
 per-field mixed label backends"). Java 8 source; builds under our JDK 11; deps
 (JavaFX 15, guava, hppc, log4j, junit5) resolve from Maven Central.
@@ -237,15 +239,15 @@ predicates; the BDD 14 561 is the *post-forwarding* network partition, so the tr
 engine Σ will be larger (LPM/priority refinement) — but even several-fold refinement
 leaves a ~10× win. This is the make-or-break perf gate, and it is GO.
 
-### §2.5c — NDD reachability engine + parity gate: EXACT PARITY ✅
-`ndd/src/test/java/org/ants/jndd/diagram/NDDWlupReachabilityTest.java` — an NDD
+### §2.5c — NDD-Flood reachability engine + parity gate: EXACT PARITY ✅
+`ndd/src/test/java/org/ants/jndd/diagram/NDDWlupReachabilityTest.java` — an NDD-Flood
 reachability engine for the full wl_up model, run against the frozen BDD golden
 (`fave/bench/wl_up/eval/mat_apk.json`, via line files from `wl_up_dump2.py`):
 
     NDD pairs=3661  golden=3661  OVER(ndd\bdd)=0  UNDER(bdd\ndd)=0
     EXACT PARITY: 3661 pairs
 
-**The (B) engine-swap is correctness-proven on wl_up: the NDD engine reproduces the
+**The (B) engine-swap is correctness-proven on wl_up: the NDD-Flood engine reproduces the
 BDD baseline pair-for-pair (0 over, 0 under).** Engine design: 269 filter devices
 (first-match residual per out_port via `NDD.diff`, priority-sorted ⇒ LPM), 137 sources
 emitting their src-IPv6 space (Lever B seed), 137 probe sinks; per-source fixpoint
@@ -262,12 +264,12 @@ EXACT PARITY 3661/3661**:
 
 | engine | build | query | build+query |
 |---|---|---|---|
-| **NDD (plain per-field, hop = `NDD.and`)** | 210 ms | 235 ms | **445 ms** |
-| **NDD (atom-based, hop = `AtomizedNDD.and`, 341 atoms)** | 202 ms | 398 ms | **601 ms** |
+| **NDD-Flood (plain per-field, hop = `NDD.and`)** | 210 ms | 235 ms | **445 ms** |
+| **NDD-Flood (atom-based, hop = `AtomizedNDD.and`, 341 atoms)** | 202 ms | 398 ms | **601 ms** |
 | BDD baseline (APKeep, `ap_num` 14 561) | ~692 s | — | **~1079 s** |
 | NetPlumber (HSA reference) | — | — | ~49 s |
 
-**The NDD engine does the full from-zero build+query in ~0.5 s vs BDD-APKeep's ~1079 s
+**The NDD-Flood engine does the full from-zero build+query in ~0.5 s vs BDD-APKeep's ~1079 s
 (~1700–2400×), and ~80× faster than NetPlumber — at exact parity.** The atom-based
 path (the §2.5b `AtomizedNDD`) validates the ported atomization end-to-end in
 reachability (341 atoms, matching the §2.5b sizing); at wl_up's small scale it is not
@@ -277,9 +279,9 @@ updates), but it holds parity.
 **Honest framing.** The comparison is fair in that both compute the identical full
 137×137 matrix from zero with exact parity, but the architectures differ: the BDD 692 s
 is APKeep's build of its global atomic-predicate partition (the src×dst×… cross-product
-blowup, 93 % PPM), whereas the NDD engine is a direct per-source fixpoint flood that
+blowup, 93 % PPM), whereas the NDD-Flood engine is a direct per-source fixpoint flood that
 never materialises that partition. The result *is* the thesis: the per-field
-representation removes the blowup, which is why NDD lands with NetPlumber-class (indeed
+representation removes the blowup, which is why NDD-Flood lands with NetPlumber-class (indeed
 sub-second) from-zero cost while BDD-APKeep pays ~692 s. Timings are cold single-runs;
 the gap dwarfs any warm-up effect.
 
@@ -287,13 +289,13 @@ the gap dwarfs any warm-up effect.
 The (B) engine-swap is proven on wl_up: **correct** (§2.5c, 3661/3661) and **fast**
 (§2.5d, ~0.5 s vs ~1079 s). Remaining to make it a real second backend:
 1. ✅ **§2.5e (DONE):** productionized into the adapter as a selectable second engine
-   ("one shared adapter, two engines"); wl_up NDD wired into the exactness gate.
+   ("one shared adapter, two engines"); wl_up NDD-Flood wired into the exactness gate.
 2. Extend beyond wl_up: NAT-on-NDD (per-field `exist`) for wl_stanford faithful-VLAN;
    the ACL-division / IPv4 workloads.
 3. Incremental updates (the `getAtomsToSplit*`/`changeAtoms` path) if update-time
    (not just from-zero) becomes a target.
 
-### §2.5e — productionize the NDD engine (wl_up): DONE
+### §2.5e — productionize the NDD-Flood engine (wl_up): DONE
 The §2.5c/d prototype lived in a JUnit test driven by line-file dumps. Productionized
 it into the real FaVe path with **no new correctness risk** (the residual/flood/encoders
 are the proven code, ported verbatim):
@@ -305,16 +307,16 @@ are the proven code, ported verbatim):
 - **Bound** it via JPype in `fave/apkeep/lib_ndd.py` (`LibNDD`), a resident-JVM handle
   parallel to `LibAPKeep`. Both `_ensure_jvm` now use a **union classpath** (apkeep +
   ndd jars) so either engine can boot the process-global JVM and both stay reachable.
-- **Selector** in `APKeepAdapter(engine='bdd'|'ndd')`. The model construction is
+- **Selector** in `APKeepAdapter(engine='bdd'|'ndd-flood')`. The model construction is
   engine-agnostic (it already emits the neutral `+ filter` / `dev port dev port` IR —
   the exact strings `wl_up_dump2.py` captured); `_build()` branches at the dispatch:
-  BDD → `LibAPKeep.init_in_memory/run`; NDD → `LibNDD.build(all_rules, edges)`. NDD is
+  BDD → `LibAPKeep.init_in_memory/run`; NDD-Flood → `LibNDD.build(all_rules, edges)`. NDD-Flood is
   guarded **single-universe** (no ACL/NAT rules) and raises otherwise. `check_compliance`
-  dispatches `is_reachable` to the active engine (NDD takes the src CIDR as the query
+  dispatches `is_reachable` to the active engine (NDD-Flood takes the src CIDR as the query
   seed — Lever B for every source). BDD path byte-unchanged (`run(all_rules)` where
   `all_rules == _dedup(fwd)+acl+nat+filter`, the former inline expression).
 - **Gate:** new `fave/test/test_apkeep_ndd_wlup.py` drives the REAL wl_up model through
-  the REAL aggregator into `APKeepAdapter(engine='ndd')` and asserts the full
+  the REAL aggregator into `APKeepAdapter(engine='ndd-flood')` and asserts the full
   source→probe matrix equals the frozen BDD baseline `bench/wl_up/eval/mat_apk.json`
   **exactly: 3661 pairs, 0 over, 0 under** (2 passed, ~3.2 s incl. JVM boot + replay).
   Added to `exactness_gate.sh` (which now also builds the ndd jar + regenerates wl_up
@@ -324,15 +326,15 @@ are the proven code, ported verbatim):
 This realizes "one shared adapter, two engines" for wl_up. Not yet productionized:
 transformers (NAT/VLAN) and ACL division for the other workloads — future work (item 2).
 
-### §2.6 — extend the NDD engine to all benchmarks
-Goal: `engine='ndd'` available for every FaVe benchmark. A scoping pass (replay each
+### §2.6 — extend the NDD-Flood engine to all benchmarks
+Goal: `engine='ndd-flood'` available for every FaVe benchmark. A scoping pass (replay each
 model, capture the adapter's neutral IR) gives the capability matrix:
 
 | benchmark | rules | needs beyond wl_up | status |
 |---|---|---|---|
 | wl_up | `+filter` IPv6 | — | ✅ done (§2.5e) |
-| wl_tum | `+filter` IPv4 5-tuple (5108) | IPv4 in filter encoders | ✅ EXACT (NDD==BDD) |
-| wl_stanford P7a | `+fwd` IPv4 (3890) | IPv4 fields + `+fwd` parse | ✅ EXACT (NDD==BDD) |
+| wl_tum | `+filter` IPv4 5-tuple (5108) | IPv4 in filter encoders | ✅ EXACT (NDD-Flood==BDD) |
+| wl_stanford P7a | `+fwd` IPv4 (3890) | IPv4 fields + `+fwd` parse | ✅ EXACT (NDD-Flood==BDD) |
 | wl_i2 | `+fwd` IPv4 (77841) | scale | ⚠️ **obstacle (below)** |
 | wl_ifi | `+fwd`+`+acl`+`+filter` IPv4 | ACLElement + src-IP seed | ✅ EXACT (== reachable.json) |
 | wl_stanford faithful | + `+nat` + `+acl` (VLAN) | NAT transformer + VLAN field | ✅ EXACT (== NetPlumber; BDD needs ≥ 3.8 h, §2.6b) |
@@ -347,7 +349,7 @@ parity vs the BDD engine** (differential in-process); wl_up still exact. Gate:
 `fave/test/test_apkeep_ndd_fwd.py`.
 
 **wl_i2 (77841 routes) — OBSTACLE.** The true partition is tiny (BDD `ap_num=216`),
-but the NDD reachability materializes each port's forwarded-set as a *monolithic
+but the NDD-Flood reachability materializes each port's forwarded-set as a *monolithic
 per-field NDD* — a union of thousands of IPv4 prefixes is a large BDD — and the
 residual's running `covered` union grows likewise; build did not finish in 9 min
 (8 GB heap) / OOM'd at the default heap. An alternative that atomizes the raw rule
@@ -367,11 +369,11 @@ deny differ — so the ACL predicate reuses `ruleToNDD` verbatim; a permit forwa
 the element's `"permit"` out_port (Cisco first-match ⇒ higher priority wins), a deny
 drops. The one new piece is APKeep's ACLElement node naming: an element `E` appears in
 the topology as node `E_in`/`E_out`, so the flood strips that suffix (`elementOf`) to
-find the residual. The adapter's NDD guard is relaxed to reject only NAT (`+ nat`), not
-ACLs. The source's src-IP is the query seed, so source-matching ACLs bite. **wl_ifi NDD
+find the residual. The adapter's NDD-Flood guard is relaxed to reject only NAT (`+ nat`), not
+ACLs. The source's src-IP is the query seed, so source-matching ACLs bite. **wl_ifi NDD-Flood
 == reachable.json exactly** (`test_apkeep_ndd_fwd.py::test_ifi_matches_ground_truth`).
 
-Now on NDD: **wl_up, wl_tum, wl_stanford-P7a, wl_ifi** (4 of 6). Remaining: wl_i2 scale
+Now on NDD-Flood: **wl_up, wl_tum, wl_stanford-P7a, wl_ifi** (4 of 6). Remaining: wl_i2 scale
 (incr 1b) and wl_stanford faithful-VLAN NAT (incr 3).
 
 *Env note:* a yolobox container reset wipes the toolchain (JDK/Maven, and the pybison
@@ -387,7 +389,7 @@ on the dst-prefix-matched part, then set `VLAN=vlanN`; unmatched dst passes unch
 The one correctness subtlety: a probe is a host on an access port that **strips the VLAN
 tag** on delivery, so a probe accepts traffic regardless of the transit VLAN it carried —
 modeled by `exist(VLAN)` on a probe device's header (a no-op for the VLAN-free
-benchmarks). With that, **NDD faithful == NetPlumber exactly: 165 pairs, 0 over, 0
+benchmarks). With that, **NDD-Flood faithful == NetPlumber exactly: 165 pairs, 0 over, 0
 under** (`test_apkeep_ndd_fwd.py::test_stanford_faithful_vlan_matches_netplumber`; NP is
 the oracle — BDD-APKeep == NP on the tractable configs).
 
@@ -396,9 +398,9 @@ atomic-predicate cross-product explodes. Profiling the BDD build (`APKEEP_BUILD_
 11 GB heap) shows it **does not finish in 28 min** — at that point only 4884/7278 rules
 were applied, with **ap_num ≈ 21,600** (vs ~hundreds for P7a), 4.58M PPM entries, 13.5M
 BDD nodes, and time dominated by AP `merge` (920 s) + PPM update (773 s), 92k splits /
-19.5M split-touches. The per-field NDD engine builds the same model in **~3 s**. This is
+19.5M split-touches. The per-field NDD-Flood engine builds the same model in **~3 s**. This is
 the cross-product blow-up (VLAN × dst) that NDD is designed to eliminate, demonstrated on
-the hardest FaVe workload: BDD needs ≥ 3.8 h (§2.6b bound), NDD is sub-3-s and exact.
+the hardest FaVe workload: BDD needs ≥ 3.8 h (§2.6b bound), NDD-Flood is sub-3-s and exact.
 
 **Incr 1b (wl_i2 scale) — DONE (dst-only) via atomic-predicate forwarding.** The
 monolithic per-port residual is intractable for wl_i2 (77k routes: >9 min / OOM even
@@ -437,17 +439,17 @@ with **`ap_num` = 19 081 and still climbing** (216 dst → 1 680 @10s → 9 168 
 partition (`APKEEP_BUILD_PROFILE`). NDD's per-field **Σ = 253**. So the second Σ-vs-Π
 result is confirmed and even stronger than the estimate — the independent `in.*` VLAN
 admission (plus the per-route `rw=vlan` NATs, which split further) blows up BDD's single
-global partition, while NDD keeps dst (216) and VLAN (37) additive. NDD-side reachability
+global partition, while NDD keeps dst (216) and VLAN (37) additive. NDD-Flood-side reachability
 is the tractable dst-atom flood (AtomForwarding: 216 atoms, ~0.7 s, 72 pairs; VLAN is
 non-restrictive, so faithful reachability == 72 = NP).
 
-**Two-field NDD engine (completeness).** The general `NddReachabilityEngine` now builds
+**Two-field NDD-Flood engine (completeness).** The general `NddReachabilityEngine` now builds
 the FULL faithful-i2 (dst × VLAN) model: its dst-IP FIB is computed by an atom-based
 per-port builder (`buildFwdPortPred`: per-device trie-LPM over elementary intervals →
 each port's dst set as a bounded union of contiguous ranges, no growing residual), and
 the VLAN rides the existing `+nat` rewrite / `+acl` admission / probe-untag path. It
 **builds in ~15 s and its reachability is EXACT (72 = reachable.json = NP)** — where
-BDD-APKeep does not finish in 28 min. So the demonstration is end-to-end: NDD builds and
+BDD-APKeep does not finish in 28 min. So the demonstration is end-to-end: NDD-Flood builds and
 solves faithful-i2 tractably; BDD cannot. Gated by
 `test_apkeep_ndd_fwd.py::test_i2_faithful_vlan_matches_ground_truth`.
 
@@ -624,7 +626,7 @@ of this section that needs no stopping-rule caveat at all.
 **Both faithful models therefore give the identical answer, in the form the stopping
 rule permits:** BDD-APKeep **does not OOM** (measured, and independent of run length),
 and **needs ≥ 3.8 h (stanford) / ≥ 18.7 h (i2) to complete** at the tail rule-rates each
-run was measured at — against NDD's ~3 s and ~15 s on the same models. It exhibits *superlinear
+run was measured at — against NDD-Flood's ~3 s and ~15 s on the same models. It exhibits *superlinear
 wall-clock growth of a per-field cross-product partition while the heap stays flat at
 ~0.38 GB*: the wall is algorithmic, not resource, so no bigger box rescues it.
 
@@ -638,7 +640,7 @@ which no run in this section did.
 
 **Σ-vs-Π summary (BDD's joint partition Π vs NDD's per-field Σ).**
 
-| faithful model | BDD-APKeep Π (`ap_num`) | NDD Σ | NDD build |
+| faithful model | BDD-APKeep Π (`ap_num`) | NDD Σ | NDD-Flood build |
 |---|---|---|---|
 | wl_i2 (dst×VLAN) | **≥ 21 012 and climbing** (operator-stopped at 54.0 min, 53 % of rules; ~178–210 k *projected* at the measured 2.16–2.60 AP/rule) | **253** (216 dst + 37 VLAN) | ~15 s, exact |
 | wl_stanford (dst×VLAN) | **≥ 22 242 and climbing** (operator-stopped at 54.5 min, 70 % of rules; capped was 21 582) | (per-field, ~hundreds) | ~3 s, exact |
@@ -719,7 +721,7 @@ plus the 1 h loud-catch probes `probe_{stanford,i2}_1h.*` and the pre-fix
 `bdd_build_{deadline4h,run2}.*` that caught the crash.
 
 **The 53-vs-59 gap is CLOSED (2026-09-27).** On wl_cloud the completed BDD build
-answered **53** reachable pairs where NDD (and NetPlumber) answer **59**. The six
+answered **53** reachable pairs where NDD-Flood (and NetPlumber) answer **59**. The six
 are the whole `internet` row -- every pair crossing the gateway's DNAT
 (`internet -> dc0_leaf1_host1`, `dc1_leaf0_host20`, `dc1_leaf5_host5`,
 `dc1_leaf6_host0`, `dc1_leaf6_host2`, `dc4_leaf3_host22`), all six lost in the
@@ -776,11 +778,11 @@ bites depends on where the stale outputs sit. What remains unmeasured is whether
 the full 16-router (9 491-rule) and i2 (154 974-rule) models behave as the
 subsets do. TODO item 29.
 
-### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
+### §2.6 status: all 6 benchmarks have NDD-Flood coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all
-exact and in the exactness gate (18 passed, 0 skipped). The NDD multi-field advantage is
+exact and in the exactness gate (18 passed, 0 skipped). The NDD-Flood multi-field advantage is
 proven on wl_up (0.5 s vs 1079 s) and faithful-stanford (BDD ≥ 3.8 h by the §2.6b
-bound, ap_num ≥ 22.2k and climbing at the stop, vs NDD 3 s). Optional follow-on: faithful-i2 (dst×VLAN) as a second Σ-vs-Π data point,
+bound, ap_num ≥ 22.2k and climbing at the stop, vs NDD-Flood 3 s). Optional follow-on: faithful-i2 (dst×VLAN) as a second Σ-vs-Π data point,
 with a BDD-APKeep faithful-i2 comparison.
 
 ## §2.4 — vendor NDD: DONE

@@ -3,6 +3,8 @@
 **Status: steps 0-5 DONE (2026-09-25).** Covers TODO items 24 and 25, which are
 two views of the same gap.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 > **Read sec. 3 first.** The oracle step 0 asked for was built
 > (`bench/analysis/apkeep_out_stage_oracle.py`) and it established that **no source->probe
 > reachability question can observe this gap, in the REFERENCE model**: deleting
@@ -104,7 +106,7 @@ reachability oracle cannot evaluate this work. See §3.
 
 Every conditional rule carries `vlan`. A `FilterElement` can express all of these
 **except `tcp_flags`**: `_filter_rule_string` already has the trailing VLAN slot
-(emitted `null` today), and item 23 step 0 taught the NDD engine to read it, so
+(emitted `null` today), and item 23 step 0 taught the NDD-Flood engine to read it, so
 both engines now agree on that slot.
 
 ### 2.5 The 16 denies, and why `tcp_flags` is not a footnote
@@ -158,7 +160,7 @@ gate. Both halves are below, because the second is the result.
 ### 3.1 What was built
 
 `bench/analysis/apkeep_out_stage_oracle.py`. It drives wl_stanford through both backends
-in the PRODUCTION configuration (APKeep faithful + NDD, the aggregator default)
+in the PRODUCTION configuration (APKeep faithful + NDD-Flood, the aggregator default)
 and diffs the pair sets for a question narrowed two ways:
 
 - `--seed` constrains what the GENERATORS emit;
@@ -371,11 +373,11 @@ sketch of this step:**
    wrong silently: the symptom is extra reachability, not an error.
 2. **A THIRD reader of the slot, which item 23 step 0 did not cover.** An
    address-rewrite NAT carries the 5-tuple it is keyed on as a FilterElement
-   body (`_nat_ip_rule_string`). The NDD engine re-headed that body and called
+   body (`_nat_ip_rule_string`). The NDD-Flood engine re-headed that body and called
    bare `ruleToNDD`, dropping the VLAN; the BDD engine hands the same body to
    `common.ACLRule`, whose `token[14]` IS the slot, and has always honoured it.
    So one NAT rule string meant two different things per engine — **measured on
-   a pre-fix jar: NDD `(True, True, True)` where BDD said `(True, True, False)`**.
+   a pre-fix jar: NDD-Flood `(True, True, True)` where BDD said `(True, True, False)`**.
    Latent until now, because a first-match NAT reuses its own rule's body as the
    match and that body could not carry a tag. Fixed with `withVlanSlot` in the
    `+ nat ... match` branch, i.e. both engines together, as step 0's lesson
@@ -409,7 +411,7 @@ out_stage_rewrite_ports      45      sec. 4.5
 out_stage_shadowed_rules  2,050      reported, not acted on
 out_stage_rules_widened       0      (was 24 before step 4)
 rules_to_engine           9,491      was 7,328
-NDD build                 0.78 s     was 0.36 s   (median of 5, back to back)
+NDD-Flood build           0.78 s     was 0.36 s   (median of 5, back to back)
 ```
 
 **The build times are corrected (2026-09-25).** Steps 3 and 4 reported 1.22 s
@@ -471,13 +473,13 @@ finishes:
 
 ```
 traffic leaves carrying vlan 5; ask target_vlan=0 at the destination
-   destination `dst`      NDD=False  BDD=False    <- agree
-   destination `probe.x`  NDD=True   BDD=False    <- disagree
+   destination `dst`      NDD-Flood=False  BDD=False    <- agree
+   destination `probe.x`  NDD-Flood=True   BDD=False    <- disagree
 ```
 
 And the reference settles which reading is right: **clearing the `vlan=0` filter
 on all 16 of wl_stanford's probes leaves NetPlumber at 165 pairs, unchanged.** NP
-does not enforce it either, so NDD's untag matches the reference and BDD's
+does not enforce it either, so NDD-Flood's untag matches the reference and BDD's
 literal reading does not -- and the real defect was the adapter forcing
 `target_vlan=0` at all.
 
@@ -505,7 +507,7 @@ conjunct and recorded the widening; `out_stage_rules_widened` is now **0**.
   confirmed by `mvn package` (which runs `BDDACLWrapperTest`) and by
   `apkeep_smoke.sh` matching its golden 20 loops. `ConvertTcpFlags` AND-s the
   fixed bits into `ConvertACLRule`.
-- **NDD**: field `FLAGS = 9`, width 8, **appended** so indices 0..8 are
+- **NDD-Flood**: field `FLAGS = 9`, width 8, **appended** so indices 0..8 are
   untouched. `withFlagsSlot` sits beside `withVlanSlot` and is applied at the
   same three readers -- `+ filter`, `+ acl`, and the `+ nat ... match` body --
   because sec. 4.2 showed what happens when one reader is missed.
@@ -554,10 +556,10 @@ idx=49  vlan=864     -> rw vlan:0, fd 120013 <- same egress, never fires
 
 ```
                                     can a vlan-864 packet still arrive?
-                                        NDD      BDD
-rules only                              True     True    <- reference
-rules + idx49's rewrite on 120013       False    False   <- wrong
-rules + idx49's rewrite on 120013r0     True     True    <- the split
+                                        NDD-Flood BDD
+rules only                              True      True    <- reference
+rules + idx49's rewrite on 120013       False     False   <- wrong
+rules + idx49's rewrite on 120013r0     True      True    <- the split
 ```
 
 **The construction.** The rewriting rule forwards to a **dedicated port**, the
@@ -650,7 +652,7 @@ a prediction into a measurement:
 
 - **Do not gate on the reachability matrix.** Not "not alone" — not at all, for
   this gap, on this benchmark.
-- **Production is NDD** (owner, 2026-09-24). Gate on NDD; measure BDD build time
+- **Production is NDD-Flood** (owner, 2026-09-24). Gate on NDD-Flood; measure BDD build time
   separately and report it — if it regresses, that is evidence for the deferred
   BDD-scalability item, not a reason to hold a step.
 
@@ -732,7 +734,7 @@ for. Step 3's acceptance criterion becomes:
 - **regression guard**: 165/165 vs NetPlumber unchanged, EXTRA=0 MISSING=0,
   faithful *and* plain; wl_i2's 61 pairs unchanged. Necessary, never sufficient.
 - **the actual result**: a REPORTED cost delta from carrying the 2,683 rules --
-  build time, element count, NDD atom count, and BDD build time measured
+  build time, element count, NDD-Flood atom count, and BDD build time measured
   separately. Reported, not bounded: a large delta is the finding, not a failure.
 
 This is achievable, unlike a correctness gate, and it answers the question the

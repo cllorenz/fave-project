@@ -25,12 +25,15 @@
 This is the productionized counterpart of the §2.5c/d Java prototype
 (NDDWlupReachabilityTest): instead of line-file dumps, it drives the *real*
 wl_up device models through the *real* aggregator dispatch (InProcessFaVe wraps
-an in-process AggregatorService whose engine is APKeepAdapter(engine='ndd')),
+an in-process AggregatorService whose engine is APKeepAdapter(engine='ndd-flood')),
 computes the full source->probe reachability matrix, and asserts EXACT parity
 with the frozen BDD baseline matrix (bench/wl_up/eval/mat_apk.json, the golden
 the BDD engine produced -- 3661 raw pairs). Proves "one shared adapter, two
 engines": the same model construction, dispatched to the per-field NDD engine,
 reproduces the BDD result bit-for-bit.
+
+Naming (2026-10-16): "the NDD engine" here is NDD-Flood, adapter engine
+`ndd-flood` (`ndd` before that date, which selects NDD-APKeep since).
 """
 
 import json
@@ -59,7 +62,7 @@ def _inputs_present():
 @require_or_skip(ndd_available(), "JPype or the NDD jar is unavailable")
 @require_or_skip(_inputs_present(), "wl_up inputs not present")
 class TestAPKeepNddWlup(unittest.TestCase):
-    """ Real wl_up -> APKeepAdapter(engine='ndd') -> reachability, which must
+    """ Real wl_up -> APKeepAdapter(engine='ndd-flood') -> reachability, which must
     match the frozen BDD baseline matrix exactly (0 over, 0 under). """
 
     @classmethod
@@ -68,7 +71,7 @@ class TestAPKeepNddWlup(unittest.TestCase):
 
         log = logging.getLogger("test_apkeep_ndd_wlup")
         log.setLevel(logging.WARNING)
-        cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd')
+        cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd-flood')
 
         with InProcessFaVe(cls.engine) as fave:
             fave.replay(_PREFIX)

@@ -4,6 +4,8 @@ Protocol: `PROTOCOL_phase_c.txt`, declared 2026-10-02, unedited.
 **P8 is scored below. P7 is pending** — `bdd × wl_cloud` started
 2026-10-07T09:13:08Z under its 24 h limit and is still running.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 ## P8 — both faithful probes, scored: **HELD**
 
 > *"Both faithful probes land within 1.5× of their 2026-09-26 counterparts, so
@@ -95,10 +97,10 @@ expected cost.
 | `natfix_full_before` | 2026-09-27 | `7d5c8fa0` | 53 |
 | `natfix_endpoint_prune_before` | — | — | 53 |
 | `natfix_endpoint_prune_after` | — | — | **59** |
-| `natfix_endpoint_prune_ndd` | — | **NDD** | **59** |
+| `natfix_endpoint_prune_ndd` | — | **NDD-Flood** | **59** |
 | **`bdd_v5_20261002`** | **2026-10-07** | **`e9269099`** | **59** |
 
-**59 is corroborated twice over** — by the post-NAT-fix BDD probe and by NDD
+**59 is corroborated twice over** — by the post-NAT-fix BDD probe and by NDD-Flood
 independently — and 53 belongs to a binary from before that fix. This is
 exactly what §5.3 selected this cell for: *"the only one of the three that is
 both stale (S1) and reachable ... and it has never completed on a correct

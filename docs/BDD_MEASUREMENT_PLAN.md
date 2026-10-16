@@ -4,6 +4,8 @@
 [`CLOUD_BENCH_PLAN.md`](CLOUD_BENCH_PLAN.md) §1.7.3,
 [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md) §2.6a/§2.6b, [`TODO.md`](../TODO.md) item 29.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 ## 0. Why this campaign exists
 
 Two things happened on 2026-09-25 that invalidate the BDD half of the engine
@@ -73,14 +75,14 @@ Drivers: `fave/bench/cloud_bdd_measure.py` (#1), `fave/bench/faithful_bdd_measur
 
 ## 4. What is excluded, and why
 
-- **#2 (wl_cloud NP + NDD controls) and #6 (wl_up 3-engine, repeats)** — dropped
+- **#2 (wl_cloud NP + NDD-Flood controls) and #6 (wl_up 3-engine, repeats)** — dropped
   by the owner 2026-09-25: *"the numbers measured in this environment are
   indicative only"*. #6's entire purpose was to make §2.12's figures citable, so
   it loses its point under that ruling.
 - **Repeats generally.** Single runs throughout, by the same ruling. Every result
   from this campaign inherits the standing §2.12 caveat: order-of-magnitude
   figures that justify engine choices, not benchmark-table numbers.
-- **NDD re-runs.** Seconds, already exact, no new information.
+- **NDD-Flood re-runs.** Seconds, already exact, no new information.
 - **ad6.** Current and complete.
 - **The `lib_apkeep` per-query cache.** Would collapse §2.12's 146× and make the
   query-side comparison honest, but that is development, not measurement hours.
@@ -118,7 +120,7 @@ corrupt, and it is suggestive rather than conclusive.
   119 elements / table 180.6 MiB. The query is essentially free once the
   partition exists; the cost is entirely the build, and within it AP merge.
   §1.7.3 called this model intractable on BDD for months.
-  **WAS OPEN, now CLOSED (2026-09-27):** `reachable_pairs` **53** where NDD
+  **WAS OPEN, now CLOSED (2026-09-27):** `reachable_pairs` **53** where NDD-Flood
   returns **59** on the same model under the same driver. The six are the whole
   `internet` row, and the cause is a third upstream defect -- a NAT's rewrite
   outputs stop being atomic predicates once a rule reaches any other element.

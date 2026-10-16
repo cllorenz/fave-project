@@ -8,10 +8,10 @@ import org.ants.jndd.diagram.NDD;
  *
  * <p>NDD's node tables, its BDD label engine and the per-field atoms of
  * {@link AtomizedNDD} are process-global statics, and a field layout can be
- * declared only once. NDD-flood ({@link NddReachabilityEngine}) and NDD-APKeep
+ * declared only once. NDD-Flood ({@link NddReachabilityEngine}) and NDD-APKeep
  * (the APKeep fork's NDD backend, {@code apkeep.ndd}) run in the same JVM --
  * the exactness gate and the from-zero oracle put both in one process -- so
- * both take their layout from here. The indices are NDD-flood's, unchanged:
+ * both take their layout from here. The indices are NDD-Flood's, unchanged:
  * 0..5 the wl_up fields, then IPv4 addresses, VLAN (16 bits) and TCP flags;
  * since 2026-10-14 a packet filter's ingress and egress VLAN tags (SVLAN,
  * DVLAN: `-i eth1.<v>` and `-o eth1.<v>`), APPENDED so 0..9 are untouched.

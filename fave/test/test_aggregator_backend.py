@@ -133,11 +133,13 @@ class _RecordingAdapter:
     JVM; what is under test here is which OPTIONS `build_engine` hands it, not
     what it then does with them. """
 
-    def __init__(self, logger, mapping=None, faithful_vlan=None, engine=None):
+    def __init__(self, logger, mapping=None, faithful_vlan=None, engine=None,
+                 ndd_collect_visited=None):
         self.logger = logger
         self.mapping = mapping
         self.faithful_vlan = faithful_vlan
         self.engine = engine
+        self.ndd_collect_visited = ndd_collect_visited
 
 
 def _build_apkeep(**kwargs):
@@ -178,7 +180,14 @@ class TestAPKeepDefaults(unittest.TestCase):
         self.assertIs(_build_apkeep().faithful_vlan, True)
 
     def test_the_ndd_engine_is_the_default(self):
-        self.assertEqual(_build_apkeep().engine, 'ndd')
+        # `ndd` is NDD-APKeep since 2026-10-16 (owner)
+        self.assertEqual(_build_apkeep().engine, 'ndd-apkeep')
+
+    def test_ndd_flood_stays_selectable_by_its_new_name(self):
+        # NDD-Flood was `ndd` before 2026-10-16
+        self.assertEqual(_build_apkeep(apkeep_engine='ndd-flood').engine, 'ndd-flood')
+        with self.assertRaises(ValueError):
+            _build_apkeep(apkeep_engine='ndd-apkeep')   # an engine, not an option
 
     def test_the_plain_model_stays_selectable(self):
         """ Still needed: the P7a out-stage-collapse tests and the
@@ -211,6 +220,16 @@ class TestAPKeepCommandLine(unittest.TestCase):
     def test_the_bdd_engine_is_reachable_from_the_command_line(self):
         self.assertEqual(
             self._parse(['--apkeep-engine', 'bdd']).apkeep_engine, 'bdd')
+
+    def test_ndd_flood_is_reachable_from_the_command_line(self):
+        self.assertEqual(
+            self._parse(['--apkeep-engine', 'ndd-flood']).apkeep_engine, 'ndd-flood')
+
+    def test_ndd_collect_visited_is_off_unless_asked_for(self):
+        # ndd/FAVE_CHANGES.md §15
+        self.assertIs(self._parse([]).ndd_collect_visited, False)
+        self.assertIs(self._parse(['--ndd-collect-visited']).ndd_collect_visited, True)
+        self.assertIs(_build_apkeep(ndd_collect_visited=True).ndd_collect_visited, True)
 
 
 class _RecordingVeriFlow:

@@ -8,6 +8,8 @@ generation-time repair is gone. Still open, deliberately: the group-identity
 question (§7.1) and the `admission`/`permutation` vocabulary, which has no
 consumer until the APKeep `FilterElement` work.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 **What it cost to be right, recorded because the pattern repeated.** The channel
 was silently dropped at **two of its four boundaries** (§9.3); a NetPlumber
 harness reported the exact number a broken ordering produces and was itself
@@ -414,7 +416,7 @@ trie, refused if the shape cannot be one; undeclared ⇒ first-match, whatever
 its shape. Measured before the change, on every table it moved — `wl_ifi`'s 16
 switches (32 rules) and `wl_cloud`'s 40 leaf-egress tables (1,200 rules) — no
 pair of rules is ordered differently by the two semantics, so no verdict could
-move, and the APKeep/NDD gates confirm none did. The cost of those cells can
+move, and the APKeep/NDD-Flood gates confirm none did. The cost of those cells can
 move (FilterElement instead of trie); V5's APKeep numbers for them were taken
 with the old translation and are stamped with its commit.
 **Still inferred:** the HSA stages (`in.`/`mid.`/`out.`, `wl_stanford`,
@@ -557,13 +559,13 @@ Tracing whether `FilterElement` could carry VLAN -- the blocker recorded in
 * **BDD honoured it.** `FilterElement.encodeOneRule` -> `ACLRule` (parses the
   VLAN token, `ACLRule.java:216`, P9a) -> `ConvertACLRule` (conjoins it,
   including comma-separated VLAN sets, P7b).
-* **NDD ignored it.** `NddReachabilityEngine.ruleToNDD` reads tokens 6-15 and 18
+* **NDD-Flood ignored it.** `NddReachabilityEngine.ruleToNDD` reads tokens 6-15 and 18
   and never touched token 17; only the `+ acl` branch conjoined
   `vlanPred(t[17])`.
 
 So one rule string meant two different things depending on the engine. It cost
 nothing while the adapter always wrote `null`, and would have cost a silently
-over-permissive NDD model the moment anyone emitted a real tag.
+over-permissive NDD-Flood model the moment anyone emitted a real tag.
 
 ### The fix
 
@@ -585,13 +587,13 @@ evidence for what it claimed:
 | engine | slot `10`, arrival vlan=20 | |
 |---|---|---|
 | BDD | unreachable | |
-| NDD | reachable | reported as "NDD ignores the slot" |
+| NDD-Flood | reachable | reported as "NDD ignores the slot" |
 
-**The NDD engine existentially quantifies VLAN out of any device whose name
+**The NDD-Flood engine existentially quantifies VLAN out of any device whose name
 starts with `probe.`** (a host on an access port receives the frame untagged),
 and it does so *before* the `target_vlan` arrival constraint is applied. So a
 test that pins the arrival VLAN at a probe cannot observe a VLAN constraint on
-NDD **whatever the filter rule says** -- it measures the untag, not the slot.
+NDD-Flood **whatever the filter rule says** -- it measures the untag, not the slot.
 
 The code reading was sound and is what the fix rests on: before the change,
 nothing in the `+ filter` path referenced `t[17]`. The *measurement* was not.
@@ -601,9 +603,9 @@ named `probe.*`, and its docstring records why.
 ### Still open, and NOT part of step 0
 
 The confounded measurement uncovered a second, genuine divergence that the fix
-does **not** address: **BDD does not untag probe VLANs, NDD does.** The two model
+does **not** address: **BDD does not untag probe VLANs, NDD-Flood does.** The two model
 the same intent by different mechanisms -- the adapter sets `target_vlan=0` at
-faithful-wl_stanford probes, which BDD enforces as a real constraint while NDD's
+faithful-wl_stanford probes, which BDD enforces as a real constraint while NDD-Flood's
 untag makes it vacuous. Both are gated green today, and the divergence is
 unobservable wherever nothing constrains VLAN (every plain-mode workload). It is
 recorded here rather than chased: it belongs to the faithful-VLAN path, not to
@@ -648,10 +650,10 @@ table therefore has no priority headroom without renumbering. Irrelevant to the
 static benchmarks; a real question for the continuous-verification path, and S3b
 is where it stops being hypothetical.
 
-### 9.2 Step 0 -- the NDD VLAN slot (§8). FIRST, and independent.
+### 9.2 Step 0 -- the NDD-Flood VLAN slot (§8). FIRST, and independent.
 
 The only thing in this package that is **wrong today**: BDD honours filter token
-17, NDD silently ignores it. Two lines mirroring the adjacent `+ acl` branch,
+17, NDD-Flood silently ignores it. Two lines mirroring the adjacent `+ acl` branch,
 plus a differential test asserting both engines agree on a VLAN-qualified filter
 rule. It surfaced during this discussion but depends on nothing in it, and it is
 a prerequisite for ever declaring `admission` (§7.2). It jumps the queue because

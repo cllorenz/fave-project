@@ -306,10 +306,10 @@ class TestRefusals(unittest.TestCase):
         if live is not None:
             self.assertEqual(self.engine._live['rules'], live['rules'])
 
-    def test_the_ndd_engine_takes_no_updates(self):
+    def test_the_ndd_flood_engine_takes_no_updates(self):
         from util.in_process_driver import InProcessFaVe
         log = logging.getLogger("test_incremental_apkeep")
-        engine = APKeepAdapter(log, engine='ndd')
+        engine = APKeepAdapter(log, engine='ndd-flood')
         self.addCleanup(engine.release)
         with InProcessFaVe(engine) as fave:
             fave.replay('bench/wl_example')

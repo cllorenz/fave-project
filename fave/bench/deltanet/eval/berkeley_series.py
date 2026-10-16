@@ -50,13 +50,17 @@ import subprocess
 import sys
 import time
 
+#: `ndd` is NDD-APKeep since 2026-10-16 (owner): the series measures it, and
+#: NDD-Flood -- the series' `ndd` before that date -- only by name
+#: (`ndd-flood`); stems name the engine (`k3_ndd-apkeep`), so they never meet
+#: an earlier run's `k3_ndd`
 ENGINES = (('netplumber', None), ('apkeep', 'ndd'), ('apkeep', 'bdd'))
 SIZES = (1000, 300, 100, 30, 10, 3, 1)
 MUTATION = 's22,s23'
 
 
 def _label(backend, engine):
-    return engine or backend
+    return {'ndd': 'ndd-apkeep'}.get(engine, engine) or backend
 
 
 def _run(out_dir, stem, backend, engine, keep_every, deadline, mutate):

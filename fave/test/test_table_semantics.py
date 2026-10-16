@@ -184,7 +184,7 @@ def _semantics_seen_by_adapter(prefix):
     try:
         log = logging.getLogger("table_semantics")
         log.setLevel(logging.WARNING)
-        engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd')
+        engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd-apkeep')
         with InProcessFaVe(engine) as fave:
             fave.replay(prefix, files=_FILES)
     finally:
@@ -225,7 +225,7 @@ class TestAdapterCrossCheck(unittest.TestCase):
         from apkeep.adapter import APKeepAdapter
         log = logging.getLogger("table_semantics_xcheck")
         log.setLevel(logging.WARNING)
-        return APKeepAdapter(log, faithful_vlan=False, engine='ndd')
+        return APKeepAdapter(log, faithful_vlan=False, engine='ndd-apkeep')
 
     def test_a_declared_fib_whose_rules_are_a_trie_is_accepted(self):
         from apkeep.adapter import _DST, _OUT_PORT
@@ -273,7 +273,7 @@ class TestAdapterCrossCheck(unittest.TestCase):
         from util.in_process_driver import InProcessFaVe
         log = logging.getLogger("table_semantics_real")
         log.setLevel(logging.WARNING)
-        engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd')
+        engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd-apkeep')
         with InProcessFaVe(engine) as fave:
             fave.replay(_STANFORD, files=_FILES)
             engine._build()
@@ -395,7 +395,7 @@ class TestValidationRunsOnTheRealWorkloads(unittest.TestCase):
         try:
             log = logging.getLogger("s4_nonvacuous")
             log.setLevel(logging.WARNING)
-            engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd')
+            engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd-apkeep')
             with InProcessFaVe(engine) as fave:
                 fave.replay(_STANFORD, files=_FILES)
         finally:
@@ -768,7 +768,7 @@ class TestMidToOutComesFromTheTopology(unittest.TestCase):
         from apkeep.adapter import APKeepAdapter
         log = logging.getLogger("mid_to_out")
         log.setLevel(logging.ERROR)
-        return APKeepAdapter(log, faithful_vlan=True, engine='ndd')
+        return APKeepAdapter(log, faithful_vlan=True, engine='ndd-apkeep')
 
     def test_a_mid_feeding_TWO_out_stages_is_now_HANDLED(self):
         """ It used to be refused, and the refusal was right while the fold read

@@ -6,6 +6,8 @@ what the owner decided, usually with a dated status header at the top. **Read th
 status header before the body** — several of these describe work that is finished,
 and are kept because results and source comments cite them.
 
+> **Naming (2026-10-16):** NDD-Flood (before 2026-10-16 "NDD-flood"/"NDD", `--apkeep-engine ndd`) is now `--apkeep-engine ndd-flood`; `--apkeep-engine ndd` selects NDD-APKeep.
+
 Two documents live at the repository root instead, because that is where a reader
 looks for them first: [`../README.md`](../README.md) (what FaVe is, how to build and run it)
 and [`../TODO.md`](../TODO.md) (the live QA backlog, 3,089 lines, the most-churned file here).
@@ -30,7 +32,7 @@ has no design document of its own; the other three families each have one.
 
 | document | lines | status |
 |---|---:|---|
-| [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md) | 1,877 | **INTEGRATED.** Atomic-predicate verifier, two engines (BDD-APKeep and NDD-flood) behind one adapter. Faithful-VLAN model is the default. No open defect in §10. |
+| [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md) | 1,877 | **INTEGRATED.** Atomic-predicate verifier, two engines (BDD-APKeep and NDD-Flood) behind one adapter. Faithful-VLAN model is the default. No open defect in §10. |
 | [`AD6_PLAN.md`](AD6_PLAN.md) | 7,671 | **Built.** A generic SAT/QBF model checker as a backend, first-party. The largest document here — use its section numbers, which source comments cite directly. |
 | [`VERIFLOW_PLAN.md`](VERIFLOW_PLAN.md) | 1,121 | **V1–V4 done.** VeriFlow-FR, an *independent reimplementation* — explicitly not "VeriFlow", and no result from it is reported as VeriFlow's (§9, D2). |
 | [`VERIFLOW_FOOTPRINT_SCOPE.md`](VERIFLOW_FOOTPRINT_SCOPE.md) | 185 | **BUILT; both modes the default since 2026-10-15.** Whether VeriFlow-FR's incremental footprint gets APKeep's witness and dead ends: what its walk does today, the best case from the calibration records (`wl_airtel1` S1/S2: every update re-walks every source for no verdict change), a design with soundness sketches, an estimate, owner questions. |
@@ -43,7 +45,7 @@ Read `APKEEP_BACKEND.md` first; these are the sub-tracks it refers to.
 |---|---:|---|
 | [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md) | 272 | The plan to preserve the BDD state and integrate NDD. Largely executed; the running record is the eval log below. |
 | [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md) | 801 | The NDD integration's running evaluation log. |
-| [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md) | 467 | **BUILT, both engines.** Making BDD-APKeep and NDD-APKeep (the NDD paper's system, not NDD-flood) incremental alike: what the reference code really does, workload tiers, design, the estimate, owner questions (§1–§6); what was built (§7 BDD, §8 NDD, §9 footprints). |
+| [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md) | 467 | **BUILT, both engines.** Making BDD-APKeep and NDD-APKeep (the NDD paper's system, not NDD-Flood) incremental alike: what the reference code really does, workload tiers, design, the estimate, owner questions (§1–§6); what was built (§7 BDD, §8 NDD, §9 footprints). |
 | [`APKEEP_FOOTPRINTS.md`](APKEEP_FOOTPRINTS.md) | 201 | **Default since 2026-10-11.** Which checks an APKeep update re-checks — the coarse, witness and dead-end footprints, defined with a soundness sketch each, caveats and evidence. Written to be lifted into a paper. |
 | [`APKEEP_BDD_BASELINE.md`](APKEEP_BDD_BASELINE.md) | 255 | The **frozen** BDD baseline — the published comparand and the differential oracle NDD must reproduce. |
 | [`BDD_MEASUREMENT_PLAN.md`](BDD_MEASUREMENT_PLAN.md) | 215 | The 56 h BDD campaign, written after a use-after-free invalidated the BDD half of the engine comparison. |

@@ -142,7 +142,7 @@ def build_engine(
         solver: Optional[str] = None, lite_acyclic: bool = False,
         vf_fields: str = '4+10', vf_revisit: str = 'state',
         vf_slicing: str = 'device', vf_budget: int = 0,
-        invert_lpm: bool = False
+        invert_lpm: bool = False, ndd_collect_visited: bool = False
 ) -> Any:
     """ The verification engine named by `backend`.
 
@@ -219,8 +219,15 @@ def build_engine(
 
     if backend == BACKEND_APKEEP:
         from apkeep.adapter import APKeepAdapter
-        return APKeepAdapter(logger, mapping=mapping,
-                             faithful_vlan=faithful_vlan, engine=apkeep_engine)
+        from apkeep.engines import ENGINE_OPTIONS
+        # the option's value names the engine: `ndd` is NDD-APKeep, `ndd-flood`
+        # NDD-Flood (owner, 2026-10-16; apkeep/engines.py)
+        if apkeep_engine not in ENGINE_OPTIONS:
+            raise ValueError("unknown --apkeep-engine %r -- expected one of %s" % (
+                apkeep_engine, ', '.join(ENGINE_OPTIONS)))
+        return APKeepAdapter(logger, mapping=mapping, faithful_vlan=faithful_vlan,
+                             engine=ENGINE_OPTIONS[apkeep_engine],
+                             ndd_collect_visited=ndd_collect_visited)
 
     from ad6.adapter import GROUNDING_RANK, SOLVER_MINISAT22, Ad6Adapter
     return Ad6Adapter(
@@ -1335,15 +1342,18 @@ def build_parser() -> argparse.ArgumentParser:
         const=True,
         default=False
     )
-    # apkeep-only. The NDD engine is the default because the faithful VLAN
-    # model below is: BDD-APKeep's single global atomic-predicate partition
-    # cross-products (dst x VLAN) and finishes neither wl_stanford nor wl_i2
-    # faithfully (APKEEP_NDD_EVAL.md §2.6/§2.6b), where per-field NDD builds
-    # both in seconds. `bdd` stays reachable by name -- it is the comparand in
-    # every Sigma-vs-Pi result.
+    # apkeep-only. NDD is the default because the faithful VLAN model below
+    # is: BDD-APKeep's single global atomic-predicate partition cross-products
+    # (dst x VLAN) and finishes neither wl_stanford nor wl_i2 faithfully
+    # (APKEEP_NDD_EVAL.md §2.6/§2.6b), where per-field NDD builds both in
+    # seconds. `bdd` stays reachable by name -- it is the comparand in every
+    # Sigma-vs-Pi result.
+    #
+    # Since 2026-10-16 (owner) `ndd` is NDD-APKeep, and NDD-Flood -- `ndd`
+    # before that date, kept for reference -- is `ndd-flood`.
     parser.add_argument(
         '--apkeep-engine', dest='apkeep_engine',
-        choices=('bdd', 'ndd'), default='ndd')
+        choices=('bdd', 'ndd', 'ndd-flood'), default='ndd')
     # Faithful VLAN handling is ON by default and this turns it OFF, rather
     # than the other way round: ad6 and NetPlumber both model VLAN admission
     # and rewrite, so an APKeep run that silently drops them is not answering
@@ -1377,6 +1387,11 @@ def build_parser() -> argparse.ArgumentParser:
     # indices.
     parser.add_argument('--no-stable-indices', dest='stable_indices',
                         action='store_false', default=True)
+    # NDD-APKeep only, off by default (ndd/FAVE_CHANGES.md §15): the NDD
+    # library's atom collection visits each node once. Same atoms; the
+    # adapter refuses it on another APKeep engine.
+    parser.add_argument('--ndd-collect-visited', dest='ndd_collect_visited',
+                        action='store_true', default=False)
 
     return parser
 
@@ -1438,7 +1453,8 @@ def main(argv: List[str]) -> None:
             faithful_vlan=args.faithful_vlan,
             vf_fields=args.vf_fields, vf_revisit=args.vf_revisit,
             vf_slicing=args.vf_slicing, vf_budget=args.vf_budget,
-            invert_lpm=args.invert_lpm, stable_indices=args.stable_indices)
+            invert_lpm=args.invert_lpm, stable_indices=args.stable_indices,
+            ndd_collect_visited=args.ndd_collect_visited)
     except ValueError as err:
         # A malformed backend option (an unknown solver, or a solver/grounding
         # combination that would silently answer the wrong question). Reported

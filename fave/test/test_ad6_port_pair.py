@@ -158,7 +158,7 @@ def _port_condition(ports):
 def _apkeep():
     from apkeep.adapter import APKeepAdapter
     return APKeepAdapter(_logger('ak_port_pair'), faithful_vlan=False,
-                         engine='ndd')
+                         engine='ndd-apkeep')
 
 
 class TestConflictingPortsOnAPath(unittest.TestCase):

@@ -18,6 +18,8 @@ As with `apkeep/FAVE_CHANGES.md`, we state our changes prominently here. Kinds:
 
 All items below are reachable via `git log -- ndd/`.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 ---
 
 ## 1. Differential-vs-BDD trust suite on FaVe's IPv6 profile  **[INFRA]**
@@ -93,11 +95,11 @@ unless `-Dwlup.*` system properties point at line-file dumps produced by
   vs the BDD-APKeep baseline's **~1079 s** and NetPlumber's ~49 s. FaVe context:
   `../APKEEP_NDD_EVAL.md` §2.5b/§2.5c/§2.5d.
 
-## 4. Productionized NDD reachability engine (main-source, JPype-driven)  **[NEW]**
+## 4. Productionized NDD-Flood reachability engine (main-source, JPype-driven)  **[NEW]**
 
 `src/main/java/org/ants/jndd/fave/NddReachabilityEngine.java` (**new main class**)
 promotes the §2.5c/d prototype out of the test tree into a callable engine that
-FaVe drives through JPype (`../fave/apkeep/lib_ndd.py`), so NDD is a real second
+FaVe drives through JPype (`../fave/apkeep/lib_ndd.py`), so NDD-Flood is a real second
 **backend engine** behind the one shared APKeep adapter (the BDD engine is
 `../apkeep`). The FaVe adapter emits a backend-neutral IR — the same
 `+ filter …` rule strings and `"dev port dev port"` topology edges it hands the
@@ -114,7 +116,7 @@ per JVM (NDD's node tables are process-global statics).
 
 Covered by the FaVe-side parity gate `../fave/test/test_apkeep_ndd_wlup.py`:
 the real wl_up model, driven through the real aggregator into
-`APKeepAdapter(engine='ndd')`, reproduces the frozen BDD baseline matrix
+`APKeepAdapter(engine='ndd-flood')`, reproduces the frozen BDD baseline matrix
 (`../fave/bench/wl_up/eval/mat_apk.json`) **exactly** (3661 pairs, 0 over, 0
 under). Added to `../fave/test/exactness_gate.sh` (which now also builds this
 jar). FaVe context: `../APKEEP_NDD_EVAL.md` §2.5e.
@@ -144,7 +146,7 @@ over the minimal partition, via the ported-but-untested `getAtomsToSplit*`/
 ## 6. ACLElement (permit/deny) in the reachability engine (§2.6 incr 2)  **[NEW]**
 
 `NddReachabilityEngine` now consumes `+ acl` rules, so wl_ifi (router ACLs) runs
-on NDD. An ACL rule has the SAME token layout as `+ filter` (proto/src/sport/dst/
+on NDD-Flood. An ACL rule has the SAME token layout as `+ filter` (proto/src/sport/dst/
 dport at identical indices) — only `t[1]`=`acl` and `t[5]`=`permit`/`deny` differ
 — so the predicate reuses the filter encoder; a permit maps to the element's
 `"permit"` out_port and a deny drops, folded into the same first-match residual
@@ -159,7 +161,7 @@ reachable.json). NAT/VLAN rewrite (`+ nat`) is still future work (§2.6 incr 3).
 ## 7. NAT/VLAN transformer in the reachability engine (§2.6 incr 3)  **[NEW]**
 
 `NddReachabilityEngine` gains packet transformers, so the faithful wl_stanford
-VLAN model runs on NDD. Additions: a 16-bit VLAN field (already declared in the
+VLAN model runs on NDD-Flood. Additions: a 16-bit VLAN field (already declared in the
 canonical layout); VLAN-admission ACLs (a `+ acl` with a trailing comma-separated
 VLAN set → constrain the VLAN field, OR over the set); and `+ nat <dev> <port>
 vlan <dstIP> <plen> <vlanN>` — an inline VLAN rewrite on the egress port, applied
@@ -174,13 +176,13 @@ arg (the checker's probe-VLAN constraint) and a device→header cache.
 Gated exact vs **NetPlumber** by `../fave/test/test_apkeep_ndd_fwd.py::
 test_stanford_faithful_vlan_matches_netplumber` (165 pairs, 0 over/under). This is
 the workload BDD-APKeep cannot finish — its VLAN×dst atomic-predicate partition
-explodes (ap_num ≈ 21.6k, 28 min+ unfinished) — while NDD builds it in ~3 s. Full
+explodes (ap_num ≈ 21.6k, 28 min+ unfinished) — while NDD-Flood builds it in ~3 s. Full
 context + the BDD build profile: `../APKEEP_NDD_EVAL.md` §2.6.
 
 ## 8. Atomic-predicate dst-IP forwarding for large FIBs (§2.6 incr 1b)  **[NEW]**
 
 `src/main/java/org/ants/jndd/fave/AtomForwarding.java` (**new class**) makes
-wl_i2 (77k dst routes) tractable on NDD. The general engine's monolithic per-port
+wl_i2 (77k dst routes) tractable on NDD-Flood. The general engine's monolithic per-port
 residual OOMs/times out there (the true partition is only `ap_num=216`), so this
 computes that minimal partition directly with **integer interval arithmetic** (no
 BDDs): each `+ fwd` rule is a [lo,hi] dst range; the union of range boundaries
@@ -252,7 +254,7 @@ canonical maximal prefixes, so the two layouts compare exactly.
 ## 10. One field layout for every NDD engine in the JVM  **[NEW]**
 
 2026-10-10, `APKEEP_INCREMENTAL_SCOPE.md` §4. `org.ants.jndd.fave.FaveFields`
-holds the field layout NDD-flood (`NddReachabilityEngine`) declared privately --
+holds the field layout NDD-Flood (`NddReachabilityEngine`) declared privately --
 the same indices and widths -- and initialises it once per JVM. NDD-APKeep, the
 APKeep fork's NDD backend (`../apkeep/FAVE_CHANGES.md` §12), takes its layout
 from it too: NDD's node tables, label engine and `AtomizedNDD`'s per-field atoms
@@ -263,7 +265,7 @@ its constants from it; nothing else changed.
 ## 11. Collecting the atomized node table on demand  **[NEW]**
 
 2026-10-10. `AtomizedNodeTable` collects only when it is full -- 8M nodes in
-FaVe's layout (§10), sized for NDD-flood, which never makes an atomized node.
+FaVe's layout (§10), sized for NDD-Flood, which never makes an atomized node.
 NDD-APKeep makes many, and each node of a molecule carries the atom-id sets of
 its edges, thousands of ids on a large FIB: dead molecules from earlier updates
 filled the JVM heap long before 8M (`wl_airtel1` peaked at 15 GB, faithful
@@ -292,7 +294,7 @@ them stale.
 Found through NDD-APKeep (`../apkeep/FAVE_CHANGES.md` §12): on `wl_cloud`, whose
 source-NAT prefixes are also destinations, the re-atomization after the 1,500th
 rule broke 43,636 molecule invariants -- while the verdicts still agreed with
-NDD-flood -- and a second network in the JVM then answered `wl_ifi` with 39
+NDD-Flood -- and a second network in the JVM then answered `wl_ifi` with 39
 violations instead of 27. The reference's own layout (two 32-bit address
 fields, two 16-bit port fields) is exposed the same way whenever an ACL names
 the same prefix as source and destination.

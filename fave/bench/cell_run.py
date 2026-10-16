@@ -79,6 +79,7 @@ import time
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 
+from apkeep.engines import ENGINE_OPTIONS                 # noqa: E402
 from bench import cell_metrics                           # noqa: E402
 
 AGGREGATOR_LOG = '/dev/shm/np/aggregator.log'
@@ -670,7 +671,7 @@ def main(argv=None):
     parser.add_argument('workload')
     parser.add_argument('--backend', default='apkeep',
                         choices=('netplumber', 'apkeep', 'ad6', 'veriflow'))
-    parser.add_argument('--apkeep-engine', choices=('bdd', 'ndd'),
+    parser.add_argument('--apkeep-engine', choices=tuple(ENGINE_OPTIONS),
                         default='ndd')
     parser.add_argument('--vf-fields', choices=('4+10', 'plain'),
                         default='4+10')
@@ -802,7 +803,9 @@ def main(argv=None):
         # The APKeep engine, or the backend itself for one that has no engine
         # choice -- a NetPlumber run labelled `bdd` is how a table comes to put
         # it in the wrong row.
-        'engine': (args.apkeep_engine if args.backend == 'apkeep'
+        # the engine's own name (apkeep/engines.py): a cell that records a
+        # bare `ndd` predates 2026-10-16 and is NDD-Flood's
+        'engine': (ENGINE_OPTIONS[args.apkeep_engine] if args.backend == 'apkeep'
                    else args.backend),
         'mutated': args.mutate,
         'mutated_cell': args.mutate_cell.split(',') if args.mutate else None,

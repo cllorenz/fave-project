@@ -9,6 +9,8 @@ Siblings: [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), [`AD6_PLAN.md`](AD6_PLAN.md)
 Name of our implementation: **VeriFlow-FR** (FaVe reimplementation; §9, decision D2). It
 is *not* "VeriFlow", and no result from it is to be reported as VeriFlow's.
 
+> **Naming (2026-10-16):** NDD-Flood (before 2026-10-16 "NDD-flood"/"NDD", `--apkeep-engine ndd`) is now `--apkeep-engine ndd-flood`; `--apkeep-engine ndd` selects NDD-APKeep.
+
 ---
 
 ## 1. The decision this plan records
@@ -459,7 +461,7 @@ are phrased in the paper's terms only (Delta-net §4.3.2, Table 4).
   switches delivered self-addressed traffic back to its sender.
 
   **Measured.** `wl_up × vf` reported **28 violations of 18,811** — every one a
-  `source.X -> probe.X` self-check — where NetPlumber, ad6, BDD-APKeep and NDD-flood all
+  `source.X -> probe.X` self-check — where NetPlumber, ad6, BDD-APKeep and NDD-Flood all
   reported none. With the rule: **0**, and ~27% faster (652 s → ~400 s), the difference
   being the branches no longer explored. Independent confirmation that the hairpin is
   absent from the reference: NetPlumber's dumped flow tree for `source.web` reaches 30
@@ -503,7 +505,7 @@ are phrased in the paper's terms only (Delta-net §4.3.2, Table 4).
 
 **Correctness** needs no VeriFlow oracle: FaVe already has three engines that agree.
 - **Differential:** every workload VeriFlow-FR runs is compared pair by pair against
-  NetPlumber, NDD-flood and, where it runs, ad6 (`test_backend_differential.py`).
+  NetPlumber, NDD-Flood and, where it runs, ad6 (`test_backend_differential.py`).
 - **LPM guard** (`CLOUD_BENCH_PLAN.md` §3): each FIB workload must show its evidence can
   see priority — invert the order, the verdict must change.
 - **Tests first, from the literature:** the catalogue at the end of this section (L1-L10).

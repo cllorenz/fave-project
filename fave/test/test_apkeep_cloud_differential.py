@@ -164,7 +164,9 @@ class TestAPKeepCloudDifferential(unittest.TestCase):
                                  % regen.stdout.decode()[-3000:])
         cls._tmp = tempfile.mkdtemp(prefix='apkeep-cloud-diff-')
         cls.np = _matrix('netplumber', cls._tmp)
-        cls.ak = _matrix('apkeep:ndd', cls._tmp)
+        # the production engine: NDD-APKeep since 2026-10-16 (owner); the
+        # `apkeep:ndd` of earlier runs was NDD-Flood
+        cls.ak = _matrix('apkeep:ndd-apkeep', cls._tmp)
 
     @classmethod
     def tearDownClass(cls):

@@ -117,11 +117,11 @@ class TestTheStampReachesACell(unittest.TestCase):
     """ Declaring it is half; a cell has to be able to read it back. """
 
     def test_apkeep_resolves_a_different_upstream_per_engine(self):
-        # BDD and NDD are two forks of two different repositories, so one
-        # UPSTREAM would name the wrong one for one of the two columns.
-        self.assertNotEqual(APKeepAdapter.UPSTREAMS['bdd'],
-                            APKeepAdapter.UPSTREAMS['ndd'])
-        for engine in ('bdd', 'ndd'):
+        # BDD-APKeep and NDD-Flood are forks of two different repositories,
+        # and NDD-APKeep is built on both, so one UPSTREAM would name the
+        # wrong one for a column.
+        self.assertEqual(len(set(APKeepAdapter.UPSTREAMS.values())), 3)
+        for engine in ('bdd', 'ndd-apkeep', 'ndd-flood'):
             with self.subTest(engine=engine):
                 self.assertIn(engine.join(('', '')).strip() or engine,
                               APKeepAdapter.UPSTREAMS)

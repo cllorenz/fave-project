@@ -55,7 +55,9 @@ def main(argv):
 
     cells = {}
     for row in plain:
-        cells.setdefault((row['workload'], row['engine']), []).append(
+        # a bare `ndd` predates 2026-10-16 and is NDD-Flood's
+        engine = 'ndd-flood' if row['engine'] == 'ndd' else row['engine']
+        cells.setdefault((row['workload'], engine), []).append(
             row['check_compliance_s'][0])
     print("| trace | engine | n | median s | min-max s | checks |")
     print("|---|---|---:|---:|---|---:|")
@@ -65,11 +67,12 @@ def main(argv):
             workload, engine, len(values), statistics.median(values),
             values[0], values[-1]))
     for workload in sorted({w for w, _ in cells}):
-        if (workload, 'bdd') in cells and (workload, 'ndd') in cells:
-            print("%s: BDD/NDD median ratio %.2f" % (workload, statistics.median(
-                cells[(workload, 'bdd')]) / statistics.median(
-                    cells[(workload, 'ndd')])))
-    for engine in ('bdd', 'ndd'):
+        for ndd, label in (('ndd-apkeep', 'NDD-APKeep'), ('ndd-flood', 'NDD-Flood')):
+            if (workload, 'bdd') in cells and (workload, ndd) in cells:
+                print("%s: BDD/%s median ratio %.2f" % (
+                    workload, label, statistics.median(cells[(workload, 'bdd')])
+                    / statistics.median(cells[(workload, ndd)])))
+    for engine in ('bdd', 'ndd-apkeep', 'ndd-flood'):
         one = cells.get(('wl_airtel1', engine))
         two = cells.get(('wl_airtel2', engine))
         if one and two:

@@ -40,7 +40,7 @@ the router, and the policy matrix never asks about it.
 that is precisely how APKeep came to over-approximate wl_up silently for months:
 its in-port-qualified switch defaults were dropped by a per-device
 ForwardElement (CLOUD_BENCH_PLAN.md §2.7), and nothing here compared wl_up
-against a second engine -- its own APKeep tests compare BDD against NDD, which
+against a second engine -- its own APKeep tests compare BDD against NDD-Flood, which
 share any approximation. A differential that covers one workload gates one
 workload.
 
@@ -134,13 +134,15 @@ class _Differential(unittest.TestCase):
     PREFIX = None
     GENERATOR = None          # the script that produces this workload's inputs
 
-    #: Which APKeep engines to compare. BOTH are shipped and the aggregator
+    #: Which APKeep engines to compare. All are shipped and the aggregator
     #: defaults to `ndd` (`aggregator_service.py`, `apkeep_engine='ndd'`), so a
     #: differential that ran only `bdd` -- as this file used to -- validated an
-    #: engine the benchmarks do not use. Measured on wl_up: bdd 688s, ndd 4.7s
-    #: for the same 137 roles and the same answer, which is why the big
-    #: workload runs `ndd` alone and the cheap ones run both.
-    ENGINES = ('bdd', 'ndd')
+    #: engine the benchmarks do not use. Measured on wl_up: bdd 688s, NDD-Flood
+    #: 4.7s for the same 137 roles and the same answer, which is why the big
+    #: workload runs NDD alone and the cheap ones run every engine. `ndd` is
+    #: NDD-APKeep since 2026-10-16 (owner), NDD-Flood -- `ndd` before -- is
+    #: kept for reference.
+    ENGINES = ('bdd', 'ndd-apkeep', 'ndd-flood')
 
     #: Whether `reachable.json` answers the same question this asks. It does not
     #: everywhere -- see `TestBackendDifferentialUp`.
@@ -276,12 +278,13 @@ class TestBackendDifferentialUp(_Differential):
     PREFIX = "bench/wl_up"
     GENERATOR = "gen_wl_up_inputs.sh"
 
-    #: `ndd` alone. Both engines were measured to give the SAME 137-role matrix
-    #: and to agree with NetPlumber, but `bdd` takes 688s against `ndd`'s 4.7s
-    #: -- APKeep's BDD path answers this per pair, and wl_up asks 18,769 of
-    #: them. `ndd` is also what the aggregator runs by default, so this is the
-    #: engine the benchmark's own numbers come from.
-    ENGINES = ('ndd',)
+    #: NDD alone. Both engines were measured to give the SAME 137-role matrix
+    #: and to agree with NetPlumber, but `bdd` takes 688s against NDD-Flood's
+    #: 4.7s -- APKeep's BDD path answers this per pair, and wl_up asks 18,769
+    #: of them. The aggregator's default, `ndd`, is NDD-APKeep since
+    #: 2026-10-16 (owner), so that is the engine the benchmark's own numbers
+    #: come from and the one compared here.
+    ENGINES = ('ndd-apkeep',)
 
     #: NO oracle comparison here, and this is a property of the ORACLE rather
     #: than of the engines. wl_up's policy is STATEFUL: 3,302 of its 18,811

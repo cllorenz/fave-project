@@ -28,6 +28,8 @@ are one contiguous block, so the state at its end is one the trace passes
 through and can serve as the snapshot. The priority and naming objections,
 and the scale, are untouched. §2.14, "The insert block, and its order".)*
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 **C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
 26 roles. Under the matrix as written, **1,312 violations, every one of them
 predicted before the run** — the generator publishes a service with a
@@ -321,9 +323,9 @@ internet is not a service.
       limit was removed 2026-09-21 (§1.7.2: ternary `<fieldmatch>` plus masked
       rewrites, 2,480/2,480 matches and 24/24 rewrites translating), and the
       V5 campaign **measured it**: ad6 answers `wl_cloud` at **57 violations of
-      71**, line-for-line identical to NDD-flood. APKeep also answers it now.
+      71**, line-for-line identical to NDD-Flood. APKeep also answers it now.
       NetPlumber is no longer the only family that does — and on this workload
-      it is the one that disagrees, reporting 58 where ad6, NDD, VeriFlow-FR
+      it is the one that disagrees, reporting 58 where ad6, NDD-Flood, VeriFlow-FR
       and `vf-plain` all report 57.
 - [x] **C7 DONE 2026-09-21 for the MATRIX — §1.9.6.** wl_cloud goes through
       PolicyTranslator like every other workload: 26 roles (the dataset's 25
@@ -621,7 +623,7 @@ FIBs. wl_cloud is the first whose forwarding tables carry ACLs:
 Rules 1 and 2 arrived as a forward and a drop on the same prefix at the same
 priority. **The two engines behind the one adapter then resolved that tie
 oppositely** — APKeep's BDD engine kept the drop (8 of 64 cells reachable), the
-NDD engine kept the forward (57) — which is as direct a demonstration as one
+NDD-Flood engine kept the forward (57) — which is as direct a demonstration as one
 could ask that the outcome had stopped being the policy's to decide. Beside it,
 the gateway's fourteen DNAT rules arrived with no rewrite (so internet-sourced
 traffic kept its public destination and no core had a route for it), and its
@@ -664,7 +666,7 @@ Three things had to be built rather than rewired:
   two of those rewrites leave the same port with the same source /24, differing
   only in `tcp_src`. So the rewrite is keyed on the rule's whole match, not on
   an address: `+ nat <dev> <port> match <src|dst> <ip> <len> <that match>`.
-* **The same in the NDD engine**, whose `+ nat` handled the VLAN rewrite only.
+* **The same in the NDD-Flood engine**, whose `+ nat` handled the VLAN rewrite only.
 * **Check conditions beyond `related`.** The FPL check set puts
   `f=protocol:tcp`, `f=port:332` and `f=!port:331` on its checks and the adapter
   refused everything but `related` — the blocker ad6 cleared at `AD6_PLAN.md`
@@ -722,7 +724,7 @@ reports **817 violations instead of 3**.
 
 #### MEASURED 2026-09-25: the BDD engine does not stall on this model, it CRASHES
 
-The default APKeep engine is NDD, and every number above is its. This section
+The default APKeep engine is NDD-Flood, and every number above is its. This section
 used to say the BDD engine "did not complete the build within 40 minutes", then
 (earlier the same day) that the claim was unrecorded and no bound could be
 derived from it. Both are now superseded by a measurement: run under the
@@ -834,7 +836,7 @@ window-stable.
 largest partition measured anywhere in this tree (faithful-stanford reached
 22 242, faithful-i2 21 012), reached from only 1 773 rules, and **AP merge rather
 than PPM is where the time goes** -- 7.9x, climbing monotonically all run.
-NDD answers the same model in **1.9 s**.
+NDD-Flood answers the same model in **1.9 s**.
 
 **Still open (item 29):** the upstream `// TODO Auto-generated catch block` is
 untouched, and it is the more serious defect -- the crash was the *good* outcome.
@@ -858,14 +860,14 @@ FAVE_JVM_XMX=8g PYTHONPATH=. python3 bench/cloud_bdd_measure.py \
     --engine bdd --deadline-s 14400 --out bench/wl_cloud/eval/<name>.json
 ```
 
-For contrast, the same driver on the same model with `--engine ndd`: **1.9 s
+For contrast, the same driver on the same model with `--engine ndd-flood`: **1.9 s
 wall** (build 0.116 s, query 0.06 s), no errors.
 
 #### MEASURED 2026-09-27: the completed build answers six cells wrong, and why
 
 With the fix above the build finishes (campaign run #1: `completed`, 2 h 46 min,
 `ap_num` 90 153, query 1.96 s) -- and returns a number that does not match.
-**53 of 64 reachable pairs, where NDD and NetPlumber both answer 59.** That was
+**53 of 64 reachable pairs, where NDD-Flood and NetPlumber both answer 59.** That was
 recorded as measured-not-diagnosed. This is the diagnosis.
 
 **The six are the whole `internet` row** -- every pair whose path crosses the
@@ -878,7 +880,7 @@ committed binary (`natfix_full_before.json`, `status: completed`, `ap_num`
     internet -> dc1_leaf5_host5     internet -> dc4_leaf3_host22
 
 Nothing else differs: all 58 other cells match NetPlumber exactly, and the
-difference is **one-directional** -- six pairs NDD reaches that BDD does not, and
+difference is **one-directional** -- six pairs NDD-Flood reaches that BDD does not, and
 **zero** the other way. That direction is the serious one. `bench/apkeep_
 convergence.py` defines APKeep's soundness criterion as exactly this: it may
 over-approximate the reference, never under-approximate it, because an
@@ -917,10 +919,10 @@ ids absent from the partition.
 **Localised in minutes, not hours.** `bench/analysis/apkeep_ir_replay.py` dumps the
 engine-neutral rule IR (`all_rules` + `edges`, which both engines receive
 **identically**, so the dump settles "translation or engine?" outright) and
-replays it on a device subset. Replaying the unpruned IR on NDD returns 59/64,
+replays it on a device subset. Replaying the unpruned IR on NDD-Flood returns 59/64,
 which is what licensed trusting the harness; then:
 
-| model | rules | BDD, before | BDD, after | NDD / NetPlumber |
+| model | rules | BDD, before | BDD, after | NDD-Flood / NetPlumber |
 |---|---:|---|---|---|
 | full | 1 773 | 53 / 64 (2 h 46 min) | not reached in 5 h (see below) | 59 / 64 |
 | endpoint-bearing leaves only | 343 | **53 / 64** (150 s) | **59 / 64** (427 s) | 59 / 64 |
@@ -929,7 +931,7 @@ which is what licensed trusting the harness; then:
 
 The 343-rule prune keeps only the six leaves that host an endpoint and
 reproduces the full model's 53 **exactly**, with the whole `internet` row dark;
-NDD answers all 64 cells on it identically to the full model, which is what makes
+NDD-Flood answers all 64 cells on it identically to the full model, which is what makes
 the prune evidence rather than a different question. Patched, the same prune
 answers **59 of 64, cell for cell identical to both references** -- `ap_num`
 16 485 -> 17 925. From there two experiments separated cause from symptom:
@@ -937,7 +939,7 @@ answers **59 of 64, cell for cell identical to both references** -- `ap_num`
 | experiment | BDD |
 |---|---|
 | the IR as emitted (`nat` before `filter`) | internet -> host **unreachable** |
-| the same rules, NAT rules moved **last** | **reachable** -- agrees with NDD |
+| the same rules, NAT rules moved **last** | **reachable** -- agrees with NDD-Flood |
 
 Nothing follows the NATs in the second ordering, so nothing splits their inputs.
 Reflection agrees: the outputs are in the partition there and outside it in the
@@ -1002,7 +1004,7 @@ run -- which is what the prune was built for.
 
 Pinned by `fave/test/test_apkeep_nat_rewrite.py`: four rules, 0.7 s, two of its
 three checks red on the unpatched jar. The existing differential
-(`test_apkeep_cloud_differential.py`) cannot catch this -- it runs the NDD
+(`test_apkeep_cloud_differential.py`) cannot catch this -- it runs the NDD-Flood
 engine, because a BDD build of wl_cloud does not fit in a test tier.
 
 **Two observations recorded, not chased.** A `RewriteRule`'s port name is derived
@@ -1020,7 +1022,7 @@ minutes:
 ```
 PYTHONPATH=. python3 bench/analysis/apkeep_ir_replay.py dump --bench wl_cloud --out ir.json
 KEEP=core.,source.,probe.,dc0_leaf1,dc1_leaf0,dc1_leaf5,dc1_leaf6,dc2_leaf7,dc4_leaf3
-PYTHONPATH=. python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine ndd --keep $KEEP
+PYTHONPATH=. python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine ndd-flood --keep $KEEP
 PYTHONPATH=. python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine bdd --keep $KEEP
 ```
 
@@ -2225,7 +2227,7 @@ weaker claim than the cloud dataset's, and it should be written up as such.
 
       **The integration tier is run WITHOUT its five ad6 files** (owner
       direction 2026-09-25: ad6 is costly and is wanted as an arbiter only if
-      NetPlumber and NDD disagree). Measurement-affecting, so it is stated:
+      NetPlumber and NDD-Flood disagree). Measurement-affecting, so it is stated:
       before and after are the same ad6-free command twice, the jar builds are
       skipped with it because no part of D6 can reach Java, and D7's ad6 run is
       a separate measurement this does not touch.
@@ -2281,7 +2283,7 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       a stamp naming the wrong trace, and a generated input edited after
       stamping, each fail it, and the restored tree is green. A gate landed with
       the thing it gates is a gate nothing has tried to break.
-- [x] **D7 — DONE 2026-09-25 (§2.13). `wl_airtel2` on NetPlumber, NDD-flood
+- [x] **D7 — DONE 2026-09-25 (§2.13). `wl_airtel2` on NetPlumber, NDD-Flood
       and ad6**, in that order
       (owner direction 2026-09-25: highest confidence first, then the fastest,
       then the slowest). **BDD-APKeep is untouched** — parallel work. Driven
@@ -2311,7 +2313,7 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       prefix pairs and the same single witness (`117.53.131.0/24` inside
       `117.53.128.0/20`, homed apart), and all three of `TestDeltanetLPM`'s
       assertions pass on it, the inversion included. The engine half is gated at
-      NetPlumber + NDD only, `ENGINES = ('ndd',)`, with `wl_up` as the
+      NetPlumber + NDD-Flood only, `ENGINES = ('ndd-flood',)`, with `wl_up` as the
       precedent. **ad6 stays a one-off measurement and the gap is named**, as it
       is for airtel1: no `test_ad6_*` covers this workload at all (§2.6), and
       building one is separate work.
@@ -2338,7 +2340,7 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       run — so "the three got the same inputs" is an observation. §2.13 has it.
 
       **The unplanned finding is in the COSTS, not the verdicts**: NetPlumber is
-      ~13× slower on airtel2, NDD-flood is flat, ad6 is ~11% faster. §2.3 said
+      ~13× slower on airtel2, NDD-Flood is flat, ad6 is ~11% faster. §2.3 said
       the pair could only be cashed by a property that observes paths;
       compliance time turns out to be one, and it separates the engines without
       separating the answer.
@@ -2925,7 +2927,7 @@ no host route is sent straight back out the uplink. The same hairpin
 wl_deltanet's 14 false positives were.
 
 **Whether it changes any wl_up verdict is NOT measured.** The existing wl_up
-APKeep tests compare BDD against NDD — both APKeep engines, so both share the
+APKeep tests compare BDD against NDD-Flood — both APKeep engines, so both share the
 approximation — and `test_backend_differential` is still `wl_ifi` only, which
 is the open item that made this invisible. A wl_up APKeep-vs-NetPlumber
 differential is what would settle it.
@@ -2984,7 +2986,7 @@ atomic-predicate model** and is logged rather than absorbed.
 
 The first cut named elements `sw.s1|101`, and every must-reach check failed —
 210 of them — while the BDD path was fine and the built model was *byte
-identical* to a working in-process build. The NDD engine keys its per-hop cache
+identical* to a working in-process build. The NDD-Flood engine keys its per-hop cache
 as `device + "|" + port` and recovers the device with `indexOf('|')`
 (`AtomForwarding.java:47` and `:153`, `NddReachabilityEngine.java:89`), so
 `sw.s1|101` made the key `sw.s1|101|151`, which parses back as device `sw.s1`,
@@ -3057,7 +3059,7 @@ not bounce back down" that §2.7 found it had been losing.
 
 `test_backend_differential` was `wl_ifi` only, and **that is precisely how
 APKeep came to over-approximate wl_up silently for months**: wl_up's own APKeep
-tests compare BDD against NDD, which share any approximation, and nothing
+tests compare BDD against NDD-Flood, which share any approximation, and nothing
 compared it against a second *family*. A differential that covers one workload
 gates one workload.
 
@@ -3076,11 +3078,11 @@ two independent algorithms on one model, so an approximation in either shows up
 as a disagreement rather than as a plausible number.
 
 **It now covers BOTH APKeep engines**, which it did not. The aggregator defaults
-to `ndd` (`aggregator_service.py`), while this file ran `bdd` only — so the
+to `ndd-flood` (`aggregator_service.py`), while this file ran `bdd` only — so the
 differential was validating an engine the benchmarks do not use. Measured on
 wl_up: the two give the same 137-role matrix and both agree with NetPlumber, but
-`bdd` takes **688.5 s** against `ndd`'s **4.7 s** (§2.12). So the cheap workloads
-run both and wl_up runs `ndd`, which is the engine its published numbers come
+`bdd` takes **688.5 s** against `ndd-flood`'s **4.7 s** (§2.12). So the cheap workloads
+run both and wl_up runs `ndd-flood`, which is the engine its published numbers come
 from.
 
 **wl_up asserts agreement only, and that is a property of its ORACLE.** Its
@@ -3096,9 +3098,9 @@ against its conditioned policy.
 
 | workload | engines | backends agree | oracle |
 |---|---|---|---|
-| `wl_ifi` | bdd + ndd | yes | matches |
-| `wl_deltanet` | bdd + ndd | yes | matches |
-| `wl_up` | ndd | **yes** | not comparable (stateful policy) |
+| `wl_ifi` | bdd + ndd-flood | yes | matches |
+| `wl_deltanet` | bdd + ndd-flood | yes | matches |
+| `wl_up` | ndd-flood | **yes** | not comparable (stateful policy) |
 
 7 passed, 2 skipped, **56 s** for all three — affordable for the gating tier,
 which is the point: a gate nobody can afford to run is the gap this closes.
@@ -3226,7 +3228,7 @@ is the whole point of §2.7.
 ## 2.12 The BDD engine is the one that does not scale (2026-09-22)
 
 A cost result, recorded because engine choice is now a published-numbers
-question and §2.9 needed a reason for running `ndd` where it runs only one.
+question and §2.9 needed a reason for running `ndd-flood` where it runs only one.
 
 ### Measured on wl_up — same path, same verdict
 
@@ -3236,15 +3238,15 @@ the numbers are comparable to each other and to nothing else:
 | backend | wl_up matrix | roles | verdict |
 |---|---:|---:|---|
 | NetPlumber | 28.4 s | 137 | — |
-| APKeep **BDD** | **688.5 s** | 137 | identical to NDD and to NetPlumber |
-| APKeep **NDD** | **4.7 s** | 137 | identical to BDD and to NetPlumber |
+| APKeep **BDD** | **688.5 s** | 137 | identical to NDD-Flood and to NetPlumber |
+| APKeep **NDD-Flood** | **4.7 s** | 137 | identical to BDD and to NetPlumber |
 
 **It is a cost result, not a correctness one.** Where BDD finishes it agrees
-with everything, so nothing about §2.8's demux verdict rests on the engine. NDD
+with everything, so nothing about §2.8's demux verdict rests on the engine. NDD-Flood
 is also the only APKeep engine competitive with NetPlumber here — 6× faster,
 against BDD's 24× slower.
 
-### The cause: NDD caches a flood per SOURCE, BDD caches nothing
+### The cause: NDD-Flood caches a flood per SOURCE, BDD caches nothing
 
 The obvious explanation is wrong and this file said it for a day: *"the BDD path
 answers per pair"*. **Both** engines answer per pair — `adapter.py:2394-2420`
@@ -3258,7 +3260,7 @@ The difference is what survives between queries:
 | `lib_ndd.is_reachable` | floods from the source; **the flood is cached engine-side** and reused for every destination, and is state-independent so `related` variants share it |
 | `lib_apkeep.is_reachable` | constructs a **fresh** `ReachabilityChecker(self._net)` (`lib_apkeep.py:243`) — the only construction site, and there is no cache anywhere in the file |
 
-So wl_up's 137 roles cost NDD ~137 floods and cost BDD 18,769 independent
+So wl_up's 137 roles cost NDD-Flood ~137 floods and cost BDD 18,769 independent
 traversals. That predicts a factor near 137; the measurement is **146×**. The
 residual is the per-query JVM object construction the cache also avoids.
 
@@ -3270,7 +3272,7 @@ residual is the per-query JVM object construction the cache also avoids.
 a NAT rewrite, then 36 swallowed `APNotFoundException`s over a half-updated AP
 partition. That is a defect (and a soundness hazard), not a cost curve, so it
 does **not** corroborate the caching gap above; the two are unrelated. The
-engine-choice conclusion is unchanged and now rests on firmer ground: NDD answers
+engine-choice conclusion is unchanged and now rests on firmer ground: NDD-Flood answers
 this model in 1.9 s, BDD does not answer it at all.
 
 ### The forward-looking half
@@ -3295,7 +3297,7 @@ re-measured under the harness that produces the rest of them.
 
 **Trace: `airtel2-only-inserts.csv`**, sha256 `a2c233554f51…`, recorded by the
 workload itself in `bench/wl_airtel2/SOURCE.json` rather than by this sentence.
-Engines: NetPlumber; APKeep with **`--apkeep-engine ndd`**, passed explicitly
+Engines: NetPlumber; APKeep with **`--apkeep-engine ndd-flood`**, passed explicitly
 rather than defaulted; ad6 with `--solver minisat22 --grounding rank`. BDD-APKeep
 was not run at all — concurrent work elsewhere (owner, 2026-09-25). *(Run
 2026-09-29 on both traces, owner direction: 0 on both, non-vacuous — "BDD-APKeep,
@@ -3306,7 +3308,7 @@ was not run at all — concurrent work elsewhere (owner, 2026-09-25). *(Run
 | engine | violations | checks |
 |---|---:|---:|
 | **NetPlumber** (HSA) | **0** | 256 |
-| **NDD-flood** (per-field NDD) | **0** | 256 |
+| **NDD-Flood** (per-field NDD) | **0** | 256 |
 | **ad6** (SAT, minisat22/rank) | **0** | 256 |
 
 Every run produced a `report.md` and carries `completed task check_compliance`
@@ -3367,14 +3369,14 @@ Compliance time, same machine, same day, same command, repeated:
 | engine | airtel1 | airtel2 | |
 |---|---|---|---|
 | NetPlumber | 0.0086, 0.0095 s | 0.114, 0.118, 0.124 s | airtel2 **~13× slower** |
-| NDD-flood | 3.40, 3.59 s | 3.41, 3.47 s | **no difference this can resolve** |
+| NDD-Flood | 3.40, 3.59 s | 3.41, 3.47 s | **no difference this can resolve** |
 | ad6 | 102.6, 105.0 s | 94.4, 91.4 s | airtel2 ~11% **faster** |
 
 Three engines compute the same answer and the cost of the second trace goes
 **up 13×, stays flat, and goes down**. The spread within each cell is far
 smaller than the gap between cells in the NetPlumber and ad6 rows, so the
-direction is not noise; the NDD row is the weaker claim, an absence of effect at
-this sample size rather than a demonstrated equality. (NDD's first airtel2 run
+direction is not noise; the NDD-Flood row is the weaker claim, an absence of effect at
+this sample size rather than a demonstrated equality. (NDD-Flood's first airtel2 run
 was 4.12 s and is excluded as JVM warm-up — stated, not dropped silently.)
 
 **Why this is the interesting part.** §2.3 concluded that the pair's difference
@@ -3419,10 +3421,10 @@ and today is not established here and is worth its own look.
   apart and comparable; the 65 s recorded earlier in this session is NOT — the
   machine's load roughly doubled in between, which is exactly the trap §2.12's
   caveat describes, met here on a tier timing rather than on a benchmark.
-* **Gated, engines.** `TestBackendDifferentialAirtel2`, `ENGINES = ('ndd',)`.
+* **Gated, engines.** `TestBackendDifferentialAirtel2`, `ENGINES = ('ndd-flood',)`.
   Integration's second group goes 8 → **11** passed and 84 s → 146 s.
   *(Both engines since 2026-09-29: the override is gone, so it inherits
-  `('bdd', 'ndd')` like airtel1. Still 3 tests; their shared setup 21.3 s →
+  `('bdd', 'ndd-flood')` like airtel1. Still 3 tests; their shared setup 21.3 s →
   29.6 s.)*
 * **NOT gated: ad6.** Exactly as for airtel1 — no `test_ad6_*` covers this
   workload, so ad6's zero on both traces is a one-off measurement. D7 does not
@@ -3460,7 +3462,7 @@ denominator from `checks.json`; and the input hashes, compared ACROSS runs
 both failures would have produced plausible numbers: the mutation was appended
 after the policy's closing `end`, where FPL ignores it without a word (the run
 reported 0 of 256 — a "passed" non-vacuity check that mutated nothing), and the
-drift check was the vacuous one. Validated on NDD before any BDD run: plain 0 of
+drift check was the vacuous one. Validated on NDD-Flood before any BDD run: plain 0 of
 256, mutated exactly 1, `source.s1` does not reach `probe.s8`.
 
 **The protocol was declared before the first BDD run** —
@@ -3473,9 +3475,9 @@ machine drift over all four. Every result file is committed beside it, and
 | trace | engine | n | median | min–max | verdict |
 |---|---|---:|---:|---|---|
 | airtel1 | **BDD** | 13 | **4.07 s** | 3.57–4.64 s | **0 of 256**, every run |
-| airtel1 | NDD | 12 | 2.27 s | 2.05–2.49 s | 0 of 256 |
+| airtel1 | NDD-Flood | 12 | 2.27 s | 2.05–2.49 s | 0 of 256 |
 | airtel2 | **BDD** | 13 | **3.98 s** | 3.68–5.29 s | **0 of 256**, every run |
-| airtel2 | NDD | 12 | 2.20 s | 1.94–2.55 s | 0 of 256 |
+| airtel2 | NDD-Flood | 12 | 2.20 s | 1.94–2.55 s | 0 of 256 |
 
 * **BDD's zero is non-vacuous on both traces**: mutated, exactly 1 violation of
   256, `source.s1` does not reach `probe.s8` — the same one the other three
@@ -3484,18 +3486,18 @@ machine drift over all four. Every result file is committed beside it, and
   all 25 plain runs of it; the mutated runs differ in exactly the five
   policy-derived files, the two traces only in `routes`; and the artifacts
   regenerated afterwards (`gen_deltanet_inputs.sh`) equal every run's inputs.
-* **BDD costs 1.8× NDD here** (1.79 on airtel1, 1.80 on airtel2, medians) —
+* **BDD costs 1.8× NDD-Flood here** (1.79 on airtel1, 1.80 on airtel2, medians) —
   against **146×** on wl_up (§2.12), so §2.12's "BDD does not scale" is a
   statement about wl_up's shape, not a constant factor.
 * **Neither APKeep engine distinguishes the traces**: airtel2/airtel1 median
-  ratio 0.98 (BDD) and 0.97 (NDD), and an airtel2 run is slower than an airtel1
-  run in 52% (BDD) and 42% (NDD) of cross pairs. This firms up the NDD row of
+  ratio 0.98 (BDD) and 0.97 (NDD-Flood), and an airtel2 run is slower than an airtel1
+  run in 52% (BDD) and 42% (NDD-Flood) of cross pairs. This firms up the NDD-Flood row of
   the table above ("no difference this can resolve") and extends it to BDD.
   **The first three BDD runs had suggested the opposite** — 3.57–3.64 s against
   3.68–4.17 s, disjoint — and the interleaved addendum removed it; those three
   also ran earliest and sit below the later medians, which is the drift the
   interleaving was declared for.
-* **NDD today is not NDD four days ago**: 2.27 s against §2.13's 3.40/3.59 s on
+* **NDD-Flood today is not NDD-Flood four days ago**: 2.27 s against §2.13's 3.40/3.59 s on
   airtel1, same workload. That is why the comparator was re-run in-session and
   why cross-day figures in this file must not be divided into each other.
 
@@ -3507,7 +3509,7 @@ and before item 29's fixes.
 **Not claimed:** anything about NetPlumber or ad6 today (not re-run); a cause for
 the 1.8× (no profile); stability beyond this machine and session — §2.12's
 caveat stands. **Gate extended the same day** (owner): `TestBackendDifferentialAirtel2`
-now runs BDD as well as NDD, 3 passed, setup 21.3 s → 29.6 s — the +8.3 s is
+now runs BDD as well as NDD-Flood, 3 passed, setup 21.3 s → 29.6 s — the +8.3 s is
 roughly double this section's benchmark-path estimate, because the test builds
 its own in-process matrix.
 
@@ -4062,7 +4064,7 @@ Protocol declared before any run; `berkeley_series.py`, table by
 s23) **exactly 1 of 520 on all three engines**. Seconds from the aggregator log
 (rule load = the `switch_command` sum):
 
-| rules (k) | NetPlumber load | NDD load / compliance | BDD load / compliance |
+| rules (k) | NetPlumber load | NDD-Flood load / compliance | BDD load / compliance |
 |---:|---:|---:|---:|
 | 26,237 (1000) | 3.5 | 1.1 / 3.8 | 1.3 / 7.4 |
 | 57,513 (300) | 15.1 | 2.8 / 7.7 | 3.0 / 14.4 |
@@ -4072,15 +4074,15 @@ s23) **exactly 1 of 520 on all three engines**. Seconds from the aggregator log
 | 4,476,240 (3) | — | 324.7 / **heap OOM** | **lost** |
 
 * **NetPlumber grows ~size^2.2–2.6 in rule load** and is out at 459k rules.
-* **BDD is 1.7–2.1× NDD** on compliance at every size.
-* **NDD is ~linear from 147k rules on** (exponents 0.9–1.05 between sizes).
+* **BDD is 1.7–2.1× NDD-Flood** on compliance at every size.
+* **NDD-Flood is ~linear from 147k rules on** (exponents 0.9–1.05 between sizes).
   At k=3 it loaded all 4.48M rules and then threw `OutOfMemoryError: Java heap
   space` at the JVM's default heap (~4.8 GB, a quarter of RAM).
 * **BDD k=3 is LOST**: the sandbox died mid-run and the owner restarted it.
   Cause not established — no kernel log, OOM counters reset. Recorded by hand
   as lost (`k3_bdd.json`), never as a result.
 
-#### The NDD drill (`results_berkeley_ndd_2026-09-29/`)
+#### The NDD-Flood drill (`results_berkeley_ndd_2026-09-29/`)
 
 Protocol declared before any run, with its predictions; `berkeley_drill.py`.
 Inputs generated once per size in their own process and then REUSED
@@ -4095,7 +4097,7 @@ memory floor 3 GB (owner's choice after the crash):
 | 4,476,240 (3) | **memory floor** at 401 s | 287.9 | — | 15,566 | 3,407 |
 
 **It stopped where the protocol predicted, for the reason it predicted.** The
-explicit heap made k=30 and k=10 ~30% faster than in the series. At k=3 NDD's
+explicit heap made k=30 and k=10 ~30% faster than in the series. At k=3 NDD-Flood's
 own live set was **~3.4 GB**; the aggregator's 15.6 GB is that heap as
 committed (~6.5 GB) plus **~8 GB of FaVe's Python-side model — ~1.85 KB per
 rule**, the figure predicted from the NetPlumber runs, where no JVM is in the
@@ -4104,9 +4106,9 @@ process. The benchmark process, holding the loaded `routes.json`, added 3.5 GB
 
 #### What this settles, and what it leaves
 
-* **NDD-flood carries Berkeley's scale; FaVe's harness does not, on 19 GB.**
+* **NDD-Flood carries Berkeley's scale; FaVe's harness does not, on 19 GB.**
   Extrapolated linearly to all 13.4M rules: ~15 min of rule load, ~20 min of
-  compliance, a ~4–10 GB NDD heap — and ~25 GB of aggregator model plus ~10 GB
+  compliance, a ~4–10 GB NDD-Flood heap — and ~25 GB of aggregator model plus ~10 GB
   in the benchmark process. The memory wall is the Python side.
 * **So the next lever is the harness, not the engine**, and it is two
   per-rule costs, both measured: the aggregator's retained model (~1.85 KB)
@@ -4148,7 +4150,7 @@ plausible and unmeasured).
 swap"; `k3_ndd_xmx5g.json`, prediction declared before): **`OutOfMemoryError:
 Java heap space` in the compliance check**, at 540 s, with the live heap at the
 5,119 MB ceiling, 56.6 s of GC pauses (8g: 5.5 s), and 3.3 GB still available.
-So **NDD's live set at 4.48M rules exceeds 5 GB**; the 8g run's 4.0 GB was only
+So **NDD-Flood's live set at 4.48M rules exceeds 5 GB**; the 8g run's 4.0 GB was only
 where it had got to when the floor killed it. k=3 therefore needs a heap
 above 5 GB and fails the machine at 8 GB; whether 6–7 GB fits is not
 predictable from these two runs. **Swap: zero pages in or out** during this run,
@@ -4202,7 +4204,7 @@ directories.
 **Where `wl_berkeley` stands.** Built, gated, measured. Every completed run on
 every engine answers 0 of 520 (the `fib_walk` prediction); every mutated run
 (`s22 ---> s23`) exactly 1. NetPlumber is out (rule load ~size^2.2–2.6,
-deadline at 459k rules); BDD is 1.7–2.1× NDD. **NDD-flood is ~linear and
+deadline at 459k rules); BDD is 1.7–2.1× NDD-Flood. **NDD-Flood is ~linear and
 completed up to k=10 (1,351,800 rules: load 80 s, compliance 123 s at
 `-Xmx8g`). k=3 (4,476,240 rules) has never completed on 19 GB:** four runs, all
 of which loaded every rule and then failed in the compliance check — default
@@ -4223,12 +4225,12 @@ load-time peak.
 |---|---:|---|
 | generation (own process, ~7 min) | ~16 GB | measured at k=1, 2026-09-29 (model + walk, 15.9 GB peak) |
 | aggregator, Python side | ~25–31 GB | 1,595–2,285 B/rule, kept at peak (not returned) |
-| JVM heap NDD needs | ≥15 GB, `-Xmx` ~20–24g | live set >5.1 GB at 4.48M, scaled linearly |
+| JVM heap NDD-Flood needs | ≥15 GB, `-Xmx` ~20–24g | live set >5.1 GB at 4.48M, scaled linearly |
 | JVM off-heap | 1–3 GB | rough |
 | benchmark process (streamed) | ~1–2 GB | 658 MB at k=3; largest table ~583k rules |
 | **run total** | **~45–60 GB** | generation runs BEFORE, not beside |
 
-So **≥64 GB is the minimum worth trying; 96–128 GB leaves margin.** Time: NDD
+So **≥64 GB is the minimum worth trying; 96–128 GB leaves margin.** Time: NDD-Flood
 load ~15 min, compliance ~20–30 min at k=1 (linear from k=10/k=3).
 
 > **Checked against three measured sizes, 2026-10-02 (next subsection).** The
@@ -4256,7 +4258,7 @@ that can take k=1.*
    DERIVED.SHA256SUMS)`. If it is absent, re-derive it from the kept archive
    with `bench/deltanet/archive_survey/insert_block.sh` (§2.15, "The
    extraction"); the archive itself must be copied over, it is not in git.
-3. **The NDD drill again, as a protocol** — write a new
+3. **The NDD-Flood drill again, as a protocol** — write a new
    `results_berkeley_ndd_<date>/PROTOCOL.txt` with the machine's RAM, cores and
    the heap chosen, declared before running: `python3
    bench/deltanet/eval/berkeley_drill.py --out <dir> --budget 50400 --jvm-xmx
@@ -4351,7 +4353,7 @@ was that the live set EXCEEDS 5.1 GB — a lower bound, with nothing above it. T
 measured the live set at 1.35M rules (3,519 MB) — and that number changed the
 k=3 heap, from 12g to 16g, *before* the run.
 
-**NDD's live set is sublinear in rules.** Interval exponents 0.548 and 0.582;
+**NDD-Flood's live set is sublinear in rules.** Interval exponents 0.548 and 0.582;
 three-point fit **0.555**. This was predicted at 8,460 MB for k=2 and measured
 at 8,582 MB — 1.4% — so it is not a line through two points that happened to
 agree. Linear scaling from k=3 would have said 10,152 MB. Plausible for a

@@ -102,7 +102,10 @@ class TestACellIsFiledByItsStampsNotItsFilename(unittest.TestCase):
         for stamps, expected in (
                 ({'backend': 'netplumber', 'engine': 'netplumber'},
                  'wl_i2_np'),
-                ({'backend': 'apkeep', 'engine': 'ndd'}, 'wl_i2_ndd'),
+                # a bare `ndd` predates 2026-10-16: NDD-Flood's (owner)
+                ({'backend': 'apkeep', 'engine': 'ndd'}, 'wl_i2_nddflood'),
+                ({'backend': 'apkeep', 'engine': 'ndd-flood'}, 'wl_i2_nddflood'),
+                ({'backend': 'apkeep', 'engine': 'ndd-apkeep'}, 'wl_i2_ndd'),
                 ({'backend': 'apkeep', 'engine': 'bdd'}, 'wl_i2_bdd'),
                 ({'backend': 'ad6', 'engine': 'ad6'}, 'wl_i2_ad6'),
         ):
@@ -159,6 +162,13 @@ class TestACellIsFiledByItsStampsNotItsFilename(unittest.TestCase):
             with self.subTest(cell=cell):
                 self.assertEqual(cell_table.cell_key(cell, 'the_stem'),
                                  'the_stem')
+
+    def test_an_unstamped_ndd_cell_is_ndd_flood(self):
+        # unstamped cells predate the stamps, and `ndd` was NDD-Flood until
+        # 2026-10-16 (owner)
+        self.assertEqual(cell_table.cell_key({}, 'wl_i2_ndd'), 'wl_i2_nddflood')
+        self.assertEqual(cell_table.cell_key({}, 'wl_i2_ndd_faithful'),
+                         'wl_i2_ndd_faithful')
 
 
 class TestADuplicatedViolationLineIsFlagged(unittest.TestCase):

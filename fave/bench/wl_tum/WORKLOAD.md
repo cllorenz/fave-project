@@ -6,6 +6,8 @@ Network Architectures and Services: `rulesets/tum-ruleset`, 3,794 flattened
 VLANs on one interface `eth1`, flattened by fffuu from the 2015 dump
 `iptables-save-2015-05-15_15-23-41_tum` (`fffuu_to_fave.sh`).
 
+> **Naming (2026-10-16):** NDD-Flood (before 2026-10-16 "NDD-flood"/"NDD", `--apkeep-engine ndd`) is now `--apkeep-engine ndd-flood`; `--apkeep-engine ndd` selects NDD-APKeep.
+
 Since 2026-10-14 (owner) wl_tum has **two models**:
 
 | | the policy model (default) | the single variant |
@@ -84,7 +86,7 @@ source enters the forward chain as from its VLAN (`in_port` eth1's ingress,
    names a switch's table `<node>.1`): `vlans.tum` numbers its ports from 1000.
 4. **Both APKeep engines dropped `svlan` and `dvlan` from packet-filter rules**
    (`apkeep/adapter.py`, `_capture_pf_rule`), so a rule bound to one VLAN acted
-   on all of them. Fixed in `b17a70f8`: BDD-APKeep, NDD-APKeep and NDD-flood
+   on all of them. Fixed in `b17a70f8`: BDD-APKeep, NDD-APKeep and NDD-Flood
    carry both as header fields (owner: VLANs are genuine header fields). TODO.md
    item 54 lists what the packet-filter path still drops.
 

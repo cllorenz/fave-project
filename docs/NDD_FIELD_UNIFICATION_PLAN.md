@@ -1,23 +1,25 @@
-# Unifying header-field handling in the FaVe-facing NDD engine
+# Unifying header-field handling in the FaVe-facing NDD-Flood engine
 
 **Status: steps 1-4 DONE (2026-09-25); step 5 not scheduled.** Written after the fourth slot-drop defect of the
 same shape. Scope set by the owner: **APKeep as a FaVe verification backend, not
 as a standalone tool.**
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 ---
 
 ## 1. The problem, in one sentence
 
-A header field is not a thing the NDD engine *has*; it is a thing that must be
+A header field is not a thing the NDD-Flood engine *has*; it is a thing that must be
 remembered in five places, and every defect in this class has been one of those
 places forgetting.
 
 ## 2. The evidence
 
 Four slot-drop defects have been found and fixed in this repository. Three were
-NDD-only, and the fourth cost three times more to fix in NDD than in BDD:
+NDD-Flood-only, and the fourth cost three times more to fix in NDD-Flood than in BDD:
 
-| defect | NDD | BDD |
+| defect | NDD-Flood | BDD |
 |---|---|---|
 | item 23 step 0 — `+ filter` drops VLAN | **dropped** | honoured ("always did") |
 | OUT_STAGE_PLAN sec. 4.2 — `+ nat … match` drops VLAN | **dropped** | honoured via `ACLRule` |
@@ -32,7 +34,7 @@ BDD   one parser.  ConvertACLRule ANDs eight field nodes:
          dstIPNode, vlanNode, relatedNode, tcpFlagsNode}
       6 callers, none of which handles a field itself.
 
-NDD   four parse sites, three of which remember two helpers:
+NDD-Flood   four parse sites, three of which remember two helpers:
         200:  withFlagsSlot(withVlanSlot(ruleToNDD(t), t), t)     + filter
         225:  withFlagsSlot(withVlanSlot(ruleToNDD(t), t), t)     + acl
         271:  withFlagsSlot(withVlanSlot(ruleToNDD(body), body))  + nat … match
@@ -56,8 +58,8 @@ Adding one header field currently means touching, in order:
    `_NAT_IP_FIELDS`, `_COND_SLOTS`, `_SUPPORTED_COND_FIELDS`
 3. `_is_acceptall_filter_rule` — which reads slots positionally and treats an
    unknown one as a wildcard, i.e. silently widens (this bit us in steps 2 and 4)
-4. NDD: a predicate builder, a `withXSlot` helper, and **every** call site
-5. NDD: a new positional parameter on `isReachable` — which is why there are
+4. NDD-Flood: a predicate builder, a `withXSlot` helper, and **every** call site
+5. NDD-Flood: a new positional parameter on `isReachable` — which is why there are
    **four overloads** (`…, targetVlan`, `…, related`, `…, conds`)
 
 BDD needs three edits, all inside two files: `ACLRule` (parse), `BDDACLWrapper`
@@ -96,8 +98,8 @@ refactor, no verdict moves anywhere); the condition site must gain the
 constraint — pinned by the divergence measured on a toy model:
 
 ```
-traffic carries vlan 5, condition vlan=9   NDD True -> False   (BDD already False)
-traffic has flags MSB 0, condition 1xxxxxxx NDD True -> False   (BDD already False)
+traffic carries vlan 5, condition vlan=9   NDD-Flood True -> False   (BDD already False)
+traffic has flags MSB 0, condition 1xxxxxxx NDD-Flood True -> False   (BDD already False)
 ```
 
 Plus fast + integration, and wl_stanford 165/165.
@@ -180,7 +182,7 @@ is the only one that adds behaviour.
 
 | step | result |
 |---|---|
-| 1 | `ruleToNDD` is the only place NDD reads a header field. The condition-path defect closed as a consequence; its test was confirmed failing on the pre-fix jar. |
+| 1 | `ruleToNDD` is the only place NDD-Flood reads a header field. The condition-path defect closed as a consequence; its test was confirmed failing on the pre-fix jar. |
 | 2 | `_FILTER_SLOTS` declares the layout once; emitter and accept-all reader derive from it. Java gained named slot constants. **Emitted IR byte-identical** on wl_stanford, wl_cloud and wl_ifi (same sha256 over the sorted IR). |
 | 3 | One `isReachable` implementation; three delegating forms. |
 | 4 | VLAN and tcp_flags are forceable conditions; the pre-existing rewrite guard is what keeps them honest. |
@@ -197,7 +199,7 @@ the Python EMITTER and READER, and the spec-driven half removes exactly that.
 
 *Step 3.* The plan said to express `targetVlan`/`related` as conditions and
 delete the parameters. I stopped at collapsing the duplicated bodies. Removing
-the parameters does not stay inside the NDD engine -- `lib_apkeep` presents the
+the parameters does not stay inside the NDD-Flood engine -- `lib_apkeep` presents the
 same two to the BDD engine and the adapter calls both from one site -- so the
 churn lands in the BDD wrapper for a modest gain. The duplication was the part
 that could cause a defect; what remains is a naming asymmetry.
@@ -212,5 +214,5 @@ the refusal is what fires.
 1-4 is under `fave/apkeep/`, `fave/test/` or `ndd/.../fave/` (checked with
 `git diff --stat`). Had a step reached into `devices/`, `aggregator/` or
 `bench/np_preparation.py`, ad6 would have become reachable and needed re-running.
-Each step was gated on a 17-file APKeep+NDD set (`FAVE_ALLOW_OUT_IFACE=1`, which
+Each step was gated on a 17-file APKeep+NDD-Flood set (`FAVE_ALLOW_OUT_IFACE=1`, which
 wl_up's `-o` rules require) plus wl_stanford against NetPlumber.

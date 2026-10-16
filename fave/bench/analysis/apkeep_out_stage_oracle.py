@@ -146,13 +146,15 @@ def _make_engine(backend: str) -> Any:
     log.setLevel(logging.WARNING)
     if backend == "apkeep":
         from apkeep.adapter import APKeepAdapter
-        # ORACLE_ENGINE=bdd switches the comparand. Production is NDD (owner,
-        # 2026-09-24) and that is the default; the knob exists because the two
+        # ORACLE_ENGINE=bdd switches the comparand (an APKeepAdapter engine
+        # name). Production is NDD (owner, 2026-09-24) and that is the default:
+        # NDD-APKeep since 2026-10-16 (owner), `ndd-flood` NDD-Flood, which
+        # this differential was first run on; the knob exists because the two
         # engines disagree about what a probe's VLAN filter means (TODO item 27)
         # and that question can only be asked of the BDD path -- which, on
         # faithful wl_stanford, may not finish.
         return APKeepAdapter(log, faithful_vlan=True,
-                             engine=os.environ.get('ORACLE_ENGINE', 'ndd'))
+                             engine=os.environ.get('ORACLE_ENGINE', 'ndd-apkeep'))
     if backend == "netplumber":
         from netplumber.lib_adapter import NetPlumberLibAdapter
         return NetPlumberLibAdapter(log)

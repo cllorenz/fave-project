@@ -16,6 +16,8 @@ Owner: Claas Lorenz. Companion to [`APKEEP_TUM_UP_PLAN.md`](APKEEP_TUM_UP_PLAN.m
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), and `apkeep/FAVE_CHANGES.md`. Sibling
 cross-family effort: [`AD6_PLAN.md`](AD6_PLAN.md) (ad6 as a generic SAT/QBF backend).
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 **Artifacts referenced.** Paper: `nsdi25-li-zechun.pdf` (in repo root). NDD library:
 `github.com/XJTU-NetVerify/NDD` (~2K LOC Java, built on JDD — the same BDD lib our fork
 uses). Reference NDD-integrated verifier: `github.com/XJTU-NetVerify/apkeep` (vanilla
@@ -145,7 +147,7 @@ our additions and cannot be replayed verbatim. Two viable paths:
   `FAVE_CHANGES`-style changelog for any local edits), and fold it into the pinned env.
 
 ### 2.5 Integrate on a slice, gated on differential-vs-baseline
-- Build the NDD backend on a wl_up slice; gate on **exact parity with our frozen BDD
+- Build the NDD-Flood backend on a wl_up slice; gate on **exact parity with our frozen BDD
   baseline** (pair-for-pair) + the exactness gate. This differential-against-our-own-golden
   is our strongest correctness lever (why Part 1 must come first).
 
@@ -155,27 +157,27 @@ Original exit criteria, both met (see `APKEEP_NDD_EVAL.md` §2.5/§2.6 for the r
   goal).
 - **Performance is the goal:** NDD-APKeep must *beat* BDD-APKeep on the full model.
 
-**Outcome — met and exceeded.** NDD is a selectable second FaVe backend
-(`APKeepAdapter(engine='ndd')`), exact on **all six benchmarks** and in the exactness
+**Outcome — met and exceeded.** NDD-Flood is a selectable second FaVe backend
+(`APKeepAdapter(engine='ndd-flood')`), exact on **all six benchmarks** and in the exactness
 gate (19 passed, 0 skipped):
 
-| benchmark | correctness | NDD vs BDD |
+| benchmark | correctness | NDD-Flood vs BDD |
 |---|---|---|
 | wl_up (IPv6 5-tuple) | exact 3661/3661 vs frozen BDD golden | **~0.5 s vs BDD ~1079 s** (~2000×) |
 | wl_tum (IPv4 5-tuple) | exact == BDD | on par / faster |
 | wl_stanford-P7a (IPv4 fwd) | exact == BDD | on par (single-field) |
 | wl_i2 (77k IPv4 dst) | exact == reachable.json | 0.7 s (216-atom AP engine) vs BDD s-scale |
-| **wl_stanford faithful (dst×VLAN)** | exact == NetPlumber (165) | **NDD 3 s vs BDD ≥ 3.8 h** (§2.6b bound; ap_num ≥ 22.2k, still climbing) |
-| **wl_i2 faithful (dst×VLAN)** | exact == reachable.json (72) | **NDD ~15 s vs BDD ≥ 18.7 h** (§2.6b bound; ap_num ≥ 21.0k, still climbing) |
+| **wl_stanford faithful (dst×VLAN)** | exact == NetPlumber (165) | **NDD-Flood 3 s vs BDD ≥ 3.8 h** (§2.6b bound; ap_num ≥ 22.2k, still climbing) |
+| **wl_i2 faithful (dst×VLAN)** | exact == reachable.json (72) | **NDD-Flood ~15 s vs BDD ≥ 18.7 h** (§2.6b bound; ap_num ≥ 21.0k, still climbing) |
 
-**When NDD wins: field INDEPENDENCE.** The per-field Σ representation beats BDD's single
+**When NDD-Flood wins: field INDEPENDENCE.** The per-field Σ representation beats BDD's single
 joint partition (Π) exactly when the model has multiple *independent* fields — dramatic on
 wl_up and on the two faithful-VLAN models (where BDD-APKeep cannot even finish). Where a
-field is functionally slaved (i2's `rw=vlan` alone) or absent (single-field FIBs), NDD ≈
+field is functionally slaved (i2's `rw=vlan` alone) or absent (single-field FIBs), NDD-Flood ≈
 BDD. Scaling wl_i2's 77k-route FIB required a dedicated atomic-predicate forwarding engine
 (`AtomForwarding` / `buildFwdPortPred`: interval-LPM → minimal atom partition), since the
 naive per-port residual OOMs there while BDD-APKeep's incremental APs handle it — i.e. the
-single-field FIB is the one place NDD needed extra engineering to reach parity.
+single-field FIB is the one place NDD-Flood needed extra engineering to reach parity.
 
 ### Refined sequence — ✅ ALL COMPLETE
 1. ✅ Part 1 preservation (tag `fave-apkeep-bdd-v1`, pinned env, committed eval artifacts,
@@ -186,7 +188,7 @@ single-field FIB is the one place NDD needed extra engineering to reach parity.
 4. ✅ §2.2 extract + abstract the vanilla→NDD APKeep recipe.
 5. ✅ §2.3 → **(B) engine-swap** (from the fork-entanglement scoping pass).
 6. ✅ §2.5 slice integration (wl_up), gated on differential-vs-baseline + exactness gate.
-7. ✅ §2.6 full-scale correctness + performance — all six benchmarks exact + gated; NDD
+7. ✅ §2.6 full-scale correctness + performance — all six benchmarks exact + gated; NDD-Flood
    beats BDD on every multi-independent-field model (two of them BDD cannot finish).
 
 ---
@@ -211,11 +213,11 @@ single-field FIB is the one place NDD needed extra engineering to reach parity.
 - Shared eval harness → `fave/bench/wl_up/eval/` (+ `fave/bench/wl_i2/eval/`).
 
 ## Status: DONE
-Part 1 (preservation) and Part 2 (NDD integration, §2.0–§2.6) are complete. NDD is a
+Part 1 (preservation) and Part 2 (NDD integration, §2.0–§2.6) are complete. NDD-Flood is a
 selectable second backend, exact on all six FaVe benchmarks and decisively faster wherever
 multiple independent header fields make BDD-APKeep pay a cross-product (on two
 faithful-VLAN models BDD-APKeep needs ≥ 3.8 h / ≥ 18.7 h by the §2.6b bounds, against
-NDD's seconds). Full record: `APKEEP_NDD_EVAL.md`.
+NDD-Flood's seconds). Full record: `APKEEP_NDD_EVAL.md`.
 
 ## Uncapped BDD-APKeep faithful measurements — DONE (2026-08-19)
 **Outcome (full record: `APKEEP_NDD_EVAL.md` §2.6b).** Ran uncapped on this box (15 GB,
@@ -229,7 +231,7 @@ excluded: **both runs were killed by the operator**, at 54.0 min (i2) and 54.5 m
 (stanford), under a driver with no stopping logic — so the honest statement is a
 **derived lower bound**, ≥ 18.7 h for i2 and ≥ 3.8 h for stanford, computed from the
 tail rule-rate in the committed traces. faithful-i2 reached rules 82 042 / `ap_num`
-21 012 (53 % of rules, 2.16–2.60 AP/rule with no plateau, projecting ~178–210 k vs NDD
+21 012 (53 % of rules, 2.16–2.60 AP/rule with no plateau, projecting ~178–210 k vs NDD-Flood
 Σ=253). The plan's **reduced-slice hedge** delivered the one set of runs here that
 *completed under the driver's own exit* (Stanford N=2/3/5 → `ap_num` 2 574/2 661/5 697,
 peak heap ≤ 634 MB), giving the frontier where BDD-APKeep ceases to be practical as the
@@ -262,11 +264,11 @@ or (b) a genuine heap ceiling — the `ap_num`/heap at which it OOMs.
 - **Hedge against non-termination:** also run a *reduced* slice (e.g. 3–4 PoPs, via
   `apkeep_convergence`-style router subsetting) so at least one BDD-APKeep faithful build
   *completes*, giving a real final `ap_num`/time to anchor an extrapolation.
-- Compare against the NDD side (already measured): faithful-stanford ≈ 3 s; faithful-i2
+- Compare against the NDD-Flood side (already measured): faithful-stanford ≈ 3 s; faithful-i2
   ≈ 15 s build + ≈ 35 s query; per-field Σ (216 dst + 37 VLAN classes) — for a clean
   Σ-vs-Π table.
 
 **Also worth doing** (not required by this plan): productionize incremental *updates* (not
-just from-zero); speed up the faithful-i2 NDD query path (~35 s today — the per-hop NAT
+just from-zero); speed up the faithful-i2 NDD-Flood query path (~35 s today — the per-hop NAT
 `exist`+rewrite over 2-field NDDs dominates); a paper-ready benchmark table drawing on the
 above.

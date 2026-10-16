@@ -85,6 +85,7 @@ import time
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..')))
 
+from apkeep.engines import ENGINE_OPTIONS                 # noqa: E402
 from bench import cell_metrics                           # noqa: E402
 
 _sha256 = cell_metrics.sha256
@@ -120,6 +121,7 @@ if %(mutate)r:
 run.run()
 """
 
+
 JARS = {
     'apkeep_jar': '../apkeep/target/apkeep-1.0.0.jar',
     'ndd_jar': '../ndd/target/ndd-1.0.1-jar-with-dependencies.jar',
@@ -130,7 +132,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('workload')
     parser.add_argument('--backend', default='apkeep')
-    parser.add_argument('--engine', choices=('bdd', 'ndd'), default='bdd')
+    # `--apkeep-engine`'s values: `ndd` is NDD-APKeep, `ndd-flood` NDD-Flood
+    # (owner, 2026-10-16; `ndd` was NDD-Flood before)
+    parser.add_argument('--engine', choices=tuple(ENGINE_OPTIONS), default='bdd')
     parser.add_argument('--deadline', type=float, required=True,
                         help='seconds; the declared stopping rule')
     parser.add_argument('--memory-floor', type=int, default=1500,
@@ -233,7 +237,10 @@ def main(argv=None):
         # The APKeep engine, or the backend itself for one that has no engine
         # choice -- `--engine` defaults to bdd, and a NetPlumber run labelled
         # `bdd` is how a table comes to put it in the wrong row.
-        'engine': args.engine if args.backend == 'apkeep' else args.backend,
+        # the engine's own name, never the bare option `ndd`: a record that
+        # says `ndd` predates 2026-10-16 and is NDD-Flood's
+        'engine': (ENGINE_OPTIONS[args.engine] if args.backend == 'apkeep'
+                   else args.backend),
         'mutated': args.mutate,
         'mutated_cell': cell if args.mutate else None,
         'deadline_s': args.deadline, 'status': status, 'exit': rc,

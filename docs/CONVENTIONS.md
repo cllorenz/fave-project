@@ -45,8 +45,12 @@ One cell writes a group of files sharing a stem:
 <workload>_<engine>.ad6_progress.log   ad6 only
 ```
 
-`<engine>` is one of `np`, `ndd`, `bdd`, `ad6`, `vf`, `vfplain` — the keys in
-`bench/campaigns/cell_table.py`, which is what makes a cell appear in the matrix.
+`<engine>` is one of `np`, `ndd`, `nddflood`, `bdd`, `ad6`, `vf`, `vfplain` — the
+keys in `bench/campaigns/cell_table.py`, which is what makes a cell appear in the
+matrix. **`ndd` is NDD-APKeep since 2026-10-16** (owner; `--apkeep-engine ndd`);
+before that it was NDD-Flood, which is now `nddflood` (`--apkeep-engine
+ndd-flood`). Earlier cells keep their `_ndd` stems; `cell_table.py` files them
+under NDD-Flood by their stamps (a bare `ndd` engine stamp predates the rename).
 **An arm of a guardrail gets its own stem** (`wl_i2_ndd_faithful`,
 `wl_i2_ndd_novlan`), because two arms are two cells and the table must be able to
 tell them apart. `cell_table.py` keys on the *stamps inside* the JSON, not on the

@@ -7,10 +7,12 @@ NDD-APKeep take updates and re-verify selectively, held to the oracle (APKeep at
 its witness + dead-ends footprint, the default since 2026-10-11); the harness is
 done. Only indicative (dev) runs have run (§10), the last the D11 grid; no
 reportable measurement exists until the campaign's `PROTOCOL.txt` with
-predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built the same day on NetPlumber, on ad6 from its buffers, and by emptying on VeriFlow-FR and BDD-/NDD-APKeep; NDD-flood refuses it by name. D-R6 (a structurally changed re-send replaces the device) built 2026-10-15 on NetPlumber and ad6.
+predictions is written. §8.2 (2026-10-14) designs device removal, owner questions Q-R1–Q-R4 answered; built the same day on NetPlumber, on ad6 from its buffers, and by emptying on VeriFlow-FR and BDD-/NDD-APKeep; NDD-Flood refuses it by name. D-R6 (a structurally changed re-send replaces the device) built 2026-10-15 on NetPlumber and ad6.
 **Owner:** Claas Lorenz. **Branch:** `updates` (merged into `ai`). **Tracks:** TODO item 31, "the
 incremental axis". Siblings: [`MEASUREMENT_RUN_PLAN.md`](MEASUREMENT_RUN_PLAN.md)
 §10 (which names this as "a second campaign"), [`ACCOMMODATIONS.md`](ACCOMMODATIONS.md).
+
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
 
 ---
 
@@ -51,7 +53,7 @@ Evidence-backed; file:line references are as of commit `79fd4825`.
 |---|---|---|
 | NetPlumber (C++) | rule and link add/remove propagate flows along pipes (`net_plumber.cc` `_add_rule`, `remove_rule` → `~RuleNode`, `add_link`, `remove_link`) | C++ unit tests on pipes and flow statistics, not verdicts |
 | BDD-APKeep (Java) | `Network.updateRule` (`Network.java:434`): `+`/`-` for every element type, then a loop check | `test_apkeep_lib.py` replays a Stanford trace with 4,526 removals against a loop golden |
-| NDD-flood (Java) | **none** — from-zero `build`; `AtomForwarding` ignores the op | — |
+| NDD-Flood (Java) | **none** — from-zero `build`; `AtomForwarding` ignores the op | — |
 | VeriFlow-FR (C++) | `Network::add_rule`/`remove_rule` return affected ECs; `remove_link` | `oracle_unit`, `rewrite_unit`; `remove_rule` only indirectly; `remove_link` untested |
 | ad6 | none — a fresh bridge subprocess per check | — |
 
@@ -169,7 +171,7 @@ TNSM'21 measures only build-from-zero plus one verification.
   four incremental engines, except BDD-APKeep on `wl_stanford`/`wl_i2`, recorded
   as **no cell** (from-zero DNF in V5). `wl_tum`: `t_update` only (no checks).
   S4 (M2): `wl_ifi`, `wl_cloud`, `wl_up`, `wl_tum` (§8). **Not run:** ad6 and
-  NDD-flood (no incremental path; a per-update rebuild is their V5 from-zero
+  NDD-Flood (no incremental path; a per-update rebuild is their V5 from-zero
   cost, which the break-even share already cites); `wl_berkeley` (may join the
   campaign as a size point after the D11 numbers).
 
@@ -263,7 +265,7 @@ batch, public `addLink`/`removeLink`, a per-rule line map with reference counts,
 and a gate refusing anything outside plain dst-LPM). BDD on the full workloads
 (ACLs, VLAN, the `wl_stanford` collapse, first-match tables, ingress demux) only
 by redesign, about 4–6 weeks: much of the translation is decided over the whole
-model at build time. **NDD, the production default, is the easiest**, about
+model at build time. **NDD-Flood, the production default, is the easiest**, about
 1–2 weeks: each device's forwarding is computed from that device's rules alone,
 so an update recomputes one device and invalidates the cached per-source
 floods. Two engine traps either way: equal-priority ties are resolved
@@ -459,7 +461,7 @@ and listed for confirmation; the owner's answers follow the list.
   `InProcessFaVe.replay` now raises on one, and `cell_run.py` makes a verdict
   with a refused device invalid (TODO item 57).
 
-### 8.2 Removing a device — DESIGN (2026-10-14); BUILT on every engine but NDD-flood (2026-10-14/15); D-R6 BUILT on NetPlumber and ad6 (2026-10-15)
+### 8.2 Removing a device — DESIGN (2026-10-14); BUILT on every engine but NDD-Flood (2026-10-14/15); D-R6 BUILT on NetPlumber and ad6 (2026-10-15)
 
 **Owner's framing (2026-10-14):** *"Adding and deleting whole devices should work
 just like adding and removing rules or links. … In its simplest form, removing a
@@ -501,7 +503,7 @@ section adds what §8.1 refuses.
   | NetPlumber | `delete_rule` | `remove_link` | engine `remove_table`; the adapter's `delete_tables` is broken | `track_affected`/`take_affected` |
   | BDD-APKeep, NDD-APKeep | `delete_rule` | none: the adapter's `remove_link` raises `UpdateRefused`, since the model is built from the recorded topology; `set_link(up=False)` takes a link down | none: `Network.java` removes rules (`removeOneRule`), never an element or a topology edge | yes |
   | VeriFlow-FR | `delete_rule` | none in the adapter (the engine's `remove_link` is untested, §2); `set_link(up=False)` takes a link down | n/a: tables are per-switch rule sets | yes |
-  | NDD-flood | none: a from-zero build, refused by name | — | — | — |
+  | NDD-Flood | none: a from-zero build, refused by name | — | — | — |
   | ad6 | none (the contract's default refuses) | none: `remove_link` raises `UpdateRefused` | none; but every check rebuilds from the capture buffers `_tables` and `_raw_edges` (a whole device is removed there since 2026-10-14) | n/a |
 
 **Design.**
@@ -532,7 +534,7 @@ section adds what §8.1 refuses.
   ordering is the lever there.
 - **D-R4. A missing primitive is refused by name, never skipped.** Where an
   engine lacks a primitive — APKeep and VeriFlow-FR have no `remove_link`,
-  NDD-flood has none — the aggregator raises an `UpdateRefused` naming the
+  NDD-Flood has none — the aggregator raises an `UpdateRefused` naming the
   engine and the primitive, before anything is touched, as §8.1 item 5 does.
   A from-zero engine may instead declare that it rebuilds; that is a declared
   accommodation (`ACCOMMODATIONS.md`), not a silent fallback.
@@ -573,13 +575,13 @@ which §2 lists as untested.
   VeriFlow-FR by emptying, declared and held to the oracle.** Found after the
   answer: both implement `set_link(up=False)`, so emptying also takes the
   device's links down, in D-R2's order, rather than leaving them up.
-- **Q-R3. From-zero engines** (NDD-flood, ad6). Both refuse today. ad6
+- **Q-R3. From-zero engines** (NDD-Flood, ad6). Both refuse today. ad6
   rebuilds its model for every check from its capture buffers (`_tables`,
   `_raw_edges`), so removing a device there means dropping it from those
-  buffers: a real removal, not an accommodation, and small. NDD-flood builds
+  buffers: a real removal, not an accommodation, and small. NDD-Flood builds
   once from zero, so removal there means a full rebuild. *Recommendation: ad6
-  removes from its buffers, held to the same oracle; NDD-flood keeps refusing
-  by name.* **Owner, 2026-10-14: ad6 removes from its buffers; NDD-flood
+  removes from its buffers, held to the same oracle; NDD-Flood keeps refusing
+  by name.* **Owner, 2026-10-14: ad6 removes from its buffers; NDD-Flood
   refuses.**
 - **Q-R4. Generators and probes.** They are removed today on their own
   (`delete_generator`/`delete_probe`, fixed in item 53; VeriFlow-FR inherits
@@ -730,7 +732,7 @@ accommodation.
   it, by the verdicts alone, or loudly: with a removed device's links kept,
   ad6's translator refuses a port that belongs to no device.
 - **Not built here:** a switch rule delete (`switch.py -d`/`-u`) is still
-  refused by name; it is not a device removal. NDD-flood refuses
+  refused by name; it is not a device removal. NDD-Flood refuses
   (`_require_updatable`).
 
 **D-R6 — owner questions, answered 2026-10-15.** What §8.1 refuses in a
@@ -816,7 +818,7 @@ interface, or its address changing; no S4 edit makes one (D11 refused none).
 - **O2. APKeep scope — DECIDED 2026-10-09.** NDD-APKeep is the NDD paper's
   system (APKeep's core, atom layer replaced by NDD); BDD-APKeep and NDD-APKeep
   work alike, incrementally. FaVe's `NddReachabilityEngine` is not that system
-  and stays as a differential oracle ("NDD-flood"). Scoped in
+  and stays as a differential oracle ("NDD-Flood"). Scoped in
   [`APKEEP_INCREMENTAL_SCOPE.md`](APKEEP_INCREMENTAL_SCOPE.md), whose §6 holds the
   questions still open. **Design decided 2026-10-10 (option B):** one core --
   the fork's elements, made independent of the packet-set type -- over two
@@ -916,7 +918,7 @@ interface, or its address changing; no S4 edit makes one (D11 refused none).
 | 4. VeriFlow-FR | **done** — per-rule translation, walk footprints, LPM as on NetPlumber | `518e75cb`, `0430d036` |
 | 5a. NetPlumber and VeriFlow-FR LPM (O1) | **done** — 32-bit bands (NetPlumber `_lpm_index`, VeriFlow-FR `plen·2^40 − idx`), a late route lands where a build puts it; the validator refuses a negated destination; `_RULE_IDX_MAX` = 2^20−1. Tested by moving every declared route of `wl_stanford` to an index the build never saw: verdicts unchanged, and an insert path that forgets the band fails it on both engines | this branch |
 | 5b. BDD-APKeep | **done** — `APKEEP_INCREMENTAL_SCOPE.md` §7: a shadow re-translation per update (per rule for plain FIBs), its difference applied through `updateRule`/`setLink`; footprints in the fork; element structure fixed at build, updates that would change it refused and counted (2 of 50 on `wl_example` S1, none elsewhere). Held to the oracle on `wl_example`, `wl_ifi`, `wl_airtel1` (sample); agrees with NetPlumber update by update on `wl_ifi`. Not on `wl_cloud` (a 3.24 h build) | this branch |
-| 5c. NDD-APKeep | **done** — owner decision B: the fork's elements over NDD's per-field atoms (`APKEEP_INCREMENTAL_SCOPE.md` §8). From zero, check by check, equal to NDD-flood on all eight workloads with checks (and to BDD-APKeep where that finishes), including faithful `wl_stanford`/`wl_i2` and `wl_cloud`; per port equal to the authors' reference on `wl_airtel1`; every BDD-APKeep stream held to the oracle on NDD-APKeep too, plus `wl_cloud`. Found: an NDD library atomization bug (fields sharing label variables) and unbounded dead molecules | this branch |
+| 5c. NDD-APKeep | **done** — owner decision B: the fork's elements over NDD's per-field atoms (`APKEEP_INCREMENTAL_SCOPE.md` §8). From zero, check by check, equal to NDD-Flood on all eight workloads with checks (and to BDD-APKeep where that finishes), including faithful `wl_stanford`/`wl_i2` and `wl_cloud`; per port equal to the authors' reference on `wl_airtel1`; every BDD-APKeep stream held to the oracle on NDD-APKeep too, plus `wl_cloud`. Found: an NDD library atomization bug (fields sharing label variables) and unbounded dead molecules | this branch |
 | 5d. Finer footprints | **done; the default since 2026-10-11** (owner; coarse selectable, ablation in §7; paper account `APKEEP_FOOTPRINTS.md`) — `witness` (a reachable check watches only its witness path, one packet per hop after the last rewrite) and `dead-ends` (an unreachable check ignores moves into a dead end), `APKEEP_INCREMENTAL_SCOPE.md` §9; held to the oracle on every stream with the modes on, both engines. Indicative: with both, `wl_cloud` S1 re-checks 5,330 → 10, `wl_airtel1` S1 → 0, verdicts unchanged ([findings](../fave/bench/campaigns/results_inc_dev_footprints_20261010/FINDINGS.md)). Port order left as is and F not adopted, both documented (`APKEEP_INCREMENTAL_SCOPE.md` §9) | this branch |
 | 6. harness | **done but the protocol** — raw per-batch records (`incremental_run.py`), a cell under stamped wall/RSS/per-update limits with repetitions (`incremental_cell.py`, the per-update limit as a stall guard in `cell_run.run_cell`), statistics only from the records (`incremental_report.py`), the cross-engine check (`incremental_compare.py`), the oracle run (`--oracle-sample k --oracle-every N`) | `5a518599`, this branch |
 | 7. M2 spike (§8 step 1) | **done 2026-10-11** ([findings](../fave/bench/campaigns/results_m2_spike_20261011/FINDINGS.md)) — stable indices need the last emission: a ruleset alone cannot say which rule "was" where. **Stable renumbering by alignment** (per table: align by content, matched rules keep their index, new runs take free indices, a full gap relabels the smallest window to half the nominal spacing) holds one firewall edit at or near the floor: 500 random edits on `wl_up` pgf all at the floor (2 engine rules, against a dense median of 2,521); 200 head-of-chain inserts 4,528 changes against 304,538. **Design taken (autonomous, for the owner to confirm):** the aligner lives in the AGGREGATOR, which already holds every device's model, so generators and router/switch models stay unchanged; it is OPT-IN on the incremental path (from-zero runs and V5's numbers untouched); its index budget is declared per engine (NetPlumber 2^20−1, APKeep ACL < 70,000). Found: an `ESTABLISHED -j DROP` rule crashed the generator (fixed, `3202461d`) | `dca21368`..`17e1b123` |

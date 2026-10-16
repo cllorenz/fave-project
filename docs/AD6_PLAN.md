@@ -11,7 +11,7 @@ EXACTLY MATCH their NetPlumber/reachable.json oracles.** wl_up is **NO-GO, resol
 stateful `related:1` ones — both are the same architectural gap (no state-shell
 interweaving in `IP6TablesParser`) that FaVe's own NetPlumber pipeline already avoids via
 `fave/iptables/generator.py`. wl_up's correctness work moves to FaVe+NetPlumber/
-FaVe+NDD-flood; remaining ad6 effort redirects to **Stanford/i2 (§5.2)**. **Stanford's
+FaVe+NDD-Flood; remaining ad6 effort redirects to **Stanford/i2 (§5.2)**. **Stanford's
 faithful-VLAN spike (§5.4) is now PROVISIONAL GO (2026-08-27)**: the full 16-router
 faithful-VLAN model builds and solves completely in ~12.7 min (measured on yolobox, not
 yet bare-metal), `reachable_pairs`=165 exactly matching the NetPlumber-proven plain
@@ -53,8 +53,10 @@ Lorenz. Companions:
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](../TODO.md).
 This plans integrating **ad6** — the author's
 SAT/QBF model checker for IPv6 firewalls/networks (`ad6/`, SECRYPT'15) — as a **fourth
-verification family** alongside NetPlumber (HSA), APKeep(BDD), and NDD-flood, for a
+verification family** alongside NetPlumber (HSA), APKeep(BDD), and NDD-Flood, for a
 *controlled* cross-family comparison.
+
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
 
 ---
 
@@ -77,7 +79,7 @@ inverts** — and to place BDD-APKeep as the analytical bridge between the two w
   Say "symbolic set representation," never "symbolic model checking.")
 
 - **Two-factor cost model for "why slower" (theory + measurement).**
-  - **Factor A — query amortisation.** NP/APKeep/NDD exploit topology structure so one
+  - **Factor A — query amortisation.** NP/APKeep/NDD-Flood exploit topology structure so one
     source-flood answers all destinations: all-pairs ≈ **O(n) floods** (n = endpoints/
     roles). ad6 issues independent solves; the FPL `<->>` operator needs **3 checks per
     ordered pair**, so worst case **O(3·n²) solves**. Even at equal per-unit cost, the
@@ -122,7 +124,7 @@ Notation: `n` = roles/endpoints in the all-pairs comparison unit (wl_ifi 17+17,
 wl_stanford 16, wl_i2 9, wl_up 137); `R` = ruleset size (Factor B driver); `k` = per-pair
 check multiplicity implied by the FPL operator (see §1.2).
 
-- **NP / APKeep / NDD:** build cost `B(R)` once (HSA transfer functions / BDD-AP / NDD
+- **NP / APKeep / NDD-Flood:** build cost `B(R)` once (HSA transfer functions / BDD-AP / NDD
   atoms). Query cost is **O(n)**, not O(n²): one flood per source enumerates reachability
   to **all** destinations simultaneously as a side effect of graph traversal — this is
   exactly the "one-flood-answers-all-destinations" property already exploited by the
@@ -235,7 +237,7 @@ directly off `cchecks.json`'s `(dst, must_reach_bool, [conditions])` tuples so t
 generator and FaVe's own compliance semantics can't drift apart.
 
 **Cost-model consequence — this widens, not narrows, the expected Factor-A gap on wl_up/
-wl_ifi.** For NP/APKeep/NDD, "related" is just another matched header/state field inside the
+wl_ifi.** For NP/APKeep/NDD-Flood, "related" is just another matched header/state field inside the
 *same* flood — the flood already computes reachability across the whole header space
 (including all state values) in one pass, so the extra checks are cheap reads of an
 already-computed result, not extra floods: still ~O(n) per source. For ad6, each of the
@@ -285,10 +287,10 @@ instantiation, is where Factor A bites.
 | benchmark | n (roles) | R (rule/route count) | true query count (`cchecks.json`) | predicted dominant factor | ad6 outlook |
 |---|---|---|---|---|---|
 | wl_ifi | 17+17 ⇒ ~34 | small (`ifi.csv`/`acls.txt`, dozens of rules) | 299 (54 stateful) | neither — cheap on both axes | **REINSTATED (§4.4):** not ad6-native *text* format, but that's irrelevant — the FaVe adapter emits ad6's IR directly, never touching ad6's own parser. Best translator-development target: small, fast, and exercises ACL+forwarding+VLAN together |
-| wl_up | 137 | large — `ad6/bench/up/up-gw-alt-ruleset` alone is 6606 lines, dozens of per-department rulesets on top | **11911 (3302 stateful)** | **Factor A dominates hardest of all four** — true query count (11902) is ~0.6× n², not the naive n²≈18.8k, because FaVe's compliance translation doesn't check every ordered pair at k=3 uniformly, but it's still ~86× wl_ifi's count with a widened per-pair cost (§1.2 correction: `<->>` pairs cost ad6 3 independent solves vs ~free extra reads for NP/APKeep/NDD) — worst case for ad6, and worse than §0 originally modelled | ad6's own bundled `bench/up/run_large.sh` builds `bench/up/large.xml` with `--anomalies end_to_end` over an all-pairs target list (internet + gateway + wifi-clients + 8 DMZ hosts + 21 subnets × 6 subhosts) that sums to **exactly n=137** — the *same* role count as FaVe's wl_up. This is almost certainly the "known ~36 min baseline" referenced in §3.2 — **but note `_measure_end_to_end` as coded only issues the plain (non-stateful) check, so that historical ~36 min number was NOT exercising `<->>` either; a faithful re-measurement will need the stateful instantiator built first and will very likely take substantially longer** |
+| wl_up | 137 | large — `ad6/bench/up/up-gw-alt-ruleset` alone is 6606 lines, dozens of per-department rulesets on top | **11911 (3302 stateful)** | **Factor A dominates hardest of all four** — true query count (11902) is ~0.6× n², not the naive n²≈18.8k, because FaVe's compliance translation doesn't check every ordered pair at k=3 uniformly, but it's still ~86× wl_ifi's count with a widened per-pair cost (§1.2 correction: `<->>` pairs cost ad6 3 independent solves vs ~free extra reads for NP/APKeep/NDD-Flood) — worst case for ad6, and worse than §0 originally modelled | ad6's own bundled `bench/up/run_large.sh` builds `bench/up/large.xml` with `--anomalies end_to_end` over an all-pairs target list (internet + gateway + wifi-clients + 8 DMZ hosts + 21 subnets × 6 subhosts) that sums to **exactly n=137** — the *same* role count as FaVe's wl_up. This is almost certainly the "known ~36 min baseline" referenced in §3.2 — **but note `_measure_end_to_end` as coded only issues the plain (non-stateful) check, so that historical ~36 min number was NOT exercising `<->>` either; a faithful re-measurement will need the stateful instantiator built first and will very likely take substantially longer** |
 | wl_tum | very small (single firewall `fw.tum`, essentially a 1-Kripke-endpoint model per `policies.json`) | large (`ad6/bench/tum/tum-ruleset` = 3795 lines; FaVe's `wl_tum` cites "3.8k stateful rules") | **Factor B alone** — n² term is negligible, this isolates raw per-solve/per-flood cost vs ruleset size | cleanest single-axis measurement: if ad6 loses here it's pure representation/solve cost, not query amortisation |
 | wl_stanford | 16 (240 all-pairs checks) | IPv4 LPM FIB, not iptables — **not yet ad6-encodable** (§5.2 risk); `ap_num` ~21.6k on the faithful VLAN variant | small n keeps Factor A cheap even at k=3; Factor B depends entirely on the (unbuilt) IPv4/VLAN encoding | feasibility gate, not a cost question, until §5.2's encoding exists |
-| wl_i2 | 9 (72 checks) | ~77k dst-IP FIB routes | tiny n²=81 but potentially huge `C_solve(R)` per query — the sharpest test of the "intuition-flipping" hypothesis | **the decisive case**: if a plain per-rule SAT encoding of dst-IP LPM forwarding stays roughly linear in clause count (unlike BDD's monolithic blowup — `[[stanford-forwarding-overapprox]]`/`[[apkeep-vlan-admission-tractability]]` found NDD/BDD blow up on field-*independent* VLAN admission, not on LPM alone), ad6 could plausibly be **competitive or fast** here purely because it only issues 81 solves total — same feasibility caveat as Stanford (§5.2) |
+| wl_i2 | 9 (72 checks) | ~77k dst-IP FIB routes | tiny n²=81 but potentially huge `C_solve(R)` per query — the sharpest test of the "intuition-flipping" hypothesis | **the decisive case**: if a plain per-rule SAT encoding of dst-IP LPM forwarding stays roughly linear in clause count (unlike BDD's monolithic blowup — `[[stanford-forwarding-overapprox]]`/`[[apkeep-vlan-admission-tractability]]` found NDD-Flood/BDD blow up on field-*independent* VLAN admission, not on LPM alone), ad6 could plausibly be **competitive or fast** here purely because it only issues 81 solves total — same feasibility caveat as Stanford (§5.2) |
 
 wl_tum's exact role count and wl_stanford/i2's true ad6-side rule count (FIB entries, not
 firewall lines) are asserted from file sizes/prior memory, not re-derived from a running
@@ -434,7 +436,7 @@ corrected directly — see §4.4.)
   - `ad6/bench/tum/tum-ruleset` vs `fave/bench/wl_tum/rulesets/tum-ruleset` (FaVe's own
     **default** wl_tum input): **byte-identical (`diff -q` confirms).** `wl_tum/benchmark.py`
     defaults to `-4`/`--ipv4` (`RULESET = 'bench/wl_tum/rulesets/tum-ruleset'`); the IPv6
-    conversion is an opt-in `-6` mode, not what NP/APKeep/NDD are actually compared on by
+    conversion is an opt-in `-6` mode, not what NP/APKeep/NDD-Flood are actually compared on by
     default. **Corrected: feed ad6 the plain IPv4 `tum-ruleset` it already ships — zero
     ruleset translation needed for wl_tum, not the IPv6 form as I first assumed.**
 
@@ -456,7 +458,7 @@ corrected directly — see §4.4.)
   this query on both sides — not a gap, just unexercised structure neither backend needs
   here.
 - **4.2** Wire the reachability query so ad6 answers the **same source→probe matrix** as
-  NP/APKeep/NDD, **including the stateful `<->>` 3-check form (REQUIRED for wl_up and
+  NP/APKeep/NDD-Flood, **including the stateful `<->>` 3-check form (REQUIRED for wl_up and
   wl_ifi, see §1.2/§1.4/§4.4).** Build a stateful sibling of `InstantiateEndToEnd` that
   asserts a `state`/`ctstate` literal (ad6 already has the field: `XMLUtils.STATES`,
   `ConvertStateToVariables`, `IP6TablesParser`'s `--ctstate`) alongside the existing
@@ -531,7 +533,7 @@ corrected directly — see §4.4.)
   + wl_up** (wl_ifi reinstated 2026-08-20, see §4.4 — it is not ad6-ingestible *as raw ACL
   text*, which is irrelevant since the FaVe adapter never feeds it raw text);
   **soundness is the hard gate** (ad6 must never drop an NP-reachable pair). Same discipline
-  as the APKeep/NDD differentials.
+  as the APKeep/NDD-Flood differentials.
 
   **wl_tum DONE 2026-08-20 (commit pending), MATCH.** `ad6/test/differential/tumdifftest.py`
   (wired into `test/test.py` via `differentialsuite.py`): built the model from
@@ -552,7 +554,7 @@ corrected directly — see §4.4.)
   extension Stanford/i2) against whether **ad6's own `IP6TablesParser`** could read Cisco
   IOS ACL text — the wrong question. The adapter never needs to feed ad6 raw ACL/FIB text
   at all; it consumes FaVe's *already-parsed* neutral model (the same per-rule
-  representation the APKeep/NDD adapters already consume) and emits whatever ad6 needs
+  representation the APKeep/NDD-Flood adapters already consume) and emits whatever ad6 needs
   directly. `IP6TablesParser` is just *one possible frontend* ad6 happens to ship, not a
   hard boundary on what the adapter can produce.
 
@@ -854,7 +856,7 @@ corrected directly — see §4.4.)
   bugs in two days, a mechanism FaVe already has working in `fave/iptables/generator.py` —
   and doing so would undercut the whole "generic tool, low integration cost" thesis this
   evaluation exists to test. wl_up's correctness work moves to **FaVe+NetPlumber as the
-  oracle, FaVe+NDD/APKeep as the arbiter** (already proven, already exact-matching,
+  oracle, FaVe+NDD-Flood/APKeep as the arbiter** (already proven, already exact-matching,
   nothing new to build) — not to ad6. wl_tum's and wl_ifi's exact-match ad6 results stand
   unaffected (neither needed interweaving: wl_tum has no stateful checks at all; wl_ifi's
   real ACLs are genuinely state-blind, confirmed by Claas). Remaining ad6 effort redirects
@@ -3002,12 +3004,12 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
     `fave/test/test_apkeep_ndd_fwd.py:166` calls `_matrix(..., faithful=True)` ("out.*
     dst-FIB + rw=vlan NAT + in.* VLAN admission + probe untag") and is exact against
     `reachable.json`. That is the instance BDD-APKeep CANNOT finish (ap_num >= 19k,
-    unfinished at 28 min -- see the faithful-profile bullet above); NDD builds it in ~15s.
-    So NDD's i2 figure is on the hard instance and every ad6 i2 figure in this section is
+    unfinished at 28 min -- see the faithful-profile bullet above); NDD-Flood builds it in ~15s.
+    So NDD-Flood's i2 figure is on the hard instance and every ad6 i2 figure in this section is
     on the collapsed one.
 
   **Consequence for §2/§7, independent of how the experiment above turns out.** Any
-  cross-family i2 statement pairing an ad6 number with a NetPlumber or APKeep/NDD number
+  cross-family i2 statement pairing an ad6 number with a NetPlumber or APKeep/NDD-Flood number
   is not like-for-like, and the bias runs in ad6's favour -- it is solving the smaller
   problem. That specifically includes the 2026-09-06 framing "Cadical195 is now only ~13x
   slower per query, not ~57x" recomputed against Stanford. What it does NOT touch: the
@@ -3635,7 +3637,7 @@ the underlying harness: `AD6_ENCODING_PLAN.md`, `ad6_encoding_bench/`.
   (gap vs network size and vs n), and the crossover analysis (wl_up vs Stanford/i2).
 - **7.2** Expressiveness × performance table: properties each family can/can't express.
 - **7.3** The BDD-APKeep phase-split bridge figure (representation-maintenance vs traversal).
-- **7.4** Keep this **separate** from the clean 3-engine reachability comparison and the NDD
+- **7.4** Keep this **separate** from the clean 3-engine reachability comparison and the NDD-Flood
   faithful-VLAN result — ad6 is its own contribution/section, not a fourth column bolted
   onto the reachability matrix.
 - **7.5 (new 2026-09-11) The grounding constraint is a RESULT, not an implementation
@@ -6703,7 +6705,7 @@ place is a small-n sweep: wl_stanford (240) yes, wl_i2 (72) mandatory for memory
 ---
 
 
-## Cross-cutting guardrails (reused from the APKeep/NDD work)
+## Cross-cutting guardrails (reused from the APKeep/NDD-Flood work)
 - **Soundness gate:** ad6 must never drop an NP-reachable pair (differential vs NP oracle).
 - **Env pinned** in the shared `Dockerfile`; measurements only trusted on the controlled
   (bare-metal) environment.
@@ -6928,7 +6930,7 @@ choice has no stamp, add the stamp before quoting the number.
   the still-unfixed `related:1` bug — so there is no sound subset of wl_up left for ad6
   without porting FaVe's own state-shell interweaving into `IP6TablesParser`, judged not
   worth the investment. wl_up's correctness work moves to FaVe+NetPlumber (oracle) /
-  FaVe+NDD-flood (arbiter); ad6 effort redirects to Stanford/i2 (§5.2). Full writeup:
+  FaVe+NDD-Flood (arbiter); ad6 effort redirects to Stanford/i2 (§5.2). Full writeup:
   §5.1's resolution, §1.4(b).
 - Stanford/i2 feasibility in ad6's encoding (IPv4 forwarding + VLAN) — go/no-go. **Scoping
   narrowed then re-widened 2026-08-21h: the 165-target plain result only needs LPM + a
@@ -6955,7 +6957,7 @@ choice has no stamp, add the stamp before quoting the number.
 ---
 
 ## TODO checklist
-- [x] **§1.1** Write the two-factor (A/B) + per-solve cost model vs {NP, APKeep, NDD}.
+- [x] **§1.1** Write the two-factor (A/B) + per-solve cost model vs {NP, APKeep, NDD-Flood}.
 - [x] **§1.2** Confirm ad6's reach vs `<->>` policy-compliance query counts from the code
       (`Instantiator`, FPL semantics); check one-source→all-dests feasibility. **Finding:
       `<->>` is FaVe's own policy language (thesis, not ad6-native); ad6 has no 3-check
@@ -7043,7 +7045,7 @@ choice has no stamp, add the stamp before quoting the number.
       `fave/iptables/generator.py`'s own interweaving, `use_interweaving=True` default).
       **RESOLVED: NO-GO on wl_up via ad6 (Claas), both stateful and plain — not worth
       porting interweaving into ad6's translator. wl_up's correctness work moves to
-      FaVe+NetPlumber/FaVe+NDD-flood; ad6 effort redirects to §5.2 Stanford/i2.** wl_tum
+      FaVe+NetPlumber/FaVe+NDD-Flood; ad6 effort redirects to §5.2 Stanford/i2.** wl_tum
       and wl_ifi's exact-match results stand, unaffected (neither needed interweaving).**
 - [~] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2. **Now the
       primary remaining ad6 target (2026-08-21g), following wl_up's NO-GO** — orthogonal to
@@ -7126,7 +7128,7 @@ choice has no stamp, add the stamp before quoting the number.
       still open; full write-up above. **WORKLOAD PARITY 2026-09-09**: every i2 number
       above is dst-IP-ONLY. The model's 77,451 `out.X` routes each carry a `rw=vlan:M`
       egress rewrite and its 390 `in.X` rules are pure VLAN admission -- all of which
-      NetPlumber consumes (`netplumber/adapter.py:452-501`) and the faithful NDD run
+      NetPlumber consumes (`netplumber/adapter.py:452-501`) and the faithful NDD-Flood run
       answers (`test_apkeep_ndd_fwd.py:166`, the instance BDD-APKeep cannot finish),
       while `fave/ad6/adapter.py` had no `_capture_out_rewrite` at all and dropped them in
       BOTH modes. So no ad6 i2 figure was like-for-like with another family's, the bias

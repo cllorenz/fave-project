@@ -197,7 +197,7 @@ class TestRouterOnAStick(unittest.TestCase):
         from apkeep.adapter import available
         from util.barrier import BarrierError
         self._need(available(), "APKeep (JPype + jar)")
-        for engine in ("bdd", "ndd"):
+        for engine in ("bdd", "ndd-apkeep", "ndd-flood"):
             with self.assertRaisesRegex(BarrierError, r"rewrites.*packet\.ether\.vlan"):
                 apkeep(self.stick, engine)
             with self.assertRaisesRegex(BarrierError, r"in-port-qualified forwarding"):

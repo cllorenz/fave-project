@@ -75,7 +75,7 @@ class TestStanfordAdmissionIsPerPort(unittest.TestCase):
 
         log = logging.getLogger("test_apkeep_stanford_admission")
         log.setLevel(logging.WARNING)
-        cls.adapter = APKeepAdapter(log, faithful_vlan=True, engine='ndd')
+        cls.adapter = APKeepAdapter(log, faithful_vlan=True, engine='ndd-apkeep')
         with InProcessFaVe(cls.adapter) as fave:
             fave.replay(_PREFIX, files=_FILES)
         # `_build_stanford_faithful` is normally reached through `_build()`,

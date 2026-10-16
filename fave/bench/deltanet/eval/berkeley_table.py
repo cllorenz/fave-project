@@ -32,7 +32,7 @@ An exponent follows every cost that has one, the JVM's live heap included.
 That column was added 2026-10-02: the live heap had been printed without it,
 so the one measurement that sizes the engine's memory was the one a reader had
 to do arithmetic on. It is worth having in the table because it is NOT 1 --
-NDD's live set came out sublinear in rules on `wl_berkeley` (0.548 and 0.582
+NDD-Flood's live set came out sublinear in rules on `wl_berkeley` (0.548 and 0.582
 between three sizes), and an extrapolation that assumed linear overestimated
 the next size by 72%.
 
@@ -107,8 +107,11 @@ def main(argv):
     print('| engine | k | rules | status | rule load s | x | compliance s | x '
           '| aggregator MB | net_plumber MB | JVM heap after GC MB | x |')
     print('|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|')
-    for engine in ('netplumber', 'ndd', 'bdd'):
-        series = sorted((r for r in plain if r['engine'] == engine),
+    # a record's bare `ndd` predates 2026-10-16 and is NDD-Flood's; since then
+    # records name the engine (`engine_run.py`)
+    named = lambda r: 'ndd-flood' if r['engine'] == 'ndd' else r['engine']
+    for engine in ('netplumber', 'ndd-apkeep', 'ndd-flood', 'bdd'):
+        series = sorted((r for r in plain if named(r) == engine),
                         key=lambda r: -r['keep_every'])
         previous = None
         for row in series:

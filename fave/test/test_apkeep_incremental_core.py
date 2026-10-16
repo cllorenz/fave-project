@@ -408,7 +408,7 @@ class TestFootprintModes(unittest.TestCase):
         stamp = APKeepAdapter(log, engine='bdd', footprint=()).configuration_stamp()
         self.assertEqual(stamp['footprint'], [])
         with self.assertRaises(ValueError):
-            APKeepAdapter(log, engine='ndd', footprint=('witness',))
+            APKeepAdapter(log, engine='ndd-flood', footprint=('witness',))
 
 
 if __name__ == '__main__':

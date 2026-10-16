@@ -55,7 +55,7 @@ step() { echo; echo "== exactness[$1] =="; }
 
 # The NDD jar first: APKeep's NDD backend (apkeep.ndd, NDD-APKeep) compiles
 # against it, so the APKeep build and its unit tests need it.
-step "1/6 NDD engine jar (NDD-flood, and the library NDD-APKeep compiles against)"
+step "1/6 NDD engine jar (NDD-Flood, and the library NDD-APKeep compiles against)"
 ( cd "$ROOT/ndd" && mvn -q -B -DskipTests package ) \
     || { echo "NDD jar build FAILED"; rc=1; }
 

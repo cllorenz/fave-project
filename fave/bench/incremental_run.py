@@ -154,7 +154,7 @@ def make_engine(name, footprint=None, ndd_collect_visited=False):
         return lambda: NetPlumberLibAdapter(log)
     if name in ('apkeep', 'ndd-apkeep'):
         # BDD-APKeep, or NDD-APKeep -- APKeep's own network with NDD's atoms;
-        # both take updates (APKEEP_INCREMENTAL_SCOPE.md). NDD-flood builds from
+        # both take updates (APKEEP_INCREMENTAL_SCOPE.md). NDD-Flood builds from
         # zero only.
         from apkeep.adapter import APKeepAdapter
         apkeep_engine = 'bdd' if name == 'apkeep' else 'ndd-apkeep'

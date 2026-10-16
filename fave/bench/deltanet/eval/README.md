@@ -7,6 +7,8 @@ Scripts that turn a benchmark run into a recorded, re-derivable result
 Every result directory holds a `PROTOCOL.txt` declared BEFORE its runs: what
 was run, the stopping rules, and the predictions. Read it first.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 ## Tools
 
 | script | what it does |
@@ -14,7 +16,7 @@ was run, the stopping rules, and the predictions. Read it first.
 | `engine_run.py` | one workload, one engine, one run: verdict from `report.md` (counted), `check_compliance` and rule-load (`switch_command`) seconds from the aggregator log, input hashes and drift, peak RSS and swap per process, JVM GC summary. Stopping rules: `--deadline`, `--memory-floor`. Options: `--mutate[-cell]`, `--keep-every`, `--reuse-inputs`, `--jvm-xmx`. |
 | `summarize_runs.py` | the airtel table of §2.13 from `engine_run.py` results |
 | `berkeley_series.py` | `wl_berkeley` size series, every engine, sizes k=1000..1 |
-| `berkeley_drill.py` | `wl_berkeley` on NDD only: each size generated once in its own process, then run on the reused inputs with an explicit heap |
+| `berkeley_drill.py` | `wl_berkeley` on NDD-Flood only: each size generated once in its own process, then run on the reused inputs with an explicit heap |
 | `berkeley_table.py` | the §2.15 tables from either of the two above; refuses runs that are not a valid 0/520 (plain) or 1/520 (mutated) |
 
 ## Results
@@ -22,8 +24,8 @@ was run, the stopping rules, and the predictions. Read it first.
 | directory | what |
 |---|---|
 | `results_2026-09-29/` | BDD-APKeep on both airtel traces (§2.13) |
-| `results_berkeley_2026-09-29/` | `wl_berkeley` size series, NetPlumber / NDD / BDD (§2.15) |
-| `results_berkeley_ndd_2026-09-29/` | the NDD drill, k=30..3 (§2.15) |
+| `results_berkeley_2026-09-29/` | `wl_berkeley` size series, NetPlumber / NDD-Flood / BDD (§2.15) |
+| `results_berkeley_ndd_2026-09-29/` | the NDD-Flood drill, k=30..3 (§2.15) |
 | `results_berkeley_slim_2026-09-30/` | k=3 after each harness-slimming step: runs 1–3 (§2.15) |
 | `results_berkeley_ndd_2026-10-02/` | the 32 GB machine: k=10 re-anchor, then k=3 and k=2, all completed (§2.15). `limit_class=dev`, not reportable |
 

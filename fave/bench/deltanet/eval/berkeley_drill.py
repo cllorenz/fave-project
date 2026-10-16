@@ -19,8 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" `wl_berkeley` on NDD-flood alone, as far as this machine carries it
+""" `wl_berkeley` on NDD-Flood alone, as far as this machine carries it
 (CLOUD_BENCH_PLAN.md §2.15; `results_berkeley_ndd_<date>/PROTOCOL.txt`).
+
+Naming (2026-10-16): NDD-Flood was `--engine ndd` before that date; `ndd` is
+NDD-APKeep since. The drill stays on NDD-Flood, the engine its protocol and
+recorded results are about.
 
 The size series (`berkeley_series.py`) ran every engine with the inputs
 regenerated inside each run and the JVM at its default heap. Past k=30 both
@@ -30,7 +34,7 @@ default heap is a quarter of RAM. So here, per size:
 
 1. generate the inputs ONCE, in a process of their own, sampled for time and
    peak RSS like a run (`gen_k<k>.json`);
-2. run NDD on them with `--reuse-inputs` -- refused unless the stamp verifies
+2. run NDD-Flood on them with `--reuse-inputs` -- refused unless the stamp verifies
    -- an explicit `--jvm-xmx`, and the JVM's GC log.
 
 A mutated run (s22 ---> s23, exactly 1 of 520 expected) is made at the
@@ -114,7 +118,7 @@ def _generate(out_dir, keep_every, deadline, memory_floor):
 def _engine(out_dir, stem, keep_every, deadline, args, mutate=False):
     path = os.path.join(out_dir, stem + '.json')
     cmd = [sys.executable, 'bench/deltanet/eval/engine_run.py', 'wl_berkeley',
-           '--backend', 'apkeep', '--engine', 'ndd',
+           '--backend', 'apkeep', '--engine', 'ndd-flood',
            '--keep-every', str(keep_every), '--deadline', str(deadline),
            '--memory-floor', str(args.memory_floor),
            '--jvm-xmx', args.jvm_xmx, '--out', path]

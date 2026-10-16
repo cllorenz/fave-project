@@ -4,6 +4,8 @@
 running**, written so that a session with **no prior context** can execute it top
 to bottom on the 64 GB machine, unattended.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 **Who executes it.** A fresh Claude session, from `fave/`, venv active. The
 owner's half (the two gitignored inputs, §0) is already taken care of.
 
@@ -209,7 +211,7 @@ and a fork also names the upstream it forked:
 |---|---|---|
 | NetPlumber | `authors+fave` | hassel-public master `697b35c9` |
 | APKeep, `--apkeep-engine bdd` | `authors+fave` | XJTU-NetVerify/apkeep `7b71bff4` |
-| APKeep, `--apkeep-engine ndd` | `authors+fave` | XJTU-NetVerify/NDD `c8414b43` |
+| APKeep, `--apkeep-engine ndd-flood` | `authors+fave` | XJTU-NetVerify/NDD `c8414b43` |
 | ad6 | `first-party` | — (a fork of nothing) |
 | VeriFlow-FR | `reimpl-literature` | — |
 
@@ -227,7 +229,7 @@ it and why the other three could go on declaring nothing without anything
 noticing.
 
 **Verified end to end on this machine**, not only in unit tests: a real
-`wl_airtel1` NDD cell runs to `outcome: correct`, 0 violations of 256,
+`wl_airtel1` NDD-Flood cell runs to `outcome: correct`, 0 violations of 256,
 `verdict_valid`, with input hashes **identical** to the stored 2026-09-29
 `engine_run.py` result — so the two runners agree on the same workload. A
 two-cell queue was then run, interrupted, and restarted: done cells skipped, a
@@ -247,12 +249,12 @@ alone.
 first command on a fresh start and the right first command after any restart.
 A single cell, for a re-run or a one-off:
 
-    python3 bench/cell_run.py wl_stanford --backend apkeep --apkeep-engine ndd \
+    python3 bench/cell_run.py wl_stanford --backend apkeep --apkeep-engine ndd-flood \
         --limit-class v5 --limit-wall 86400 --limit-rss 32768 \
         --memory-floor 2000 --out results/v5/stanford_ndd.json
 
 **What the queue contains, and the one thing it leaves out.** Six engine
-configurations (`netplumber`, `apkeep` bdd and ndd, `veriflow` 4+10 and plain,
+configurations (`netplumber`, `apkeep` bdd and ndd-flood, `veriflow` 4+10 and plain,
 `ad6`) across the nine workloads of §5.1, cheapest workload first so the fast
 cells bank early — the queue is resumable, so an interrupted run keeps
 everything already recorded. **`bdd` × `wl_cloud` is excluded**: it is phase C's
@@ -440,7 +442,7 @@ moves, and §5.3 answers it with a 1-hour probe instead of a 24-hour re-run.
 
 ### 5.1 The cheap matrix — minutes per cell, re-run under S6
 
-Engine configurations: `np` NetPlumber · `bdd` BDD-APKeep · `ndd` NDD-flood ·
+Engine configurations: `np` NetPlumber · `bdd` BDD-APKeep · `ndd` NDD-Flood ·
 `vf` VeriFlow-FR 4+10 (headline) and `vf-plain` (ablation) · `ad6` (rank).
 
 | workload | rules | checks | np | bdd | ndd | vf | ad6 |
@@ -779,7 +781,7 @@ recorded as such, not quietly dropped.
 | 7 | `bdd × wl_cloud` completes in 15–22 h | **NOT TESTED** — phase C never started |
 | 8 | both faithful probes within 1.5× | **NOT TESTED** — phase C never started |
 | 9 | `vf` completes all nine; `vf-plain` DNF on `wl_up`/`wl_tum` | **HALF HELD, HALF NOT TESTED.** `vf` completed all nine — but only after the F3 fix; on the campaign's own run `wl_cloud × vf` errored, and the cause was a FaVe defect (`expand_negated`), not the engine. The `vf-plain` half was never tested: both cells were deferred and never run. |
-| 10 | `ad6` **refuses** `wl_cloud` | **FALSIFIED.** ad6 answered: 57 violations of 71, line-for-line identical to NDD. See below. |
+| 10 | `ad6` **refuses** `wl_cloud` | **FALSIFIED.** ad6 answered: 57 violations of 71, line-for-line identical to NDD-Flood. See below. |
 | 11 | at least one of three LPM inversions does not change the verdict | **TESTED 2026-10-06, HELD** — `wl_i2` did not change. But see §5.4: it holds because one of the three workloads has gating evidence that cannot see rule priority, and a second was never a candidate. **One of three passes.** |
 
 **Prediction 10 was drawn from a matrix that was already stale.** §5.1's
@@ -912,7 +914,7 @@ actually moved was `wl_stanford` (−24%, unnamed), with `wl_up` going **up** 4%
 
 Owner, 2026-10-02. An OOM is **the cell's outcome**, recorded with its peak RSS
 and the machine's size. It is **not** retried with a smaller heap or a smaller
-workload, and it is not an environmental failure. *"NDD-flood does not fit
+workload, and it is not an environmental failure. *"NDD-Flood does not fit
 64 GB at 13.4M rules"* is a publishable bound.
 
 **Prefer the harness's memory floor to the kernel's OOM killer.** Set

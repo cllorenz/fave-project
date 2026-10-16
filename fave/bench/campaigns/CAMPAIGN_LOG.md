@@ -6,6 +6,8 @@ owner is out of office, with a 64 h experiment budget
 did not already fix is here, so that none of it has to be inferred from a
 result afterwards.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 ## Phase 0 — bring-up and the gate. DONE 2026-10-02.
 
 The container shipped bare, as §1 predicted. `.yolobox.toml`'s `[customize]
@@ -129,7 +131,7 @@ close to the whole remaining budget.
    outcome. They are recorded as NOT RUN, claiming no did-not-finish.
 2. **Phase C's `wl_cloud` 24 h run is KEPT**, and its value has gone up since
    it was scheduled: F4-R makes `wl_cloud` the workload where NetPlumber is the
-   lone outlier against NDD and ad6, so BDD-APKeep is a **fourth independent
+   lone outlier against NDD-Flood and ad6, so BDD-APKeep is a **fourth independent
    engine on exactly the disputed cell**. It now serves the investigation the
    owner has asked for, not only the triage.
 3. **The owner's investigation of the findings is started NOW**, in the

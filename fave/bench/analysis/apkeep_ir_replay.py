@@ -29,15 +29,20 @@ rule?". `APKeepAdapter._build()` hands BOTH engines the SAME `all_rules` and
 PRUNED copy of it settles the second cheaply.
 
 It was built to diagnose TODO item 29's third defect: BDD answered 53 of
-wl_cloud's 64 reachable pairs where NDD and NetPlumber answer 59, and a BDD
+wl_cloud's 64 reachable pairs where NDD-Flood and NetPlumber answer 59, and a BDD
 build of that model takes 2.8 hours. Replaying the IR for ONE datacentre
 reproduced the disagreement in 9.4 s and, pruned to one leaf and one NAT rule,
 in 0.4 s -- at which point the engine's internals could simply be read.
 
 DISCIPLINE. Pruning changes the model, so a pruned answer is evidence only if
 the cheap engine still answers the pruned model the way it answers the whole
-one. Always run `--engine ndd` on the same prune first and compare it with the
-full-model NDD matrix; `--engine ndd` costs about a second at any size.
+one. Always run `--engine ndd-flood` on the same prune first and compare it with
+the full-model NDD-Flood matrix; `--engine ndd-flood` costs about a second at any
+size.
+
+NAMING (2026-10-16): the engine replayed besides BDD-APKeep is NDD-Flood (the
+IR's `LibNDD`), `--engine ndd` before that date. NDD-APKeep is not replayed
+here: this is a diagnostic of the two engines it was built for.
 
 Usage, from fave/ with PYTHONPATH=. and the venv active:
 
@@ -45,7 +50,7 @@ Usage, from fave/ with PYTHONPATH=. and the venv active:
     python3 bench/analysis/apkeep_ir_replay.py dump --bench wl_cloud --out ir.json
 
     # 2. replay it, whole or pruned, on either engine
-    python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine ndd
+    python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine ndd-flood
     python3 bench/analysis/apkeep_ir_replay.py replay --ir ir.json --engine bdd \
         --keep dc0 --out dc0-bdd.json
 
@@ -116,7 +121,7 @@ def _dump(bench, out_path):
     # The BDD path is the one that states the element structure (which devices
     # are forwarding elements, which are filters, where the NATs sit). The rule
     # list is assembled BEFORE the engine branch, so it is also exactly what the
-    # NDD engine would have received.
+    # NDD-Flood engine would have received.
     eng = APKeepAdapter(log, mapping=mapping, engine="bdd")
     try:
         with InProcessFaVe(eng) as fave:
@@ -231,7 +236,7 @@ def main(argv=None):
 
     replay = sub.add_parser("replay", help="build the IR on one engine and query it")
     replay.add_argument("--ir", required=True)
-    replay.add_argument("--engine", default="ndd", choices=("bdd", "ndd"))
+    replay.add_argument("--engine", default="ndd-flood", choices=("bdd", "ndd-flood"))
     replay.add_argument("--keep", default=None,
                         help="comma-separated device substrings to keep")
     replay.add_argument("--profile", default=None,

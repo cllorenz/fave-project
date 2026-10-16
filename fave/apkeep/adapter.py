@@ -48,6 +48,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Set
 
 from aggregator.abstract_engine import AbstractVerificationEngine, UpdateRefused
 from aggregator.aggregator_abstract import TraceLogger
+from apkeep.engines import ENGINE_OPTIONS
 from rule.rule_model import Forward, Rewrite
 from devices.abstract_device import LPM
 
@@ -755,16 +756,16 @@ def _live_state(t: Dict[str, Any]) -> Dict[str, Any]:
 class APKeepAdapter(AbstractVerificationEngine):
     """ Drive APKeep as a FaVe verification backend (forwarding-only, P4). """
 
-    #: TODO item 31. The authors' code with FaVe changes in both cases, but
-    #: they are two DIFFERENT upstreams -- `bdd` is XJTU-NetVerify/apkeep and
-    #: `ndd` is XJTU-NetVerify/NDD -- so the baseline is resolved per engine in
+    #: TODO item 31. The authors' code with FaVe changes in each case, but
+    #: DIFFERENT upstreams -- `bdd` is XJTU-NetVerify/apkeep and `ndd-flood`
+    #: is XJTU-NetVerify/NDD -- so the baseline is resolved per engine in
     #: `provenance` rather than fixed here. A single UPSTREAM would name the
     #: wrong repository for one of the two columns.
     IMPL = 'authors+fave'
 
     UPSTREAMS = {
         'bdd': 'XJTU-NetVerify/apkeep 7b71bff4 (apkeep/FAVE_CHANGES.md)',
-        'ndd': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)',
+        'ndd-flood': 'XJTU-NetVerify/NDD c8414b43 (ndd/FAVE_CHANGES.md)',
         # APKeep's elements and change tuples (the apkeep fork) over the NDD
         # paper's atom layer, ported from its reference APKeep(NDD) in the NDD
         # repository -- the NSDI'25 paper's App. A.1 construction.
@@ -778,8 +779,13 @@ class APKeepAdapter(AbstractVerificationEngine):
     #: below that drives `self._lib` serves both.
     APKEEP_ENGINES = ('bdd', 'ndd-apkeep')
 
+    #: `--apkeep-engine` value -> engine (`apkeep/engines.py`; owner,
+    #: 2026-10-16). Engine names never say a bare `ndd`, so a caller still
+    #: meaning NDD-Flood by it is refused, not read the new way.
+    ENGINE_OPTIONS = ENGINE_OPTIONS
+
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
-                 faithful_vlan: bool = True, engine: str = 'ndd',
+                 faithful_vlan: bool = True, engine: str = 'ndd-apkeep',
                  _shadow: bool = False,
                  footprint: Optional[Tuple[str, ...]] = None,
                  ndd_collect_visited: bool = False) -> None:
@@ -787,16 +793,20 @@ class APKeepAdapter(AbstractVerificationEngine):
         # One shared adapter, two backend ENGINES (APKEEP_NDD_PLAN §2.5e). The
         # model construction below is engine-agnostic (it emits neutral "+ filter"
         # rule strings + "dev port dev port" edges); only the build/query target
-        # differs. 'bdd' -> APKeep (LibAPKeep); 'ndd' -> the per-field NDD engine
+        # differs. 'bdd' -> APKeep (LibAPKeep); 'ndd-flood' -> the per-field NDD engine
         # (LibNDD), which drops APKeep's atomic-predicate cross-product. The NDD
         # engine currently covers the single-universe forwarding case (wl_up: no
         # ACL/NAT); _build() guards this and raises otherwise.
         #
         # 'ndd-apkeep' is NDD-APKeep: APKeep itself (LibAPKeep) on its NDD
-        # backend, so it takes every path 'bdd' takes. 'ndd' is NDD-flood, a
+        # backend, so it takes every path 'bdd' takes. 'ndd-flood' is NDD-Flood, a
         # different engine (no atoms, no updates) kept as a differential oracle.
-        if engine not in ('bdd', 'ndd', 'ndd-apkeep'):
-            raise ValueError("engine must be 'bdd', 'ndd' or 'ndd-apkeep', got %r" % engine)
+        if engine == 'ndd':
+            raise ValueError(
+                "engine 'ndd' is ambiguous since 2026-10-16: NDD-APKeep is "
+                "'ndd-apkeep' (`--apkeep-engine ndd`), NDD-Flood 'ndd-flood'")
+        if engine not in ('bdd', 'ndd-flood', 'ndd-apkeep'):
+            raise ValueError("engine must be 'bdd', 'ndd-flood' or 'ndd-apkeep', got %r" % engine)
         self._engine = engine
         # The selectable footprints of APKEEP_INCREMENTAL_SCOPE.md §9 ('witness',
         # 'dead-ends'); both by default on the APKeep engines, () for the
@@ -818,7 +828,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             self._ndd = None
             self._lib = None
             self._ndd_fwd_mode = False
-        elif engine == 'ndd':
+        elif engine == 'ndd-flood':
             from apkeep.lib_ndd import LibNDD
             self._ndd = LibNDD()
             self._lib = None
@@ -2145,8 +2155,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                                            for name, ports in classes.items()}
                                   for device, classes in self._split.items()}
         edges, all_rules = t['edges'], t['rules']
-        if self._engine == 'ndd':
-            # The NDD engine covers forwarding (+fwd/+filter), ACLs (+acl,
+        if self._engine == 'ndd-flood':
+            # The NDD-Flood engine covers forwarding (+fwd/+filter), ACLs (+acl,
             # permit/deny as a residual out_port), and VLAN rewrite (+nat, an
             # inline per-field exist+set on the egress port) -- i.e. every element
             # type these benchmarks emit.
@@ -3541,7 +3551,7 @@ class APKeepAdapter(AbstractVerificationEngine):
                 # `probe.x` gives NDD=True, BDD=False. So the one engine it
                 # affected was the one it made disagree with the reference.
                 tvlan = None
-                if self._engine == 'ndd' and self._ndd_fwd_mode:
+                if self._engine == 'ndd-flood' and self._ndd_fwd_mode:
                     # pure dst-IP FIB: AtomForwarding floods the full dst space
                     # (forwarding is source-independent), no src/VLAN constraint.
                     if related is not None or conditions:
@@ -3556,8 +3566,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                             "prefix to force it onto."
                             % (source_name, probe_name))
                     reachable = self._ndd.fwd_is_reachable(sdev, sport, pdev, pport)
-                elif self._engine == 'ndd':
-                    # The NDD engine takes the source's src space directly as the
+                elif self._engine == 'ndd-flood':
+                    # The NDD-Flood engine takes the source's src space directly as the
                     # query-time seed (Lever B for every source); target_vlan
                     # enforces the faithful wl_stanford probe's vlan=0 at arrival.
                     reachable = self._ndd.is_reachable(
@@ -3656,7 +3666,7 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def _require_updatable(self, op: str) -> None:
         if self._engine not in self.APKEEP_ENGINES:
-            self._refuse('engine', "%s: the NDD-flood engine builds from zero "
+            self._refuse('engine', "%s: the NDD-Flood engine builds from zero "
                          "and takes no updates (APKEEP_INCREMENTAL_SCOPE.md)" % op)
         if not self._built:
             self._refuse('unbuilt', "%s before the build: there is nothing to "
@@ -3979,7 +3989,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         cannot follow -- measured on wl_example, where cutting off `dmz` and
         `office` made `pgf` one element. The name cannot be added again:
         every add after the build is refused. Refused before anything is
-        touched on NDD-flood and before the build. """
+        touched on NDD-Flood and before the build. """
         op = "remove_device(%s)" % model.node
         self._require_updatable(op)
         if model.node not in self._models:

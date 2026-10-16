@@ -11,6 +11,8 @@ We benchmarked DHSA using several different workloads - synthetic and real-world
 Also, we compared our results with the state of the art by running the benchmark with the tools from [2], [3], [4], and [5].
 See our publication list for the results.
 
+> **Naming (2026-10-16):** NDD-Flood (before 2026-10-16 "NDD-flood"/"NDD", `--apkeep-engine ndd`) is now `--apkeep-engine ndd-flood`; `--apkeep-engine ndd` selects NDD-APKeep.
+
 **AI assistance:** Portions of this codebase were developed with the help of Claude Code (Anthropic) under human review. The author retains full editorial and scientific responsibility. This first commit with AI assistence is 54b2d39dd6a718681ba028deac622737bc9350c0.
 
 
@@ -207,7 +209,7 @@ Set `FAVE_SKIP_AD6=1` to leave every ad6 test module (`fave/test/test_ad6_*.py`)
 out of every tier (`FAVE_SKIP_AD6=1 ./test.sh integration`). ad6 is the costly
 backend: its units are about half of `fast`'s runtime and its differentials
 several minutes of `integration`, and routine runs use it only as an arbiter
-when NetPlumber and NDD-flood disagree. The `RESULT` line says when it was
+when NetPlumber and NDD-Flood disagree. The `RESULT` line says when it was
 set, so a partial run is not mistaken for a whole one; CI's gating jobs do not
 set it.
 

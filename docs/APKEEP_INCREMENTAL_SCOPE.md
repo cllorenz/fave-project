@@ -6,9 +6,11 @@ after the owner's decision of 2026-10-09: *NDD-APKeep is the NSDI'25 NDD paper's
 system — APKeep's own core with its atom layer replaced by NDD — and BDD-APKeep
 and NDD-APKeep work alike, including incremental re-verification.* FaVe's
 `NddReachabilityEngine` is not that system (no atoms, no `updateRule`); it stays
-as a differential oracle under an honest name ("NDD-flood").
+as a differential oracle under an honest name ("NDD-Flood").
 **Owner:** Claas Lorenz. **Branch:** `updates`. Every claim below carries a
 file:line; estimates are estimates, not measurements.
+
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
 
 ---
 
@@ -111,9 +113,9 @@ One core, two atom layers:
 - **NDD atom layer:** `AtomizedNDD` + `SplitMap` + `split_ap_*` + transfer, ported
   from the reference's insert path (§1); delete and merge (or periodic
   re-atomization preserving `SplitMap`) designed by us. δ must be a **per-field
-  NDD**, so the rule encoders are needed per field — the NDD-flood engine's
+  NDD**, so the rule encoders are needed per field — the NDD-Flood engine's
   `ruleToNDD` already encodes FaVe's whole field set (IPv6, IPv4, VLAN, flags,
-  `related`) and can be reused. NAT by `exist` per field (F.3); the NDD-flood
+  `related`) and can be reused. NAT by `exist` per field (F.3); the NDD-Flood
   engine's VLAN rewrite is prior art in-tree.
 - **Affected checks, both engines:** each (source, probe) check records a
   footprint while it is answered — the (element, arrival port, arriving set) it
@@ -125,7 +127,7 @@ One core, two atom layers:
 - **Oracle:** as in M1 — selective == full after every update; full == from-zero
   at checkpoints; plus per-port predicates of the incremental build == from-zero
   (compared as BDD/NDD unions, since merges make the partition history-dependent).
-  NDD-APKeep's from-zero verdicts must also equal NDD-flood's and BDD-APKeep's on
+  NDD-APKeep's from-zero verdicts must also equal NDD-Flood's and BDD-APKeep's on
   all six benchmarks before any update is trusted.
 
 ## 5. Estimate (not measured; a range, not a promise)
@@ -142,7 +144,7 @@ One core, two atom layers:
 **Total for tiers A+B on both engines: about 7.5–12 weeks.** The largest
 uncertainties: the restored `AtomizedNDD` split path is untested
 (`ndd/FAVE_CHANGES.md` §2), int-core reference counting makes leaks silent, and
-scale — the NDD-flood engine needed `AtomForwarding` for `wl_i2`'s 77k routes,
+scale — the NDD-Flood engine needed `AtomForwarding` for `wl_i2`'s 77k routes,
 and whether incrementally maintained NDD atoms stay small there is exactly what
 the paper claims and nobody here has measured.
 
@@ -154,15 +156,15 @@ the paper claims and nobody here has measured.
    refused (counted), tier C deferred.
 3. **Naming — DECIDED 2026-10-09:** the faithful port is **NDD-APKeep** (as
    BDD-APKeep is the authors' BDD artifact); FaVe's existing engine is
-   **NDD-flood**, in every document that called it NDD-APKeep. *Still open:* the
+   **NDD-Flood**, in every document that called it NDD-APKeep. *Still open:* the
    NDD-APKeep parts the reference lacks (delete, merge, links, NAT) are FaVe's
    design, and a result should say so — e.g. in its accommodations column.
-4. **Provenance stamp — settled 2026-10-09 (owner): unchanged.** NDD-flood cells
+4. **Provenance stamp — settled 2026-10-09 (owner): unchanged.** NDD-Flood cells
    are stamped `impl: authors+fave` with the NDD library as upstream
    (`fave/apkeep/adapter.py:681`), and that is accurate: the authors' code is the
    NDD library (with FaVe's changes, `ndd/FAVE_CHANGES.md`), FaVe's part is the
    verifier on it. That the verifier is not the authors' APKeep is what the name
-   NDD-flood says; the stamp need not say it again.
+   NDD-Flood says; the stamp need not say it again.
 5. **Footprints — DECIDED 2026-10-11 (owner), §9:**
    - **Default:** witness + dead ends, set in the adapter. The coarse footprint
      stays selectable. The modes must be explainable in a paper:
@@ -252,7 +254,7 @@ APKeep suite unchanged):
 **Not covered.** `wl_cloud`: BDD-APKeep takes 3.24 h to *build* it (V5), so no
 stream runs there; NAT under updates is tested on small networks instead.
 Packet-filter pipelines (tier C) refuse what changes their structure. NDD
-(steps 4–5): §8 — NDD-APKeep takes the same updates; NDD-flood still refuses
+(steps 4–5): §8 — NDD-APKeep takes the same updates; NDD-Flood still refuses
 them.
 
 **Costs to state with every number:** per update on the full path, one
@@ -291,7 +293,7 @@ arrival — what BDD-APKeep does for an IPv6 source (Lever B), here for IPv4 too
 **From zero, check by check** (`fave/test/test_ndd_apkeep.py`; indicative
 dev runs, one repetition, this machine):
 
-| workload | checks | violations | NDD-APKeep | NDD-flood | BDD-APKeep |
+| workload | checks | violations | NDD-APKeep | NDD-Flood | BDD-APKeep |
 |---|---:|---:|---|---|---|
 | `wl_example` | 10 | 0 | = | = | = |
 | `wl_ifi` | 299 | 27 | = | = | = |
@@ -328,7 +330,7 @@ from-zero NDD and BDD builds.
   by field. A molecule could then hold another field's atoms — or collapse to
   "everything". On `wl_cloud` (SNAT source prefixes that are also destinations)
   this broke 43,636 molecule invariants at the 1,500th rule, while the verdicts
-  still agreed with NDD-flood; a second network in the JVM then answered
+  still agreed with NDD-Flood; a second network in the JVM then answered
   `wl_ifi` with 39 violations instead of 27. Fixed in the library
   (`ndd/FAVE_CHANGES.md` §12); the parity test now asserts the invariants.
 - **Dead molecules filled the heap**: NDD collects its atomized node table only

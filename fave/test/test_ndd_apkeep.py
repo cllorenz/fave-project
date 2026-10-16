@@ -22,7 +22,7 @@
 
 """ NDD-APKeep from zero (APKEEP_INCREMENTAL_SCOPE.md §4, step 4): APKeep's
 own network and elements with NDD's per-field atoms answer every check of a
-workload exactly as NDD-flood does -- and as BDD-APKeep does where that
+workload exactly as NDD-Flood does -- and as BDD-APKeep does where that
 finishes -- check by check, not as a count.
 
 NDD-APKeep is `APKeepAdapter(engine='ndd-apkeep')`: the BDD adapter's
@@ -71,7 +71,7 @@ def _verdicts(engine, prefix, checks_path, files=None):
 @require_or_skip(ndd_available, "JPype, the APKeep jar or the NDD jar is unavailable")
 class TestFromZero(unittest.TestCase):
 
-    def _same(self, prefix, checks_path=None, files=None, engines=('ndd',)):
+    def _same(self, prefix, checks_path=None, files=None, engines=('ndd-flood',)):
         checks_path = checks_path or os.path.join(prefix, 'checks.json')
         if not os.path.exists(checks_path) or not (
                 files or inputs_present(prefix)):
@@ -85,11 +85,11 @@ class TestFromZero(unittest.TestCase):
         return mine
 
     def test_wl_example(self):
-        self._same('bench/wl_example', engines=('ndd', 'bdd'))
+        self._same('bench/wl_example', engines=('ndd-flood', 'bdd'))
 
     def test_wl_ifi(self):
         # router ACLs: one packet universe here, ACL division on BDD-APKeep
-        verdicts = self._same('bench/wl_ifi', engines=('ndd', 'bdd'))
+        verdicts = self._same('bench/wl_ifi', engines=('ndd-flood', 'bdd'))
         self.assertEqual(sum(verdicts.values()), 27)
 
     def test_wl_cloud(self):
@@ -136,7 +136,7 @@ class TestStamp(unittest.TestCase):
 
     def test_collect_visited_is_refused_on_other_engines(self):
         log = logging.getLogger("test_ndd_apkeep")
-        for engine in ('bdd', 'ndd'):
+        for engine in ('bdd', 'ndd-flood'):
             with self.assertRaises(ValueError):
                 APKeepAdapter(log, engine=engine, ndd_collect_visited=True)
         self.assertNotIn('ndd_collect_visited',

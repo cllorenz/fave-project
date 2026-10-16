@@ -50,7 +50,7 @@
 #              (~180 tests, about half its runtime) and the solver-backed
 #              differentials in `integration` (several minutes). For routine
 #              runs: the owner's standing direction is to use ad6 as an ARBITER,
-#              when NetPlumber and NDD-flood disagree, not as a third
+#              when NetPlumber and NDD-Flood disagree, not as a third
 #              confirmation of an agreement. Measurement-affecting, so the
 #              RESULT line says so; never set it in CI's gating jobs. Tests
 #              that merely construct an Ad6Adapter or call ad6's translator
@@ -172,7 +172,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_apkeep_out_stage.py      # the out-stage becomes APKeep elements (P7c); needs JPype + both jars
     test/test_apkeep_ingress_contract.py  # a table is checked against the ingress ports its rules name; needs JPype + both jars
     test/test_apkeep_tcp_flags.py      # tcp_flags survives the `+ filter` slot layout in BOTH engines; needs JPype + both jars
-    test/test_apkeep_pf_vlan.py        # svlan/dvlan as header fields of BDD-/NDD-APKeep and NDD-flood (TODO item 54); needs JPype + both jars
+    test/test_apkeep_pf_vlan.py        # svlan/dvlan as header fields of BDD-/NDD-APKeep and NDD-Flood (TODO item 54); needs JPype + both jars
     # ad6 tests with a NATIVE dependency -- the ad6 bridge itself is pure Python
     # (a sys.executable subprocess), but these reach past it:
     test/test_ad6_wl_stanford.py # full-model structural translation (48 tables, ~1s, ALWAYS runs) + the 256-query differential vs a libnetplumber worker, which is opt-in (AD6_STANFORD_FULL_DIFFERENTIAL) and normally skips
@@ -256,8 +256,8 @@ FAVE_NDD_TESTS=(
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs
     test/test_revisit_router_on_a_stick.py # Q4 / TODO item 33: a packet passing one table twice -- VeriFlow-FR(state) and ad6 right; NetPlumber and APKeep defects pinned (starts NDD too)
     # NDD-APKeep (APKEEP_INCREMENTAL_SCOPE.md §4): APKeep with NDD's atoms, in
-    # the same process as BDD-APKeep and NDD-flood -- hence this group.
-    test/test_ndd_apkeep.py      # NDD-APKeep from zero == NDD-flood (== BDD-APKeep where it finishes), check by check
+    # the same process as BDD-APKeep and NDD-Flood -- hence this group.
+    test/test_ndd_apkeep.py      # NDD-APKeep from zero == NDD-Flood (== BDD-APKeep where it finishes), check by check
     test/test_ndd_apkeep_reference.py # NDD-APKeep's atom layer vs the authors' reference APKeep(NDD) on wl_airtel1, per port (two subprocess JVMs)
 )
 # Members of FAVE_INTEGRATION_TESTS that REWRITE a shared workload's inputs:
@@ -540,7 +540,7 @@ run_integration() {
     # libapkeep test (test_apkeep_lib) finds the jar; it skips otherwise.
     #
     # apkeep_smoke.sh builds the NDD engine jar first (fave/test/ndd_build.sh):
-    # APKeep's NDD backend (NDD-APKeep) compiles against it, and NDD-flood is
+    # APKeep's NDD backend (NDD-APKeep) compiles against it, and NDD-Flood is
     # that jar. Without it `apkeep.lib_ndd.available()` is false and the NDD
     # tests would skip (or, under FAVE_REQUIRE_BACKENDS=1, fail the gate).
     echo "== integration: NDD + APKeep build, bundled-Stanford golden pin =="

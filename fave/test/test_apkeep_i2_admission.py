@@ -112,13 +112,13 @@ class TestI2AdmissionIsPerPortAndPerHop(unittest.TestCase):
     """ The transit VLAN must be checked against the arrival port's own set. """
 
     def test_admission_is_captured_per_ingress_port(self):
-        adapter = _build('ndd')
+        adapter = _build('ndd-apkeep')
         # in.a admits 99 on port 5 and 10 on port 6 -- NOT {10,99} on both.
         self.assertEqual(adapter._in_port_vlans.get(('in.a', '5')), {'99'})
         self.assertEqual(adapter._in_port_vlans.get(('in.a', '6')), {'10'})
 
     def test_every_ingress_edge_is_gated_not_only_the_source_edge(self):
-        adapter = _build('ndd')
+        adapter = _build('ndd-apkeep')
         spliced, _nats, _nat_rules, _acls, _acl_rules = adapter._build_i2_faithful(
             list(adapter._edges))
         # The transit hop out.b:2 -> in.a:5 must not survive as a bare edge; it
@@ -129,7 +129,7 @@ class TestI2AdmissionIsPerPortAndPerHop(unittest.TestCase):
                         "the transit ingress edge carries no admission gate: %s" % gated)
 
     def test_a_vlan_the_arrival_port_does_not_admit_is_dropped(self):
-        for engine in ('bdd', 'ndd'):
+        for engine in ('bdd', 'ndd-apkeep', 'ndd-flood'):
             with self.subTest(engine=engine):
                 adapter = _build(engine)
                 adapter.check_compliance({"probe.P": [("source.S", False, None)]})

@@ -79,6 +79,8 @@ import sys
 import threading
 import time
 
+from apkeep.engines import ENGINE_OPTIONS
+
 
 _PREFIX = "bench/wl_cloud"
 _INPUTS = ("topology.json", "routes.json", "policies.json", "sources.json",
@@ -299,7 +301,9 @@ def measure(args):
 
     result = {
         "bench": "wl_cloud",
-        "engine": args.engine,
+        # the engine's own name: `ndd` is NDD-APKeep since 2026-10-16, so a
+        # result recording a bare `ndd` predates that and is NDD-Flood's
+        "engine": ENGINE_OPTIONS[args.engine],
         "deadline_s": args.deadline_s,
         "status": "starting",
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -356,7 +360,8 @@ def measure(args):
     log = logging.getLogger("cloud_bdd")
     log.setLevel(logging.WARNING)
     mapping = json.load(open(os.path.join(_PREFIX, "mapping.json")))
-    eng = APKeepAdapter(log, mapping=mapping, engine=args.engine)
+    eng = APKeepAdapter(log, mapping=mapping,
+                        engine=APKeepAdapter.ENGINE_OPTIONS[args.engine])
 
     try:
         with InProcessFaVe(eng) as fave:
@@ -413,7 +418,9 @@ def measure(args):
 def main(argv=None):
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--engine", default="bdd", choices=("bdd", "ndd"))
+    # `--apkeep-engine`'s values: `ndd` is NDD-APKeep, `ndd-flood` NDD-Flood
+    # (owner, 2026-10-16)
+    p.add_argument("--engine", default="bdd", choices=("bdd", "ndd", "ndd-flood"))
     p.add_argument("--deadline-s", type=int, default=14400,
                    help="DECLARED deadline in seconds (default 14400 = 4 h)")
     p.add_argument("--status-every-s", type=int, default=60,

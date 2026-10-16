@@ -19,7 +19,7 @@ import jdd.bdd.BDD;
  * same on both backends -- one parser ({@link ACLRule}), one encoding per
  * field. Only the assembly differs: BDD-APKeep conjoins the fields into one
  * BDD, NDD-APKeep makes them the levels of one NDD. The layout is
- * {@link FaveFields}', shared with NDD-flood in the same JVM.
+ * {@link FaveFields}', shared with NDD-Flood in the same JVM.
  *
  * <p>Destination prefixes are cached as {@code APKeeper.encodePrefixBDD} does:
  * the cache keeps a reference and each caller gets its own.

@@ -53,8 +53,11 @@ import os
 import sys
 
 #: Column order. Engines read left to right as the plan's §5.1 matrix does.
-ENGINES = ('np', 'ndd', 'bdd', 'ad6', 'vf', 'vfplain')
-ENGINE_LABEL = {'np': 'NetPlumber', 'ndd': 'NDD-flood', 'bdd': 'BDD-APKeep',
+#: `ndd` is NDD-APKeep and `nddflood` NDD-Flood since 2026-10-16 (owner); a
+#: cell stamped with a bare `ndd` engine predates that and is NDD-Flood's.
+ENGINES = ('np', 'ndd', 'nddflood', 'bdd', 'ad6', 'vf', 'vfplain')
+ENGINE_LABEL = {'np': 'NetPlumber', 'ndd': 'NDD-APKeep', 'nddflood': 'NDD-Flood',
+                'bdd': 'BDD-APKeep',
                 'ad6': 'ad6', 'vf': 'VeriFlow-FR', 'vfplain': 'VF-plain'}
 
 #: Cheapest first, as the queue runs them.
@@ -78,11 +81,15 @@ def cell_key(cell, stem):
     cell under the wrong column is not. """
     workload, backend = cell.get('workload'), cell.get('backend')
     if not workload or not backend:
-        return stem
+        # an unstamped cell predates the stamps, so an `_ndd` stem is NDD-Flood's
+        return stem[:-4] + '_nddflood' if stem.endswith('_ndd') else stem
     if backend == 'netplumber':
         engine = 'np'
     elif backend == 'apkeep':
-        engine = cell.get('engine')
+        # `cell_run.py` records the engine's own name; before 2026-10-16 it
+        # recorded the option, whose `ndd` was NDD-Flood
+        engine = {'ndd-apkeep': 'ndd', 'ndd-flood': 'nddflood',
+                  'ndd': 'nddflood'}.get(cell.get('engine'), cell.get('engine'))
     elif backend == 'ad6':
         engine = 'ad6'
     elif backend == 'veriflow':
@@ -186,11 +193,18 @@ def main(argv=None):
     overridden = {key for key, (_c, d, _s) in cells.items() if d != args.base}
     duplicated = set()
 
-    print('| workload | ' + ' | '.join(ENGINE_LABEL[e] for e in ENGINES) + ' |')
-    print('|---|' + '---|' * len(ENGINES))
+    # The engines measured: a column no cell is filed under is left out, so a
+    # campaign from before an engine existed (V5 before NDD-APKeep) prints the
+    # matrix it measured. Every cell of a printed column still shows `—` when
+    # it is missing.
+    engines = [e for e in ENGINES
+               if any(key.endswith('_' + e) and key[:-len(e) - 1] in WORKLOADS
+                      for key in cells)] or list(ENGINES)
+    print('| workload | ' + ' | '.join(ENGINE_LABEL[e] for e in engines) + ' |')
+    print('|---|' + '---|' * len(engines))
     for workload in WORKLOADS:
         row = [workload]
-        for engine in ENGINES:
+        for engine in engines:
             stem = '%s_%s' % (workload, engine)
             if stem not in cells:
                 row.append('—')

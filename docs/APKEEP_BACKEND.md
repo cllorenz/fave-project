@@ -3,7 +3,7 @@
 **Status:** INTEGRATED, and in agreement with the other backends on every workload
 run so far. `APKeepAdapter` is a selectable FaVe backend (`--backend apkeep` on the
 aggregator, `FAVE_BACKEND=apkeep` on any `bench/wl_*/benchmark.py`), carries two
-engines behind one adapter (BDD-APKeep and NDD-flood — see the naming note below), is gated in the integration tier, and has
+engines behind one adapter (BDD-APKeep and NDD-Flood — see the naming note below), is gated in the integration tier, and has
 been run end to end on wl_ifi, wl_stanford, wl_i2 and wl_up through the live
 aggregator. The faithful-VLAN model is the default and selectable (`--no-vlan` opts
 out). Both correctness gaps this document named on 2026-09-18 are closed: the wl_i2
@@ -24,6 +24,8 @@ correctness risk.
 by which point it had been wrong for months — P4/P5 landed in the tree long before.)*
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work.
 
+> **Naming (2026-10-16):** the engine this document calls NDD-Flood was called "NDD" (selected by `--apkeep-engine ndd`) before 2026-10-16. Since then `--apkeep-engine ndd` selects NDD-APKeep, and NDD-Flood is `--apkeep-engine ndd-flood`. Names of earlier result cells and files (e.g. `wl_tum_ndd`) keep the old name and mean NDD-Flood.
+
 This document is the deep design plan for adding **APKeep** (atomic-predicate
 data-plane verifier; Zhang et al., NSDI'20) as a second FaVe verification
 backend alongside NetPlumber, and benchmarking the two head-to-head. The
@@ -34,12 +36,14 @@ the roadmap — the *why* behind the checkboxes.
 ---
 
 **Naming (2026-10-09, owner).** **BDD-APKeep** is the XJTU APKeep artifact with
-FaVe's changes (`apkeep/`). **NDD-flood** is FaVe's own engine on the authors' NDD
+FaVe's changes (`apkeep/`). **NDD-Flood** is FaVe's own engine on the authors' NDD
 library (`ndd/src/main/java/org/ants/jndd/fave/`) — per-device port predicates and
 a per-source flood, no atomic predicates, no `updateRule`; documents before this
 date call it "NDD-APKeep" or "APKeep-NDD". **NDD-APKeep** now names only the NDD
 paper's system — APKeep's core with its atom layer replaced by NDD — which FaVe
-does not have yet; `APKEEP_INCREMENTAL_SCOPE.md` scopes porting it.
+does not have yet; `APKEEP_INCREMENTAL_SCOPE.md` scopes porting it. *(Built
+since 2026-10-10, `apkeep/FAVE_CHANGES.md` §12; selected by `--apkeep-engine ndd`
+since 2026-10-16.)*
 
 ## 1. Goal
 
@@ -432,7 +436,7 @@ policy intent: a plain model that loses a DELIVERABLE pair reports unsoundness, 
 one that correctly sheds one of the 11 reports only drift. `reachable.json` reported
 those two identically, and read as a claim that the model is exact.
 
-Both gates judge through one shared `test/i2_oracle.py`, so the BDD and NDD runs of the
+Both gates judge through one shared `test/i2_oracle.py`, so the BDD and NDD-Flood runs of the
 same model cannot drift apart in what they demand of it, and the attribution property
 itself is pinned by `test/test_i2_oracle_classification.py` (fast tier, synthetic sets,
 no engine) — including the vacuity case above, frozen so a future rewrite cannot
@@ -445,7 +449,7 @@ this section was first written the production path could build only
 relaxes the VLAN constraint, and relaxing can only add reachability), so the 11 pairs
 were not yet evidence of a defect. With the faithful model now the default and
 selectable, `FAVE_BACKEND=apkeep bench/wl_i2/benchmark.py` builds the full dst × VLAN
-model on the NDD engine (41.9 s of `check_compliance`) and **still reports 0 violations
+model on the NDD-Flood engine (41.9 s of `check_compliance`) and **still reports 0 violations
 of 72**. The over-approximation therefore survives the faithful model and the
 VLAN-blind alibi is gone: both APKeep models, on both engines, say 72 where NetPlumber,
 ad6 and `bench/analysis/i2_structural_oracle.py` say 61.
@@ -494,7 +498,7 @@ an admission element is spliced onto **every** edge delivering to an in-stage �
 source alike — each permitting that arrival port's own VLAN set. On wl_i2 that is 63
 elements (one per reached `(device, port)`) instead of 9, one permit rule each, so the
 atomic-predicate cost is unchanged in kind. Measured on the production path, faithful +
-NDD: replay 6.4 s, `check_compliance` 38.2 s, **61 of 72 reachable, the 11 unreachable
+NDD-Flood: replay 6.4 s, `check_compliance` 38.2 s, **61 of 72 reachable, the 11 unreachable
 pairs set-identical to NetPlumber, ad6 and the structural oracle** (missing 0, extra 0).
 
 Corroboration that this is the intended semantics and not a tuning choice: ad6's archived
@@ -531,7 +535,7 @@ so by the time traffic reaches it the arrival port is already lost. Cost: 60 ele
 instead of 16, and *fewer* VLAN tags overall (939 against 1,340), because the per-port
 sets are smaller than the union.
 
-**No verdict changed** — faithful wl_stanford on NDD is still pair-for-pair identical to
+**No verdict changed** — faithful wl_stanford on NDD-Flood is still pair-for-pair identical to
 NetPlumber. That is the expected outcome, and it is why the defect survived here while
 wl_i2 lost 11 pairs to it: the surplus tags happen to be ones nothing upstream assigns
 towards those ports, so the relaxation admits traffic that never arrives.
@@ -621,13 +625,13 @@ Both engines already carried the field, so only the query side changed:
 real `checks.json` posted the way `bench/compliance_checker.py` posts it — 11,902 checks,
 3,302 of them conditioned): **0 violations**, matching FaVe+NetPlumber and FaVe+ad6.
 Replay 1.7 s, `check_compliance` 1.0 s — unchanged from the unconditioned run, which is
-the flood cache staying shared. That is the NDD engine, wl_up's production default.
+the flood cache staying shared. That is the NDD-Flood engine, wl_up's production default.
 
 **Confirmed on the BDD engine too, at full wl_up scale.** The two engines force the bit
 through different machinery — `ReachabilityChecker`'s arrival test against a
 `BDDACLWrapper` predicate, versus an NDD `and` on field REL — so neither covers the other,
 and the committed gate exercises the BDD path only on a two-rule model. Same models, same
-11,902 checks, `engine='bdd'`: **0 violations**, set-identical to the NDD result. Total
+11,902 checks, `engine='bdd'`: **0 violations**, set-identical to the NDD-Flood result. Total
 9 m 56 s: replay 1.7 s, build 469.6 s, queries 124.2 s (95.8 checks/s, 3.99 M DFS nodes,
 no single check above 0.1 s).
 
@@ -641,12 +645,12 @@ flags ~10 % run-to-run variance plus env sensitivity on a BDD-heavy workload, an
 run had `FAVE_JVM_XMX=12g` and an idle box, so it is not evidence of a speedup.
 
 **The gate asserts both halves, because either alone passes for the wrong reason.**
-`test/test_apkeep_compliance_cond.py` (NDD tier) runs the same policy twice: with the
+`test/test_apkeep_compliance_cond.py` (NDD-Flood tier) runs the same policy twice: with the
 conditions it must report **zero**, and with the very same checks stripped of their
 conditions it must report **exactly 1,651** — every one of them a check that carried a
 condition. A condition that bound to nothing would satisfy the first assertion and fail
 the second, which is precisely the failure mode wl_ifi cannot detect. The gate runs wl_up
-on NDD and both engines on a two-rule stateful firewall; the BDD wl_up run above is a
+on NDD-Flood and both engines on a two-rule stateful firewall; the BDD wl_up run above is a
 manual confirmation, not part of the tier, because 8 of its 10 minutes are build.
 
 #### The wl_ifi stateless variant — giving the benchmark a zero-violation oracle
@@ -707,7 +711,7 @@ a FIB, and wl_i2, wl_stanford, wl_up, wl_ifi and wl_example have only FIBs.
 wl_cloud is the first workload whose *forwarding tables* carry ACLs, and there
 the loss is not a subtlety: a permit and a deny on the same prefix arrive at the
 same priority, and **the two engines resolved that tie oppositely** (BDD kept the
-deny, NDD kept the permit), which is the cleanest possible evidence that the
+deny, NDD-Flood kept the permit), which is the cleanest possible evidence that the
 answer had stopped depending on the model.
 
 A table now chooses its element from its RULES — `_is_dst_lpm_table`, which reads
@@ -769,20 +773,20 @@ block`. **Both defects are upstream APKeep; the fork's contribution is the
 `srcIPField` source-NAT path that makes wl_cloud reach them.** Because the
 swallow lets a build continue past the corruption, this is a **soundness hazard**
 and not only a cost result. Full analysis, artifacts and the two-line decisive
-experiment: `CLOUD_BENCH_PLAN.md` §1.7.3. The default engine is NDD, every number
-above is its, and NDD builds and answers this model in 1.9 s.
+experiment: `CLOUD_BENCH_PLAN.md` §1.7.3. The default engine is NDD-Flood, every number
+above is its, and NDD-Flood builds and answers this model in 1.9 s.
 
 #### Three defects found in passing
 
 1. **`faithful_vlan` had no CLI flag — FIXED 2026-09-18, and the default inverted.**
    `build_engine()` accepted it and argparse never wired it, so `FAVE_BACKEND=apkeep`
    could only ever build the plain, VLAN-blind model, and the faithful model the whole
-   NDD headline rests on could not be selected in production at all. Faithful VLAN
+   NDD-Flood headline rests on could not be selected in production at all. Faithful VLAN
    handling is now the **default** — ad6 and NetPlumber both model it, so an APKeep run
    that drops it is not a like-for-like comparand — and `--no-vlan` turns it off. The
    engine default moved with it of necessity: the faithful model is precisely where
    BDD's atomic-predicate cross-product explodes (it finishes neither wl_stanford nor
-   wl_i2), so the default engine is now **NDD**, which builds both in seconds. `bdd`
+   wl_i2), so the default engine is now **NDD-Flood**, which builds both in seconds. `bdd`
    stays reachable by name, and all 13 existing call sites are pinned explicitly to the
    configuration they measured. Verified end to end: wl_stanford on the new defaults is
    75 violations → 165 reachable in 1.05 s, the violation set identical to the
@@ -1549,14 +1553,14 @@ correctness. Work on (1) starts next.
   — exactly the `related:0` set, where FaVe+NetPlumber and ad6 both report 0. The two
   candidate fixes turned out not to be alternatives — `related` is HONOURED (forced onto
   the query at arrival, on both engines) and everything else is REFUSED (`_cond_related`,
-  the same discipline as ad6's `_validated_conditions`). wl_up now reports 0 on the NDD
+  the same discipline as ad6's `_validated_conditions`). wl_up now reports 0 on the NDD-Flood
   engine and, confirmed separately at full scale, on the BDD engine — which matters
   because the two force the bit through different machinery. Full derivation in §9;
   pinned by `test/test_apkeep_compliance_cond.py`, which also asserts that dropping the
   conditions would still produce the 1,651 — otherwise a condition that bound to nothing
   would pass. FaVe+APKeep is usable on a stateful workload.
 - **RESOLVED (2026-09-18) — `faithful_vlan` now has a production route, and is the
-  DEFAULT.** `--no-vlan` turns it off; the APKeep engine default moved to NDD with it,
+  DEFAULT.** `--no-vlan` turns it off; the APKeep engine default moved to NDD-Flood with it,
   because faithful-on-BDD completes on neither wl_stanford nor wl_i2.
 - **RESOLVED (2026-09-18) — the wl_i2 11-pair over-approximation.** Root cause: the
   faithful VLAN admission gate was keyed by DEVICE (the union over its ingress ports)
@@ -1700,7 +1704,7 @@ correctness. Work on (1) starts next.
   **wl_up, measured:** non-empty diagonals 9 → **1** (`Wifi`), no off-diagonal cell
   touched, `roles.json` byte-identical, checks **11,903 → 11,911**, negative self-checks
   **61 → 69**, positive checks **3,371 unchanged**, `reachable.json` **3,371 pairs**,
-  headline **3,661**, still **0 violations** — on NDD in the gated test, and confirmed
+  headline **3,661**, still **0 violations** — on NDD-Flood in the gated test, and confirmed
   at full scale on BDD (8 m 59 s, all 11,911 checks answered, `ap_num` 14 561 reproducing
   `APKEEP_BDD_BASELINE.md` §4.2 exactly). The eight diagonals do not vanish from
   compliance — emptied, they take the ordinary empty-diagonal branch and each yields a
