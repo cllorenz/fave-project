@@ -234,12 +234,14 @@ TNSM'21 measures only build-from-zero plus one verification.
   performance ones (S4 then runs on `wl_cloud`, `wl_up`, `wl_tum`).
   `wl_airtel2` stays although it resembles `wl_airtel1`: either it shows
   unexpected differences between two workloads of similar size, or it supports
-  the hypothesis that equally sized workloads need similar effort. *Proposed,
-  not yet decided:* the footprint ablation reduced to coarse against witness +
-  dead ends on every workload, with witness and dead ends alone only as
-  indicative cells (D11: witness + dead ends re-checked least in 39 of 39
-  complete groups, and was fastest in 27; the other 12 within 1-14 %, each a
-  sub-second cell or an S3 cell where dead ends cannot act).
+  the hypothesis that equally sized workloads need similar effort. **The
+  footprint ablation is reduced (owner, 2026-10-16):** coarse against witness +
+  dead ends (the default) on every workload, for the three engines with
+  footprint modes; witness alone and dead ends alone only as indicative cells,
+  once, on `wl_cloud` and `wl_airtel1`. Basis, D11: witness + dead ends
+  re-checked least in 39 of 39 complete groups and was fastest in 27; the
+  other 12 within 1-14 %, each a sub-second cell or an S3 cell where dead ends
+  cannot act. Supersedes §7's four-footprint table.
 
 ## 5. What is measured, per update
 
