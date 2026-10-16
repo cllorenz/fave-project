@@ -1,6 +1,12 @@
-PROTOCOL (DRAFT) -- incremental axis, CALIBRATION THROUGH FaVe before the D16 indicative run
-To be declared (renamed PROTOCOL.txt and committed) BEFORE any cell runs, and
-not edited afterwards. Open at drafting: VF_TUM_MB (below) and the code commit.
+PROTOCOL -- incremental axis, CALIBRATION THROUGH FaVe before the D16 indicative run
+Declared 2026-10-16 before any cell ran; not edited afterwards.
+  Code: 1b9f092b (the integration tier, FAVE_JOBS=4 FAVE_JVM_XMX=8g, PASSED
+  on it, 0 failures; its first run on 963b16b4..f897b4ce failed only in
+  test_veriflow_census -- the Translator lacked takes_updates -- fixed there).
+  Jars: apkeep-1.0.0.jar and ndd-1.0.1-jar-with-dependencies.jar as that
+  tier rebuilt them (2026-10-16 15:59 UTC), from unchanged upstream sources.
+  VF_TUM_MB = 4096: 1.3 x 2,960 MB (TODO item 59's peak) = 3,848, rounded up
+  to the next power of two.
 
 INCREMENTAL_PLAN.md D14 (every measurement through FaVe), D15 (the grid cut,
 the reduced ablation), D16 (12 h cap, 4 jobs, wl_tum with checks, this
@@ -43,7 +49,7 @@ WHAT IS BEING RUN  (queue.json, made by make_queue.py VF_TUM_MB; run.sh)
 HOW
   bench/incremental_queue.py --jobs 4 --mem-budget 48000 (run.sh). Per cell
   an RSS limit: 16 GB NDD-APKeep, 12 GB BDD-APKeep, 8 GB otherwise;
-  VeriFlow-FR on wl_tum VF_TUM_MB = 1.3x the full run's peak (TODO 59).
+  VeriFlow-FR on wl_tum VF_TUM_MB = 4096 (above).
   limit_wall 43,200 s (D16's 12 h); limit_update 3600 s (the dev default).
 
 STOPPING RULES
