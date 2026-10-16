@@ -46,6 +46,8 @@ class TestConfigurationStamp(unittest.TestCase):
                                  "vf_budget": 0, "vf_invert_lpm": False,
                                  # owner, 2026-10-16
                                  "vf_early_exit": True,
+                                 # TODO item 59, option c
+                                 "vf_state_cache": 1_000_000,
                                  "footprint": ["witness", "dead-ends"],
                                  "witness_point": True})
 

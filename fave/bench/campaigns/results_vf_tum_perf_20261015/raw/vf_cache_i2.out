@@ -1,0 +1,5 @@
+{"state_cache": 0, "s": 114.2, "local_ecs": 940133, "walks": 1, "states": 449653, "reachable": 70, "peak_rss_mb": 381}
+{"state_cache": 1000000, "s": 114.3, "local_ecs": 940133, "walks": 1, "states": 449653, "reachable": 70, "peak_rss_mb": 381}
+{"state_cache": 100000, "s": 113.8, "local_ecs": 940133, "walks": 1, "states": 449653, "reachable": 70, "peak_rss_mb": 381}
+{"state_cache": 10000, "s": 117.0, "local_ecs": 1689212, "walks": 1, "states": 1192984, "reachable": 70, "peak_rss_mb": 377}
+{"state_cache": 100, "s": 116.6, "local_ecs": 1926939, "walks": 1, "states": 1421232, "reachable": 70, "peak_rss_mb": 377}

@@ -61,6 +61,12 @@ def available() -> bool:
     return libveriflow_fr is not None
 
 
+#: TODO item 59, option c: the explored states a walk remembers under `state`
+#: revisit (0: all). 1 M covers wl_i2's 450 k states at no cost and holds
+#: wl_tum's worst walk (54.7 M states) at 1.3 GB instead of 55.7 GB
+#: (results_vf_tum_perf_20261015, 2026-10-16); 10 k costs wl_i2 +80 % local ECs.
+DEFAULT_STATE_CACHE = 1_000_000
+
 #: The selectable footprints of VERIFLOW_FOOTPRINT_SCOPE.md §4, as on APKeep
 #: (APKEEP_FOOTPRINTS.md).
 FOOTPRINT_MODES = ('witness', 'dead-ends')
@@ -106,7 +112,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                  slicing: str = "device", budget: int = 0,
                  revisit: str = "state", fields: str = "4+10",
                  footprint: Optional[Tuple[str, ...]] = None,
-                 witness_point: bool = True, early_exit: bool = True) -> None:
+                 witness_point: bool = True, early_exit: bool = True,
+                 state_cache: int = DEFAULT_STATE_CACHE) -> None:
         if slicing not in ("device", "network"):
             raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
         if revisit not in ("path", "state"):
@@ -144,6 +151,12 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self.early_exit = early_exit
         #: starts whose walk stopped early, over the lifetime
         self.early_exits = 0
+        #: TODO item 59, option c (owner, 2026-10-16): under `state` revisit,
+        #: how many explored states a start remembers (0: all); the states on
+        #: the walk's path always end a loop. Changes the work, never an answer.
+        if state_cache < 0:
+            raise ValueError("state_cache is a count of states, not %r" % state_cache)
+        self.state_cache = state_cache
         #: Q4 (owner, 2026-09-30): "state", the thesis's rule, by default --
         #: a walk stops at a (table, arrival, packet set) it has reached before.
         #: "path" is NetPlumber's (a path revisiting a table stops, whatever the
@@ -214,6 +227,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                       "witness_point": self.witness_point,
                       "vf_revisit": self.revisit, "vf_slicing": self.slicing,
                       "vf_budget": self.budget, "vf_early_exit": self.early_exit,
+                      "vf_state_cache": self.state_cache,
                       # MEASUREMENT_RUN_PLAN.md §5.4's guardrail. It reached
                       # `Ir.stamps` already (`vf_invert_lpm`) but not here, so
                       # a CELL could not tell an inverted run from a faithful
@@ -249,6 +263,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         ir.stamps["vf_budget"] = self.budget
         ir.stamps["vf_revisit"] = self.revisit
         ir.stamps["vf_early_exit"] = self.early_exit
+        ir.stamps["vf_state_cache"] = self.state_cache
         self._scan = scan_fields(ir) if self.fields == "4+10" else []
         ir.stamps["vf_fields"] = "plain" if not self._scan else "4+10:trie=%s,scan=%s" % (
             [n for (n, _w), sc in zip(ir.fields, self._scan) if not sc],
@@ -340,7 +355,8 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                 walked = self.net.local_deliveries(
                     qs, starts, self.budget, self.revisit == "state", self._scan,
                     self._tracking, witness,
-                    [sorted(asked.get(key, ())) for key in owner_of] if early else [])
+                    [sorted(asked.get(key, ())) for key in owner_of] if early else [],
+                    self.state_cache)
                 self.early_exits += self.net.last_early_exits
                 (answers, finished, stopped_at, predicted, single, local_ecs, hops,
                  per_table) = walked[:8]

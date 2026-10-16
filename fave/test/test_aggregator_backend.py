@@ -237,10 +237,11 @@ class _RecordingVeriFlow:
     what is under test is the OPTIONS build_engine hands it. """
 
     def __init__(self, logger, slicing=None, budget=None, revisit=None,
-                 fields=None, invert_lpm=False, early_exit=None):
+                 fields=None, invert_lpm=False, early_exit=None, **more):
         self.logger, self.slicing, self.budget = logger, slicing, budget
         self.revisit, self.fields = revisit, fields
         self.early_exit = early_exit
+        self.__dict__.update(more)
         self.invert_lpm = invert_lpm
 
 
@@ -363,6 +364,10 @@ class TestVeriFlowDefaults(unittest.TestCase):
                           engine.early_exit),
                          ("plain", "path", "network", 1000, False))
 
+    def test_a_given_state_cache_reaches_the_adapter(self):
+        self.assertEqual(_build_veriflow(vf_state_cache=0).state_cache, 0)
+        self.assertFalse(hasattr(_build_veriflow(), 'state_cache'))
+
     def test_a_malformed_early_exit_is_refused(self):
         with self.assertRaises(ValueError):
             _build_veriflow(vf_early_exit="yes")
@@ -380,6 +385,11 @@ class TestVeriFlowCommandLine(unittest.TestCase):
 
     def test_veriflow_is_a_backend_choice(self):
         self.assertEqual(self._parse(['-b', 'veriflow']).backend, BACKEND_VERIFLOW)
+
+    def test_the_state_cache_is_the_adapters_unless_given(self):
+        # TODO item 59, option c
+        self.assertIsNone(self._parse([]).vf_state_cache)
+        self.assertEqual(self._parse(['--vf-state-cache', '0']).vf_state_cache, 0)
 
     def test_early_exit_is_on_unless_turned_off(self):
         # owner, 2026-10-16

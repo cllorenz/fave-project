@@ -234,7 +234,10 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
                              // Early exit (owner, 2026-10-16; ACCOMMODATIONS.md): per start, the tables
                              // the caller asks about; once all are delivered
                              // the start's walk stops. Empty: walk everything.
-                             const std::vector<std::vector<uint32_t>> &targets = {});
+                             const std::vector<std::vector<uint32_t>> &targets = {},
+                             // TODO item 59, option c: under STATE, how many
+                             // explored states a start remembers (0: all)
+                             uint64_t state_cache = 0);
 
 // Whether a rule (table, in_port, match) could be a candidate at any state of
 // `fp` -- i.e. whether inserting or deleting it can change that walk.

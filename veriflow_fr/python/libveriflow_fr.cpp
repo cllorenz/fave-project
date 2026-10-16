@@ -101,13 +101,14 @@ class PyNetwork {
                              uint64_t budget, bool state,
                              const std::vector<bool> &scan,
                              bool footprint, bool witness,
-                             const std::vector<std::vector<uint32_t>> &targets) const {
+                             const std::vector<std::vector<uint32_t>> &targets,
+                             uint64_t state_cache) const {
     LocalResult r;
     {
       py::gil_scoped_release release;
       r = vf::local_deliveries(net_, range, starts, budget,
                                state ? Revisit::STATE : Revisit::PATH, scan,
-                               footprint || witness, witness, targets);
+                               footprint || witness, witness, targets, state_cache);
       last_early_exits_ = r.early_exits;
     }
     if (witness)
@@ -237,7 +238,8 @@ PYBIND11_MODULE(libveriflow_fr, m) {
            py::arg("starts"), py::arg("budget"), py::arg("state"),
            py::arg("scan") = std::vector<bool>(), py::arg("footprint") = false,
            py::arg("witness") = false,
-           py::arg("targets") = std::vector<std::vector<uint32_t>>())
+           py::arg("targets") = std::vector<std::vector<uint32_t>>(),
+           py::arg("state_cache") = 0)
       .def_property_readonly("last_early_exits",
                              [](const PyNetwork &n) { return n.last_early_exits_; })
       .def("remove_rule", &PyNetwork::remove_rule)

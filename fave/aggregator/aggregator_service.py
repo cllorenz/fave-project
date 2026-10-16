@@ -142,7 +142,7 @@ def build_engine(
         solver: Optional[str] = None, lite_acyclic: bool = False,
         vf_fields: str = '4+10', vf_revisit: str = 'state',
         vf_slicing: str = 'device', vf_budget: int = 0,
-        vf_early_exit: str = 'on', invert_lpm: bool = False, ndd_collect_visited: bool = False
+        vf_early_exit: str = 'on', vf_state_cache: Optional[int] = None, invert_lpm: bool = False, ndd_collect_visited: bool = False
 ) -> Any:
     """ The verification engine named by `backend`.
 
@@ -218,6 +218,8 @@ def build_engine(
         return VeriFlowAdapter(logger, slicing=vf_slicing, budget=vf_budget,
                                revisit=vf_revisit, fields=vf_fields,
                                early_exit=vf_early_exit == 'on',
+                               **({} if vf_state_cache is None
+                                  else {'state_cache': vf_state_cache}),
                                invert_lpm=invert_lpm)
 
     if backend == BACKEND_APKEEP:
@@ -1382,6 +1384,10 @@ def build_parser() -> argparse.ArgumentParser:
     # early exit (owner, 2026-10-16): on by default, `off` is the ablation
     parser.add_argument('--vf-early-exit', dest='vf_early_exit',
                         choices=('on', 'off'), default='on')
+    # TODO item 59, option c: explored states a walk remembers (0: all);
+    # unset, the adapter's default
+    parser.add_argument('--vf-state-cache', dest='vf_state_cache', type=int,
+                        default=None)
     # MEASUREMENT_RUN_PLAN.md §5.4's guardrail, and NEVER a faithful run: order
     # every declared-LPM table shortest-prefix-first, so the default route
     # outranks every specific one. Honoured by netplumber and veriflow, which
@@ -1459,7 +1465,7 @@ def main(argv: List[str]) -> None:
             faithful_vlan=args.faithful_vlan,
             vf_fields=args.vf_fields, vf_revisit=args.vf_revisit,
             vf_slicing=args.vf_slicing, vf_budget=args.vf_budget,
-            vf_early_exit=args.vf_early_exit,
+            vf_early_exit=args.vf_early_exit, vf_state_cache=args.vf_state_cache,
             invert_lpm=args.invert_lpm, stable_indices=args.stable_indices,
             ndd_collect_visited=args.ndd_collect_visited)
     except ValueError as err:

@@ -40,7 +40,7 @@ _REGISTRY = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "ACCOMMO
 
 #: VeriFlowAdapter.configuration_stamp()'s keys (it needs the native engine).
 _CONFIG_KEYS = ("impl", "vf_fields", "vf_revisit", "vf_slicing", "vf_budget",
-                "vf_early_exit")
+                "vf_early_exit", "vf_state_cache")
 
 
 class TestRegistryCoversEveryStamp(unittest.TestCase):

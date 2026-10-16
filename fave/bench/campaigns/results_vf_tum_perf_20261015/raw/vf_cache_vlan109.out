@@ -1,0 +1,2 @@
+{"check": "s=source.vlan109 && EF p=probe.internet", "state_cache": 1000000, "s": 1243.7, "finished": true, "local_ecs": 57316377, "hops": 54695824, "footprint_boxes": 80981, "delivered": 247, "peak_rss_mb": 1335}
+{"check": "s=source.vlan109 && EF p=probe.internet", "state_cache": 4000000, "s": 1328.9, "finished": true, "local_ecs": 57316377, "hops": 54695824, "footprint_boxes": 80981, "delivered": 247, "peak_rss_mb": 4351}

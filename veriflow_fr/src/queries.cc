@@ -20,7 +20,9 @@
 #include "queries.h"
 
 #include <algorithm>
+#include <exception>
 #include <functional>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <tuple>
@@ -168,7 +170,9 @@ struct Slicer {
   LocalResult &res;
   std::function<void(uint32_t, const Box &)> on_state;
   Revisit revisit = Revisit::PATH;
-  // STATE: the (table, arrival, packet set) states this start has reached.
+  // STATE: the (table, arrival, packet set) states this start has EXPLORED to
+  // the end -- a cache, bounded by `state_cache` (TODO item 59); the states on
+  // the current path are `on_path`, and those alone end a loop.
   std::set<std::tuple<uint32_t, int64_t, Box>> visited;
   // V3b: per field, a SCAN field (exact-or-ANY in every rule); empty: plain.
   std::vector<bool> scan;
@@ -189,6 +193,39 @@ struct Slicer {
       if (!out.count(t)) return;
     throw Found{};
   }
+
+  // TODO item 59, option c (owner, 2026-10-16): under STATE a walk ends at a
+  // state on its current path (a loop) or one it explored before and still
+  // remembers. Remembering is a cache of at most `state_cache` states (0: no
+  // bound). The walk is deterministic, so a state explored again delivers
+  // exactly what it delivered the first time: the bound changes the work,
+  // never an answer. Unbounded, it is the thesis's rule as before -- the states
+  // reached but not finished are exactly those on the path.
+  std::set<std::tuple<uint32_t, int64_t, Box>> on_path;
+  std::set<std::tuple<uint32_t, int64_t, Box, std::vector<Box>>> on_path46;
+  uint64_t state_cache = 0;
+
+  // Leaves the path on return; a state explored to the end is remembered while
+  // there is room. An unwinding walk (budget, early exit) finished nothing.
+  template <class Key>
+  struct OnPath {
+    std::set<Key> &on, &done;
+    Key key;
+    uint64_t cap;
+    int unwinding;
+    OnPath(std::set<Key> &on_, std::set<Key> &done_, Key key_, uint64_t cap_)
+        : on(on_), done(done_), key(std::move(key_)), cap(cap_),
+          unwinding(std::uncaught_exceptions()) {
+      on.insert(key);
+    }
+    OnPath(const OnPath &) = delete;
+    OnPath &operator=(const OnPath &) = delete;
+    ~OnPath() {
+      on.erase(key);
+      if (std::uncaught_exceptions() == unwinding && (cap == 0 || done.size() < cap))
+        done.insert(std::move(key));
+    }
+  };
 
   // A concrete packet of `set` minus `excl` (its lowest corner), or false.
   static bool pick(const Box &set, const std::vector<Box> &excl, Box &point) {
@@ -332,10 +369,13 @@ struct Slicer {
               std::vector<uint32_t> &path, std::set<uint32_t> &out) {
     std::sort(excl.begin(), excl.end());
     excl.erase(std::unique(excl.begin(), excl.end()), excl.end());
+    std::optional<OnPath<std::tuple<uint32_t, int64_t, Box, std::vector<Box>>>> here;
     if (revisit == Revisit::PATH) {
       if (std::find(path.begin(), path.end(), table) != path.end()) return;
-    } else if (!visited46.insert({table, arrival, box, excl}).second) {
-      return;
+    } else {
+      std::tuple<uint32_t, int64_t, Box, std::vector<Box>> key{table, arrival, box, excl};
+      if (on_path46.count(key) || visited46.count(key)) return;
+      here.emplace(on_path46, visited46, std::move(key), state_cache);
     }
     if (fp) fp->add(table, arrival, box);
 
@@ -429,9 +469,14 @@ struct Slicer {
       // Q4, NetPlumber's rule: a path that revisits a table ends there,
       // whatever the header.
       if (std::find(path.begin(), path.end(), table) != path.end()) return;
-    } else if (!visited.insert({table, arrival, box}).second) {
-      // Q4, the thesis's rule: a state already reached for this packet set.
-      return;
+    }
+    std::optional<OnPath<std::tuple<uint32_t, int64_t, Box>>> here;
+    if (revisit != Revisit::PATH) {
+      // Q4, the thesis's rule: a state already reached for this packet set --
+      // on the path, or explored and remembered
+      std::tuple<uint32_t, int64_t, Box> key{table, arrival, box};
+      if (on_path.count(key) || visited.count(key)) return;
+      here.emplace(on_path, visited, std::move(key), state_cache);
     }
     if (on_state) on_state(table, box);
     if (fp) fp->add(table, arrival, box);
@@ -546,7 +591,8 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
                              uint64_t budget, Revisit revisit,
                              const std::vector<bool> &scan,
                              bool record_footprint, bool record_witness,
-                             const std::vector<std::vector<uint32_t>> &targets) {
+                             const std::vector<std::vector<uint32_t>> &targets,
+                             uint64_t state_cache) {
   LocalResult res;
   res.delivered.resize(starts.size());
   if (record_witness) res.witnesses.resize(starts.size());
@@ -570,10 +616,13 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
   }
   Slicer s{net, budget, res, nullptr, revisit, {}, v3b ? scan : std::vector<bool>(), {}, nullptr, nullptr, {}};
   if (record_footprint) s.fp = &res.footprint;
+  s.state_cache = state_cache;
   try {
     for (size_t i = 0; i < starts.size(); ++i) {
       s.visited.clear();
       s.visited46.clear();
+      s.on_path.clear();
+      s.on_path46.clear();
       s.hops.clear();
       if (record_witness) s.wit = &res.witnesses[i];
       s.target = i < targets.size() ? &targets[i] : nullptr;
