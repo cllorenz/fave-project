@@ -3837,13 +3837,24 @@ checks in the D11 runs (D13).
   meets `rule ∩ p` for some piece p. A table's grid cells tile the set that
   arrived there, so merging adjacent boxes should collapse millions of states
   to few boxes. `ports` and the witnesses are unaffected.
-- [ ] **Plan (owner, 2026-10-16):** (1) measure footprint memory on a
-  `wl_tum` slice, replacing the estimate; (2) prototype the merged union in the
-  engine's footprint (compacted while the walk records it), checked against
-  per-state footprints on random networks (`footprint_hits_rule`,
-  `delete_fate`) and by the from-zero oracle (`test_incremental_veriflow.py`);
-  (3) the element -> checks index on top, if the per-update scan shows in the
-  times.
+- [x] **Plan (owner, 2026-10-16), steps 1 and 2 DONE 2026-10-16:**
+  - (1) *Measured* (`source.vlan1012`'s outbound walk, `vf_fp.py`): 6.13 M
+    footprint states cost +2.4 GB, ~0.4 KB per state, so the whole run's
+    per-state footprints come to **~300 GB** (766 M states), not ~780 GB.
+  - (2) *Merged unions* (`Footprint::add`/`compact`;
+    `VERIFLOW_FOOTPRINT_SCOPE.md` §8): the same walk keeps **3,501 boxes**
+    instead of 6,130,135 states, with no measurable memory, +17 % time.
+    Exact by construction and by test (`footprint_union_unit.cc`); the
+    from-zero oracle passes.
+- [ ] (3) The element -> checks index, if the per-update scan shows in the
+  times. Not yet needed.
+- [ ] **What now bounds incremental `wl_tum` (owner to decide):** with
+  tracking on, walks stay whole (early exit is full-check only), so the
+  largest walk's `state` visited record is the floor: 55.7 GB on
+  `source.vlan109`, above V5's 32 GB. The 2026-10-16 decision kept that record
+  on the argument that the footprints held the same states anyway -- which no
+  longer holds. Keeping only the states on the current path (plus a bounded
+  cache) gives the same answers and would lift this floor.
 
 ### 58. Two cell-harness gaps found in the stable-index re-measurement — both FIXED 2026-10-15
 

@@ -118,10 +118,30 @@ enum class Revisit {
 // is a candidate at a recorded state at T (it applies at that arrival and its
 // match meets the set), and a link update on port p only if the walk emitted
 // on p. A deletion is tested against the footprint from BEFORE the update.
+//
+// TODO item 59: the states at a table are kept as boxes whose UNION is the
+// union of the states reached there, per arrival -- adjacent boxes merged
+// (`add`, `compact`). Both questions asked of a footprint are questions about
+// that union: a rule meets some state iff it meets the union
+// (`footprint_hits_rule`), and a candidate meets `rule ∩ state` for some state
+// iff it meets `rule ∩ union` (`delete_fate`). So any boxes with the same
+// union answer exactly as the states themselves.
 struct Footprint {
   std::map<uint32_t, std::set<std::pair<int64_t, Box>>> states;
   std::set<uint64_t> ports;
   bool hits_port(uint64_t port) const { return ports.count(port) > 0; }
+  // record a state; compacts a table's boxes whenever they doubled
+  void add(uint32_t table, int64_t arrival, const Box &box);
+  // merge adjacent boxes of every table (same arrival, equal in all fields
+  // but one, touching or overlapping in it) until none merge
+  void compact();
+  size_t boxes() const;
+  // tests only: record every state as it is, the per-state reference
+  static bool merging;
+
+ private:
+  std::map<uint32_t, size_t> next_compaction_;
+  static void compact(std::set<std::pair<int64_t, Box>> &boxes);
 };
 
 // VERIFLOW_FOOTPRINT_SCOPE.md §4.1: one path by which a start's packets were

@@ -187,3 +187,29 @@ done before the D11 run, and nothing in M2 depends on it.
 2. **When:** before M2's packet-filter spike, after it, or interleaved. It has
    to be done before the D11 run in any case.
 3. **4.4 stays out**, unless you want per-target re-walks examined separately.
+
+## 8. A footprint is a union, stored merged (2026-10-16, TODO item 59)
+
+Both questions asked of a footprint are questions about the UNION of the states
+recorded at a table, per arrival: a rule meets some state iff it meets the union
+(`footprint_hits_rule`), and a candidate meets `rule ∩ state` for some state iff
+it meets `rule ∩ union` (`delete_fate`). So `Footprint` keeps, per table, boxes
+whose union is that union: `add` merges adjacent boxes (same arrival, equal in
+every field but one, touching or overlapping in it) whenever a table's boxes
+doubled, and the walk compacts once more at its end. A table's local ECs tile
+the set that arrived there, so they merge back.
+
+- **Evidence:** `footprint_union_unit.cc` -- on random networks with rewrites,
+  both field modes and both revisit rules, `footprint_hits_rule` (random rules)
+  and `delete_fate` (every rule) answer as the per-state footprint does
+  (`Footprint::merging = false`, a test seam), and the ports are equal; a merge
+  across a one-value gap fails it. The from-zero oracle passes
+  (`test_incremental_veriflow.py`, `test_incremental_m2.py`, device removal and
+  replacement).
+- **Measured on `wl_tum`** (`bench/campaigns/results_vf_tum_perf_20261015/`,
+  `vf_fp.py`; `source.vlan1012`'s outbound walk, 6.47 M local ECs): per state
+  6,130,135 states, +2.4 GB peak (~0.4 KB per state), 103 s; merged **3,501
+  boxes**, no measurable peak beyond the walk itself (6.64 GB, the visited
+  record), 120 s (+17 % for compaction).
+- The witnesses (§4.1) and the ports are unchanged.
+

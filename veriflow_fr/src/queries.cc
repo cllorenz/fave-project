@@ -337,7 +337,7 @@ struct Slicer {
     } else if (!visited46.insert({table, arrival, box, excl}).second) {
       return;
     }
-    if (fp) fp->states[table].insert({arrival, box});
+    if (fp) fp->add(table, arrival, box);
 
     std::vector<uint64_t> cand;
     for (uint64_t id : net.table_candidates(table, box)) {
@@ -434,7 +434,7 @@ struct Slicer {
       return;
     }
     if (on_state) on_state(table, box);
-    if (fp) fp->states[table].insert({arrival, box});
+    if (fp) fp->add(table, arrival, box);
 
     // The rules that apply here (IN_PORT is a matched field, Q7) and overlap
     // the set; best first.
@@ -590,7 +590,77 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
     }
   } catch (const Slicer::Abort &) {
   }
+  if (record_footprint) res.footprint.compact();
   return res;
+}
+
+bool Footprint::merging = true;
+
+void Footprint::add(uint32_t table, int64_t arrival, const Box &box) {
+  auto &boxes = states[table];
+  boxes.insert({arrival, box});
+  if (!merging) return;
+  size_t &next = next_compaction_[table];
+  if (boxes.size() >= next) {
+    compact(boxes);
+    next = 2 * boxes.size() + 64;
+  }
+}
+
+void Footprint::compact() {
+  if (!merging) return;
+  for (auto &t : states) {
+    compact(t.second);
+    next_compaction_[t.first] = 2 * t.second.size() + 64;
+  }
+}
+
+size_t Footprint::boxes() const {
+  size_t n = 0;
+  for (const auto &t : states) n += t.second.size();
+  return n;
+}
+
+void Footprint::compact(std::set<std::pair<int64_t, Box>> &boxes) {
+  if (boxes.size() < 2) return;
+  std::vector<std::pair<int64_t, Box>> v(boxes.begin(), boxes.end());
+  const size_t fields = v.front().second.size();
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (size_t f = 0; f < fields; ++f) {
+      // group by arrival and every field but f, then by f's low end
+      std::sort(v.begin(), v.end(), [f](const std::pair<int64_t, Box> &a,
+                                        const std::pair<int64_t, Box> &b) {
+        if (a.first != b.first) return a.first < b.first;
+        for (size_t g = 0; g < a.second.size(); ++g) {
+          if (g == f) continue;
+          if (!(a.second[g] == b.second[g])) return a.second[g] < b.second[g];
+        }
+        return a.second[f] < b.second[f];
+      });
+      std::vector<std::pair<int64_t, Box>> out;
+      out.reserve(v.size());
+      for (auto &cur : v) {
+        if (!out.empty()) {
+          auto &last = out.back();
+          bool same = last.first == cur.first;
+          for (size_t g = 0; same && g < fields; ++g)
+            if (g != f && !(last.second[g] == cur.second[g])) same = false;
+          // touching or overlapping in f (cur.lo > 0 here, so no underflow)
+          if (same && (cur.second[f].lo <= last.second[f].hi ||
+                       cur.second[f].lo - 1 == last.second[f].hi)) {
+            if (cur.second[f].hi > last.second[f].hi) last.second[f].hi = cur.second[f].hi;
+            changed = true;
+            continue;
+          }
+        }
+        out.push_back(std::move(cur));
+      }
+      v.swap(out);
+    }
+  }
+  boxes = std::set<std::pair<int64_t, Box>>(v.begin(), v.end());
 }
 
 bool footprint_hits_rule(const Network &net, const Footprint &fp, uint32_t table,
