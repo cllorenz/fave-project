@@ -286,6 +286,20 @@ TNSM'21 measures only build-from-zero plus one verification.
   other 12 within 1-14 %, each a sub-second cell or an S3 cell where dead ends
   cannot act. Supersedes §7's four-footprint table.
 
+- **D16. The indicative run through FaVe (owner, 2026-10-16).** D11's
+  S1-S3 numbers are engine-level (D14) and the engines changed since
+  (NDD-APKeep B+C+D, VeriFlow-FR's footprint defaults and bounded cache,
+  stable indices), so the grid runs once more, through FaVe, before the
+  campaign protocol: **12 h wall cap per cell, 4 cells in parallel**,
+  `limit_class=dev`, one repetition; the grid of D13 as cut by D15;
+  configuration lines stay units of S1/S2 on `wl_up` and `wl_tum` (owner:
+  "keep the config lines"); **`wl_tum` with its 8,497 checks** (its
+  benchmark runs the derived policy since 2026-10-15). It is preceded by a
+  **calibration through FaVe**: the first 50 updates of each cell kind, to
+  size the memory limits and ground the predictions. Both wait for the
+  VeriFlow-FR `wl_tum` incremental run (TODO item 59) and the integration
+  tier; nothing else heavy runs beside them.
+
 ## 5. What is measured, per update
 
 For an update `u` applied to a built model with a cached verdict per check:
