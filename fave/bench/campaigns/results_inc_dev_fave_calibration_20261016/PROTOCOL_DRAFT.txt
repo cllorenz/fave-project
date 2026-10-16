@@ -1,0 +1,70 @@
+PROTOCOL (DRAFT) -- incremental axis, CALIBRATION THROUGH FaVe before the D16 indicative run
+To be declared (renamed PROTOCOL.txt and committed) BEFORE any cell runs, and
+not edited afterwards. Open at drafting: VF_TUM_MB (below) and the code commit.
+
+INCREMENTAL_PLAN.md D14 (every measurement through FaVe), D15 (the grid cut,
+the reduced ablation), D16 (12 h cap, 4 jobs, wl_tum with checks, this
+calibration first). Indicative: limit_class dev, one repetition, this machine.
+It sizes the D16 run -- memory limits, the order of the queue, and the
+numbers its predictions rest on -- and nothing here is a result.
+
+WHO AND UNDER WHAT MANDATE
+  A Claude session executing INCREMENTAL_PLAN.md; the owner decided D14-D16
+  on 2026-10-16.
+
+PRECONDITIONS
+  The VeriFlow-FR wl_tum incremental run (TODO item 59) has ended and the
+  integration tier (FAVE_JOBS=4 FAVE_JVM_XMX=8g) has passed on the code to
+  be measured. Nothing else heavy runs on this machine meanwhile; the tree
+  (sources and build outputs) is not touched until the queue ends.
+
+WHAT IS BEING RUN  (queue.json, made by make_queue.py VF_TUM_MB; run.sh)
+  Workloads (D13 as cut by D15): wl_airtel1, wl_airtel2, wl_cloud, wl_up,
+  wl_stanford, wl_i2 (stanford-json / i2-json with their file overrides),
+  wl_tum WITH its 8,497 checks (D16). Engines netplumber, veriflow, apkeep
+  (BDD), ndd-apkeep; BDD-APKeep has no cell on wl_stanford and wl_i2 (D13).
+  Every cell is driven THROUGH FaVe (incremental_run.py's default,
+  `driven: fave`): configuration lines re-sent, routes by switch commands,
+  links by topology commands. The FIRST 50 updates (--limit-updates 50),
+  batch 1, no oracle:
+    A  S1, S2 (0.2, seed 1), S3 at the default footprint (witness + dead
+       ends on all three footprinted engines);                         74 cells
+    D  the same at --footprint coarse (VeriFlow-FR, BDD-APKeep,
+       NDD-APKeep; D15's ablation pairs coarse with the A cell);       51 cells
+    C  S4, 50 edits, on wl_cloud, wl_up, wl_tum;                       10 cells
+  BDD-APKeep on wl_cloud (3.24 h from zero, V5) and VeriFlow-FR on wl_tum
+  (its checks with tracking on, TODO item 59) get ONE cell each, A S2: it
+  gives their build, first check and a per-update rate; their other kinds are
+  sized from it. 135 cells.
+  Note: S1 deletes in reverse build order, so its first 50 updates on wl_up
+  and wl_tum are ROUTES; the cost of re-sending a configuration line is
+  calibrated by S2 (a random mix) and S4.
+
+HOW
+  bench/incremental_queue.py --jobs 4 --mem-budget 48000 (run.sh). Per cell
+  an RSS limit: 16 GB NDD-APKeep, 12 GB BDD-APKeep, 8 GB otherwise;
+  VeriFlow-FR on wl_tum VF_TUM_MB = 1.3x the full run's peak (TODO 59).
+  limit_wall 43,200 s (D16's 12 h); limit_update 3600 s (the dev default).
+
+STOPPING RULES
+  A cell stopped by a limit is `did_not_finish` with its records so far: that
+  is itself the calibration's answer for the cell. A crash (`error`) is a
+  finding: not re-run, looked at before the D16 protocol is written.
+
+PREDICTIONS
+  C1  No cell ends in `error`. Every cell completes its 50 updates or is
+      stopped by a limit.
+  C2  No cell is stopped by its memory limit.
+  C3  Driving through FaVe costs NetPlumber little on the switch workloads:
+      on wl_airtel1, wl_airtel2, wl_cloud, wl_stanford and wl_i2, its A
+      cells' median t_total is at most max(10x, +5 ms) of its D11
+      adapter-level median on the same stream (D11 A cells, tables.md).
+  C4  NDD-APKeep's build + first check (head.json) is below its D11 value on
+      every workload where D11 recorded one (fixes B+C+D,
+      ndd/FAVE_CHANGES.md §14, apkeep/FAVE_CHANGES.md §15).
+  C5  On wl_up S2, re-sending a device dominates: for NetPlumber the median
+      t_model_s + t_diff_s of its configuration-line batches exceeds their
+      median t_update_s.
+  C6  APKeep (both engines) refuses at most 3 % of the updates of each wl_up
+      cell, as D11 found at the adapter.
+  C7  The queue ends within 24 h of wall time.
