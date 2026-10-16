@@ -276,6 +276,16 @@ FAVE_REGENERATING_TESTS=(
 # never returned (NDD alone claims ~2 GB at its first use; FaveFields), so a
 # module that needs much memory of its own must not run beside it. On a 16 GB
 # runner (simulated 2026-10-14, TODO item 44) the two together peaked at 18 GB.
+# The bison-dependent group's slowest modules, slowest first: queued before the
+# rest of the group, since each module is a unit of its own (2026-10-16,
+# measured alone at FAVE_JOBS=4: 231, 153, 152, 123, 97 s).
+FAVE_INTEGRATION_SLOWEST=(
+    test/test_backend_differential.py
+    test/test_incremental_veriflow.py
+    test/test_incremental_m2.py
+    test/test_incremental_netplumber.py
+    test/test_incremental_device_replacement.py
+)
 FAVE_OWN_PROCESS_TESTS=(
     test/test_ad6_wl_up.py       # ad6's bridge subprocess peaks at ~12.7 GB on wl_up
 )
@@ -614,10 +624,11 @@ run_integration() {
     bash "$ROOT/fave/test/gen_deltanet_inputs.sh" || rc=1
 
     # The pytest processes. First, alone, the modules that rewrite a shared
-    # workload's inputs (FAVE_REGENERATING_TESTS). Then, FAVE_JOBS at a time:
-    # the rest of the bison-dependent group in one process, and each own-JVM
-    # module in a process of its own -- a fresh JVM per module, which is also
-    # what JPype needs (see FAVE_NDD_TESTS).
+    # workload's inputs (FAVE_REGENERATING_TESTS). Then, FAVE_JOBS at a time,
+    # every other module in a process of its own: the own-JVM modules -- a
+    # fresh JVM per module, which is also what JPype needs (see
+    # FAVE_NDD_TESTS) -- and, since 2026-10-16, each module of the
+    # bison-dependent group.
     local group regen=() units=() t
     mapfile -t group < <(without_ad6 "${FAVE_INTEGRATION_TESTS[@]}")
     note_ad6_skip "$(( ${#FAVE_INTEGRATION_TESTS[@]} - ${#group[@]} )) ad6 module(s) left out"
@@ -637,9 +648,22 @@ run_integration() {
                 [ "$g" = "$t" ] || printf '%s\n' "$g"; done)
         fi
     done
-    [ "${#group[@]}" -gt 0 ] && units+=("fave bison-dependent tests (no backend)|${group[*]}")
     for t in "${FAVE_NDD_TESTS[@]}"; do
         units+=("own JVM: ${t#test/}|$t")
+    done
+    # The bison-dependent group, one process per module (owner, 2026-10-16;
+    # TODO items 44, 56): as one process it took 1,002-2,325 s and grew to
+    # 9 GB, and twice sat for half an hour in one garbage collection (item 56);
+    # per module the group takes ~400 s at FAVE_JOBS=4. The slowest go first.
+    for t in "${FAVE_INTEGRATION_SLOWEST[@]}"; do
+        if [[ " ${group[*]} " == *" $t "* ]]; then
+            units+=("${t#test/}|$t")
+            mapfile -t group < <(for g in "${group[@]}"; do
+                [ "$g" = "$t" ] || printf '%s\n' "$g"; done)
+        fi
+    done
+    for t in "${group[@]}"; do
+        units+=("${t#test/}|$t")
     done
     run_pytest_units "${units[@]}" || rc=1
 

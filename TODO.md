@@ -1102,6 +1102,12 @@ then applied to one of the two halves.
   and the reading is as likely to be a false red as a false green.
 
 ### 44. The `integration` tier takes ~1 h 23 min — speed it up — 30 min by default, 15 with `FAVE_JOBS=4` (2026-10-13); CI setting OPEN
+
+- **2026-10-16: the bison-dependent group is split into one process per module**
+  (owner; `FAVE_INTEGRATION_SLOWEST` queues its five slowest first). As one
+  process it had grown to 1,002-2,325 s and 9 GB, and hung in one garbage
+  collection (item 56); its 45 modules take 396 s at `FAVE_JOBS=4`. The tier's
+  wall is now bounded by `test_incremental_apkeep.py` (708 s).
 - [ ] **Measure first:** per-test durations of both pytest groups (`--durations=0`), so
   the fix aims at measured costs, not at the guess below. **Partly done 2026-10-12:**
   `test_incremental_apkeep.py` alone (below). The other six own-JVM modules, the bison group
@@ -3888,6 +3894,27 @@ checks in the D11 runs (D13).
 - **Next time:** run the tier with `PYTEST_ADDOPTS="-o faulthandler_timeout=600"`,
   so that a recurrence dumps the stuck stack. Not the tier's default (owner,
   2026-10-15: keep the tier as it is for now).
+- **Caught, with a stack (2026-10-16).** Tier run on the early-exit change
+  (`FAVE_JOBS=4 FAVE_JVM_XMX=8g`): the bison group sat in
+  `test_incremental_m2.py::TestS4Harness::test_a_workload_without_checks_records_its_updates`
+  for over 30 minutes, its log unchanged. The main thread ran at 100 % CPU, every
+  JVM thread slept, the process held 9.3 GB. ptrace is denied here, so on the
+  owner's word SIGABRT made Python's fault handler print the stacks (the run ended
+  with exit 134): the main thread was **inside the cyclic garbage collector**
+  ("Garbage-collecting"), entered from an allocation in `util/tree_util.py:40`
+  while the bison parser (`iptables/parser.py:391`, `on_module`) parsed
+  `bench/wl_tum/single`'s ruleset during `InProcessFaVe.replay` (via
+  `incremental_run.run`). Extension modules loaded: `bison.bison_`, `_jpype`,
+  `lxml`. The other thread waited on the aggregator queue.
+  - *Reading:* one collection, half an hour, in a process grown over ~20 earlier
+    modules -- not NetPlumber, not the JVM. Why a collection takes that long is
+    not known (a native extension's objects, or JPype's GC linkage, are the
+    suspects); alone the process is small, which fits "never reproduced alone".
+  - *Mitigation (owner, 2026-10-16):* the bison group is split into one pytest
+    process per module (`test.sh`, `FAVE_INTEGRATION_SLOWEST`: 45 modules passed, each alone, 396 s wall at
+    `FAVE_JOBS=4` against 1,002-2,325 s as one process), so no process accumulates the earlier modules'
+    heap. If it recurs within one module, the tier is run with
+    `PYTEST_ADDOPTS="-o faulthandler_timeout=600"`.
 
 ### 55. A fast test leaves state that drops every link of a later in-process APKeep replay — OPEN (found 2026-10-14)
 
