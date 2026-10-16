@@ -44,6 +44,8 @@ class TestConfigurationStamp(unittest.TestCase):
         self.assertEqual(stamp, {"impl": "reimpl-literature", "vf_fields": "4+10",
                                  "vf_revisit": "state", "vf_slicing": "device",
                                  "vf_budget": 0, "vf_invert_lpm": False,
+                                 # owner, 2026-10-16
+                                 "vf_early_exit": True,
                                  "footprint": ["witness", "dead-ends"],
                                  "witness_point": True})
 

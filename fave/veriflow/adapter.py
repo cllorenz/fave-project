@@ -106,7 +106,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                  slicing: str = "device", budget: int = 0,
                  revisit: str = "state", fields: str = "4+10",
                  footprint: Optional[Tuple[str, ...]] = None,
-                 witness_point: bool = True) -> None:
+                 witness_point: bool = True, early_exit: bool = True) -> None:
         if slicing not in ("device", "network"):
             raise ValueError("slicing is 'device' or 'network', not %r" % slicing)
         if revisit not in ("path", "state"):
@@ -136,6 +136,14 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         self.witness_point = witness_point
         self.slicing = slicing
         self.budget = budget
+        #: Early exit (owner, 2026-10-16; ACCOMMODATIONS.md): with tracking
+        #: off, a start's walk stops once every probe asked of its key is
+        #: delivered -- the verdicts need nothing more. With tracking on the
+        #: walk stays whole: the footprints and the delivered sets the
+        #: selective re-check reads are the whole walk's. Off is the ablation.
+        self.early_exit = early_exit
+        #: starts whose walk stopped early, over the lifetime
+        self.early_exits = 0
         #: Q4 (owner, 2026-09-30): "state", the thesis's rule, by default --
         #: a walk stops at a (table, arrival, packet set) it has reached before.
         #: "path" is NetPlumber's (a path revisiting a table stops, whatever the
@@ -205,7 +213,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                       "footprint": list(self.footprint),
                       "witness_point": self.witness_point,
                       "vf_revisit": self.revisit, "vf_slicing": self.slicing,
-                      "vf_budget": self.budget,
+                      "vf_budget": self.budget, "vf_early_exit": self.early_exit,
                       # MEASUREMENT_RUN_PLAN.md §5.4's guardrail. It reached
                       # `Ir.stamps` already (`vf_invert_lpm`) but not here, so
                       # a CELL could not tell an inverted run from a faithful
@@ -240,6 +248,7 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         ir.stamps["vf_slicing"] = self.slicing
         ir.stamps["vf_budget"] = self.budget
         ir.stamps["vf_revisit"] = self.revisit
+        ir.stamps["vf_early_exit"] = self.early_exit
         self._scan = scan_fields(ir) if self.fields == "4+10" else []
         ir.stamps["vf_fields"] = "plain" if not self._scan else "4+10:trie=%s,scan=%s" % (
             [n for (n, _w), sc in zip(ir.fields, self._scan) if not sc],
@@ -297,6 +306,15 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
                 if self._tracking:
                     self._sets_of[key] = keys[key]
 
+        # early exit: the probe tables asked of each key in this call
+        early = self.early_exit and not self._tracking
+        asked: Dict[Tuple[str, Tuple[Any, ...]], Set[int]] = {}
+        if early:
+            for dst, checks in rules.items():
+                for src, _negated, cond in checks:
+                    key = (src, tuple((f.name, str(f.value), f.negated) for f in cond))
+                    if dst in ir.probes:
+                        asked.setdefault(key, set()).add(ir.probes[dst])
         by_set: Dict[str, List[Tuple[str, Tuple[Any, ...]]]] = {}
         for key, sets in keys.items():
             for qs in sets:
@@ -321,7 +339,9 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
             else:
                 walked = self.net.local_deliveries(
                     qs, starts, self.budget, self.revisit == "state", self._scan,
-                    self._tracking, witness)
+                    self._tracking, witness,
+                    [sorted(asked.get(key, ())) for key in owner_of] if early else [])
+                self.early_exits += self.net.last_early_exits
                 (answers, finished, stopped_at, predicted, single, local_ecs, hops,
                  per_table) = walked[:8]
                 if self._tracking:

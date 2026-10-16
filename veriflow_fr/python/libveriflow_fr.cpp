@@ -100,13 +100,15 @@ class PyNetwork {
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
                              uint64_t budget, bool state,
                              const std::vector<bool> &scan,
-                             bool footprint, bool witness) const {
+                             bool footprint, bool witness,
+                             const std::vector<std::vector<uint32_t>> &targets) const {
     LocalResult r;
     {
       py::gil_scoped_release release;
       r = vf::local_deliveries(net_, range, starts, budget,
                                state ? Revisit::STATE : Revisit::PATH, scan,
-                               footprint || witness, witness);
+                               footprint || witness, witness, targets);
+      last_early_exits_ = r.early_exits;
     }
     if (witness)
       return py::make_tuple(r.delivered, r.finished, r.stopped_at, r.predicted,
@@ -186,6 +188,9 @@ class PyNetwork {
     return py::make_tuple(c.per_field, exact, c.approx);
   }
 
+  // Early exit (owner, 2026-10-16; ACCOMMODATIONS.md): starts the last local_deliveries stopped early
+  mutable uint64_t last_early_exits_ = 0;
+
  private:
   static Layout make_layout(const std::vector<std::pair<std::string, unsigned>> &fields) {
     std::vector<Field> fs;
@@ -231,7 +236,10 @@ PYBIND11_MODULE(libveriflow_fr, m) {
       .def("local_deliveries", &PyNetwork::local_deliveries, py::arg("range"),
            py::arg("starts"), py::arg("budget"), py::arg("state"),
            py::arg("scan") = std::vector<bool>(), py::arg("footprint") = false,
-           py::arg("witness") = false)
+           py::arg("witness") = false,
+           py::arg("targets") = std::vector<std::vector<uint32_t>>())
+      .def_property_readonly("last_early_exits",
+                             [](const PyNetwork &n) { return n.last_early_exits_; })
       .def("remove_rule", &PyNetwork::remove_rule)
       .def("unload_rule", &PyNetwork::unload_rule)
       .def("footprint_hits_rule", &PyNetwork::footprint_hits_rule)

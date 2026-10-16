@@ -39,7 +39,8 @@ from veriflow.translate import Translator
 _REGISTRY = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "ACCOMMODATIONS.md")
 
 #: VeriFlowAdapter.configuration_stamp()'s keys (it needs the native engine).
-_CONFIG_KEYS = ("impl", "vf_fields", "vf_revisit", "vf_slicing", "vf_budget")
+_CONFIG_KEYS = ("impl", "vf_fields", "vf_revisit", "vf_slicing", "vf_budget",
+                "vf_early_exit")
 
 
 class TestRegistryCoversEveryStamp(unittest.TestCase):

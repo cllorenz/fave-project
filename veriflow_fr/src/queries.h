@@ -181,6 +181,7 @@ struct LocalResult {
   // per start, per table delivered at: the first path found there (§4.1);
   // filled only when asked for (record_witness)
   std::vector<std::map<uint32_t, Witness>> witnesses;
+  uint64_t early_exits = 0;   // Early exit (owner, 2026-10-16; ACCOMMODATIONS.md): starts stopped early
 };
 
 // Bulk checks the thesis's way: device by device. At each table a packet set
@@ -209,7 +210,11 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
                              uint64_t budget = 0, Revisit revisit = Revisit::PATH,
                              const std::vector<bool> &scan = {},
                              bool record_footprint = false,
-                             bool record_witness = false);
+                             bool record_witness = false,
+                             // Early exit (owner, 2026-10-16; ACCOMMODATIONS.md): per start, the tables
+                             // the caller asks about; once all are delivered
+                             // the start's walk stops. Empty: walk everything.
+                             const std::vector<std::vector<uint32_t>> &targets = {});
 
 // Whether a rule (table, in_port, match) could be a candidate at any state of
 // `fp` -- i.e. whether inserting or deleting it can change that walk.

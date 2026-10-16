@@ -1109,6 +1109,14 @@ unit tests and seeing them fail, and its exit begins with those tests green.
   - **Registry:** `ACCOMMODATIONS.md` holds every VeriFlow-FR accommodation,
     with kind, cost, evidence and stamp, and a fast-tier test keeps it
     complete.
+- **Early exit (owner, 2026-10-16).** With tracking off, a start's walk stops
+  once every probe asked of its (source, condition) is delivered; the verdicts need
+  nothing more, and the EC definition (L7) is unchanged. On by default, stamped
+  `vf_early_exit`, `--vf-early-exit off` the ablation; not applied with tracking on,
+  whose footprints read the whole walk. Measured on `wl_tum`: 11,944 → 8,141 s and
+  ~57 GB → 3.4 GB peak (`bench/campaigns/results_vf_tum_perf_20261015/`); an
+  extension of ours (`ACCOMMODATIONS.md`). Tests: `early_exit_unit.cc`.
+
 - **V5 — Measurement** over the whole suite, both regimes where TODO item 31's
   incremental axis exists, stamped per §8. **Under the suite-wide limit** (TODO item
   31, decided 2026-10-01): 24 h and 32 GB per cell, on the larger machine to come.

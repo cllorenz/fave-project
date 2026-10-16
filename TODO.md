@@ -3781,6 +3781,26 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
+### 59. VeriFlow-FR's footprints do not fit `wl_tum` in the incremental regime — OPEN (2026-10-16)
+
+With tracking on, every walk records its footprint: every (table, arrival,
+packet set) state it reached (`fp->states`, both walk functions), kept per
+(source, condition, query set) for the whole run. On `wl_tum`'s 8,497 checks the
+walks reach **766 M states over 559 query sets**; at the ~1 KB per state the
+worst walk's visited record measured (55.7 GB for 54.7 M), that is **~780 GB**,
+an estimate from `results_vf_tum_perf_20261015/raw/vf_walks.jsonl.gz`, not a
+measurement. Early exit does not apply with tracking on (the footprints are the
+whole walk's), and a lighter revisit record would not lower this floor (owner,
+2026-10-16: the `state` rule stays). It never showed earlier: `wl_tum` had no
+checks in the D11 runs (D13).
+
+- [ ] **Measure** the footprint memory on a smaller slice (e.g. one VLAN's
+  outbound checks) to replace the estimate.
+- [ ] **Decide** (owner): a coarser footprint (per table a bounding range or a
+  union instead of every state -- sound, coarser selective re-checks), or
+  VeriFlow-FR not finishing incremental `wl_tum` within the limit, reported as
+  a finding like Q22's explosion.
+
 ### 58. Two cell-harness gaps found in the stable-index re-measurement — both FIXED 2026-10-15
 
 - [x] **A stale dump lock blocked every cell forever.** `misc/await_fave.py`

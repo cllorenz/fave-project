@@ -122,3 +122,20 @@ for missing inputs; the log keeps it.
    partition is listed only as the one remedy for the time.
 4. The 313 rounds re-walk query sets (0.4 % here): not worth a cache on
    wl_tum.
+
+## Decided (owner, 2026-10-16)
+
+**Early exit is the default; `off` stays selectable as the ablation**
+(`--vf-early-exit off`), stamped `vf_early_exit`, an extension in
+`docs/ACCOMMODATIONS.md`. The adapter takes it as an option, not the
+experiment's environment variable; it applies with tracking off only, as
+measured here. Every VeriFlow-FR time before 2026-10-16 is without it.
+
+**The `state` revisit rule stays (owner, 2026-10-16).** Its visited record is
+kept as it is and its cost is documented (`docs/ACCOMMODATIONS.md`, revisit
+row). With early exit the full-check run peaks at 3.4 GB. Remembering only the
+states on the current path (plus a bounded cache) would give the same answers
+with bounded memory, but in the incremental regime the footprints hold the
+same states anyway, so it would not lower that floor. That floor is TODO item
+59: VeriFlow-FR's footprints on `wl_tum` are estimated at ~780 GB.
+

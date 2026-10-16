@@ -237,9 +237,10 @@ class _RecordingVeriFlow:
     what is under test is the OPTIONS build_engine hands it. """
 
     def __init__(self, logger, slicing=None, budget=None, revisit=None,
-                 fields=None, invert_lpm=False):
+                 fields=None, invert_lpm=False, early_exit=None):
         self.logger, self.slicing, self.budget = logger, slicing, budget
         self.revisit, self.fields = revisit, fields
+        self.early_exit = early_exit
         self.invert_lpm = invert_lpm
 
 
@@ -350,14 +351,21 @@ class TestVeriFlowDefaults(unittest.TestCase):
 
     def test_the_defaults_are_the_decided_ones(self):
         engine = _build_veriflow()
-        self.assertEqual((engine.fields, engine.revisit, engine.slicing, engine.budget),
-                         ("4+10", "state", "device", 0))
+        self.assertEqual((engine.fields, engine.revisit, engine.slicing, engine.budget,
+                          engine.early_exit),
+                         ("4+10", "state", "device", 0, True))
 
     def test_the_ablations_stay_selectable(self):
         engine = _build_veriflow(vf_fields="plain", vf_revisit="path",
-                                 vf_slicing="network", vf_budget=1000)
-        self.assertEqual((engine.fields, engine.revisit, engine.slicing, engine.budget),
-                         ("plain", "path", "network", 1000))
+                                 vf_slicing="network", vf_budget=1000,
+                                 vf_early_exit="off")
+        self.assertEqual((engine.fields, engine.revisit, engine.slicing, engine.budget,
+                          engine.early_exit),
+                         ("plain", "path", "network", 1000, False))
+
+    def test_a_malformed_early_exit_is_refused(self):
+        with self.assertRaises(ValueError):
+            _build_veriflow(vf_early_exit="yes")
 
     def test_veriflow_options_are_ignored_by_the_other_backends(self):
         engine = build_engine(BACKEND_NETPLUMBER, _LOG, socks=[], vf_fields="plain")
@@ -372,6 +380,11 @@ class TestVeriFlowCommandLine(unittest.TestCase):
 
     def test_veriflow_is_a_backend_choice(self):
         self.assertEqual(self._parse(['-b', 'veriflow']).backend, BACKEND_VERIFLOW)
+
+    def test_early_exit_is_on_unless_turned_off(self):
+        # owner, 2026-10-16
+        self.assertEqual(self._parse([]).vf_early_exit, 'on')
+        self.assertEqual(self._parse(['--vf-early-exit', 'off']).vf_early_exit, 'off')
 
     def test_the_options_and_their_defaults(self):
         args = self._parse([])

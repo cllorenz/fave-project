@@ -180,6 +180,15 @@ struct Slicer {
   // the path being walked (pushed before a hop recurses, popped after).
   std::map<uint32_t, Witness> *wit = nullptr;
   std::vector<Hop> hops;
+  // Early exit (owner, 2026-10-16; ACCOMMODATIONS.md): this start's asked tables; null or empty: none.
+  const std::vector<uint32_t> *target = nullptr;
+  struct Found {};
+  void reached(const std::set<uint32_t> &out) const {
+    if (!target || target->empty()) return;
+    for (uint32_t t : *target)
+      if (!out.count(t)) return;
+    throw Found{};
+  }
 
   // A concrete packet of `set` minus `excl` (its lowest corner), or false.
   static bool pick(const Box &set, const std::vector<Box> &excl, Box &point) {
@@ -394,6 +403,7 @@ struct Slicer {
         if (r.consume) {
           out.insert(table);
           record_witness(table);
+          reached(out);
         } else if (!r.out_ports.empty()) {
           forward46(arrival, r, share, share_excl, path, out);
         }
@@ -491,6 +501,7 @@ struct Slicer {
       if (best && best->consume) {
         out.insert(table);
         record_witness(table);
+        reached(out);
       } else if (best) {
         Box next = ec;
         for (const auto &rw : best->rewrites) next[rw.first] = rw.second;
@@ -534,7 +545,8 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
                              const std::vector<std::pair<uint32_t, int64_t>> &starts,
                              uint64_t budget, Revisit revisit,
                              const std::vector<bool> &scan,
-                             bool record_footprint, bool record_witness) {
+                             bool record_footprint, bool record_witness,
+                             const std::vector<std::vector<uint32_t>> &targets) {
   LocalResult res;
   res.delivered.resize(starts.size());
   if (record_witness) res.witnesses.resize(starts.size());
@@ -564,12 +576,17 @@ LocalResult local_deliveries(const Network &net, const std::string &range,
       s.visited46.clear();
       s.hops.clear();
       if (record_witness) s.wit = &res.witnesses[i];
+      s.target = i < targets.size() ? &targets[i] : nullptr;
       std::vector<uint32_t> path;
-      if (v3b) {
-        s.walk46(starts[i].first, starts[i].second, box, {}, path, res.delivered[i]);
-        continue;
+      try {
+        if (v3b) {
+          s.walk46(starts[i].first, starts[i].second, box, {}, path, res.delivered[i]);
+          continue;
+        }
+        s.walk(starts[i].first, starts[i].second, box, path, res.delivered[i]);
+      } catch (const Slicer::Found &) {
+        ++res.early_exits;
       }
-      s.walk(starts[i].first, starts[i].second, box, path, res.delivered[i]);
     }
   } catch (const Slicer::Abort &) {
   }

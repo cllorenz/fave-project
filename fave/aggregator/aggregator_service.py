@@ -142,7 +142,7 @@ def build_engine(
         solver: Optional[str] = None, lite_acyclic: bool = False,
         vf_fields: str = '4+10', vf_revisit: str = 'state',
         vf_slicing: str = 'device', vf_budget: int = 0,
-        invert_lpm: bool = False, ndd_collect_visited: bool = False
+        vf_early_exit: str = 'on', invert_lpm: bool = False, ndd_collect_visited: bool = False
 ) -> Any:
     """ The verification engine named by `backend`.
 
@@ -213,8 +213,11 @@ def build_engine(
         # stamp, and each ablation stays reachable by name. No budget by
         # default: the suite's did-not-finish limit is external (TODO item 31).
         from veriflow.adapter import VeriFlowAdapter
+        if vf_early_exit not in ('on', 'off'):
+            raise ValueError("--vf-early-exit is 'on' or 'off', not %r" % vf_early_exit)
         return VeriFlowAdapter(logger, slicing=vf_slicing, budget=vf_budget,
                                revisit=vf_revisit, fields=vf_fields,
+                               early_exit=vf_early_exit == 'on',
                                invert_lpm=invert_lpm)
 
     if backend == BACKEND_APKEEP:
@@ -1376,6 +1379,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--vf-slicing', dest='vf_slicing',
                         choices=('device', 'network'), default='device')
     parser.add_argument('--vf-budget', dest='vf_budget', type=int, default=0)
+    # early exit (owner, 2026-10-16): on by default, `off` is the ablation
+    parser.add_argument('--vf-early-exit', dest='vf_early_exit',
+                        choices=('on', 'off'), default='on')
     # MEASUREMENT_RUN_PLAN.md §5.4's guardrail, and NEVER a faithful run: order
     # every declared-LPM table shortest-prefix-first, so the default route
     # outranks every specific one. Honoured by netplumber and veriflow, which
@@ -1453,6 +1459,7 @@ def main(argv: List[str]) -> None:
             faithful_vlan=args.faithful_vlan,
             vf_fields=args.vf_fields, vf_revisit=args.vf_revisit,
             vf_slicing=args.vf_slicing, vf_budget=args.vf_budget,
+            vf_early_exit=args.vf_early_exit,
             invert_lpm=args.invert_lpm, stable_indices=args.stable_indices,
             ndd_collect_visited=args.ndd_collect_visited)
     except ValueError as err:
