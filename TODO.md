@@ -3806,6 +3806,44 @@ checks in the D11 runs (D13).
   union instead of every state -- sound, coarser selective re-checks), or
   VeriFlow-FR not finishing incremental `wl_tum` within the limit, reported as
   a finding like Q22's explosion.
+- **Owner's idea (2026-10-16), assessed.** Play the engine's equivalence classes
+  back and keep maps model element (rule, link, source, probe) <-> ECs, so an
+  update finds its affected ECs, and re-verifies only affected and new paths.
+  - *Sound core:* an index from element to the checks whose packets pass it.
+    Today `_affects*` asks every (source, condition)'s footprint per update; an
+    inverted index makes that a lookup. Sources and probes as the ends of those
+    sets is what selective re-checking needs.
+  - *Does not hold as stated:* (1) FaVe's VeriFlow-FR has no network-wide ECs
+    to map: those are 5.1e13 on `wl_tum` (Q22), which is why bulk checks slice
+    table by table; the local ECs (806 M here) ARE the footprint, so an
+    element->EC map is item 59's memory in the other direction. (2) EC
+    identities do not survive updates (every rule splits its range); stable
+    ids, carried through splits, are APKeep's atoms. (3) "Affected and new
+    paths": an addition can be re-walked from the changed element and merged;
+    a removal needs to know whether other paths still deliver -- a count per
+    (source, probe), i.e. stable ids again, or a re-walk of the source, which
+    the adapter does today. (4) Played back into Python, 766 M states cost
+    ~10x their C++ size: the index belongs in the engine.
+  - *Faithfulness:* footprints are FaVe's incremental extension
+    (`VERIFLOW_FOOTPRINT_SCOPE.md`); storing or indexing them differently stays
+    inside it. Partial forward walks and EC counting would move VeriFlow-FR
+    towards APKeep (Q22's line) -- a separate decision.
+- **What does help: a union per (table, arrival) instead of every state.** The
+  footprint answers "does this rule's match meet a state that reached its table
+  on this arrival" (`footprint_hits_rule`) and "where would the packets a
+  deleted rule frees go" (`delete_fate`, over `rule ∩ state` per state). Both
+  give the same answer for ANY set of boxes with the same union: a box meets
+  some state iff it meets the union, and a candidate meets `rule ∩ U` iff it
+  meets `rule ∩ p` for some piece p. A table's grid cells tile the set that
+  arrived there, so merging adjacent boxes should collapse millions of states
+  to few boxes. `ports` and the witnesses are unaffected.
+- [ ] **Plan (owner, 2026-10-16):** (1) measure footprint memory on a
+  `wl_tum` slice, replacing the estimate; (2) prototype the merged union in the
+  engine's footprint (compacted while the walk records it), checked against
+  per-state footprints on random networks (`footprint_hits_rule`,
+  `delete_fate`) and by the from-zero oracle (`test_incremental_veriflow.py`);
+  (3) the element -> checks index on top, if the per-update scan shows in the
+  times.
 
 ### 58. Two cell-harness gaps found in the stable-index re-measurement — both FIXED 2026-10-15
 
