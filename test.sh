@@ -252,6 +252,7 @@ FAVE_NDD_TESTS=(
     test/test_incremental_m2_apkeep.py # M2's S4 on BDD- and NDD-APKeep, under the oracle
     test/test_incremental_device_removal.py # INCREMENTAL_PLAN.md §8.2: device removal under the oracle -- NetPlumber and ad6 remove and re-add, VeriFlow-FR and BDD-/NDD-APKeep empty; ~4 min
     test/test_incremental_route_commands.py # INCREMENTAL_PLAN.md D14: routes deleted and re-added by switch commands through FaVe, under the oracle, all four engines; ~5 min
+    test/test_incremental_fave_streams.py # INCREMENTAL_PLAN.md D14: S1-S3 through FaVe (re-sends, switch and topology commands) under the oracle, all four engines; ~6 min
     test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs
@@ -280,8 +281,10 @@ FAVE_REGENERATING_TESTS=(
 # The bison-dependent group's slowest modules, slowest first: queued before the
 # rest of the group, since each module is a unit of its own (2026-10-16,
 # measured alone at FAVE_JOBS=4: 231, 153, 152, 123, 97 s; the route
-# commands, added later, 306 s alone and serial).
+# commands and the FaVe-level streams, added later: 306 and ~350 s alone
+# and serial).
 FAVE_INTEGRATION_SLOWEST=(
+    test/test_incremental_fave_streams.py
     test/test_incremental_route_commands.py
     test/test_backend_differential.py
     test/test_incremental_veriflow.py

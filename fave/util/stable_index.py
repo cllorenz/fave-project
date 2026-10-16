@@ -96,6 +96,15 @@ class StableIndexer:
             gone = set(idxs)
             self._last[(node, table)] = [e for e in prev if e[0] not in gone]
 
+    def restore(self, node: str, table: str,
+                last: Optional[List[Tuple[int, Key]]]) -> None:
+        """ Put back an earlier `last(node, table)` (None: never emitted) --
+        a re-send the engine refused is undone. """
+        if last is None:
+            self._last.pop((node, table), None)
+        else:
+            self._last[(node, table)] = list(last)
+
     def last(self, node: str, table: str) -> Optional[List[Tuple[int, Key]]]:
         """ The last emission of (node, table): [(idx, key)] in order. """
         return self._last.get((node, table))

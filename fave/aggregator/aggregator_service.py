@@ -755,6 +755,9 @@ class AggregatorService(AbstractAggregator):
             cmd = model
 
             if cmd.mtype == "links":
+                if self.verification_engine.takes_updates():
+                    self._set_links(cmd)
+                    return
                 links = []
                 for link in cmd.model:
                     sport, dport, bulk = link
@@ -945,6 +948,52 @@ class AggregatorService(AbstractAggregator):
         return nlink
 
 
+    def _forget_link(self, sport: str, dport: str) -> None:
+        """ The inverse of `_record_link`. """
+        self.links[sport].remove(dport)
+        if not self.links[sport]:
+            del self.links[sport]
+        engine = self.verification_engine
+        g_s = engine.global_port(self.port_to_model[sport].egress_port(sport))
+        g_d = engine.global_port(self.port_to_model[dport].ingress_port(dport))
+        if g_d in engine.links.get(g_s, []):
+            engine.links[g_s].remove(g_d)
+            if not engine.links[g_s]:
+                del engine.links[g_s]
+
+
+    def _set_links(self, cmd: Any) -> None:
+        """ D14, S3 through FaVe: a built lazy engine (VeriFlow-FR, APKeep)
+        takes link changes only as `set_link`, one by one, bulk or not. The
+        aggregator's and the engine's adjacency follow each; a refusal undoes
+        the command's earlier links, so it changes nothing. """
+        up = cmd.command == "add"
+        engine = self.verification_engine
+        done: List[Tuple[str, str, Tuple[str, str]]] = []
+        try:
+            for sport, dport, _bulk in cmd.model:
+                names = (self.port_to_model[sport].egress_port(sport),
+                         self.port_to_model[dport].ingress_port(dport))
+                engine.set_link(*names, up)
+                done.append((sport, dport, names))
+                if up:
+                    self._record_link(sport, dport)
+                else:
+                    self._forget_link(sport, dport)
+        except Exception:
+            try:
+                for sport, dport, names in reversed(done):
+                    engine.set_link(*names, not up)
+                    if up:
+                        self._forget_link(sport, dport)
+                    else:
+                        self._record_link(sport, dport)
+            except Exception as err:
+                raise RuntimeError("undoing a refused link command failed; the "
+                                   "engine and the aggregator now differ") from err
+            raise
+
+
     def _links_of(self, model: Any) -> List[Tuple[str, str]]:
         """ The external links of the stored `model`, in either direction. """
         return [(sport, dport)
@@ -1022,9 +1071,9 @@ class AggregatorService(AbstractAggregator):
         index forget them. A device, or an index, the aggregator does not
         hold refuses the WHOLE batch before anything is touched, as does a
         table the aggregator numbered itself. An engine refuses a rule before
-        changing anything (§6.2): the rules deleted before its refusal are
-        then gone from both the engine and the stored model, the rest stay in
-        both, and the refusal propagates. """
+        changing anything (§6.2); the rules it deleted for the command before
+        are then put back (`_undo_deletes`), so a refused command changes
+        nothing, and the refusal propagates. """
         node = cmd.node
         device = self.models.get(node)
         if device is None:
@@ -1041,11 +1090,40 @@ class AggregatorService(AbstractAggregator):
             for table, idx in keys:
                 engine.delete_rule(node, table, idx)
                 done.append((table, idx))
-        finally:
-            if done:
-                removed = device.drop_rules(done)
-                device._deletes = []
-                self._forget_rules(node, removed)
+        except Exception:
+            self._undo_deletes(device, done)
+            raise
+        removed = device.drop_rules(done)
+        device._deletes = []
+        self._forget_rules(node, removed)
+
+
+    def _undo_deletes(self, device: Any, done: List[Tuple[str, int]]) -> None:
+        """ A command refused midway: the rules its engine already deleted go
+        back -- the stored model still holds them -- so the command changes
+        nothing. As inserts on a built lazy engine, as `add_rules` on a live
+        one. """
+        if not done:
+            return
+        wanted = set(done)
+        rules = [r for table, _ in done for r in device.tables.get(table, [])
+                 if (table, r.idx) in wanted]
+        rules = list({id(r): r for r in rules}.values())
+        engine = self.verification_engine
+        try:
+            if engine.takes_updates():
+                for rule in device.insertion_order(rules):
+                    engine.insert_rule(rule)
+            else:
+                back = copy.copy(device)
+                back.tables = {}
+                for rule in rules:
+                    back.tables.setdefault(rule.tid, []).append(rule)
+                engine.add_rules(back)
+        except Exception as err:
+            raise RuntimeError(
+                "%s: undoing a refused command failed; the engine and the "
+                "stored model now differ" % device.node) from err
 
 
     def _refuse_held_indices(self, device: Any) -> None:
@@ -1073,9 +1151,9 @@ class AggregatorService(AbstractAggregator):
     def _insert_commanded(self, added: Any) -> None:
         """ A command's rules, for an engine that has built its model (D14):
         one `insert_rule` each. The stored model already holds them; if the
-        engine refuses one (before changing anything, §6.2), the rules not
-        inserted leave the stored model again, so both hold the same, and the
-        refusal propagates. """
+        engine refuses one (before changing anything, §6.2), the ones it took
+        are deleted again and all leave the stored model, so the command
+        changes nothing, and the refusal propagates. """
         rules = self.models[added.node].insertion_order(
             [rule for table in added.tables.values() for rule in table])
         engine = self.verification_engine
@@ -1083,8 +1161,15 @@ class AggregatorService(AbstractAggregator):
             try:
                 engine.insert_rule(rule)
             except Exception:
+                try:
+                    for done in reversed(rules[:n]):
+                        engine.delete_rule(added.node, done.tid, done.idx)
+                except Exception as err:
+                    raise RuntimeError(
+                        "%s: undoing a refused command failed; the engine and "
+                        "the stored model now differ" % added.node) from err
                 device = self.models[added.node]
-                removed = device.drop_rules((r.tid, r.idx) for r in rules[n:])
+                removed = device.drop_rules((r.tid, r.idx) for r in rules)
                 device._deletes = []
                 self._forget_rules(added.node, removed)
                 raise
@@ -1204,6 +1289,7 @@ class AggregatorService(AbstractAggregator):
         windows, moved = indexer.stats['windows'], indexer.stats['moved']
         deletes: List[Tuple[str, int]] = []
         inserts: List[Any] = []
+        saved = {table: indexer.last(node, table) for table in ordered}
         for table, rules in ordered.items():
             if indexer.last(node, table) is None:
                 # never emitted here: a switch table its control plane filled
@@ -1217,17 +1303,42 @@ class AggregatorService(AbstractAggregator):
             model.tables[table] = emitted
 
         t1 = time.perf_counter()
-        for table, idx in deletes:
-            self.verification_engine.delete_rule(node, table, idx)
-        if inserts:
-            # the declared-LPM check over what is added, as for any batch
-            added = copy.copy(model)
-            added.tables = {}
+        engine = self.verification_engine
+        done_deletes: List[Tuple[str, int]] = []
+        done_inserts: List[Any] = []
+        try:
+            for table, idx in deletes:
+                engine.delete_rule(node, table, idx)
+                done_deletes.append((table, idx))
+            if inserts:
+                # the declared-LPM check over what is added, as for any batch
+                added = copy.copy(model)
+                added.tables = {}
+                for rule in inserts:
+                    added.tables.setdefault(rule.tid, []).append(rule)
+                self._validate_declared_tables(added)
             for rule in inserts:
-                added.tables.setdefault(rule.tid, []).append(rule)
-            self._validate_declared_tables(added)
-        for rule in inserts:
-            self.verification_engine.insert_rule(rule)
+                engine.insert_rule(rule)
+                done_inserts.append(rule)
+        except Exception:
+            # D14: a re-send is all or nothing -- what the engine took is
+            # reverted, and the stored model and the indexer stay as they were
+            try:
+                for rule in reversed(done_inserts):
+                    engine.delete_rule(node, rule.tid, rule.idx)
+                wanted = set(done_deletes)
+                back = [r for t in old.tables for r in old.tables[t]
+                        if (t, r.idx) in wanted]
+                for rule in old.insertion_order(back):
+                    engine.insert_rule(rule)
+            except Exception as err:
+                raise RuntimeError(
+                    "%s: undoing a refused re-send failed; the engine and the "
+                    "stored model now differ" % node) from err
+            finally:
+                for table, last in saved.items():
+                    indexer.restore(node, table, last)
+            raise
         t2 = time.perf_counter()
 
         model.table_semantics = dict(model.table_semantics)

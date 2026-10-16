@@ -229,6 +229,49 @@ TNSM'21 measures only build-from-zero plus one verification.
     BDD-APKeep only on `wl_example`. 14 passed; APKeep refuses 2 commands
     (deleting and re-adding `pgf`'s default route). Two mutations (the engine
     never told of a delete; of an insert) fail it.
+  *S1-S3 through FaVe, built 2026-10-16 (owner: "continue with S1-S3
+  through FaVe"; `util/fave_streams.py`, `bench/incremental_run.py`).* The
+  units are what a user changes: a **configuration rule line** (iptables `-A`,
+  a router's `access-list` entry), changed by editing the file and re-sending
+  the device (the stable-index diff of §8.1, as S4); a **route** of
+  `routes.json`, by `switch.py -d -r` / `-a -r`; a **link** of the topology,
+  policies or sources, by `topology.py -d -l` / `-a -l`. S1 deletes every rule
+  in reverse build order (configuration lines, as the devices are created,
+  then routes) and inserts them in build order; S2 a seeded fraction; S3 each
+  link down and up. A batch is sent as the fewest messages that keep its
+  order (consecutive updates of one kind, direction and device), then
+  re-checked once. Per batch the records add `messages` and split the time
+  into `t_model_s` (re-sends regenerating the device), `t_diff_s` and
+  `t_update_s` (the rest of FaVe and the engine), so `t_total` is a user's
+  change to an updated verdict. The stream is the same file for every engine,
+  so `incremental_compare.py` compares cells as before. `--at-adapter` keeps
+  M1's path, for development only; every cell stamps `driven`.
+  - **What changed underneath:** a built lazy engine takes link changes as
+    `set_link` (the aggregator called `remove_link`/`add_link`, which
+    VeriFlow-FR and APKeep refuse after the build), with the aggregator's and
+    the engine's adjacency kept by the aggregator. And **every message is all
+    or nothing**: a rule command, a link command or a configuration re-send
+    that the engine refuses midway is undone (the deletes inserted again, the
+    inserts deleted, the stable indexer restored), so a refusal changes
+    nothing anywhere and the stream's state is exactly FaVe's. Before, a
+    refusal could leave a route half deleted, or a re-send's engine state
+    ahead of the stored model and the indexer.
+  - **The oracle** builds the workload's current state from zero
+    (`FaveWorkload.zero_prefix`: configurations as edited, routes present,
+    links up) -- no engine-level withholding.
+  - **Units and sizes:** `wl_up` 3,252 configuration lines (136 files) and 318
+    routes; `wl_tum` 3,794 lines and 249 routes; the other grid workloads are
+    switches, routes only (`wl_airtel1` 39,500).
+  - **Tested:** 8 fast unit tests (`test_fave_streams.py`, a fake FaVe), 6
+    for the link path and the undo; `test_incremental_fave_streams.py`
+    (integration) holds all four engines to the oracle on `wl_example` (S1,
+    S2 in batches of 3, S3) and `wl_cloud` (S2 5 %, S3 in batches of 3):
+    18 passed, 2 skipped (BDD-APKeep, `wl_cloud`); APKeep refuses 2 messages
+    of `wl_example` S1 (`pgf`'s default route). Every engine sees the same
+    number of verdict changes in every stream. A mutation that keeps the
+    bookkeeping but never tells a lazy engine of a link fails it. The D11
+    numbers for S1-S3 stay engine-level and indicative.
+
 - **D15. The campaign grid, cut (owner, 2026-10-16).** `wl_example` and
   `wl_ifi` leave the campaign entirely: they answer functional questions, not
   performance ones (S4 then runs on `wl_cloud`, `wl_up`, `wl_tum`).

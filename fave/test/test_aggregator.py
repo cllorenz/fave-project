@@ -181,6 +181,32 @@ class TestSyncStable(_AggregatorTestBase):
         aggr._sync_diff(_fw([10, 20]))
         self.assertEqual(self._ff(aggr), [(1, '10'), (2, '20')])
 
+    def test_a_resend_the_engine_refuses_midway_is_undone(self):
+        """ D14: a re-send is all or nothing. The engine refuses an insert
+        (before changing anything, §6.2); the deletes and inserts it took for
+        the re-send are reverted, and the stored model and the indexer stay
+        as they were, so the same re-send can be tried again. """
+        from aggregator.abstract_engine import UpdateRefused
+        aggr = self._stable()
+        aggr._sync_diff(_fw([10, 20, 30]))
+        before = list(aggr._indexer.last('fw', 'fw.forward_filter'))
+        self.engine.reset_mock()
+        self.engine.insert_rule.side_effect = [None, UpdateRefused('no'), None, None]
+        with self.assertRaises(UpdateRefused):
+            aggr._sync_diff(_fw([15, 25, 30]))     # 10, 20 go; 15, 25 come
+        deleted = [c.args[2] for c in self.engine.delete_rule.call_args_list]
+        inserted = [c.args[0].idx for c in self.engine.insert_rule.call_args_list]
+        # 125 and 250 deleted; the first new rule inserted, the second refused;
+        # then undone: the inserted rule deleted, 125 and 250 inserted again
+        self.assertEqual(deleted[:2], [125, 250])
+        self.assertEqual(len(deleted), 3)
+        self.assertEqual(sorted(inserted[2:]), [125, 250])
+        self.assertEqual(self._ff(aggr), [(125, '10'), (250, '20'), (375, '30')])
+        self.assertEqual(aggr._indexer.last('fw', 'fw.forward_filter'), before)
+        self.engine.insert_rule.side_effect = None
+        aggr._sync_diff(_fw([15, 25, 30]))
+        self.assertEqual([v for _i, v in self._ff(aggr)], ['15', '25', '30'])
+
     def test_a_resend_over_budget_is_refused_untouched(self):
         from aggregator.abstract_engine import UpdateRefused
         aggr = self._stable()

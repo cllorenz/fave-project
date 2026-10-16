@@ -256,6 +256,27 @@ class InProcessFaVe:
         self._agg.queue.join()
         barrier.wait(guard, directory=self._barrier_dir)
 
+    def topology(self, argv: List[str]) -> None:
+        """ Send ONE topology command exactly as `topology.py <argv>` sends
+        it -- e.g. links taken down (`-d -l`) or up again (`-a -l`),
+        INCREMENTAL_PLAN.md D14 -- and block until the aggregator has applied
+        it. Barrier-guarded like `switch`. """
+        import topology.topology as topo_mod
+        self._guarded(lambda: topo_mod.main(argv), 'topology')
+
+    def _guarded(self, send: Any, what: str) -> None:
+        guard = barrier.arm(self._barrier_dir)
+        self._guard, self._guarded_sends = guard, 0
+        try:
+            send()
+        finally:
+            self._guard = None
+        if self._guarded_sends != 1:
+            raise RuntimeError("%s: %d messages for one command, expected one"
+                               % (what, self._guarded_sends))
+        self._agg.queue.join()
+        barrier.wait(guard, directory=self._barrier_dir)
+
     def switch(self, argv: List[str]) -> None:
         """ Send ONE control-plane command exactly as `switch.py <argv>`
         sends it -- e.g. a batch of routes added (`-a -r`), deleted (`-d -r`)
@@ -263,17 +284,7 @@ class InProcessFaVe:
         aggregator has applied it. Barrier-guarded: a refusal raises
         `BarrierError` with the aggregator's message. """
         import devices.switch as switch_mod
-        guard = barrier.arm(self._barrier_dir)
-        self._guard, self._guarded_sends = guard, 0
-        try:
-            switch_mod.main(argv)
-        finally:
-            self._guard = None
-        if self._guarded_sends != 1:
-            raise RuntimeError("switch: %d messages for one command, expected one"
-                               % self._guarded_sends)
-        self._agg.queue.join()
-        barrier.wait(guard, directory=self._barrier_dir)
+        self._guarded(lambda: switch_mod.main(argv), 'switch')
 
     def delete_device(self, name: str, mtype: str) -> None:
         """ Delete device `name` of type `mtype` with its links, as

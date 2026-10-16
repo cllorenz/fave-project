@@ -87,10 +87,15 @@ class TestCell(_Tmp):
 
         records = incremental_report.load_cell(rep)
         self.assertEqual(records['head']['seed'], 3)
+        # INCREMENTAL_PLAN.md D14: the stream went through FaVe
+        self.assertEqual(records['head']['driven'], 'fave')
         self.assertEqual(len(records['updates']), records['head']['updates'])
         for batch in records['updates']:
-            self.assertAlmostEqual(batch['t_update_s'], sum(batch['t_each_s']),
-                                   places=3)
+            # the messages' time is split into model, diff and update
+            self.assertAlmostEqual(
+                batch['t_update_s'] + batch['t_model_s'] + batch['t_diff_s'],
+                sum(m['t_s'] for m in batch['messages']), places=3)
+            self.assertEqual(sum(m['n'] for m in batch['messages']), batch['n'])
             self.assertIsNotNone(batch['affected'])
             for line, old, new in batch['changed']:
                 self.assertNotEqual(old, new)

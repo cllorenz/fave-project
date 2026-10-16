@@ -273,6 +273,51 @@ class TestLinks(_Base):
         self._links('del', [('a.1', 'b.2', True)])
         self.assertNotIn('a.1', self.aggr.links)
 
+    def test_a_built_lazy_engine_takes_a_link_down_and_up_as_set_link(self):
+        """ INCREMENTAL_PLAN.md D14, S3 through FaVe: VeriFlow-FR and APKeep
+        take a link change on a built model only as `set_link`; the
+        aggregator keeps its own and the engine's adjacency, as for an add. """
+        self._links('add', [('a.1', 'b.1', False)])
+        self.engine.takes_updates.return_value = True
+        self.engine.reset_mock()
+        self._links('del', [('a.1', 'b.1', False)])
+        self.engine.set_link.assert_called_once_with('a.1_egress', 'b.1_ingress', False)
+        self.engine.remove_link.assert_not_called()
+        self.assertEqual(self.aggr.links, {})
+        self.assertEqual(self.engine.links, {})
+
+        self._links('add', [('a.1', 'b.1', True)])     # bulk or not, one by one
+        self.engine.set_link.assert_called_with('a.1_egress', 'b.1_ingress', True)
+        self.engine.add_link.assert_not_called()
+        self.engine.add_links_bulk.assert_not_called()
+        self.assertEqual(self.aggr.links, {'a.1': ['b.1']})
+        num = self.port_numbers
+        self.assertEqual(self.engine.links, {num['a.1_egress']: [num['b.1_ingress']]})
+
+    def test_a_refused_link_change_leaves_the_bookkeeping(self):
+        self._links('add', [('a.1', 'b.1', False)])
+        self.engine.takes_updates.return_value = True
+        self.engine.set_link.side_effect = UpdateRefused('no')
+        with self.assertRaises(UpdateRefused):
+            self._links('del', [('a.1', 'b.1', False)])
+        self.assertEqual(self.aggr.links, {'a.1': ['b.1']})
+        with self.assertRaises(UpdateRefused):
+            self._links('add', [('b.2', 'a.2', False)])
+        self.assertNotIn('b.2', self.aggr.links)
+
+    def test_a_link_command_refused_midway_is_undone(self):
+        self._links('add', [('a.1', 'b.1', False), ('b.2', 'a.2', False)])
+        self.engine.takes_updates.return_value = True
+        self.engine.reset_mock()
+        self.engine.set_link.side_effect = [None, UpdateRefused('no'), None]
+        with self.assertRaises(UpdateRefused):
+            self._links('del', [('a.1', 'b.1', False), ('b.2', 'a.2', False)])
+        self.assertEqual(self.engine.set_link.call_args_list, [
+            mock.call('a.1_egress', 'b.1_ingress', False),
+            mock.call('b.2_egress', 'a.2_ingress', False),
+            mock.call('a.1_egress', 'b.1_ingress', True)])
+        self.assertEqual(self.aggr.links, {'a.1': ['b.1'], 'b.2': ['a.2']})
+
     def test_a_link_to_an_unknown_port_raises(self):
         with redirect_stderr(io.StringIO()), \
                 mock.patch('pprint.pprint'):
@@ -523,16 +568,31 @@ class TestCommandedRuleDeletion(_Base):
                           node='nosuch')
         self.engine.delete_rule.assert_not_called()
 
-    def test_an_engine_refusal_mid_batch_leaves_model_and_engine_alike(self):
-        """ An engine refuses a rule before changing anything (§6.2), so the
-        rules deleted before the refusal are gone from both, the rest stay
-        in both. """
+    def test_an_engine_refusal_mid_batch_undoes_the_batch(self):
+        """ A command is all or nothing: an engine refuses a rule before
+        changing anything (§6.2), and the rules it already deleted for the
+        command are inserted again, so a refused command changes neither the
+        engine nor the stored model -- a route is never left half deleted. """
+        self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'), self._rule(7, '10.1.0.0/16', 'sw.3'))
+        self.engine.takes_updates.return_value = True
+        self.engine.delete_rule.side_effect = [None, UpdateRefused('no')]
+        with self.assertRaises(UpdateRefused):
+            self._command('remove_rule', self._rule(3, '0.0.0.0/0', None),
+                          self._rule(7, '0.0.0.0/0', None))
+        self.assertEqual(self._held(), [3, 7])
+        [undo] = self.engine.insert_rule.call_args_list
+        self.assertEqual(undo.args[0].idx, 3)
+        self.assertEqual([i for i, _ in self.aggr._indexer.last('sw', 'sw.1')], [3, 7])
+
+    def test_a_live_engine_gets_the_undo_as_add_rules(self):
         self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'), self._rule(7, '10.1.0.0/16', 'sw.3'))
         self.engine.delete_rule.side_effect = [None, UpdateRefused('no')]
         with self.assertRaises(UpdateRefused):
             self._command('remove_rule', self._rule(3, '0.0.0.0/0', None),
                           self._rule(7, '0.0.0.0/0', None))
-        self.assertEqual(self._held(), [7])
+        (back,), _ = self.engine.add_rules.call_args
+        self.assertEqual([r.idx for r in back.tables['sw.1']], [3])
+        self.assertEqual(self._held(), [3, 7])
 
     def test_the_stable_indexer_forgets_the_deleted_rules(self):
         self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'), self._rule(7, '10.1.0.0/16', 'sw.3'))
@@ -592,14 +652,16 @@ class TestCommandedRuleDeletion(_Base):
         [call] = self.engine.insert_rule.call_args_list
         self.assertEqual(call.args[0].actions, [Forward(['sw.3'])])
 
-    def test_an_insert_refused_mid_batch_leaves_model_and_engine_alike(self):
+    def test_an_insert_refused_mid_batch_undoes_the_batch(self):
         self._switch(self._rule(3, '10.0.0.0/8', 'sw.2'))
         self.engine.takes_updates.return_value = True
         self.engine.insert_rule.side_effect = [None, UpdateRefused('no')]
         with self.assertRaises(UpdateRefused):
             self._command('add_rules', self._rule(5, '10.1.0.0/16', 'sw.3'),
                           self._rule(6, '10.2.0.0/16', 'sw.3'))
-        self.assertEqual(self._held(), [3, 5])
+        self.assertEqual(self._held(), [3])
+        self.engine.delete_rule.assert_called_once_with('sw', 'sw.1', 5)
+        self.assertEqual([i for i, _ in self.aggr._indexer.last('sw', 'sw.1')], [3])
 
     def test_adding_an_index_the_table_holds_is_refused_untouched(self):
         """ A modify is `update_rule`; an add naming an index the table

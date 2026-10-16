@@ -228,7 +228,10 @@ def _oracle_sample(cache, checks, k, rng):
     return sorted(line for line in full if full[line] != cache.verdict[line])
 
 
-def run(args):
+def run_at_adapter(args):
+    """ S1-S3 applied at the ADAPTER, bypassing the aggregator: M1's path,
+    kept for development only (`--at-adapter`); measurements go through FaVe
+    (`run`, INCREMENTAL_PLAN.md D14). """
     make = _engine_maker(args)
     files = parse_files(args.files)
     checks_path = os.path.join(args.workload, args.checks)
@@ -240,6 +243,7 @@ def run(args):
 
     head = {
         'what': 'incremental stream, raw records (INCREMENTAL_PLAN.md §5, §7)',
+        'driven': 'adapter',
         'workload': args.workload, 'engine': args.engine, 'files': files,
         'stream': args.stream, 'fraction': args.fraction, 'seed': args.seed,
         'batch': args.batch, 'limit_updates': args.limit_updates,
@@ -364,6 +368,177 @@ def run(args):
                    'refused' if every_refused else 'completed')})
     if every_refused:
         print("REFUSED: the engine refused all %d updates; see updates.jsonl in %s"
+              % (done, args.cell_dir), file=sys.stderr)
+    return 1 if failed else 0
+
+
+def _head(args, what, **extra):
+    """ The stamps every cell carries. """
+    checks_path = os.path.join(args.workload, args.checks)
+    has_checks = os.path.exists(checks_path)
+    oracle = args.oracle_sample > 0 and has_checks
+    return {
+        'what': what, **extra,
+        'workload': args.workload, 'engine': args.engine,
+        'stream': args.stream, 'fraction': args.fraction, 'seed': args.seed,
+        'batch': args.batch, 'limit_updates': args.limit_updates,
+        'footprint': effective_footprint(args.engine, args.footprint),
+        **_ndd_options(args),
+        'oracle': ({'sample': args.oracle_sample, 'every': args.oracle_every,
+                    'seed': args.oracle_seed} if oracle else None),
+        'checks_file': checks_path if has_checks else None,
+        'checks_sha256': sha256_file(checks_path) if has_checks else None,
+        'started': _now(),
+        'git_head': subprocess.run(['git', 'rev-parse', 'HEAD'],
+                                   capture_output=True, text=True,
+                                   check=False).stdout.strip(),
+        'engine_commit': (engine_commit(_TREES[args.engine][0])
+                          if len(_TREES[args.engine]) == 1 else
+                          ' + '.join(str(engine_commit(tree))
+                                     for tree in _TREES[args.engine])),
+    }
+
+
+def run(args):
+    """ S1-S3 driven THROUGH FaVe (INCREMENTAL_PLAN.md D14, owner: every
+    measurement is driven through FaVe): configuration rule lines by
+    re-sending the device, routes by `switch.py` commands, links by
+    `topology.py` commands (`util.fave_streams`). A batch is sent as the
+    fewest messages that keep its order, then re-checked once.
+
+    Per batch, besides the fields of `run_at_adapter`: `messages`, one entry
+    per message (its kind, how many updates, its time and, for a re-send,
+    the aggregator's diff and engine times); `t_model_s` and `t_diff_s`, the
+    re-sends' device regeneration and align+diff, summed; `t_update_s` is the
+    rest of the messages' time -- FaVe taking a command or a diff to the
+    engine and the engine applying it -- so `t_total` (the report's) is the
+    whole time from the first message to the updated verdicts. A refused
+    message changes nothing (the aggregator undoes it) and is recorded for
+    each of its updates. """
+    import tempfile
+    from util import fave_streams as fs
+    from util.barrier import BarrierError
+    from util.in_process_driver import InProcessFaVe
+    make = _engine_maker(args)
+    files = parse_files(args.files)
+    checks_path = os.path.join(args.workload, args.checks)
+    checks = inc.load_checks(checks_path) if os.path.exists(checks_path) else []
+    oracle = args.oracle_sample > 0 and bool(checks)
+    os.makedirs(args.cell_dir, exist_ok=True)
+    path = lambda name: os.path.join(args.cell_dir, name)
+    head = _head(args, 'incremental stream through FaVe, raw records '
+                       '(INCREMENTAL_PLAN.md §5, §7, D14)', driven='fave', files=files)
+    engine = make()
+    failed, done, n_refused = None, 0, 0
+    with tempfile.TemporaryDirectory(prefix='stream_') as work, \
+            InProcessFaVe(engine) as fave:
+        wl = fs.FaveWorkload(args.workload, work, files=files)
+        t0 = time.perf_counter()
+        fave.replay(wl.zero_prefix(), files=files)
+        engine.track_affected(True)
+        cache = inc.VerdictCache(fave, engine, checks)
+        if checks:
+            cache.full()
+        head['build_and_first_check_s'] = time.perf_counter() - t0
+        head['rss_after_build_mb'] = rss_mb()
+        head['configuration'] = engine.configuration_stamp()
+        head['initial_verdicts'] = dict(cache.verdict)
+        stream = fs.build_stream(args.stream, wl, args.fraction, args.seed)
+        if args.limit_updates:
+            stream = stream[:args.limit_updates]
+        out = _Lines(path('stream.jsonl'))
+        for pos, (op, unit) in enumerate(stream):
+            out.write({'pos': pos, 'op': op, 'what': wl.describe(unit)})
+        out.close()
+        head.update({'checks': len(checks), 'rules': len(wl.rules()),
+                     'links': len(wl.links()), 'updates': len(stream),
+                     'stream_sha256': sha256_file(path('stream.jsonl'))})
+        _write_json(path('head.json'), head)
+        engine.take_affected()
+
+        updates = _Lines(path('updates.jsonl'))
+        oracles = _Lines(path('oracle.jsonl')) if oracle else None
+        rng = random.Random(args.oracle_seed)
+        for b, start in enumerate(range(0, len(stream), args.batch)):
+            batch = stream[start:start + args.batch]
+            messages, refused = [], []
+            t_model = t_diff = 0.0
+            pos = start
+            t_a = time.perf_counter()
+            for op, units in wl.messages(batch):
+                t_m = time.perf_counter()
+                try:
+                    sent = wl.send(fave, op, units)
+                except BarrierError as err:
+                    if 'UpdateRefused' not in str(err):
+                        raise
+                    refused.extend([p, str(err)] for p in range(pos, pos + len(units)))
+                    sent = {'kind': 'refused'}
+                took = time.perf_counter() - t_m
+                entry = {'kind': sent['kind'], 'n': len(units), 't_s': took}
+                stats = sent.get('stats')
+                if stats:
+                    entry.update(t_diff_s=stats.get('t_diff_s', 0.0),
+                                 t_engine_s=stats.get('t_update_s', 0.0),
+                                 deleted=stats.get('deleted'), inserted=stats.get('inserted'))
+                    t_diff += entry['t_diff_s']
+                    t_model += took - entry['t_diff_s'] - entry['t_engine_s']
+                messages.append(entry)
+                pos += len(units)
+            t_b = time.perf_counter()
+            n_refused += len(refused)
+            affected = engine.take_affected()
+            rechecked = cache.selective(affected) if checks else []
+            t_c = time.perf_counter()
+            done = start + len(batch)
+            updates.write({
+                'b': b, 'pos': start, 'n': len(batch),
+                'ops': [u[0] for u in batch],
+                't_update_s': (t_b - t_a) - t_model - t_diff,
+                't_model_s': t_model, 't_diff_s': t_diff,
+                't_each_s': [m['t_s'] for m in messages], 'messages': messages,
+                't_recheck_s': t_c - t_b,
+                'affected': (None if affected is None
+                             else sorted([s, p] for s, p in affected)),
+                'rechecked': len(rechecked),
+                'changed': [list(c) for c in cache.last_changes] if checks else [],
+                'refused': refused,
+                'rss_mb': rss_mb(), 'mono': time.monotonic(),
+            })
+            if not oracle:
+                continue
+            record = {'b': b, 'done': done,
+                      'sample_mismatch': _oracle_sample(
+                          cache, checks, args.oracle_sample, rng)}
+            if (args.oracle_every and done // args.oracle_every
+                    > start // args.oracle_every) or done == len(stream):
+                t_o = time.perf_counter()
+                full = cache.ask(checks)
+                zero = inc.from_zero(make, wl.zero_prefix(), checks, set(), set(),
+                                     files=files, like=engine)
+                record.update({
+                    'full': True,
+                    'selective_vs_full': sorted(
+                        l for l in full if full[l] != cache.verdict[l]),
+                    'full_vs_zero': sorted(
+                        l for l in full if full[l] != zero.get(l)),
+                    't_full_and_zero_s': time.perf_counter() - t_o})
+            oracles.write(record)
+            if (record['sample_mismatch'] or record.get('selective_vs_full')
+                    or record.get('full_vs_zero')):
+                failed = record
+                break
+        updates.close()
+        if oracles:
+            oracles.close()
+
+    every_refused = bool(done) and n_refused == done
+    _write_json(path('end.json'), {
+        'finished': _now(), 'completed_updates': done,
+        'status': ('oracle_failed' if failed else
+                   'refused' if every_refused else 'completed')})
+    if every_refused:
+        print("REFUSED: FaVe refused all %d updates; see updates.jsonl in %s"
               % (done, args.cell_dir), file=sys.stderr)
     return 1 if failed else 0
 
@@ -535,6 +710,10 @@ def main(argv=None):
                              "APKEEP_INCREMENTAL_SCOPE.md §9, "
                              "VERIFLOW_FOOTPRINT_SCOPE.md §4), or 'coarse'; "
                              "default both")
+    parser.add_argument('--at-adapter', action='store_true', default=False,
+                        help="S1-S3 at the adapter, bypassing FaVe's aggregator "
+                             "(M1's path; development only -- measurements go "
+                             "through FaVe, INCREMENTAL_PLAN.md D14)")
     parser.add_argument('--ndd-collect-visited', action='store_true', default=False,
                         help="NDD-APKeep: the NDD library collects a molecule's "
                              "atoms visiting each node once (ndd/FAVE_CHANGES.md "
@@ -552,6 +731,8 @@ def main(argv=None):
         if args.batch != 1:
             parser.error("S4 runs at batch 1: every edit is one device re-sent")
         rc = run_s4(args)
+    elif args.at_adapter:
+        rc = run_at_adapter(args)
     else:
         rc = run(args)
     if rc:   # 1 means the oracle failed, and nothing else does

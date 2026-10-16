@@ -193,6 +193,68 @@ def route_commands(test, make, prefix, fraction, seed, batch, every,
     return stats
 
 
+def fave_stream(test, make, prefix, kind, every, batch=1, fraction=0.2, seed=1,
+                files=None, refusals=False, limit=None):
+    """ INCREMENTAL_PLAN.md D14: stream `kind` (s1, s2, s3) driven through
+    FaVe (`util.fave_streams`): configuration lines by re-sending the device,
+    routes by switch commands, links by topology commands, `batch` updates
+    per re-check. The oracle as in `run`: after every batch the selective
+    re-verification equals a full one; every `every`-th batch and the last,
+    the full verdicts equal a from-zero build of the workload's current state
+    (`FaveWorkload.zero_prefix`). With `refusals`, a refused message is
+    counted and changes nothing (the aggregator undoes it). Returns the run's
+    counts. """
+    from util import fave_streams as fs
+    from util.barrier import BarrierError
+    from util.in_process_driver import InProcessFaVe
+    checks = inc.load_checks(os.path.join(prefix, 'checks.json'))
+    stats = {'updates': 0, 'messages': 0, 'batches': 0, 'verdict_changes': 0,
+             'rechecked': 0, 'refused': []}
+    engine = make()
+    with tempfile.TemporaryDirectory(prefix='fave_stream_') as work, \
+            InProcessFaVe(engine) as fave:
+        wl = fs.FaveWorkload(prefix, work, files=files)
+        fave.replay(wl.zero_prefix(), files=files)
+        engine.track_affected(True)
+        cache = inc.VerdictCache(fave, engine, checks)
+        previous = cache.full()
+        engine.take_affected()
+        stream = fs.build_stream(kind, wl, fraction, seed)[:limit]
+        test.assertTrue(stream, "an empty stream tests nothing")
+        batches = [stream[i:i + batch] for i in range(0, len(stream), batch)]
+        for n, chunk in enumerate(batches, start=1):
+            for op, units in wl.messages(chunk):
+                stats['messages'] += 1
+                try:
+                    wl.send(fave, op, units)
+                except BarrierError as err:
+                    if not refusals or 'UpdateRefused' not in str(err):
+                        raise
+                    stats['refused'].append((op, [wl.describe(u) for u in units], str(err)))
+            stats['rechecked'] += len(cache.selective(engine.take_affected()))
+            full = cache.ask(checks)
+            test.assertEqual(cache.verdict, full,
+                             "%s %s, batch %d %s: selective re-verification missed "
+                             "a change" % (prefix, kind, n, chunk[:2]))
+            stats['verdict_changes'] += sum(1 for c in full if full[c] != previous[c])
+            previous = full
+            if n % every == 0 or n == len(batches):
+                test.assertEqual(
+                    full, inc.from_zero(make, wl.zero_prefix(), checks, set(), set(),
+                                        files=files, like=engine),
+                    "%s %s, batch %d %s: the engine disagrees with a from-zero "
+                    "build of the workload's current state" % (prefix, kind, n, chunk[:2]))
+        stats.update(updates=len(stream), batches=len(batches))
+        if limit is None and not stats['refused']:
+            test.assertEqual((wl.absent, wl.down), (set(), set()),
+                             "%s %s: the stream did not return the workload" % (prefix, kind))
+    test.assertGreater(stats['verdict_changes'], 0,
+                       "no update changed a verdict: the oracle was not tested")
+    test.assertLess(len(stats['refused']), stats['messages'],
+                    "every message was refused: the stream tested nothing")
+    return stats
+
+
 def _misordered_routes(rules, declared, table=None, pairs=None):
     """ The routes of declared-LPM tables that file order puts on the wrong
     side of a covering route: a longer prefix inside a shorter one with a
