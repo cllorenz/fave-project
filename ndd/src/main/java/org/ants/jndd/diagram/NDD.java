@@ -1016,6 +1016,10 @@ public class NDD {
         if (isTrue(a) || isFalse(b) || a == b) return b;
 
         if (andCache.getEntry(a, b)) return andCache.result;
+        // FaVe fix (ndd/FAVE_CHANGES.md §14): the slot of THIS miss. The
+        // recursion below overwrites andCache.hashValue; storing at it put every
+        // entry above the leaves into another operation's slot, never found.
+        final int slot = andCache.hashValue;
 
         int frameStart = stackTop;
 
@@ -1053,7 +1057,7 @@ public class NDD {
 
         int res = edgeFlush(frameStart, aField);
         temporarilyProtect.add(res);
-        andCache.setEntry(andCache.hashValue, a, b, res);
+        andCache.setEntry(slot, a, b, res);
         return res;
     }
 
@@ -1079,6 +1083,10 @@ public class NDD {
         if (isFalse(a) || isTrue(b) || a == b) return b;
 
         if (orCache.getEntry(a, b)) return orCache.result;
+        // FaVe fix (ndd/FAVE_CHANGES.md §14): the slot of THIS miss. The
+        // recursion below overwrites orCache.hashValue; storing at it put every
+        // entry above the leaves into another operation's slot, never found.
+        final int slot = orCache.hashValue;
 
         int frameStart = stackTop;
 
@@ -1151,7 +1159,7 @@ public class NDD {
 
         int res = edgeFlush(frameStart, aField);
         temporarilyProtect.add(res);
-        orCache.setEntry(orCache.hashValue, a, b, res);
+        orCache.setEntry(slot, a, b, res);
         return res;
     }
 
@@ -1176,6 +1184,10 @@ public class NDD {
         if (isFalse(a)) return TRUE;
 
         if (notCache.getEntry(a)) return notCache.result;
+        // FaVe fix (ndd/FAVE_CHANGES.md §14): the slot of THIS miss. The
+        // recursion below overwrites notCache.hashValue; storing at it put every
+        // entry above the leaves into another operation's slot, never found.
+        final int slot = notCache.hashValue;
 
         int frameStart = stackTop;
         int field = nodeTable.getField(a);
@@ -1195,7 +1207,7 @@ public class NDD {
 
         int result = edgeFlush(frameStart, field);
         temporarilyProtect.add(result);
-        notCache.setEntry(notCache.hashValue, a, result);
+        notCache.setEntry(slot, a, result);
         return result;
     }
 
@@ -1220,6 +1232,10 @@ public class NDD {
         if (isTrue(a)) return notRec(b);
 
         if (diffCache.getOrderedEntry(a, b)) return diffCache.result;
+        // FaVe fix (ndd/FAVE_CHANGES.md §14): the slot of THIS miss. The
+        // recursion below overwrites diffCache.hashValue; storing at it put every
+        // entry above the leaves into another operation's slot, never found.
+        final int slot = diffCache.hashValue;
 
         int frameStart = stackTop;
         int aField = nodeTable.getField(a);
@@ -1273,7 +1289,7 @@ public class NDD {
 
         int result = edgeFlush(frameStart, Math.min(aField, bField));
         temporarilyProtect.add(result);
-        diffCache.setOrderedEntry(diffCache.hashValue, a, b, result);
+        diffCache.setOrderedEntry(slot, a, b, result);
         return result;
     }
 

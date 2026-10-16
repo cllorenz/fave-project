@@ -121,6 +121,27 @@ class TestStamp(unittest.TestCase):
         self.assertIn('NDD', stamp['upstream'])
         self.assertIn('apkeep', stamp['upstream'])
 
+    def test_collect_visited_is_off_by_default_and_stamped(self):
+        # ndd/FAVE_CHANGES.md §15 (owner, 2026-10-16): selectable, off by
+        # default, and set on the JVM-global library by every NDD network
+        import jpype
+        log = logging.getLogger("test_ndd_apkeep")
+        on = APKeepAdapter(log, engine='ndd-apkeep', ndd_collect_visited=True)
+        lib = jpype.JClass("org.ants.jndd.diagram.AtomizedNDD")   # the JVM runs now
+        self.assertTrue(on.configuration_stamp()['ndd_collect_visited'])
+        self.assertTrue(lib.getCollectAtomsVisited())
+        off = APKeepAdapter(log, engine='ndd-apkeep')
+        self.assertFalse(off.configuration_stamp()['ndd_collect_visited'])
+        self.assertFalse(lib.getCollectAtomsVisited())
+
+    def test_collect_visited_is_refused_on_other_engines(self):
+        log = logging.getLogger("test_ndd_apkeep")
+        for engine in ('bdd', 'ndd'):
+            with self.assertRaises(ValueError):
+                APKeepAdapter(log, engine=engine, ndd_collect_visited=True)
+        self.assertNotIn('ndd_collect_visited',
+                         APKeepAdapter(log, engine='bdd').configuration_stamp())
+
 
 if __name__ == '__main__':
     unittest.main()

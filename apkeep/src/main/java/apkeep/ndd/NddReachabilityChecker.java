@@ -181,6 +181,7 @@ public class NddReachabilityChecker {
 
 	private boolean start(PositionTuple source, PositionTuple target, int seed) {
 		NddPorts.maybeCollect();   // between queries nothing unreferenced is in use
+		NddPorts.enterQueries();   // the reference's operation cache (FAVE_CHANGES.md §15)
 		resetCounters();
 		witnessPath = null;
 		return traverse(source, AtomizedNDD.getAtomizedTrue(), seed, target,

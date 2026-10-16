@@ -335,6 +335,38 @@ class TestEveryUpdateRefused(_Tmp):
             self.assertEqual(json.load(raw)['status'], 'completed')
 
 
+class TestNddCollectVisitedOption(unittest.TestCase):
+    """ --ndd-collect-visited (ndd/FAVE_CHANGES.md §15): NDD-APKeep only,
+    off by default, recorded in the head of an NDD-APKeep cell. """
+
+    def _args(self, *argv):
+        import argparse
+        ns = argparse.Namespace(engine=argv[0], footprint=None,
+                                ndd_collect_visited='--ndd-collect-visited' in argv)
+        return ns
+
+    def test_head_and_maker(self):
+        self.assertEqual(incremental_run._ndd_options(self._args('ndd-apkeep')),
+                         {'ndd_collect_visited': False})
+        self.assertEqual(incremental_run._ndd_options(
+            self._args('ndd-apkeep', '--ndd-collect-visited')),
+            {'ndd_collect_visited': True})
+        self.assertEqual(incremental_run._ndd_options(self._args('apkeep')), {})
+        seen = []
+        real = incremental_run.make_engine
+        incremental_run.make_engine = lambda name, **kw: seen.append((name, kw))
+        self.addCleanup(setattr, incremental_run, 'make_engine', real)
+        incremental_run._engine_maker(self._args('netplumber'))
+        incremental_run._engine_maker(self._args('ndd-apkeep', '--ndd-collect-visited'))
+        self.assertEqual(seen, [('netplumber', {}),
+                                ('ndd-apkeep', {'ndd_collect_visited': True})])
+
+    def test_refused_on_other_engines(self):
+        with self.assertRaises(SystemExit):
+            incremental_run.main([_PREFIX, '--engine', 'apkeep', '--stream', 's1',
+                                  '--ndd-collect-visited', '--cell-dir', '/nonexistent'])
+
+
 class TestFootprintOption(unittest.TestCase):
     """ --footprint: both modes by default, 'coarse' for the coarse
     footprint, recorded in head.json as the modes in effect. """

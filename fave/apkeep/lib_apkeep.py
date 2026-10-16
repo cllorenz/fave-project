@@ -101,7 +101,8 @@ class LibAPKeep:
     """
 
     def __init__(self, backend: str = 'bdd',
-                 footprint: Tuple[str, ...] = DEFAULT_FOOTPRINT) -> None:
+                 footprint: Tuple[str, ...] = DEFAULT_FOOTPRINT,
+                 collect_visited: bool = False) -> None:
         """ `backend` 'bdd' is BDD-APKeep (upstream's atomic predicates);
         'ndd' is NDD-APKeep -- the same network, elements and change tuples
         with NDD's per-field atoms (APKEEP_INCREMENTAL_SCOPE.md §4). Its jar
@@ -112,7 +113,12 @@ class LibAPKeep:
         APKEEP_INCREMENTAL_SCOPE.md §9, both by default: 'witness' (a
         reachable query's footprint is its witness path) and 'dead-ends' (an
         unreachable query ignores changes into a dead end); () is the coarse
-        footprint of §4. They act only while the network tracks updates. """
+        footprint of §4. They act only while the network tracks updates.
+
+        `collect_visited` (NDD only; ndd/FAVE_CHANGES.md §15, off by default)
+        makes the NDD library collect a molecule's atoms visiting each node
+        once, where the authors' code walks the diagram as a tree. Same
+        result; JVM-global, so it is set on every NDD network built. """
         if backend not in ('bdd', 'ndd'):
             raise ValueError("backend must be 'bdd' or 'ndd', got %r" % backend)
         unknown = set(footprint) - set(FOOTPRINT_MODES)
@@ -124,8 +130,14 @@ class LibAPKeep:
             raise RuntimeError(
                 "NDD-APKeep needs the NDD jar: %s (run fave/test/ndd_build.sh)"
                 % _NDD_JAR)
+        if collect_visited and backend != 'ndd':
+            raise ValueError("collect_visited is an NDD option, not %r" % backend)
         self.backend = backend
+        self.collect_visited = collect_visited
         _ensure_jvm()
+        if backend == 'ndd':
+            jpype.JClass("org.ants.jndd.diagram.AtomizedNDD").setCollectAtomsVisited(
+                collect_visited)
         self._APKeep = jpype.JClass("apkeep.main.APKeep")
         self._Network = jpype.JClass("apkeep.core.Network")
         self._Evaluator = jpype.JClass("apkeep.utils.Evaluator")

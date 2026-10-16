@@ -311,3 +311,51 @@ model. `NddReachabilityEngine` reads them in its one rule reader, `ruleToNDD`, a
 `+ filter` slots 20 and 21 (`withTagSlot`), so the `+ filter`, `+ acl`, NAT-match
 and condition paths all get them. Until then FaVe's adapter dropped both fields
 before they reached this engine (TODO.md item 54).
+
+## 14. Operation-cache entries were stored in the wrong slot  **[FIX]** (2026-10-16)
+
+`OperationCache.getEntry` / `IntOperationCache.getEntry` leave the slot of a
+miss in the cache's shared field `hashValue`, and the operation stores its
+result there when it is done: `andCache.setEntry(andCache.hashValue, ...)`.
+But the operation recurses between the lookup and the store, and every inner
+miss overwrites `hashValue`. So an entry was written into the slot of the LAST
+inner miss, where no lookup for its own operands looks; only entries whose
+recursion missed nothing (the leaves) landed right. Never a wrong answer -- a
+lookup compares the operands -- only misses: the caches memoized almost
+nothing above the leaves.
+
+Affected: `AtomizedNDD.andRec` and the int core's `NDD.and`, `or`, `not`,
+`diff`. The fix keeps the slot of the miss in a local (`slot`) and stores
+there. `org.ants.javandd.NDDFactory` (and, or, not) has the same pattern; FaVe
+does not use that API (only the authors' n-queens demo does), so it is left
+as it is.
+
+Found through NDD-APKeep on `wl_tum` (2026-10-15,
+`fave/bench/campaigns/results_ndd_tum_perf_20261015/FINDINGS.md`): with the
+AtomizedNDD `and` cache enabled for queries as the authors' `DPVerifierNDDAP`
+does (`../apkeep/FAVE_CHANGES.md` §15), the 8,497 checks took 280 s before and
+8.0 s after, with every answer, every node visited and every branch explored
+equal to the uncached run's. Alone, with the cache off, it changes nothing
+measurable there. Test: `NDDFaveCacheAndAtomsTest` (an operation finds its own
+entry right after it ran, on the int core and on AtomizedNDD; both fail on the
+unfixed code). An owner decision (2026-10-16) to change the authors' code; see
+also `docs/ACCOMMODATIONS.md`.
+
+## 15. Collecting a molecule's atoms, each node once (option, off)  **[NEW]** (2026-10-16)
+
+`AtomizedNDD.collectAtoms` (behind `changeAtoms`) walks a molecule as a tree:
+a node reached on k paths is visited k times, each with a `HashSet.addAll`.
+`setCollectAtomsVisited(true)` makes it visit each node once (an identity
+set). The union is idempotent, so the atoms are the same either way
+(`NDDFaveCacheAndAtomsTest.collectingAtomsOnceGivesTheTreeWalksAtoms`).
+
+**Off by default** (owner, 2026-10-16), selectable as NDD-APKeep's
+`ndd_collect_visited` (`APKeepAdapter`, `bench/incremental_run.py
+--ndd-collect-visited`), stamped in the configuration and the cell head. The
+setting is JVM-global; every NDD-APKeep network sets it when built.
+
+Measured on `wl_tum` (the findings above): it cut NDD-APKeep's build from
+1,422 s to 474 s while the port diffed whole atom sets per change; since the
+port keeps its atoms incrementally (`../apkeep/FAVE_CHANGES.md` §15) the build
+no longer calls it (110 s with it, 112 s without), so it now matters only to
+`NddPorts.checkInvariants` and the authors' reference verifiers.

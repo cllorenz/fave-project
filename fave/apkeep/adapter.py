@@ -781,7 +781,8 @@ class APKeepAdapter(AbstractVerificationEngine):
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
                  faithful_vlan: bool = True, engine: str = 'ndd',
                  _shadow: bool = False,
-                 footprint: Optional[Tuple[str, ...]] = None) -> None:
+                 footprint: Optional[Tuple[str, ...]] = None,
+                 ndd_collect_visited: bool = False) -> None:
         self.logger = logger
         # One shared adapter, two backend ENGINES (APKEEP_NDD_PLAN §2.5e). The
         # model construction below is engine-agnostic (it emits neutral "+ filter"
@@ -806,6 +807,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         if footprint is None:
             footprint = DEFAULT_FOOTPRINT if engine in self.APKEEP_ENGINES else ()
         self._footprint = tuple(footprint)
+        # NDD-APKeep only, off by default (ndd/FAVE_CHANGES.md §15; owner,
+        # 2026-10-16): the NDD library's atom collection visits each node once
+        # instead of walking the diagram as a tree. Same atoms either way.
+        if ndd_collect_visited and engine != 'ndd-apkeep':
+            raise ValueError("ndd_collect_visited needs engine 'ndd-apkeep', not %r" % engine)
+        self._ndd_collect_visited = ndd_collect_visited
         if _shadow:
             # Translates only (`_shadow_translation`): no engine behind it.
             self._ndd = None
@@ -818,7 +825,8 @@ class APKeepAdapter(AbstractVerificationEngine):
             self._ndd_fwd_mode = False   # pure-+fwd -> AtomForwarding path
         else:
             self._lib = LibAPKeep(backend='ndd' if engine == 'ndd-apkeep' else 'bdd',
-                                  footprint=self._footprint)
+                                  footprint=self._footprint,
+                                  collect_visited=ndd_collect_visited)
             self._ndd = None
         # --- updates after the build (INCREMENTAL_PLAN.md §6.2, O2) ----------
         # Every model-construction call, in order, so a SHADOW adapter can
@@ -1066,6 +1074,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         if self._engine in self.APKEEP_ENGINES:
             # [] is the coarse footprint
             stamp['footprint'] = list(self._lib.footprint if self._lib else self._footprint)
+        if self._engine == 'ndd-apkeep':
+            stamp['ndd_collect_visited'] = self._ndd_collect_visited
         return stamp
 
     def global_port(self, port: Any) -> Any:

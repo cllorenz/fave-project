@@ -127,7 +127,26 @@ def effective_footprint(engine, footprint):
     return list(DEFAULT_FOOTPRINT if footprint is None else footprint)
 
 
-def make_engine(name, footprint=None):
+def _ndd_options(args):
+    """ NDD-APKeep's library option for a record's head: whether atom
+    collection visits each node once (ndd/FAVE_CHANGES.md §15). """
+    if args.engine != 'ndd-apkeep':
+        return {}
+    return {'ndd_collect_visited': args.ndd_collect_visited}
+
+
+def _engine_maker(args):
+    """ `make_engine` with only the options a run set: a test stands in for
+    `make_engine` with one taking the name alone. """
+    options = {}
+    if args.footprint is not None:
+        options['footprint'] = args.footprint
+    if args.ndd_collect_visited:
+        options['ndd_collect_visited'] = True
+    return make_engine(args.engine, **options)
+
+
+def make_engine(name, footprint=None, ndd_collect_visited=False):
     log = logging.getLogger("incremental_run")
     log.setLevel(logging.WARNING)
     if name == 'netplumber':
@@ -140,7 +159,9 @@ def make_engine(name, footprint=None):
         from apkeep.adapter import APKeepAdapter
         apkeep_engine = 'bdd' if name == 'apkeep' else 'ndd-apkeep'
         # footprint None: the adapter's default (both modes)
-        return lambda: APKeepAdapter(log, engine=apkeep_engine, footprint=footprint)
+        # ndd_collect_visited: NDD-APKeep only, off by default (ndd/FAVE_CHANGES.md §15)
+        return lambda: APKeepAdapter(log, engine=apkeep_engine, footprint=footprint,
+                                     ndd_collect_visited=ndd_collect_visited)
     from veriflow.adapter import VeriFlowAdapter
     # footprint None: the adapter's default (both modes)
     return lambda: VeriFlowAdapter(
@@ -208,8 +229,7 @@ def _oracle_sample(cache, checks, k, rng):
 
 
 def run(args):
-    make = (make_engine(args.engine, args.footprint) if args.footprint is not None
-            else make_engine(args.engine))
+    make = _engine_maker(args)
     files = parse_files(args.files)
     checks_path = os.path.join(args.workload, args.checks)
     # a workload without checks (wl_tum, D13) measures the updates alone
@@ -228,6 +248,7 @@ def run(args):
         # default on APKeep before 2026-10-11 and on VeriFlow-FR before
         # 2026-10-15; NetPlumber has none
         'footprint': effective_footprint(args.engine, args.footprint),
+        **_ndd_options(args),
         'oracle': ({'sample': args.oracle_sample, 'every': args.oracle_every,
                     'seed': args.oracle_seed} if oracle else None),
         'checks_file': checks_path if checks else None,
@@ -358,8 +379,7 @@ def run_s4(args):
     import tempfile
     from util.barrier import BarrierError
     from util.in_process_driver import InProcessFaVe
-    make = (make_engine(args.engine, args.footprint) if args.footprint is not None
-            else make_engine(args.engine))
+    make = _engine_maker(args)
     checks_path = os.path.join(args.workload, args.checks)
     checks = inc.load_checks(checks_path) if os.path.exists(checks_path) else []
     oracle = args.oracle_sample > 0 and bool(checks)
@@ -371,6 +391,7 @@ def run_s4(args):
         'workload': args.workload, 'engine': args.engine, 'stream': 's4',
         'seed': args.seed, 'batch': 1, 'limit_updates': n, 'stable_indices': True,
         'footprint': effective_footprint(args.engine, args.footprint),
+        **_ndd_options(args),
         'oracle': ({'sample': args.oracle_sample, 'every': args.oracle_every,
                     'seed': args.oracle_seed} if oracle else None),
         'checks_file': checks_path if checks else None,
@@ -514,7 +535,13 @@ def main(argv=None):
                              "APKEEP_INCREMENTAL_SCOPE.md §9, "
                              "VERIFLOW_FOOTPRINT_SCOPE.md §4), or 'coarse'; "
                              "default both")
+    parser.add_argument('--ndd-collect-visited', action='store_true', default=False,
+                        help="NDD-APKeep: the NDD library collects a molecule's "
+                             "atoms visiting each node once (ndd/FAVE_CHANGES.md "
+                             "§15); off by default, same atoms")
     args = parser.parse_args(argv)
+    if args.ndd_collect_visited and args.engine != 'ndd-apkeep':
+        parser.error("--ndd-collect-visited needs --engine ndd-apkeep")
     if args.footprint is not None and args.engine not in ('apkeep', 'ndd-apkeep', 'veriflow'):
         parser.error("--footprint needs an APKeep engine or VeriFlow-FR")
     if args.batch < 1:

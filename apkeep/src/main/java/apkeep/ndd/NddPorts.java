@@ -68,6 +68,15 @@ public final class NddPorts {
 		AtomizedNDD mol;   // referenced
 		int pred;          // referenced (plain NDD)
 		int field = -1;    // rewrites only: the field written
+		// Incremental atom bookkeeping (FAVE_CHANGES.md §15): the nodes of `mol`, each with
+		// the number of edges -- and the holder's root reference -- that reach
+		// it inside `mol`; and per field, how many distinct-node edge labels
+		// carry each atom. An atom is in the molecule iff its count is > 0,
+		// the set `AtomizedNDD.collectAtoms` computes by walking it.
+		final IdentityHashMap<AtomizedNDD, Integer> refs = new IdentityHashMap<>();
+		@SuppressWarnings("unchecked")
+		final HashMap<Integer, Integer>[] atomCount = new HashMap[AtomizedNDD.getFieldNum() + 1];
+		{ for (int f = 0; f < atomCount.length; f++) atomCount[f] = new HashMap<>(); }
 
 		Holder(String element, String port, boolean rewrite, AtomizedNDD mol, int pred) {
 			this.element = element;
@@ -79,6 +88,30 @@ public final class NddPorts {
 	}
 
 	private static final List<NddPorts> LIVE = new ArrayList<>();
+
+	// The reference's operation cache (FAVE_CHANGES.md §15): the authors' DPVerifierNDDAP
+	// enables AtomizedNDD's `and` cache for the property check and disables it
+	// for updates. Queries switch it on and keep it across queries; anything
+	// that changes molecules switches it off and clears it first. (A garbage
+	// collection clears it inside the library.)
+	private static boolean queryCache = false;
+
+	/** Queries: the `and` cache on, kept from the previous query. */
+	public static void enterQueries() {
+		if (!queryCache) {
+			AtomizedNDD.enableCaches();
+			queryCache = true;
+		}
+	}
+
+	/** A change to molecules: the cache off and empty, as for the reference's updates. */
+	public static void leaveQueries() {
+		if (queryCache) {
+			AtomizedNDD.disableCaches();
+			AtomizedNDD.clearCaches();
+			queryCache = false;
+		}
+	}
 
 	/** Re-atomize after this many updates (the reference's MERGE_ACL_NUMBER). */
 	public static int REATOMIZE_EVERY = 1500;
@@ -130,6 +163,7 @@ public final class NddPorts {
 	}
 
 	public void initPort(Element e, String port, boolean all) {
+		leaveQueries();
 		Map<String, Holder> m = ports.computeIfAbsent(e.getName(), k -> new LinkedHashMap<>());
 		Holder old = m.get(port);
 		if (old != null) {
@@ -171,6 +205,7 @@ public final class NddPorts {
 	 *  of its field are split so the value is a union of them, and the
 	 *  molecule is kept current by later splits like any port's. */
 	public void addRewrite(Element e, String port, RewriteRule rule) {
+		leaveQueries();
 		Map<String, Holder> m = rewrites.computeIfAbsent(e.getName(), k -> new LinkedHashMap<>());
 		if (m.containsKey(port)) return;
 		int field = field(rule.getField());
@@ -210,6 +245,7 @@ public final class NddPorts {
 	 * moved (referenced), which APKeep's per-update loop check starts from.
 	 */
 	public AtomizedNDD update(Element e, List<ChangeItem> changes) {
+		leaveQueries();
 		// What moved, held like a port while the tuples are applied: a split
 		// made for a later tuple must reach the molecule of an earlier one.
 		Holder acc = new Holder(e.getName(), "\u0000moved", false,
@@ -322,20 +358,68 @@ public final class NddPorts {
 	private void setMolecule(Holder h, AtomizedNDD mol) {
 		AtomizedNDD old = h.mol;
 		AtomizedNDD.ref(mol);
-		HashSet<Integer>[] remove = new HashSet[AtomizedNDD.getFieldNum() + 1];
-		HashSet<Integer>[] add = new HashSet[AtomizedNDD.getFieldNum() + 1];
-		AtomizedNDD.changeAtoms(old, mol, remove, add);
-		for (int f = 0; f < remove.length; f++) {
-			for (int atom : remove[f]) {
-				Set<Holder> s = holders[f].get(atom);
-				if (s != null) s.remove(h);
-			}
-			for (int atom : add[f]) {
-				holders[f].computeIfAbsent(atom, k -> Collections.newSetFromMap(new IdentityHashMap<>())).add(h);
-			}
-		}
+		swapBookkeeping(h, old, mol);
 		h.mol = mol;
 		AtomizedNDD.deref(old);
+	}
+
+	/** Move a holder's bookkeeping from `old` to `mol` and the
+	 *  SplitMap with it, visiting only the nodes `mol` adds and `old` drops:
+	 *  the new root is counted first, so nodes both share never drop. */
+	private void swapBookkeeping(Holder h, AtomizedNDD old, AtomizedNDD mol) {
+		if (old == mol) return;
+		HashMap<Integer, Boolean>[] before = new HashMap[h.atomCount.length];
+		for (int f = 0; f < before.length; f++) before[f] = new HashMap<>();
+		addRef(h, mol, before);
+		delRef(h, old, before);
+		for (int f = 0; f < before.length; f++) {
+			for (Map.Entry<Integer, Boolean> e : before[f].entrySet()) {
+				int atom = e.getKey();
+				boolean now = h.atomCount[f].containsKey(atom);
+				if (now == e.getValue()) continue;
+				if (now) {
+					holders[f].computeIfAbsent(atom, k -> Collections.newSetFromMap(new IdentityHashMap<>())).add(h);
+				} else {
+					Set<Holder> s = holders[f].get(atom);
+					if (s != null) s.remove(h);
+				}
+			}
+		}
+	}
+
+	private static void touch(Holder h, int f, int atom, HashMap<Integer, Boolean>[] before) {
+		if (!before[f].containsKey(atom)) before[f].put(atom, h.atomCount[f].containsKey(atom));
+	}
+
+	private static void addRef(Holder h, AtomizedNDD n, HashMap<Integer, Boolean>[] before) {
+		if (n.isTerminal()) return;
+		Integer c = h.refs.get(n);
+		if (c != null) { h.refs.put(n, c + 1); return; }
+		h.refs.put(n, 1);
+		int f = n.getField();
+		for (Map.Entry<AtomizedNDD, HashSet<Integer>> e : n.getAtomizedEdges().entrySet()) {
+			for (int atom : e.getValue()) {
+				touch(h, f, atom, before);
+				h.atomCount[f].merge(atom, 1, Integer::sum);
+			}
+			addRef(h, e.getKey(), before);
+		}
+	}
+
+	private static void delRef(Holder h, AtomizedNDD n, HashMap<Integer, Boolean>[] before) {
+		if (n.isTerminal()) return;
+		int c = h.refs.get(n) - 1;
+		if (c > 0) { h.refs.put(n, c); return; }
+		h.refs.remove(n);
+		int f = n.getField();
+		for (Map.Entry<AtomizedNDD, HashSet<Integer>> e : n.getAtomizedEdges().entrySet()) {
+			for (int atom : e.getValue()) {
+				touch(h, f, atom, before);
+				int k = h.atomCount[f].get(atom) - 1;
+				if (k == 0) h.atomCount[f].remove(atom); else h.atomCount[f].put(atom, k);
+			}
+			delRef(h, e.getKey(), before);
+		}
 	}
 
 	// ---- splits ------------------------------------------------------------
@@ -381,20 +465,18 @@ public final class NddPorts {
 					AtomizedNDD.splitMultipleFieldsAtomsWithMultipleFieldsPredicate(cut, h.mol);
 			if (ret.getKey()) {
 				AtomizedNDD.ref(ret.getValue());
-				AtomizedNDD.deref(h.mol);
+				AtomizedNDD old = h.mol;
+				// The bookkeeping moves to the split molecule, and the
+				// SplitMap with it -- the cut atom leaves, its parts arrive
+				swapBookkeeping(h, old, ret.getValue());
 				h.mol = ret.getValue();
+				AtomizedNDD.deref(old);
 			}
 		}
-		// SplitMap.split: an atom's holders pass to each of its parts
 		for (int f = 0; f < cut.size(); f++) {
-			for (Map.Entry<Integer, HashSet<Integer>> entry : cut.get(f).entrySet()) {
-				Set<Holder> s = holders[f].remove(entry.getKey());
-				if (s == null) continue;
-				for (int part : entry.getValue()) {
-					Set<Holder> copy = Collections.newSetFromMap(new IdentityHashMap<>());
-					copy.addAll(s);
-					holders[f].put(part, copy);
-				}
+			for (int atom : cut.get(f).keySet()) {
+				Set<Holder> s = holders[f].get(atom);
+				if (s != null && s.isEmpty()) holders[f].remove(atom);
 			}
 		}
 	}
@@ -440,6 +522,7 @@ public final class NddPorts {
 	 * previous atoms referenced; they are released here.
 	 */
 	public static void reatomize() {
+		leaveQueries();
 		List<NddPorts> live;
 		synchronized (LIVE) {
 			live = new ArrayList<>(LIVE);
@@ -458,6 +541,8 @@ public final class NddPorts {
 			for (Holder h : p.allHolders()) {
 				AtomizedNDD old = h.mol;
 				h.mol = AtomizedNDD.getAtomizedFalse();
+				h.refs.clear();
+				for (HashMap<Integer, Integer> c : h.atomCount) c.clear();
 				AtomizedNDD.deref(old);
 				p.setMolecule(h, mol.get(h.pred));
 			}

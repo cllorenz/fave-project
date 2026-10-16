@@ -132,3 +132,12 @@ way: stock build 0.8 s, checks 2.9 s; with D 0.5 s and 2.6 s; 0 violated.
    number measured so far (V5's NDD-flood cells do not use the atomized
    layer; D would also touch NDD-flood through the plain caches -- not
    measured yet).
+
+## Decided (owner, 2026-10-16)
+
+**B, C and D are applied and the default; A is a selectable option, off by
+default; the stock behaviour is not selectable.** D and A are documented in
+`docs/ACCOMMODATIONS.md` and `ndd/FAVE_CHANGES.md` §14, §15; B and C in
+`apkeep/FAVE_CHANGES.md` §15. A is `ndd_collect_visited`
+(`bench/incremental_run.py --ndd-collect-visited`), stamped. Every NDD-APKeep
+(and NDD-flood) time measured before 2026-10-16 is of the unfixed code.

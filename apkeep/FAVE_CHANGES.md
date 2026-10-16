@@ -631,3 +631,37 @@ the accounting for sets of 1 to 9 APs and fails on the old loop.
 (`fave/test/test_apkeep_incremental_core.py`, `test_incremental_apkeep.py`,
 `test_incremental_m2_apkeep.py`), whose oracle compares the selective re-check
 with a full one after every update.
+
+## 15. NDD-APKeep: atoms kept incrementally, and the reference's query cache  **[FIX]** (2026-10-16)
+
+Measured on `wl_tum` (8,497 checks), where NDD-APKeep took 1,422 s to build
+and 274 s to check against BDD-APKeep's 101 s and 35 s
+(`fave/bench/campaigns/results_ndd_tum_perf_20261015/FINDINGS.md`). Both are
+the default since 2026-10-16 (owner); the old behaviour is not selectable.
+
+**Atom bookkeeping, incremental and exact.** `NddPorts.setMolecule` diffed the
+FULL atom sets of a port's old and new molecule on every move
+(`AtomizedNDD.changeAtoms`, which walks both diagrams), three times per cube.
+Now each holder keeps a reference count per diagram node of its molecule and,
+per field, how many edge labels carry each atom; a change walks only the nodes
+the new molecule adds and the old one drops (`swapBookkeeping`, `addRef`,
+`delRef`), and the SplitMap follows from the counts -- splits and
+re-atomization included. Exact, not an approximation: an atom is in the
+molecule iff its count is positive, which is the set `changeAtoms` computes.
+`checkInvariants` still computes the atoms the old way and compares them with
+the SplitMap. Build 1,422 s → 112 s.
+
+**The reference's operation cache.** The authors' `DPVerifierNDDAP` enables
+AtomizedNDD's `and` cache for the property check and disables it for updates;
+FaVe's checker never enabled it. Now `NddReachabilityChecker.start` switches
+it on (`NddPorts.enterQueries`, kept across queries), and anything that
+changes molecules -- an update, a port, a rewrite, re-atomization -- switches
+it off and clears it first (`leaveQueries`); a garbage collection clears it
+inside the library. Useful only with the library's slot fix
+(`../ndd/FAVE_CHANGES.md` §14): together, checks 280 s → 8.0 s, every answer,
+node visited and branch explored equal to the uncached run's.
+
+**Tests:** the Java suite (38, including `NddBackendDifferentialTest`'s
+SplitMap invariants after splits and re-atomization); the NDD-APKeep Python
+tests, among them the incremental tests that hold every update to a from-zero
+oracle.

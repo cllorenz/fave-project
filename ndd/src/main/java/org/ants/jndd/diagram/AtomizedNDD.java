@@ -127,6 +127,10 @@ public class AtomizedNDD extends NDD {
         if (cacheEnable && andCache.getEntry(a, b)) {
             return andCache.result;
         }
+        // FaVe fix (ndd/FAVE_CHANGES.md §14): the slot of THIS miss. The
+        // recursion below overwrites andCache.hashValue; storing at it put every
+        // entry above the leaves into another operation's slot, never found.
+        final int slot = andCache.hashValue;
 
         AtomizedNDD result = null;
         HashMap<AtomizedNDD, HashSet<Integer>> edges = new HashMap<>();
@@ -171,7 +175,7 @@ public class AtomizedNDD extends NDD {
         // protect the node during the operation
         atomizedTemporarilyProtect.add(result);
         if (cacheEnable) {
-            andCache.setEntry(andCache.hashValue, a, b, result);
+            andCache.setEntry(slot, a, b, result);
         }
         return result;
     }
@@ -509,13 +513,41 @@ public class AtomizedNDD extends NDD {
         }
     }
 
+    /** FaVe option (ndd/FAVE_CHANGES.md §15), off by default: collect atoms
+     *  visiting each node once. Upstream walks the diagram as a tree, once per
+     *  path to a shared node; the union is idempotent, so the result is the
+     *  same either way. */
+    private static boolean collectAtomsVisited = false;
+
+    public static void setCollectAtomsVisited(boolean on) {
+        collectAtomsVisited = on;
+    }
+
+    public static boolean getCollectAtomsVisited() {
+        return collectAtomsVisited;
+    }
+
     private static void collectAtoms(AtomizedNDD current, HashSet<Integer>[] atoms) {
+        if (collectAtomsVisited) {
+            collectAtoms(current, atoms, java.util.Collections.newSetFromMap(
+                new java.util.IdentityHashMap<AtomizedNDD, Boolean>()));
+            return;
+        }
         if(current.isTerminal()) {
         } else {
             for(Map.Entry<AtomizedNDD, HashSet<Integer>> entry : current.getAtomizedEdges().entrySet()) {
                 atoms[current.field].addAll(entry.getValue());
                 collectAtoms(entry.getKey(), atoms);
             }
+        }
+    }
+
+    private static void collectAtoms(AtomizedNDD current, HashSet<Integer>[] atoms,
+                                     java.util.Set<AtomizedNDD> seen) {
+        if (current.isTerminal() || !seen.add(current)) return;
+        for (Map.Entry<AtomizedNDD, HashSet<Integer>> entry : current.getAtomizedEdges().entrySet()) {
+            atoms[current.field].addAll(entry.getValue());
+            collectAtoms(entry.getKey(), atoms, seen);
         }
     }
 
