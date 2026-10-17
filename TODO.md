@@ -3792,7 +3792,7 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
-### 60. Every re-sent device's parse tree stayed in the measured process — FIXED 2026-10-17 (the client runs as a process of its own)
+### 60. Every re-sent device's parse tree stayed in the measured process — FIXED 2026-10-17 (the client runs in a worker process)
 
 Found in the calibration through FaVe
 (`fave/bench/campaigns/results_inc_dev_fave_calibration_20261016`): its
@@ -3809,25 +3809,31 @@ generates never release `$1..$n`. Dismantling the returned tree frees only a
 quarter. Real FaVe parses in `topology.py`, a process per command, so the leak
 dies with it; only `InProcessFaVe` parsed inside the process it measures.
 
-**Fix:** `InProcessFaVe._client_process` runs a re-send's client (parse,
-generate, serialise) in a forked child and hands the messages it sent to the
-transport, as a separate CLI process would; a client that fails fails the call
-with the child's traceback, and nothing it sent is applied. pybison is not
-patched: third-party C, and the sandbox reinstalls the venv at every restart.
-Measured with an engine that keeps nothing (dev probe, 2026-10-16):
+**Fix (`util/client_worker.py`):** a re-send's client (parse, generate,
+serialise) runs in a worker process -- a fresh interpreter, started once and
+replaced when its RSS passes 512 MB -- and the parent hands the messages it
+sent to the transport, as a separate CLI process would; a client that fails
+fails the call with the worker's traceback, and nothing it sent is applied.
+pybison is not patched: third-party C, and the sandbox reinstalls the venv at
+every restart. **A first fix forked the client (`e10c0700`) and deadlocked**:
+the integration tier's BDD-APKeep `wl_ifi` cell hung on its first re-send, and
+under load 11 of 12 runs hung, the forked child waiting on a futex a JVM
+thread had held at the fork. With the worker 12 of 12 pass. Measured with an
+engine that keeps nothing (dev probes, 2026-10-16/17):
 
-| | in-process | forked |
+| | in-process | worker |
 |---|---|---|
-| `wl_up`, 20 re-sends | 203 -> 302 MB, 0.176 s per send | 135 -> 136 MB, 0.195 s |
-| `wl_up` BDD-APKeep (a JVM in the process), 20 | +106 MB, 0.544 s | +48 MB, 0.620 s; verdicts equal |
-| `wl_tum`, 10 re-sends | 154 -> 2,351 MB, 5.76 s | 274 -> 278 MB, 6.02 s |
+| `wl_up`, 20 re-sends | 203 -> 302 MB, 0.176 s per send | 135 -> 136 MB, 0.054 s |
+| `wl_up` BDD-APKeep (a JVM in the process), 20 | +106 MB, 0.544 s | +46 MB, 0.469 s; verdicts equal |
+| `wl_tum`, 10 re-sends | 154 -> 2,351 MB, 5.76 s | 274 -> 283 MB, 2.17 s |
 
-The fork is part of a re-send's `t_model_s` now (+20 to +260 ms above), as a
-real client's process start is part of what a user waits for. Tests:
-`test_in_process_driver.TestClientProcess` (fast; order, failure, the client's
-state stays in the child) and `test_resend_memory` (integration: ten `wl_up`
-re-sends leave < 5 MB; 38.3 MB in-process). Both fail with the client run in
-this process (checked by monkeypatch). The build (`replay`) still parses in
+The worker's own memory counts to a cell's (the cell sums its session), at
+most ~512 MB plus one re-send's leak. Tests:
+`test_in_process_driver.TestClientProcess` (fast: order, failure, the
+client's state stays out of this process, a worker serves calls and is
+replaced when too big) and `test_resend_memory` (integration: ten `wl_up`
+re-sends leave < 5 MB here; 38.3 MB in-process). Both fail with the client run
+in this process (checked by monkeypatch). The build (`replay`) still parses in
 process: on `wl_tum` it leaves 154 MB in all.
 
 ### 59. VeriFlow-FR's footprints do not fit `wl_tum` in the incremental regime — RESOLVED 2026-10-16: the whole check set fits in 3.0 GB

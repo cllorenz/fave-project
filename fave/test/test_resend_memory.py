@@ -22,12 +22,12 @@
 """ A re-sent device must not leave its parse behind in the measured process.
 
 pybison 0.6.4 leaks every parse tree whole in the process that parses
-(`InProcessFaVe._client_process`). The in-process harness used to parse a
+(`util.client_worker`). The in-process harness used to parse a
 re-sent packet filter in the process it measures: on wl_up S2 every engine
 grew by 4-11 MB per re-send, on wl_tum by about 90 MB, and the calibration's
 VeriFlow-FR cell on wl_tum stopped at its RSS limit after 12 re-sends
 (bench/campaigns/results_inc_dev_fave_calibration_20261016). Real FaVe runs a
-client as a process of its own; so does the harness now.
+client as a process of its own; the harness now runs it in a worker process.
 
 Ten re-sends of wl_up packet filters, to an engine that keeps nothing: the
 Python heap they leave behind is measured by tracemalloc. With the client in

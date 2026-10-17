@@ -129,7 +129,7 @@ class TestInProcessDriverSurfacesFailure(unittest.TestCase):
                          "a successful check must not raise: %r" % box.get('exc'))
 
 
-#: written by `_client` in the forked child; must stay empty here
+#: written by `_client` in the client worker; must stay empty here
 _CHILD_STATE = []
 
 
@@ -146,17 +146,34 @@ def _client(*messages, fail=False):
 
 class TestClientProcess(unittest.TestCase):
     """ `_client_process` runs a client as its own process (pybison leaks
-    every parse tree in the process that parses, see its docstring): what the
-    client sends arrives here in order, its failure fails the call, and what
-    it keeps does not. """
+    every parse tree in the process that parses, util/client_worker.py): what
+    the client sends arrives here in order, its failure fails the call, and
+    what it keeps does not. """
 
     def _run(self, *messages, fail=False):
         import topology.topology as topo_mod
         got = []
         with InProcessFaVe(_RaisingEngine()) as fave:
             topo_mod.fave_sendmsg = lambda _conn, data: got.append(data)
-            fave._client_process(_client, *messages, fail=fail)
+            fave._client_process('test.test_in_process_driver:_client',
+                                 *messages, fail=fail)
         return got
+
+    def test_the_worker_serves_calls_until_it_is_recycled(self):
+        from util.client_worker import ClientWorker
+        worker = ClientWorker(recycle_mb=10 ** 6)
+        try:
+            first = worker.call('test.test_in_process_driver:_client', '{"a": 1}')
+            pid = worker._proc.pid
+            second = worker.call('test.test_in_process_driver:_client', '{"b": 2}')
+            self.assertEqual((first, second), (['{"a": 1}'], ['{"b": 2}']))
+            self.assertEqual(worker._proc.pid, pid, "one worker serves both calls")
+            worker.recycle_mb = 0                   # every worker is too big now
+            worker.call('test.test_in_process_driver:_client', '{"c": 3}')
+            self.assertEqual(worker.recycled, 1)
+            self.assertNotEqual(worker._proc.pid, pid, "a recycled worker is replaced")
+        finally:
+            worker.close()
 
     def test_the_messages_arrive_in_order(self):
         self.assertEqual(self._run('{"a": 1}', '{"b": 2}'), ['{"a": 1}', '{"b": 2}'])
