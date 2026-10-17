@@ -62,10 +62,12 @@ def available() -> bool:
 
 
 #: TODO item 59, option c: the explored states a walk remembers under `state`
-#: revisit (0: all). 1 M covers wl_i2's 450 k states at no cost and holds
-#: wl_tum's worst walk (54.7 M states) at 1.3 GB instead of 55.7 GB
-#: (results_vf_tum_perf_20261015, 2026-10-16); 10 k costs wl_i2 +80 % local ECs.
-DEFAULT_STATE_CACHE = 1_000_000
+#: revisit (0: all). 4 M (owner, 2026-10-17, for D16): wl_stanford's first
+#: check with tracking on takes 269 s at 4 M as unbounded, 1,270 s at 1 M
+#: (calibration FINDINGS, results_inc_dev_fave_calibration_20261016); wl_tum's
+#: worst walk (54.7 M states) holds 4.4 GB at 4 M, 1.3 GB at 1 M, 55.7 GB
+#: unbounded (results_vf_tum_perf_20261015); 10 k costs wl_i2 +80 % local ECs.
+DEFAULT_STATE_CACHE = 4_000_000
 
 #: The selectable footprints of VERIFLOW_FOOTPRINT_SCOPE.md §4, as on APKeep
 #: (APKEEP_FOOTPRINTS.md).
