@@ -211,6 +211,73 @@ class InProcessFaVe:
         # join above already guarantees this resolves on the first poll.
         barrier.wait(guard, directory=self._barrier_dir)
 
+    def _client_process(self, client: Any, *args: Any, **kwargs: Any) -> None:
+        """ Run `client` -- a topology.py/switch.py main(): parse, generate,
+        serialise -- in a forked child, as real FaVe runs every CLI command as
+        a process of its own, and hand the messages it sent to the transport
+        here. In this process the iptables parser (pybison 0.6.4) leaks every
+        parse tree whole: its `py_callback` never releases the argument lists
+        of a grammar action, nor the generated actions their stack values.
+        Measured on wl_tum: about 210 MB per re-sent packet filter, which
+        stopped the calibration's VeriFlow-FR cell at its RSS limit after 12
+        re-sends (bench/campaigns/results_inc_dev_fave_calibration_20261016).
+
+        The child runs only client code (no engine, no aggregator; the
+        aggregator's worker is idle in `queue.get` while a client runs) and
+        leaves by `os._exit`, so the threads it does not inherit hold
+        nothing it needs. A client that raises fails the call here with the
+        child's traceback. """
+        import os
+        import struct
+        import traceback
+        import warnings
+        import topology.topology as topo_mod
+        import devices.switch as switch_mod
+        mods = (topo_mod, switch_mod)
+        sends = [mod.fave_sendmsg for mod in mods]
+        read_fd, write_fd = os.pipe()
+        with warnings.catch_warnings():
+            # Python 3.12 warns on fork() with threads alive (the worker, a
+            # JVM's): see the docstring for why this child is safe
+            warnings.simplefilter('ignore', DeprecationWarning)
+            pid = os.fork()
+        if pid == 0:                                        # the client
+            code = 0
+            os.close(read_fd)
+            out = os.fdopen(write_fd, 'wb')
+            try:
+                def _to_parent(_conn: Any, data: str) -> None:
+                    raw = b'M' + data.encode()
+                    out.write(struct.pack('!Q', len(raw)) + raw)
+
+                for mod in mods:
+                    mod.fave_sendmsg = _to_parent
+                client(*args, **kwargs)
+            except BaseException:
+                raw = b'E' + traceback.format_exc().encode()
+                out.write(struct.pack('!Q', len(raw)) + raw)
+                code = 1
+            finally:
+                try:
+                    out.flush()
+                finally:
+                    os._exit(code)
+        os.close(write_fd)
+        records = []
+        with os.fdopen(read_fd, 'rb') as inp:
+            while True:
+                head = inp.read(8)
+                if not head:
+                    break
+                records.append(inp.read(struct.unpack('!Q', head)[0]))
+        _pid, status = os.waitpid(pid, 0)
+        errors = [r[1:].decode() for r in records if r[:1] == b'E']
+        if errors or status:
+            raise RuntimeError("client process failed (status %d)%s" % (
+                status, (":\n" + errors[0]) if errors else ""))
+        for raw in records:
+            sends[0](None, raw[1:].decode())
+
     def resend_device(self, device: List[Any]) -> None:
         """ Re-send ONE device, as `replay` sends it -- a `topology.json`
         entry [name, type, ...] whose config path may point at an edited copy
@@ -223,7 +290,8 @@ class InProcessFaVe:
         guard = barrier.arm(self._barrier_dir)
         self._guard, self._guarded_sends = guard, 0
         try:
-            _DEVICES[device[1]](*device, use_unix=False, interweave=True)
+            self._client_process(_DEVICES[device[1]], *device,
+                                 use_unix=False, interweave=True)
         finally:
             self._guard = None
         if self._guarded_sends != 1:

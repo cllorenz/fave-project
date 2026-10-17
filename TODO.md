@@ -3792,6 +3792,44 @@ cannot express (generators, first-match switch tables), never to drop it.
 - Refusing every unnamed field (the general fix) would take `wl_up` off APKeep
   until both are handled, so it waits for them.
 
+### 60. Every re-sent device's parse tree stayed in the measured process — FIXED 2026-10-17 (the client runs as a process of its own)
+
+Found in the calibration through FaVe
+(`fave/bench/campaigns/results_inc_dev_fave_calibration_20261016`): its
+VeriFlow-FR cell on `wl_tum` built and checked in 14,727 s at 2,964 MB, as item
+59 measured, then grew **~90 MB per configuration re-send** and stopped at its
+4,096 MB RSS limit after 12 of its 50 updates. Not the engine: on `wl_up` S2/S4
+every engine grew per re-send (NetPlumber +4.0, VeriFlow-FR +4.5, BDD-APKeep
++10.7 MB per update), while the route and link streams stayed flat.
+
+**Cause: pybison 0.6.4 leaks every parse tree whole.** `bison/c/bison_callback.c`
+`py_callback` builds a `names` and a `values` list for each grammar action and
+never releases them (its own TODO says so), and the actions `bison_.pyx`
+generates never release `$1..$n`. Dismantling the returned tree frees only a
+quarter. Real FaVe parses in `topology.py`, a process per command, so the leak
+dies with it; only `InProcessFaVe` parsed inside the process it measures.
+
+**Fix:** `InProcessFaVe._client_process` runs a re-send's client (parse,
+generate, serialise) in a forked child and hands the messages it sent to the
+transport, as a separate CLI process would; a client that fails fails the call
+with the child's traceback, and nothing it sent is applied. pybison is not
+patched: third-party C, and the sandbox reinstalls the venv at every restart.
+Measured with an engine that keeps nothing (dev probe, 2026-10-16):
+
+| | in-process | forked |
+|---|---|---|
+| `wl_up`, 20 re-sends | 203 -> 302 MB, 0.176 s per send | 135 -> 136 MB, 0.195 s |
+| `wl_up` BDD-APKeep (a JVM in the process), 20 | +106 MB, 0.544 s | +48 MB, 0.620 s; verdicts equal |
+| `wl_tum`, 10 re-sends | 154 -> 2,351 MB, 5.76 s | 274 -> 278 MB, 6.02 s |
+
+The fork is part of a re-send's `t_model_s` now (+20 to +260 ms above), as a
+real client's process start is part of what a user waits for. Tests:
+`test_in_process_driver.TestClientProcess` (fast; order, failure, the client's
+state stays in the child) and `test_resend_memory` (integration: ten `wl_up`
+re-sends leave < 5 MB; 38.3 MB in-process). Both fail with the client run in
+this process (checked by monkeypatch). The build (`replay`) still parses in
+process: on `wl_tum` it leaves 154 MB in all.
+
 ### 59. VeriFlow-FR's footprints do not fit `wl_tum` in the incremental regime — RESOLVED 2026-10-16: the whole check set fits in 3.0 GB
 
 With tracking on, every walk records its footprint: every (table, arrival,

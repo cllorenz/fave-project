@@ -151,6 +151,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_incremental_netplumber.py # INCREMENTAL_PLAN.md M1: update streams on NetPlumber, selective re-check == full == from-zero; skips if libnetplumber unbuilt
     test/test_incremental_veriflow.py  # the same on VeriFlow-FR, affected checks from walk footprints; skips if libveriflow_fr unbuilt
     test/test_incremental_m2.py  # INCREMENTAL_PLAN.md M2: S4 config edits through the aggregator with stable indices, NetPlumber + VeriFlow-FR, under the oracle
+    test/test_resend_memory.py   # a re-sent device's parse is not left in the measured process (pybison leaks it; the client runs as a process of its own)
     test/test_incremental_device_replacement.py  # INCREMENTAL_PLAN.md §8.2 D-R6: a structurally changed re-send replaces the device, NetPlumber + ad6 under the oracle, VeriFlow-FR refuses; ~2 min
     test/test_incremental_run.py       # bench/incremental_run.py, the M1 development driver, on both engines
     test/test_apkeep_incremental_core.py  # APKeep's update path in Java: each removal fix against a build without the rule (BDD)

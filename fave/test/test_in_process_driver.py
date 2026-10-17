@@ -129,5 +129,49 @@ class TestInProcessDriverSurfacesFailure(unittest.TestCase):
                          "a successful check must not raise: %r" % box.get('exc'))
 
 
+#: written by `_client` in the forked child; must stay empty here
+_CHILD_STATE = []
+
+
+def _client(*messages, fail=False):
+    """ A stand-in for topology.py's main(): sends `messages`, as a real
+    client serialises its commands, and keeps state of its own. """
+    import topology.topology as topo_mod
+    _CHILD_STATE.append(messages)
+    for msg in messages:
+        topo_mod.fave_sendmsg(None, msg)
+    if fail:
+        raise _Boom("the client could not parse its configuration")
+
+
+class TestClientProcess(unittest.TestCase):
+    """ `_client_process` runs a client as its own process (pybison leaks
+    every parse tree in the process that parses, see its docstring): what the
+    client sends arrives here in order, its failure fails the call, and what
+    it keeps does not. """
+
+    def _run(self, *messages, fail=False):
+        import topology.topology as topo_mod
+        got = []
+        with InProcessFaVe(_RaisingEngine()) as fave:
+            topo_mod.fave_sendmsg = lambda _conn, data: got.append(data)
+            fave._client_process(_client, *messages, fail=fail)
+        return got
+
+    def test_the_messages_arrive_in_order(self):
+        self.assertEqual(self._run('{"a": 1}', '{"b": 2}'), ['{"a": 1}', '{"b": 2}'])
+
+    def test_the_client_runs_in_another_process(self):
+        self._run('{"a": 1}')
+        self.assertEqual(_CHILD_STATE, [],
+                         "the client ran in this process: what it keeps "
+                         "(a parse tree) would stay here")
+
+    def test_a_failing_client_fails_the_call(self):
+        with self.assertRaises(RuntimeError) as ctx:
+            self._run('{"a": 1}', fail=True)
+        self.assertIn("could not parse its configuration", str(ctx.exception))
+
+
 if __name__ == '__main__':
     unittest.main()
