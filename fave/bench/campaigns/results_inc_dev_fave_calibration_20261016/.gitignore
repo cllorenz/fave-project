@@ -1,0 +1,5 @@
+# The raw records: in results-archives/ (summary/ARCHIVE.txt), not in git.
+cells/*/rep01/updates.jsonl.gz
+cells/*/rep01/stream.jsonl.gz
+cells/*/rep01/head.json
+cells/*/rep01/cell.status.jsonl

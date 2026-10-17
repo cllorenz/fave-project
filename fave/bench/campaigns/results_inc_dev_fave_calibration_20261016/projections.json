@@ -1,0 +1,1770 @@
+{
+ "A_wl_airtel1_netplumber_s1": {
+  "est_s": 99,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_netplumber_s1"
+ },
+ "A_wl_airtel1_netplumber_s2": {
+  "est_s": 35,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_netplumber_s2"
+ },
+ "A_wl_airtel1_netplumber_s3": {
+  "est_s": 5,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_netplumber_s3"
+ },
+ "B_wl_airtel1_netplumber_s2_b10": {
+  "est_s": 28,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_netplumber_s2"
+ },
+ "B_wl_airtel1_netplumber_s2_b100": {
+  "est_s": 28,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_netplumber_s2"
+ },
+ "B_wl_airtel1_netplumber_s2_ball": {
+  "est_s": 28,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_netplumber_s2"
+ },
+ "E_wl_airtel1_netplumber_s2_oracle": {
+  "est_s": 70,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_netplumber_s2"
+ },
+ "A_wl_airtel1_veriflow_s1": {
+  "est_s": 178,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s1"
+ },
+ "A_wl_airtel1_veriflow_s2": {
+  "est_s": 76,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s2"
+ },
+ "A_wl_airtel1_veriflow_s3": {
+  "est_s": 73,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s3"
+ },
+ "B_wl_airtel1_veriflow_s2_b10": {
+  "est_s": 51,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s2"
+ },
+ "B_wl_airtel1_veriflow_s2_b100": {
+  "est_s": 48,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s2"
+ },
+ "B_wl_airtel1_veriflow_s2_ball": {
+  "est_s": 48,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s2"
+ },
+ "E_wl_airtel1_veriflow_s2_oracle": {
+  "est_s": 152,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s2"
+ },
+ "D_wl_airtel1_veriflow_s1_coarse": {
+  "est_s": 51709,
+  "updates": 79000,
+  "capped": true,
+  "basis": "D_wl_airtel1_veriflow_s1_coarse"
+ },
+ "D_wl_airtel1_veriflow_s2_coarse": {
+  "est_s": 10180,
+  "updates": 15800,
+  "capped": false,
+  "basis": "D_wl_airtel1_veriflow_s2_coarse"
+ },
+ "D_wl_airtel1_veriflow_s3_coarse": {
+  "est_s": 113,
+  "updates": 168,
+  "capped": false,
+  "basis": "D_wl_airtel1_veriflow_s3_coarse"
+ },
+ "D_wl_airtel1_veriflow_s1_witness": {
+  "est_s": 178,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s1"
+ },
+ "D_wl_airtel1_veriflow_s2_witness": {
+  "est_s": 76,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s2"
+ },
+ "D_wl_airtel1_veriflow_s3_witness": {
+  "est_s": 73,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s3"
+ },
+ "D_wl_airtel1_veriflow_s1_dead-ends": {
+  "est_s": 178,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s1"
+ },
+ "D_wl_airtel1_veriflow_s2_dead-ends": {
+  "est_s": 76,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s2"
+ },
+ "D_wl_airtel1_veriflow_s3_dead-ends": {
+  "est_s": 73,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_veriflow_s3"
+ },
+ "A_wl_airtel1_apkeep_s1": {
+  "est_s": 171,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s1"
+ },
+ "A_wl_airtel1_apkeep_s2": {
+  "est_s": 178,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s2"
+ },
+ "A_wl_airtel1_apkeep_s3": {
+  "est_s": 95,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s3"
+ },
+ "B_wl_airtel1_apkeep_s2_b10": {
+  "est_s": 143,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s2"
+ },
+ "B_wl_airtel1_apkeep_s2_b100": {
+  "est_s": 140,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s2"
+ },
+ "B_wl_airtel1_apkeep_s2_ball": {
+  "est_s": 140,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s2"
+ },
+ "E_wl_airtel1_apkeep_s2_oracle": {
+  "est_s": 356,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s2"
+ },
+ "D_wl_airtel1_apkeep_s1_coarse": {
+  "est_s": 468,
+  "updates": 79000,
+  "capped": false,
+  "basis": "D_wl_airtel1_apkeep_s1_coarse"
+ },
+ "D_wl_airtel1_apkeep_s2_coarse": {
+  "est_s": 203,
+  "updates": 15800,
+  "capped": false,
+  "basis": "D_wl_airtel1_apkeep_s2_coarse"
+ },
+ "D_wl_airtel1_apkeep_s3_coarse": {
+  "est_s": 96,
+  "updates": 168,
+  "capped": false,
+  "basis": "D_wl_airtel1_apkeep_s3_coarse"
+ },
+ "D_wl_airtel1_apkeep_s1_witness": {
+  "est_s": 171,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s1"
+ },
+ "D_wl_airtel1_apkeep_s2_witness": {
+  "est_s": 178,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s2"
+ },
+ "D_wl_airtel1_apkeep_s3_witness": {
+  "est_s": 95,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s3"
+ },
+ "D_wl_airtel1_apkeep_s1_dead-ends": {
+  "est_s": 171,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s1"
+ },
+ "D_wl_airtel1_apkeep_s2_dead-ends": {
+  "est_s": 178,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s2"
+ },
+ "D_wl_airtel1_apkeep_s3_dead-ends": {
+  "est_s": 95,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_apkeep_s3"
+ },
+ "A_wl_airtel1_ndd-apkeep_s1": {
+  "est_s": 239,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s1"
+ },
+ "A_wl_airtel1_ndd-apkeep_s2": {
+  "est_s": 183,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s2"
+ },
+ "A_wl_airtel1_ndd-apkeep_s3": {
+  "est_s": 137,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s3"
+ },
+ "B_wl_airtel1_ndd-apkeep_s2_b10": {
+  "est_s": 180,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s2"
+ },
+ "B_wl_airtel1_ndd-apkeep_s2_b100": {
+  "est_s": 180,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s2"
+ },
+ "B_wl_airtel1_ndd-apkeep_s2_ball": {
+  "est_s": 180,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s2"
+ },
+ "E_wl_airtel1_ndd-apkeep_s2_oracle": {
+  "est_s": 366,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s2"
+ },
+ "D_wl_airtel1_ndd-apkeep_s1_coarse": {
+  "est_s": 437,
+  "updates": 79000,
+  "capped": false,
+  "basis": "D_wl_airtel1_ndd-apkeep_s1_coarse"
+ },
+ "D_wl_airtel1_ndd-apkeep_s2_coarse": {
+  "est_s": 282,
+  "updates": 15800,
+  "capped": false,
+  "basis": "D_wl_airtel1_ndd-apkeep_s2_coarse"
+ },
+ "D_wl_airtel1_ndd-apkeep_s3_coarse": {
+  "est_s": 139,
+  "updates": 168,
+  "capped": false,
+  "basis": "D_wl_airtel1_ndd-apkeep_s3_coarse"
+ },
+ "D_wl_airtel1_ndd-apkeep_s1_witness": {
+  "est_s": 239,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s1"
+ },
+ "D_wl_airtel1_ndd-apkeep_s2_witness": {
+  "est_s": 183,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s2"
+ },
+ "D_wl_airtel1_ndd-apkeep_s3_witness": {
+  "est_s": 137,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s3"
+ },
+ "D_wl_airtel1_ndd-apkeep_s1_dead-ends": {
+  "est_s": 239,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s1"
+ },
+ "D_wl_airtel1_ndd-apkeep_s2_dead-ends": {
+  "est_s": 183,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s2"
+ },
+ "D_wl_airtel1_ndd-apkeep_s3_dead-ends": {
+  "est_s": 137,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel1_ndd-apkeep_s3"
+ },
+ "A_wl_airtel2_netplumber_s1": {
+  "est_s": 99,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel2_netplumber_s1"
+ },
+ "A_wl_airtel2_netplumber_s2": {
+  "est_s": 33,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_netplumber_s2"
+ },
+ "A_wl_airtel2_netplumber_s3": {
+  "est_s": 5,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel2_netplumber_s3"
+ },
+ "B_wl_airtel2_netplumber_s2_b10": {
+  "est_s": 27,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_netplumber_s2"
+ },
+ "B_wl_airtel2_netplumber_s2_b100": {
+  "est_s": 26,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_netplumber_s2"
+ },
+ "B_wl_airtel2_netplumber_s2_ball": {
+  "est_s": 26,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_netplumber_s2"
+ },
+ "E_wl_airtel2_netplumber_s2_oracle": {
+  "est_s": 66,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_netplumber_s2"
+ },
+ "A_wl_airtel2_veriflow_s1": {
+  "est_s": 173,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel2_veriflow_s1"
+ },
+ "A_wl_airtel2_veriflow_s2": {
+  "est_s": 119,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_veriflow_s2"
+ },
+ "A_wl_airtel2_veriflow_s3": {
+  "est_s": 73,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel2_veriflow_s3"
+ },
+ "B_wl_airtel2_veriflow_s2_b10": {
+  "est_s": 93,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_veriflow_s2"
+ },
+ "B_wl_airtel2_veriflow_s2_b100": {
+  "est_s": 90,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_veriflow_s2"
+ },
+ "B_wl_airtel2_veriflow_s2_ball": {
+  "est_s": 90,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_veriflow_s2"
+ },
+ "E_wl_airtel2_veriflow_s2_oracle": {
+  "est_s": 239,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_veriflow_s2"
+ },
+ "D_wl_airtel2_veriflow_s1_coarse": {
+  "est_s": 51922,
+  "updates": 79000,
+  "capped": true,
+  "basis": "D_wl_airtel2_veriflow_s1_coarse"
+ },
+ "D_wl_airtel2_veriflow_s2_coarse": {
+  "est_s": 10185,
+  "updates": 15800,
+  "capped": false,
+  "basis": "D_wl_airtel2_veriflow_s2_coarse"
+ },
+ "D_wl_airtel2_veriflow_s3_coarse": {
+  "est_s": 114,
+  "updates": 168,
+  "capped": false,
+  "basis": "D_wl_airtel2_veriflow_s3_coarse"
+ },
+ "A_wl_airtel2_apkeep_s1": {
+  "est_s": 164,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel2_apkeep_s1"
+ },
+ "A_wl_airtel2_apkeep_s2": {
+  "est_s": 138,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_apkeep_s2"
+ },
+ "A_wl_airtel2_apkeep_s3": {
+  "est_s": 98,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel2_apkeep_s3"
+ },
+ "B_wl_airtel2_apkeep_s2_b10": {
+  "est_s": 136,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_apkeep_s2"
+ },
+ "B_wl_airtel2_apkeep_s2_b100": {
+  "est_s": 136,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_apkeep_s2"
+ },
+ "B_wl_airtel2_apkeep_s2_ball": {
+  "est_s": 136,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_apkeep_s2"
+ },
+ "E_wl_airtel2_apkeep_s2_oracle": {
+  "est_s": 276,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_apkeep_s2"
+ },
+ "D_wl_airtel2_apkeep_s1_coarse": {
+  "est_s": 475,
+  "updates": 79000,
+  "capped": false,
+  "basis": "D_wl_airtel2_apkeep_s1_coarse"
+ },
+ "D_wl_airtel2_apkeep_s2_coarse": {
+  "est_s": 172,
+  "updates": 15800,
+  "capped": false,
+  "basis": "D_wl_airtel2_apkeep_s2_coarse"
+ },
+ "D_wl_airtel2_apkeep_s3_coarse": {
+  "est_s": 99,
+  "updates": 168,
+  "capped": false,
+  "basis": "D_wl_airtel2_apkeep_s3_coarse"
+ },
+ "A_wl_airtel2_ndd-apkeep_s1": {
+  "est_s": 235,
+  "updates": 79000,
+  "capped": false,
+  "basis": "A_wl_airtel2_ndd-apkeep_s1"
+ },
+ "A_wl_airtel2_ndd-apkeep_s2": {
+  "est_s": 176,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_ndd-apkeep_s2"
+ },
+ "A_wl_airtel2_ndd-apkeep_s3": {
+  "est_s": 134,
+  "updates": 168,
+  "capped": false,
+  "basis": "A_wl_airtel2_ndd-apkeep_s3"
+ },
+ "B_wl_airtel2_ndd-apkeep_s2_b10": {
+  "est_s": 173,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_ndd-apkeep_s2"
+ },
+ "B_wl_airtel2_ndd-apkeep_s2_b100": {
+  "est_s": 173,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_ndd-apkeep_s2"
+ },
+ "B_wl_airtel2_ndd-apkeep_s2_ball": {
+  "est_s": 173,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_ndd-apkeep_s2"
+ },
+ "E_wl_airtel2_ndd-apkeep_s2_oracle": {
+  "est_s": 352,
+  "updates": 15800,
+  "capped": false,
+  "basis": "A_wl_airtel2_ndd-apkeep_s2"
+ },
+ "D_wl_airtel2_ndd-apkeep_s1_coarse": {
+  "est_s": 416,
+  "updates": 79000,
+  "capped": false,
+  "basis": "D_wl_airtel2_ndd-apkeep_s1_coarse"
+ },
+ "D_wl_airtel2_ndd-apkeep_s2_coarse": {
+  "est_s": 207,
+  "updates": 15800,
+  "capped": false,
+  "basis": "D_wl_airtel2_ndd-apkeep_s2_coarse"
+ },
+ "D_wl_airtel2_ndd-apkeep_s3_coarse": {
+  "est_s": 133,
+  "updates": 168,
+  "capped": false,
+  "basis": "D_wl_airtel2_ndd-apkeep_s3_coarse"
+ },
+ "A_wl_cloud_netplumber_s1": {
+  "est_s": 3,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_netplumber_s1"
+ },
+ "A_wl_cloud_netplumber_s2": {
+  "est_s": 1,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_netplumber_s2"
+ },
+ "A_wl_cloud_netplumber_s3": {
+  "est_s": 0,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_netplumber_s3"
+ },
+ "B_wl_cloud_netplumber_s2_b10": {
+  "est_s": 1,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_netplumber_s2"
+ },
+ "B_wl_cloud_netplumber_s2_b100": {
+  "est_s": 1,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_netplumber_s2"
+ },
+ "B_wl_cloud_netplumber_s2_ball": {
+  "est_s": 1,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_netplumber_s2"
+ },
+ "E_wl_cloud_netplumber_s2_oracle": {
+  "est_s": 1,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_netplumber_s2"
+ },
+ "A_wl_cloud_veriflow_s1": {
+  "est_s": 17,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s1"
+ },
+ "A_wl_cloud_veriflow_s2": {
+  "est_s": 6,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s2"
+ },
+ "A_wl_cloud_veriflow_s3": {
+  "est_s": 16,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s3"
+ },
+ "B_wl_cloud_veriflow_s2_b10": {
+  "est_s": 1,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s2"
+ },
+ "B_wl_cloud_veriflow_s2_b100": {
+  "est_s": 1,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s2"
+ },
+ "B_wl_cloud_veriflow_s2_ball": {
+  "est_s": 1,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s2"
+ },
+ "E_wl_cloud_veriflow_s2_oracle": {
+  "est_s": 12,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s2"
+ },
+ "D_wl_cloud_veriflow_s1_coarse": {
+  "est_s": 427,
+  "updates": 3482,
+  "capped": false,
+  "basis": "D_wl_cloud_veriflow_s1_coarse"
+ },
+ "D_wl_cloud_veriflow_s2_coarse": {
+  "est_s": 98,
+  "updates": 696,
+  "capped": false,
+  "basis": "D_wl_cloud_veriflow_s2_coarse"
+ },
+ "D_wl_cloud_veriflow_s3_coarse": {
+  "est_s": 34,
+  "updates": 330,
+  "capped": false,
+  "basis": "D_wl_cloud_veriflow_s3_coarse"
+ },
+ "D_wl_cloud_veriflow_s1_witness": {
+  "est_s": 17,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s1"
+ },
+ "D_wl_cloud_veriflow_s2_witness": {
+  "est_s": 6,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s2"
+ },
+ "D_wl_cloud_veriflow_s3_witness": {
+  "est_s": 16,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s3"
+ },
+ "D_wl_cloud_veriflow_s1_dead-ends": {
+  "est_s": 17,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s1"
+ },
+ "D_wl_cloud_veriflow_s2_dead-ends": {
+  "est_s": 6,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s2"
+ },
+ "D_wl_cloud_veriflow_s3_dead-ends": {
+  "est_s": 16,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_veriflow_s3"
+ },
+ "A_wl_cloud_apkeep_s1": {
+  "est_s": 31952,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "A_wl_cloud_apkeep_s2": {
+  "est_s": 7468,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "A_wl_cloud_apkeep_s3": {
+  "est_s": 4252,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "B_wl_cloud_apkeep_s2_b10": {
+  "est_s": 7394,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "B_wl_cloud_apkeep_s2_b100": {
+  "est_s": 7387,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "B_wl_cloud_apkeep_s2_ball": {
+  "est_s": 7386,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "E_wl_cloud_apkeep_s2_oracle": {
+  "est_s": 14937,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s1_coarse": {
+  "est_s": 31952,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s2_coarse": {
+  "est_s": 7468,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s3_coarse": {
+  "est_s": 4252,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s1_witness": {
+  "est_s": 31952,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s2_witness": {
+  "est_s": 7468,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s3_witness": {
+  "est_s": 4252,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s1_dead-ends": {
+  "est_s": 31952,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s2_dead-ends": {
+  "est_s": 7468,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "D_wl_cloud_apkeep_s3_dead-ends": {
+  "est_s": 4252,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_apkeep_s2"
+ },
+ "A_wl_cloud_ndd-apkeep_s1": {
+  "est_s": 101,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s1"
+ },
+ "A_wl_cloud_ndd-apkeep_s2": {
+  "est_s": 33,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s2"
+ },
+ "A_wl_cloud_ndd-apkeep_s3": {
+  "est_s": 23,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s3"
+ },
+ "B_wl_cloud_ndd-apkeep_s2_b10": {
+  "est_s": 32,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s2"
+ },
+ "B_wl_cloud_ndd-apkeep_s2_b100": {
+  "est_s": 32,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s2"
+ },
+ "B_wl_cloud_ndd-apkeep_s2_ball": {
+  "est_s": 32,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s2"
+ },
+ "E_wl_cloud_ndd-apkeep_s2_oracle": {
+  "est_s": 66,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s2"
+ },
+ "D_wl_cloud_ndd-apkeep_s1_coarse": {
+  "est_s": 182,
+  "updates": 3482,
+  "capped": false,
+  "basis": "D_wl_cloud_ndd-apkeep_s1_coarse"
+ },
+ "D_wl_cloud_ndd-apkeep_s2_coarse": {
+  "est_s": 59,
+  "updates": 696,
+  "capped": false,
+  "basis": "D_wl_cloud_ndd-apkeep_s2_coarse"
+ },
+ "D_wl_cloud_ndd-apkeep_s3_coarse": {
+  "est_s": 27,
+  "updates": 330,
+  "capped": false,
+  "basis": "D_wl_cloud_ndd-apkeep_s3_coarse"
+ },
+ "D_wl_cloud_ndd-apkeep_s1_witness": {
+  "est_s": 101,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s1"
+ },
+ "D_wl_cloud_ndd-apkeep_s2_witness": {
+  "est_s": 33,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s2"
+ },
+ "D_wl_cloud_ndd-apkeep_s3_witness": {
+  "est_s": 23,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s3"
+ },
+ "D_wl_cloud_ndd-apkeep_s1_dead-ends": {
+  "est_s": 101,
+  "updates": 3482,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s1"
+ },
+ "D_wl_cloud_ndd-apkeep_s2_dead-ends": {
+  "est_s": 33,
+  "updates": 696,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s2"
+ },
+ "D_wl_cloud_ndd-apkeep_s3_dead-ends": {
+  "est_s": 23,
+  "updates": 330,
+  "capped": false,
+  "basis": "A_wl_cloud_ndd-apkeep_s3"
+ },
+ "A_wl_up_netplumber_s1": {
+  "est_s": 187,
+  "updates": 7140,
+  "capped": false,
+  "basis": "A_wl_up_netplumber_s1"
+ },
+ "A_wl_up_netplumber_s2": {
+  "est_s": 987,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_netplumber_s2"
+ },
+ "A_wl_up_netplumber_s3": {
+  "est_s": 40,
+  "updates": 1180,
+  "capped": false,
+  "basis": "A_wl_up_netplumber_s3"
+ },
+ "B_wl_up_netplumber_s2_b10": {
+  "est_s": 976,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_netplumber_s2"
+ },
+ "B_wl_up_netplumber_s2_b100": {
+  "est_s": 975,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_netplumber_s2"
+ },
+ "B_wl_up_netplumber_s2_ball": {
+  "est_s": 974,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_netplumber_s2"
+ },
+ "E_wl_up_netplumber_s2_oracle": {
+  "est_s": 1973,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_netplumber_s2"
+ },
+ "A_wl_up_veriflow_s1": {
+  "est_s": 104341,
+  "updates": 7140,
+  "capped": true,
+  "basis": "A_wl_up_veriflow_s1"
+ },
+ "A_wl_up_veriflow_s2": {
+  "est_s": 13583,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_veriflow_s2"
+ },
+ "A_wl_up_veriflow_s3": {
+  "est_s": 24506,
+  "updates": 1180,
+  "capped": false,
+  "basis": "A_wl_up_veriflow_s3"
+ },
+ "B_wl_up_veriflow_s2_b10": {
+  "est_s": 1624,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_veriflow_s2"
+ },
+ "B_wl_up_veriflow_s2_b100": {
+  "est_s": 432,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_veriflow_s2"
+ },
+ "B_wl_up_veriflow_s2_ball": {
+  "est_s": 302,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_veriflow_s2"
+ },
+ "E_wl_up_veriflow_s2_oracle": {
+  "est_s": 27166,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_veriflow_s2"
+ },
+ "D_wl_up_veriflow_s1_coarse": {
+  "est_s": 364945,
+  "updates": 7140,
+  "capped": true,
+  "basis": "D_wl_up_veriflow_s1_coarse"
+ },
+ "D_wl_up_veriflow_s2_coarse": {
+  "est_s": 50193,
+  "updates": 1428,
+  "capped": true,
+  "basis": "D_wl_up_veriflow_s2_coarse"
+ },
+ "D_wl_up_veriflow_s3_coarse": {
+  "est_s": 33753,
+  "updates": 1180,
+  "capped": false,
+  "basis": "D_wl_up_veriflow_s3_coarse"
+ },
+ "A_wl_up_apkeep_s1": {
+  "est_s": 254399,
+  "updates": 7140,
+  "capped": true,
+  "basis": "A_wl_up_apkeep_s1"
+ },
+ "A_wl_up_apkeep_s2": {
+  "est_s": 77247,
+  "updates": 1428,
+  "capped": true,
+  "basis": "A_wl_up_apkeep_s2"
+ },
+ "A_wl_up_apkeep_s3": {
+  "est_s": 103725,
+  "updates": 1180,
+  "capped": true,
+  "basis": "A_wl_up_apkeep_s3"
+ },
+ "B_wl_up_apkeep_s2_b10": {
+  "est_s": 10314,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_apkeep_s2"
+ },
+ "B_wl_up_apkeep_s2_b100": {
+  "est_s": 3647,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_apkeep_s2"
+ },
+ "B_wl_up_apkeep_s2_ball": {
+  "est_s": 2918,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_apkeep_s2"
+ },
+ "E_wl_up_apkeep_s2_oracle": {
+  "est_s": 154495,
+  "updates": 1428,
+  "capped": true,
+  "basis": "A_wl_up_apkeep_s2"
+ },
+ "D_wl_up_apkeep_s1_coarse": {
+  "est_s": 981360,
+  "updates": 7140,
+  "capped": true,
+  "basis": "D_wl_up_apkeep_s1_coarse"
+ },
+ "D_wl_up_apkeep_s2_coarse": {
+  "est_s": 268574,
+  "updates": 1428,
+  "capped": true,
+  "basis": "D_wl_up_apkeep_s2_coarse"
+ },
+ "D_wl_up_apkeep_s3_coarse": {
+  "est_s": 120807,
+  "updates": 1180,
+  "capped": true,
+  "basis": "D_wl_up_apkeep_s3_coarse"
+ },
+ "A_wl_up_ndd-apkeep_s1": {
+  "est_s": 2026,
+  "updates": 7140,
+  "capped": false,
+  "basis": "A_wl_up_ndd-apkeep_s1"
+ },
+ "A_wl_up_ndd-apkeep_s2": {
+  "est_s": 9422,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_ndd-apkeep_s2"
+ },
+ "A_wl_up_ndd-apkeep_s3": {
+  "est_s": 15824,
+  "updates": 1180,
+  "capped": false,
+  "basis": "A_wl_up_ndd-apkeep_s3"
+ },
+ "B_wl_up_ndd-apkeep_s2_b10": {
+  "est_s": 1554,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_ndd-apkeep_s2"
+ },
+ "B_wl_up_ndd-apkeep_s2_b100": {
+  "est_s": 771,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_ndd-apkeep_s2"
+ },
+ "B_wl_up_ndd-apkeep_s2_ball": {
+  "est_s": 685,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_ndd-apkeep_s2"
+ },
+ "E_wl_up_ndd-apkeep_s2_oracle": {
+  "est_s": 18844,
+  "updates": 1428,
+  "capped": false,
+  "basis": "A_wl_up_ndd-apkeep_s2"
+ },
+ "D_wl_up_ndd-apkeep_s1_coarse": {
+  "est_s": 112589,
+  "updates": 7140,
+  "capped": true,
+  "basis": "D_wl_up_ndd-apkeep_s1_coarse"
+ },
+ "D_wl_up_ndd-apkeep_s2_coarse": {
+  "est_s": 33821,
+  "updates": 1428,
+  "capped": false,
+  "basis": "D_wl_up_ndd-apkeep_s2_coarse"
+ },
+ "D_wl_up_ndd-apkeep_s3_coarse": {
+  "est_s": 17608,
+  "updates": 1180,
+  "capped": false,
+  "basis": "D_wl_up_ndd-apkeep_s3_coarse"
+ },
+ "A_wl_stanford_netplumber_s1": {
+  "est_s": 16,
+  "updates": 17584,
+  "capped": false,
+  "basis": "A_wl_stanford_netplumber_s1"
+ },
+ "A_wl_stanford_netplumber_s2": {
+  "est_s": 446,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_netplumber_s2"
+ },
+ "A_wl_stanford_netplumber_s3": {
+  "est_s": 240,
+  "updates": 2936,
+  "capped": false,
+  "basis": "A_wl_stanford_netplumber_s3"
+ },
+ "B_wl_stanford_netplumber_s2_b10": {
+  "est_s": 434,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_netplumber_s2"
+ },
+ "B_wl_stanford_netplumber_s2_b100": {
+  "est_s": 433,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_netplumber_s2"
+ },
+ "B_wl_stanford_netplumber_s2_ball": {
+  "est_s": 433,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_netplumber_s2"
+ },
+ "E_wl_stanford_netplumber_s2_oracle": {
+  "est_s": 893,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_netplumber_s2"
+ },
+ "A_wl_stanford_veriflow_s1": {
+  "est_s": 1517,
+  "updates": 17584,
+  "capped": false,
+  "basis": "A_wl_stanford_veriflow_s1"
+ },
+ "A_wl_stanford_veriflow_s2": {
+  "est_s": 5996,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_veriflow_s2"
+ },
+ "A_wl_stanford_veriflow_s3": {
+  "est_s": 906271,
+  "updates": 2936,
+  "capped": true,
+  "basis": "A_wl_stanford_veriflow_s3"
+ },
+ "B_wl_stanford_veriflow_s2_b10": {
+  "est_s": 1787,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_veriflow_s2"
+ },
+ "B_wl_stanford_veriflow_s2_b100": {
+  "est_s": 1367,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_veriflow_s2"
+ },
+ "B_wl_stanford_veriflow_s2_ball": {
+  "est_s": 1320,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_veriflow_s2"
+ },
+ "E_wl_stanford_veriflow_s2_oracle": {
+  "est_s": 11992,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_veriflow_s2"
+ },
+ "D_wl_stanford_veriflow_s1_coarse": {
+  "est_s": 22438725,
+  "updates": 17584,
+  "capped": true,
+  "basis": "D_wl_stanford_veriflow_s1_coarse"
+ },
+ "D_wl_stanford_veriflow_s2_coarse": {
+  "est_s": 2942641,
+  "updates": 3516,
+  "capped": true,
+  "basis": "D_wl_stanford_veriflow_s2_coarse"
+ },
+ "D_wl_stanford_veriflow_s3_coarse": {
+  "est_s": 3697850,
+  "updates": 2936,
+  "capped": true,
+  "basis": "D_wl_stanford_veriflow_s3_coarse"
+ },
+ "A_wl_stanford_ndd-apkeep_s1": {
+  "est_s": 2464,
+  "updates": 17584,
+  "capped": false,
+  "basis": "A_wl_stanford_ndd-apkeep_s1"
+ },
+ "A_wl_stanford_ndd-apkeep_s2": {
+  "est_s": 552,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_ndd-apkeep_s2"
+ },
+ "A_wl_stanford_ndd-apkeep_s3": {
+  "est_s": 571,
+  "updates": 2936,
+  "capped": false,
+  "basis": "A_wl_stanford_ndd-apkeep_s3"
+ },
+ "B_wl_stanford_ndd-apkeep_s2_b10": {
+  "est_s": 532,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_ndd-apkeep_s2"
+ },
+ "B_wl_stanford_ndd-apkeep_s2_b100": {
+  "est_s": 530,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_ndd-apkeep_s2"
+ },
+ "B_wl_stanford_ndd-apkeep_s2_ball": {
+  "est_s": 530,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_ndd-apkeep_s2"
+ },
+ "E_wl_stanford_ndd-apkeep_s2_oracle": {
+  "est_s": 1103,
+  "updates": 3516,
+  "capped": false,
+  "basis": "A_wl_stanford_ndd-apkeep_s2"
+ },
+ "D_wl_stanford_ndd-apkeep_s1_coarse": {
+  "est_s": 2392,
+  "updates": 17584,
+  "capped": false,
+  "basis": "D_wl_stanford_ndd-apkeep_s1_coarse"
+ },
+ "D_wl_stanford_ndd-apkeep_s2_coarse": {
+  "est_s": 793,
+  "updates": 3516,
+  "capped": false,
+  "basis": "D_wl_stanford_ndd-apkeep_s2_coarse"
+ },
+ "D_wl_stanford_ndd-apkeep_s3_coarse": {
+  "est_s": 803,
+  "updates": 2936,
+  "capped": false,
+  "basis": "D_wl_stanford_ndd-apkeep_s3_coarse"
+ },
+ "A_wl_i2_netplumber_s1": {
+  "est_s": 11392,
+  "updates": 155682,
+  "capped": false,
+  "basis": "A_wl_i2_netplumber_s1"
+ },
+ "A_wl_i2_netplumber_s2": {
+  "est_s": 871,
+  "updates": 31136,
+  "capped": false,
+  "basis": "A_wl_i2_netplumber_s2"
+ },
+ "A_wl_i2_netplumber_s3": {
+  "est_s": 323,
+  "updates": 594,
+  "capped": false,
+  "basis": "A_wl_i2_netplumber_s3"
+ },
+ "B_wl_i2_netplumber_s2_b10": {
+  "est_s": 315,
+  "updates": 31136,
+  "capped": false,
+  "basis": "A_wl_i2_netplumber_s2"
+ },
+ "B_wl_i2_netplumber_s2_b100": {
+  "est_s": 259,
+  "updates": 31136,
+  "capped": false,
+  "basis": "A_wl_i2_netplumber_s2"
+ },
+ "B_wl_i2_netplumber_s2_ball": {
+  "est_s": 253,
+  "updates": 31136,
+  "capped": false,
+  "basis": "A_wl_i2_netplumber_s2"
+ },
+ "E_wl_i2_netplumber_s2_oracle": {
+  "est_s": 1742,
+  "updates": 31136,
+  "capped": false,
+  "basis": "A_wl_i2_netplumber_s2"
+ },
+ "A_wl_i2_veriflow_s1": {
+  "est_s": 270444,
+  "updates": 155682,
+  "capped": true,
+  "basis": "A_wl_i2_veriflow_s1"
+ },
+ "A_wl_i2_veriflow_s2": {
+  "est_s": 206519,
+  "updates": 31136,
+  "capped": true,
+  "basis": "A_wl_i2_veriflow_s2"
+ },
+ "A_wl_i2_veriflow_s3": {
+  "est_s": 12973,
+  "updates": 594,
+  "capped": false,
+  "basis": "A_wl_i2_veriflow_s3"
+ },
+ "B_wl_i2_veriflow_s2_b10": {
+  "est_s": 20922,
+  "updates": 31136,
+  "capped": false,
+  "basis": "A_wl_i2_veriflow_s2"
+ },
+ "B_wl_i2_veriflow_s2_b100": {
+  "est_s": 2364,
+  "updates": 31136,
+  "capped": false,
+  "basis": "A_wl_i2_veriflow_s2"
+ },
+ "B_wl_i2_veriflow_s2_ball": {
+  "est_s": 304,
+  "updates": 31136,
+  "capped": false,
+  "basis": "A_wl_i2_veriflow_s2"
+ },
+ "E_wl_i2_veriflow_s2_oracle": {
+  "est_s": 413038,
+  "updates": 31136,
+  "capped": true,
+  "basis": "A_wl_i2_veriflow_s2"
+ },
+ "D_wl_i2_veriflow_s1_coarse": {
+  "est_s": 17538055,
+  "updates": 155682,
+  "capped": true,
+  "basis": "D_wl_i2_veriflow_s1_coarse"
+ },
+ "D_wl_i2_veriflow_s2_coarse": {
+  "est_s": 3385272,
+  "updates": 31136,
+  "capped": true,
+  "basis": "D_wl_i2_veriflow_s2_coarse"
+ },
+ "D_wl_i2_veriflow_s3_coarse": {
+  "est_s": 51061,
+  "updates": 594,
+  "capped": true,
+  "basis": "D_wl_i2_veriflow_s3_coarse"
+ },
+ "A_wl_i2_ndd-apkeep_s1": {
+  "est_s": 272235,
+  "updates": 155682,
+  "capped": true,
+  "basis": "A_wl_i2_ndd-apkeep_s1"
+ },
+ "A_wl_i2_ndd-apkeep_s2": {
+  "est_s": 55331,
+  "updates": 31136,
+  "capped": true,
+  "basis": "A_wl_i2_ndd-apkeep_s2"
+ },
+ "A_wl_i2_ndd-apkeep_s3": {
+  "est_s": 1846,
+  "updates": 594,
+  "capped": false,
+  "basis": "A_wl_i2_ndd-apkeep_s3"
+ },
+ "B_wl_i2_ndd-apkeep_s2_b10": {
+  "est_s": 54415,
+  "updates": 31136,
+  "capped": true,
+  "basis": "A_wl_i2_ndd-apkeep_s2"
+ },
+ "B_wl_i2_ndd-apkeep_s2_b100": {
+  "est_s": 54323,
+  "updates": 31136,
+  "capped": true,
+  "basis": "A_wl_i2_ndd-apkeep_s2"
+ },
+ "B_wl_i2_ndd-apkeep_s2_ball": {
+  "est_s": 54313,
+  "updates": 31136,
+  "capped": true,
+  "basis": "A_wl_i2_ndd-apkeep_s2"
+ },
+ "E_wl_i2_ndd-apkeep_s2_oracle": {
+  "est_s": 110661,
+  "updates": 31136,
+  "capped": true,
+  "basis": "A_wl_i2_ndd-apkeep_s2"
+ },
+ "D_wl_i2_ndd-apkeep_s1_coarse": {
+  "est_s": 276685,
+  "updates": 155682,
+  "capped": true,
+  "basis": "D_wl_i2_ndd-apkeep_s1_coarse"
+ },
+ "D_wl_i2_ndd-apkeep_s2_coarse": {
+  "est_s": 56480,
+  "updates": 31136,
+  "capped": true,
+  "basis": "D_wl_i2_ndd-apkeep_s2_coarse"
+ },
+ "D_wl_i2_ndd-apkeep_s3_coarse": {
+  "est_s": 1842,
+  "updates": 594,
+  "capped": false,
+  "basis": "D_wl_i2_ndd-apkeep_s3_coarse"
+ },
+ "A_wl_tum_netplumber_s1": {
+  "est_s": 250,
+  "updates": 8086,
+  "capped": false,
+  "basis": "A_wl_tum_netplumber_s1"
+ },
+ "A_wl_tum_netplumber_s2": {
+  "est_s": 27061,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_netplumber_s2"
+ },
+ "A_wl_tum_netplumber_s3": {
+  "est_s": 168,
+  "updates": 990,
+  "capped": false,
+  "basis": "A_wl_tum_netplumber_s3"
+ },
+ "B_wl_tum_netplumber_s2_b10": {
+  "est_s": 26479,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_netplumber_s2"
+ },
+ "B_wl_tum_netplumber_s2_b100": {
+  "est_s": 26421,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_netplumber_s2"
+ },
+ "B_wl_tum_netplumber_s2_ball": {
+  "est_s": 26415,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_netplumber_s2"
+ },
+ "E_wl_tum_netplumber_s2_oracle": {
+  "est_s": 54121,
+  "updates": 1618,
+  "capped": true,
+  "basis": "A_wl_tum_netplumber_s2"
+ },
+ "A_wl_tum_veriflow_s1": {
+  "est_s": 26114,
+  "updates": 8086,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "A_wl_tum_veriflow_s2": {
+  "est_s": 17005,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "A_wl_tum_veriflow_s3": {
+  "est_s": 16121,
+  "updates": 990,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "B_wl_tum_veriflow_s2_b10": {
+  "est_s": 16958,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "B_wl_tum_veriflow_s2_b100": {
+  "est_s": 16953,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "B_wl_tum_veriflow_s2_ball": {
+  "est_s": 16952,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "E_wl_tum_veriflow_s2_oracle": {
+  "est_s": 34011,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "D_wl_tum_veriflow_s1_coarse": {
+  "est_s": 26114,
+  "updates": 8086,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "D_wl_tum_veriflow_s2_coarse": {
+  "est_s": 17005,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "D_wl_tum_veriflow_s3_coarse": {
+  "est_s": 16121,
+  "updates": 990,
+  "capped": false,
+  "basis": "A_wl_tum_veriflow_s2"
+ },
+ "A_wl_tum_apkeep_s1": {
+  "est_s": 10232,
+  "updates": 8086,
+  "capped": false,
+  "basis": "A_wl_tum_apkeep_s1"
+ },
+ "A_wl_tum_apkeep_s2": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "A_wl_tum_apkeep_s3": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "B_wl_tum_apkeep_s2_b10": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "B_wl_tum_apkeep_s2_b100": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "B_wl_tum_apkeep_s2_ball": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "E_wl_tum_apkeep_s2_oracle": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "D_wl_tum_apkeep_s1_coarse": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "D_wl_tum_apkeep_s2_coarse": {
+  "est_s": 100944,
+  "updates": 1618,
+  "capped": true,
+  "basis": "D_wl_tum_apkeep_s2_coarse"
+ },
+ "D_wl_tum_apkeep_s3_coarse": {
+  "est_s": 29933,
+  "updates": 990,
+  "capped": false,
+  "basis": "D_wl_tum_apkeep_s3_coarse"
+ },
+ "A_wl_tum_ndd-apkeep_s1": {
+  "est_s": 2968,
+  "updates": 8086,
+  "capped": false,
+  "basis": "A_wl_tum_ndd-apkeep_s1"
+ },
+ "A_wl_tum_ndd-apkeep_s2": {
+  "est_s": 6474,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_ndd-apkeep_s2"
+ },
+ "A_wl_tum_ndd-apkeep_s3": {
+  "est_s": 2380,
+  "updates": 990,
+  "capped": false,
+  "basis": "A_wl_tum_ndd-apkeep_s3"
+ },
+ "B_wl_tum_ndd-apkeep_s2_b10": {
+  "est_s": 4299,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_ndd-apkeep_s2"
+ },
+ "B_wl_tum_ndd-apkeep_s2_b100": {
+  "est_s": 4082,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_ndd-apkeep_s2"
+ },
+ "B_wl_tum_ndd-apkeep_s2_ball": {
+  "est_s": 4058,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_ndd-apkeep_s2"
+ },
+ "E_wl_tum_ndd-apkeep_s2_oracle": {
+  "est_s": 12949,
+  "updates": 1618,
+  "capped": false,
+  "basis": "A_wl_tum_ndd-apkeep_s2"
+ },
+ "D_wl_tum_ndd-apkeep_s1_coarse": {
+  "est_s": 158486,
+  "updates": 8086,
+  "capped": true,
+  "basis": "D_wl_tum_ndd-apkeep_s1_coarse"
+ },
+ "D_wl_tum_ndd-apkeep_s2_coarse": {
+  "est_s": 60203,
+  "updates": 1618,
+  "capped": true,
+  "basis": "D_wl_tum_ndd-apkeep_s2_coarse"
+ },
+ "D_wl_tum_ndd-apkeep_s3_coarse": {
+  "est_s": 18012,
+  "updates": 990,
+  "capped": false,
+  "basis": "D_wl_tum_ndd-apkeep_s3_coarse"
+ },
+ "C_wl_cloud_netplumber_s4": {
+  "est_s": 2,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_cloud_netplumber_s4"
+ },
+ "E_wl_cloud_netplumber_s4_oracle": {
+  "est_s": 5,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_cloud_netplumber_s4"
+ },
+ "C_wl_cloud_veriflow_s4": {
+  "est_s": 32,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_cloud_veriflow_s4"
+ },
+ "E_wl_cloud_veriflow_s4_oracle": {
+  "est_s": 65,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_cloud_veriflow_s4"
+ },
+ "C_wl_cloud_apkeep_s4": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "E_wl_cloud_apkeep_s4_oracle": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "C_wl_cloud_ndd-apkeep_s4": {
+  "est_s": 254,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_cloud_ndd-apkeep_s4"
+ },
+ "E_wl_cloud_ndd-apkeep_s4_oracle": {
+  "est_s": 509,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_cloud_ndd-apkeep_s4"
+ },
+ "C_wl_up_netplumber_s4": {
+  "est_s": 462,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_up_netplumber_s4"
+ },
+ "E_wl_up_netplumber_s4_oracle": {
+  "est_s": 923,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_up_netplumber_s4"
+ },
+ "C_wl_up_veriflow_s4": {
+  "est_s": 7261,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_up_veriflow_s4"
+ },
+ "E_wl_up_veriflow_s4_oracle": {
+  "est_s": 14522,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_up_veriflow_s4"
+ },
+ "C_wl_up_apkeep_s4": {
+  "est_s": 63147,
+  "updates": 1000,
+  "capped": true,
+  "basis": "C_wl_up_apkeep_s4"
+ },
+ "E_wl_up_apkeep_s4_oracle": {
+  "est_s": 126294,
+  "updates": 1000,
+  "capped": true,
+  "basis": "C_wl_up_apkeep_s4"
+ },
+ "C_wl_up_ndd-apkeep_s4": {
+  "est_s": 5962,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_up_ndd-apkeep_s4"
+ },
+ "E_wl_up_ndd-apkeep_s4_oracle": {
+  "est_s": 11923,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_up_ndd-apkeep_s4"
+ },
+ "C_wl_tum_netplumber_s4": {
+  "est_s": 12877,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_tum_netplumber_s4"
+ },
+ "E_wl_tum_netplumber_s4_oracle": {
+  "est_s": 25753,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_tum_netplumber_s4"
+ },
+ "C_wl_tum_veriflow_s4": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "E_wl_tum_veriflow_s4_oracle": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "C_wl_tum_apkeep_s4": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "E_wl_tum_apkeep_s4_oracle": {
+  "est_s": null,
+  "basis": "no calibration record"
+ },
+ "C_wl_tum_ndd-apkeep_s4": {
+  "est_s": 4067,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_tum_ndd-apkeep_s4"
+ },
+ "E_wl_tum_ndd-apkeep_s4_oracle": {
+  "est_s": 8135,
+  "updates": 1000,
+  "capped": false,
+  "basis": "C_wl_tum_ndd-apkeep_s4"
+ }
+}

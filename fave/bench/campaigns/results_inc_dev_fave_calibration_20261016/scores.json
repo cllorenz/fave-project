@@ -1,0 +1,277 @@
+{
+ "C1": {
+  "held": true,
+  "not_measured_or_dnf": []
+ },
+ "C2": {
+  "held": false,
+  "memory_stops": [
+   "A_wl_tum_veriflow_s2",
+   "A_wl_tum_apkeep_s2",
+   "A_wl_tum_apkeep_s3",
+   "D_wl_tum_apkeep_s1_coarse",
+   "D_wl_tum_apkeep_s2_coarse",
+   "C_wl_tum_apkeep_s4"
+  ]
+ },
+ "C3": {
+  "held": true,
+  "cells": [
+   {
+    "cell": "A_wl_airtel1_netplumber_s1",
+    "fave_ms": 1.084,
+    "d11_first50_ms": 0.352,
+    "bound_ms": 5.352,
+    "held": true
+   },
+   {
+    "cell": "A_wl_airtel1_netplumber_s2",
+    "fave_ms": 1.908,
+    "d11_first50_ms": 0.703,
+    "bound_ms": 7.029,
+    "held": true
+   },
+   {
+    "cell": "A_wl_airtel1_netplumber_s3",
+    "fave_ms": 3.119,
+    "d11_first50_ms": 4.152,
+    "bound_ms": 41.524,
+    "held": true
+   },
+   {
+    "cell": "A_wl_airtel2_netplumber_s1",
+    "fave_ms": 1.084,
+    "d11_first50_ms": 0.449,
+    "bound_ms": 5.449,
+    "held": true
+   },
+   {
+    "cell": "A_wl_airtel2_netplumber_s2",
+    "fave_ms": 1.752,
+    "d11_first50_ms": 0.573,
+    "bound_ms": 5.727,
+    "held": true
+   },
+   {
+    "cell": "A_wl_airtel2_netplumber_s3",
+    "fave_ms": 2.887,
+    "d11_first50_ms": 4.175,
+    "bound_ms": 41.752,
+    "held": true
+   },
+   {
+    "cell": "A_wl_cloud_netplumber_s1",
+    "fave_ms": 0.612,
+    "d11_first50_ms": 0.012,
+    "bound_ms": 5.012,
+    "held": true
+   },
+   {
+    "cell": "A_wl_cloud_netplumber_s2",
+    "fave_ms": 0.651,
+    "d11_first50_ms": 0.035,
+    "bound_ms": 5.035,
+    "held": true
+   },
+   {
+    "cell": "A_wl_cloud_netplumber_s3",
+    "fave_ms": 0.773,
+    "d11_first50_ms": 0.295,
+    "bound_ms": 5.295,
+    "held": true
+   },
+   {
+    "cell": "A_wl_stanford_netplumber_s1",
+    "fave_ms": 0.657,
+    "d11_first50_ms": 0.083,
+    "bound_ms": 5.083,
+    "held": true
+   },
+   {
+    "cell": "A_wl_stanford_netplumber_s2",
+    "fave_ms": 6.848,
+    "d11_first50_ms": 4.621,
+    "bound_ms": 46.211,
+    "held": true
+   },
+   {
+    "cell": "A_wl_stanford_netplumber_s3",
+    "fave_ms": 36.599,
+    "d11_first50_ms": 101.539,
+    "bound_ms": 1015.39,
+    "held": true
+   },
+   {
+    "cell": "A_wl_i2_netplumber_s1",
+    "fave_ms": 76.469,
+    "d11_first50_ms": 94.808,
+    "bound_ms": 948.082,
+    "held": true
+   },
+   {
+    "cell": "A_wl_i2_netplumber_s2",
+    "fave_ms": 23.455,
+    "d11_first50_ms": 16.425,
+    "bound_ms": 164.248,
+    "held": true
+   },
+   {
+    "cell": "A_wl_i2_netplumber_s3",
+    "fave_ms": 2.311,
+    "d11_first50_ms": 38.084,
+    "bound_ms": 380.835,
+    "held": true
+   }
+  ]
+ },
+ "C4": {
+  "held": false,
+  "workloads": [
+   {
+    "workload": "wl_airtel1",
+    "median_build_s": 42.8,
+    "d11_median_build_s": 16.7,
+    "held": false
+   },
+   {
+    "workload": "wl_airtel2",
+    "median_build_s": 39.0,
+    "d11_median_build_s": 17.3,
+    "held": false
+   },
+   {
+    "workload": "wl_cloud",
+    "median_build_s": 14.1,
+    "d11_median_build_s": 8.8,
+    "held": false
+   },
+   {
+    "workload": "wl_i2",
+    "median_build_s": 808.0,
+    "d11_median_build_s": 287.6,
+    "held": false
+   },
+   {
+    "workload": "wl_stanford",
+    "median_build_s": 13.5,
+    "d11_median_build_s": 7.2,
+    "held": false
+   },
+   {
+    "workload": "wl_tum",
+    "comparable": false,
+    "checks": [
+     8497
+    ],
+    "d11_checks": [
+     0
+    ]
+   },
+   {
+    "workload": "wl_up",
+    "median_build_s": 39.4,
+    "d11_median_build_s": 69.8,
+    "held": true
+   }
+  ]
+ },
+ "C5": {
+  "resends": 45,
+  "median_model_plus_diff_ms": 5.82,
+  "median_update_ms": 1.965,
+  "held": true
+ },
+ "C6": {
+  "held": true,
+  "cells": [
+   {
+    "cell": "A_wl_up_apkeep_s1",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "A_wl_up_apkeep_s2",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "A_wl_up_apkeep_s3",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "D_wl_up_apkeep_s1_coarse",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "D_wl_up_apkeep_s2_coarse",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "D_wl_up_apkeep_s3_coarse",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "C_wl_up_apkeep_s4",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "A_wl_up_ndd-apkeep_s1",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "A_wl_up_ndd-apkeep_s2",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "A_wl_up_ndd-apkeep_s3",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "D_wl_up_ndd-apkeep_s1_coarse",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "D_wl_up_ndd-apkeep_s2_coarse",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "D_wl_up_ndd-apkeep_s3_coarse",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   },
+   {
+    "cell": "C_wl_up_ndd-apkeep_s4",
+    "refused_ops": 0,
+    "ops": 50,
+    "held": true
+   }
+  ]
+ },
+ "C7": {
+  "hours": 18.15,
+  "held": true
+ }
+}

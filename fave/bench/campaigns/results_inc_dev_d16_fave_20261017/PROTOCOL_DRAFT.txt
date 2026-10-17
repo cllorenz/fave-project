@@ -1,0 +1,80 @@
+PROTOCOL (DRAFT) -- incremental axis, the D16 INDICATIVE RUN THROUGH FaVe
+To be declared (renamed PROTOCOL.txt and committed) BEFORE any cell runs, and
+not edited afterwards. OPEN at drafting: O1-O4 below (owner), the code commit.
+
+INCREMENTAL_PLAN.md D13 (the grid), D14 (every measurement through FaVe),
+D15 (the cut, the reduced ablation), D16 (12 h cap, 4 jobs, wl_tum with its
+checks). Indicative: limit_class dev, one repetition, this machine. Sized by
+the calibration (results_inc_dev_fave_calibration_20261016, FINDINGS.md).
+
+PRECONDITIONS
+  The leak fix (e10c0700, TODO item 60) and any change O1/O2 bring are
+  committed; the integration tier (FAVE_JOBS=4 FAVE_JVM_XMX=8g) has passed on
+  the code to be measured. Nothing else heavy runs on this machine meanwhile;
+  the tree (sources and build outputs) is not touched until the queue ends.
+
+WHAT IS BEING RUN  (queue.json, made by make_queue.py; run.sh)
+  Workloads wl_airtel1, wl_airtel2, wl_cloud, wl_up, wl_stanford, wl_i2,
+  wl_tum (with its 8,497 checks). Engines netplumber, veriflow, apkeep (BDD),
+  ndd-apkeep; BDD-APKeep has no cell on wl_stanford and wl_i2 (D13). Every
+  cell driven through FaVe (`driven: fave`):
+    A  S1, S2 (0.2, seed 1), S3, batch 1, default footprint        78 cells
+    B  S2 at batches 10, 100, all                                   75
+    C  S4 (1,000 edits) on wl_cloud, wl_up, wl_tum                  11
+    D  coarse, S1-S3, on every workload (VeriFlow-FR, BDD-APKeep,
+       NDD-APKeep); witness alone and dead ends alone on wl_cloud and
+       wl_airtel1 (D15)                                             84
+    E  the oracle: S2 (50 sampled checks, a full checkpoint every 1,000
+       updates) and S4 (every 250)                                  36
+  284 cells. BDD-APKeep on wl_cloud has A cells only -- unless O3.
+
+HOW
+  bench/incremental_queue.py --jobs 4 --mem-budget 56000 (run.sh), longest
+  estimated cell first. limit_wall 43,200 s (D16); limit_update 3,600 s.
+  Per-cell RSS limit (make_queue.py): BDD-APKeep and NDD-APKeep 18 GB -- the
+  JVM's default heap cap (a quarter of RAM, ~15.5 GB) + 2.5 GB, since a JVM's
+  RSS follows its collector, not its need (calibration Finding 2);
+  VeriFlow-FR on wl_tum 8 GB; otherwise 1.3x the calibration's largest peak
+  for the workload x engine, oracle cells 1.6x, at least 4 GB.
+
+SIZE  (project.py: build + the stream at the calibration's mean rates over
+its first 50 updates -- for the queue order, not a prediction of results)
+  ~825 cell-hours under the cap; 37 cells estimated beyond 12 h (wl_i2
+  NDD-APKeep and VeriFlow-FR, wl_up BDD-APKeep and VeriFlow-FR, wl_stanford
+  VeriFlow-FR, ...); 13 cells without a calibration record (BDD-APKeep on
+  wl_tum beyond S1, S4 on wl_tum for VeriFlow-FR and BDD-APKeep, and BDD-
+  APKeep's wl_cloud S4), assumed at the cap. Simulated: ~9.1 days of wall
+  time (O4).
+
+OPEN -- for the owner
+  O1  VeriFlow-FR's state bound. At the default 1 M explored states its first
+      check on wl_stanford takes 1,270 s with tracking on (D11: 193 s); 4 M:
+      269 s (= unbounded), 923 MB against 554 MB. On wl_tum the worst walk
+      holds 1.3 GB at 1 M, 4.4 GB at 4 M. Keep 1 M, or 4 M for D16.
+  O2  NDD-APKeep's incremental atom bookkeeping (B, apkeep/FAVE_CHANGES.md
+      §15) took wl_tum's build from 1,422 to 112 s and costs the route-heavy
+      workloads 2-3x (wl_airtel1 16 -> 42 s, wl_i2 288 -> 808 s). Measure as
+      it is (the decided default), or first look for a cheaper B.
+  O3  BDD-APKeep's wl_cloud cells beyond A: their reason to be left out (a
+      3.24 h build) is gone -- 1,352 s in the calibration. Including them:
+      299 cells, ~10.1 days.
+  O4  Duration: ~9.1 days at the 12 h cap (O3: ~10.1); at a 6 h cap ~5.5
+      (6.2), with 51 cells (54) reaching the cap instead of 37.
+
+STOPPING RULES
+  A cell stopped by a limit is `did_not_finish` with its records so far. A
+  crash (`error`) is a finding: not re-run within this protocol, looked at
+  before the campaign protocol.
+
+PREDICTIONS  (to be completed with the O1-O4 answers)
+  P1  No cell ends in `error`.
+  P2  No cell is stopped by its memory limit.
+  P3  The leak is gone: on wl_up and wl_tum, no NetPlumber or VeriFlow-FR S2
+      or S4 cell grows by more than 0.5 MB per re-send over its stream.
+  P4  Every oracle checkpoint of every E cell agrees with the selective
+      verdicts (0 mismatches).
+  P5  APKeep (both engines) refuses at most 3 % of the updates of each wl_up
+      cell.
+  P6  The cells estimated beyond the cap reach it; the others end before it.
+  P7  For the three footprinted engines on every workload, the A S2 cell's
+      median t_total is at most that of its D (coarse) cell.
