@@ -1,0 +1,35 @@
+PROTOCOL -- incremental axis, BDD-APKeep's wl_cloud cells TRIALLED before D16
+Declared 2026-10-17 before any cell ran; not edited afterwards.
+  Code: ab8d8e17. The integration tier (FAVE_JOBS=4 FAVE_JVM_XMX=8g) passed
+  on 37e59925; ab8d8e17 changes only VeriFlow-FR's default state bound
+  (not an engine here). Jars as that tier rebuilt them.
+
+Owner, 2026-10-17: "try BDD cloud before inclusion" -- D11 left BDD-APKeep's
+wl_cloud cells beyond A out for a 3.24 h build (V5, from zero); the
+calibration (results_inc_dev_fave_calibration_20261016) measured its build +
+first check at 1,352 s, in its one cell (A S2). Indicative, one repetition.
+
+WHAT IS BEING RUN  (queue.json from make_queue.py; run.sh)
+  BDD-APKeep on wl_cloud, through FaVe, the first 50 updates of each D16 cell
+  kind the calibration did not run: A S1, A S3, B S2 at batch 10, C S4, D
+  coarse S1-S3, E S2 with the oracle (50 sampled checks; its full checkpoint
+  falls at the end of the 50 updates, a from-zero build). 8 cells.
+
+HOW
+  bench/incremental_queue.py --jobs 4 --mem-budget 56000; per cell 18 GB RSS
+  limit (D16's rule for a JVM engine), limit_wall 43,200 s, limit_update
+  3,600 s. Nothing else heavy runs meanwhile; the tree is not touched.
+
+WHAT DECIDES THE INCLUSION  (declared now)
+  D16 includes BDD-APKeep's wl_cloud cells beyond A if none of these 8 ends
+  in `error` or by its memory limit, and the oracle cell's checkpoint agrees.
+  Their D16 estimates (calibration project.py with these records) are
+  reported to the owner either way; a cell estimated beyond the cap is
+  included and recorded as a timeout if it reaches it (owner, 2026-10-17).
+
+PREDICTIONS
+  T1  No cell ends in `error` or by a limit.
+  T2  Every cell's build + first check is within 1,000-1,800 s.
+  T3  The E cell's checkpoint agrees with the selective verdicts.
+  T4  No cell's peak RSS exceeds 6 GB.
+  T5  The queue ends within 3 h.
