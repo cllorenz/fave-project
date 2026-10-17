@@ -8,7 +8,7 @@ checks). Indicative: limit_class dev, one repetition, this machine. Sized by
 the calibration (results_inc_dev_fave_calibration_20261016, FINDINGS.md).
 
 PRECONDITIONS
-  The leak fix (e10c0700, TODO item 60) and any change O1/O2 bring are
+  The leak fix (37e59925, TODO item 60) and any change O1/O2 bring are
   committed; the integration tier (FAVE_JOBS=4 FAVE_JVM_XMX=8g) has passed on
   the code to be measured. Nothing else heavy runs on this machine meanwhile;
   the tree (sources and build outputs) is not touched until the queue ends.

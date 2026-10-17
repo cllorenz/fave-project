@@ -53,10 +53,13 @@ NetPlumber +4.0, VeriFlow-FR +4.5, BDD-APKeep +10.7 MB per update; NetPlumber
 on `wl_tum` S2 reached 5,972 MB against 1,486 MB on S1), while route and link
 streams stayed flat. Cause: pybison 0.6.4 leaks every parse tree in the
 process that parses, and the in-process harness parsed re-sent configurations
-in the measured process. Fixed in `e10c0700`: the client side of a re-send
-runs as a process of its own, as in real FaVe. **This run's re-send memory
-includes the leak**; its re-send times do not include the fork the fix adds
-(+20 to +260 ms per re-send in the dev probes).
+in the measured process. Fixed in `37e59925` (a first fix, `e10c0700`,
+forked the client and deadlocked in processes holding a JVM): the client side
+of a re-send runs in a worker process, as in real FaVe a client runs as a
+process of its own. **This run's re-send memory and times include the leak**:
+in the dev probes re-sends through the worker were faster than in-process
+(`wl_up` 0.054 against 0.176 s, `wl_tum` 2.17 against 5.76 s, median, with an
+engine that keeps nothing).
 
 ## Finding 2 — BDD-APKeep's `wl_tum` cells stop on a lazy heap, not on need
 
