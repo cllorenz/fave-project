@@ -450,6 +450,28 @@
   "footprint": "coarse"
  },
  {
+  "name": "C_wl_cloud_apkeep_s4",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s4",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 12.0,
+  "limit-updates": 1000
+ },
+ {
+  "name": "E_wl_cloud_apkeep_s4_oracle",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s4",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 12.0,
+  "limit-updates": 1000,
+  "oracle-sample": 50,
+  "oracle-every": 250
+ },
+ {
   "name": "C_wl_up_apkeep_s4",
   "workload": "bench/wl_up",
   "engine": "apkeep",
@@ -554,6 +576,36 @@
   "mem_mb": 18432,
   "limit-wall": 43200,
   "est_h": 8.88
+ },
+ {
+  "name": "D_wl_cloud_apkeep_s1_coarse",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s1",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 8.88,
+  "footprint": "coarse"
+ },
+ {
+  "name": "D_wl_cloud_apkeep_s1_witness",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s1",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 8.88,
+  "footprint": "witness"
+ },
+ {
+  "name": "D_wl_cloud_apkeep_s1_dead-ends",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s1",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 8.88,
+  "footprint": "dead-ends"
  },
  {
   "name": "D_wl_tum_apkeep_s3_coarse",
@@ -776,6 +828,17 @@
   "est_h": 4.4
  },
  {
+  "name": "E_wl_cloud_apkeep_s2_oracle",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s2",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 4.15,
+  "oracle-sample": 50,
+  "oracle-every": 1000
+ },
+ {
   "name": "E_wl_up_veriflow_s4_oracle",
   "workload": "bench/wl_up",
   "engine": "veriflow",
@@ -934,6 +997,66 @@
   "est_h": 2.07
  },
  {
+  "name": "D_wl_cloud_apkeep_s2_coarse",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s2",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 2.07,
+  "footprint": "coarse"
+ },
+ {
+  "name": "D_wl_cloud_apkeep_s2_witness",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s2",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 2.07,
+  "footprint": "witness"
+ },
+ {
+  "name": "D_wl_cloud_apkeep_s2_dead-ends",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s2",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 2.07,
+  "footprint": "dead-ends"
+ },
+ {
+  "name": "B_wl_cloud_apkeep_s2_b10",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s2",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 2.05,
+  "batch": 10
+ },
+ {
+  "name": "B_wl_cloud_apkeep_s2_b100",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s2",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 2.05,
+  "batch": 100
+ },
+ {
+  "name": "B_wl_cloud_apkeep_s2_ball",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s2",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 2.05,
+  "batch": 1000000000
+ },
+ {
   "name": "C_wl_up_veriflow_s4",
   "workload": "bench/wl_up",
   "engine": "veriflow",
@@ -991,6 +1114,36 @@
   "mem_mb": 18432,
   "limit-wall": 43200,
   "est_h": 1.18
+ },
+ {
+  "name": "D_wl_cloud_apkeep_s3_coarse",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s3",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 1.18,
+  "footprint": "coarse"
+ },
+ {
+  "name": "D_wl_cloud_apkeep_s3_witness",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s3",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 1.18,
+  "footprint": "witness"
+ },
+ {
+  "name": "D_wl_cloud_apkeep_s3_dead-ends",
+  "workload": "bench/wl_cloud",
+  "engine": "apkeep",
+  "stream": "s3",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 1.18,
+  "footprint": "dead-ends"
  },
  {
   "name": "B_wl_tum_ndd-apkeep_s2_b100",

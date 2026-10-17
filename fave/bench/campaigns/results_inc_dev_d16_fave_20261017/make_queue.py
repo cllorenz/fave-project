@@ -2,14 +2,16 @@
 an incremental_queue.py queue. Writes queue.json; est_h from the calibration's
 project.py (results_inc_dev_fave_calibration_20261016/projections.json, made
 from this queue), mem_mb by the rule below. Run from fave/:
-python3 <this> [--bdd-cloud]   (--bdd-cloud: BDD-APKeep's wl_cloud cells
-beyond A, which D11 left out for a 3.24 h build; 1,352 s in the calibration)."""
+python3 <this> [--no-bdd-cloud]   (BDD-APKeep's wl_cloud cells beyond A, which
+D11 left out for a 3.24 h build, are in since their trial)."""
 import csv, json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CAL = os.path.join(HERE, '..', 'results_inc_dev_fave_calibration_20261016')
 OUT = os.path.join(HERE, 'queue.json')
-BDD_CLOUD = '--bdd-cloud' in sys.argv
+# included since the trial (results_inc_dev_bdd_cloud_trial_20261017, owner's
+# rule "try BDD cloud before inclusion"); --no-bdd-cloud leaves them out
+BDD_CLOUD = '--no-bdd-cloud' not in sys.argv
 
 _SPLIT = {'checks': '../checks.json', 'files': 'topology=device_topology.json,policies=probes.json'}
 WL = {
