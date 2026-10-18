@@ -1,0 +1,43 @@
+PROTOCOL -- the cost of APKeep's update-ready structure, before the campaign
+convergence decides difference 1 (owner, 2026-10-18: "Please measure the cost
+of (i)")
+Declared 2026-10-18 before any measured process ran (one smoke run of
+probe.py on BDD wl_airtel1 beforehand, not recorded); not edited afterwards.
+  Code: <the commit of this file>. The integration tier passed on 37e59925;
+  since then only VeriFlow-FR's default state bound changed (ab8d8e17).
+
+QUESTION
+  How much does building APKeep's update-ready structure (`_for_updates`: an
+  ingress-qualified device split per ingress PORT, not per class of ports;
+  no pass-through elision; IPv6 routers kept as built) cost against the
+  from-zero structure, for build and first compliance check? Both are ours
+  (adapter optimisations, 561cab3f, 779b8c2e, 8e73a06d); upstream APKeep
+  creates its elements once at initialisation in either case. IPv6 handling
+  itself is not a variant: it is mandatory (owner) and identical in both.
+
+WHAT IS BEING RUN  (run.sh; probe.py)
+  BDD-APKeep on wl_airtel1, wl_airtel2, wl_cloud, wl_up, wl_tum; NDD-APKeep on
+  those and wl_stanford, wl_i2 (stanford-json / i2-json) -- the incremental
+  grid's APKeep pairs. Per pair three variants, each a process of its own,
+  through FaVe (InProcessFaVe), the order rotated from pair to pair:
+    plain      from-zero structure, untracked check
+    updatable  update-ready structure, untracked check
+    tracked    update-ready structure, tracked check (today's incremental head)
+  Recorded per process (results.jsonl): replay, build (APKeep's lazy build,
+  forced before the check) and check seconds; elements, rules and edges of
+  the translation; violated and checks; peak RSS (VmHWM); the engine's
+  configuration stamp. One repetition: indicative.
+
+HOW
+  Serial, nothing else running; JVM heap at its default (as the cells);
+  6 h timeout per process. Dev limit class, this machine.
+
+PREDICTIONS
+  S1  Within each pair the three variants give the same violated count.
+  S2  updatable has at least as many elements as plain on every pair, more
+      on wl_up and wl_tum (packet filters: elision and per-port splits).
+  S3  On the switch workloads (wl_airtel1/2, wl_cloud, wl_stanford, wl_i2)
+      updatable's build + check is within 25 % of plain's.
+  S4  On wl_up and wl_tum updatable's build + check exceeds plain's by more
+      than 25 % on both engines.
+  S5  tracked's check is at least updatable's on every pair.
