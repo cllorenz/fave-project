@@ -388,9 +388,12 @@ TNSM'21 measures only build-from-zero plus one verification.
      seven workloads (`wl_tum` with its checks is new); the **`wl_berkeley`
      size series** k = 30, 10, 3 on NetPlumber, VeriFlow-FR, BDD-APKeep,
      NDD-APKeep and ad6 (VeriFlow-FR and ad6 missed V5's series only by its
-     timing, 2026-09-29), **k = 1 recorded as memory stops, not run** (V5:
-     NDD-Flood 44.7 GB, BDD-APKeep 47.4 GB against the 32 GB class; for the
-     other engines an assumption, so stated). **BDD-APKeep on `wl_stanford`
+     timing, 2026-09-29); **k = 1 once per engine, an exception to the 32 GB
+     class (owner, 2026-10-19): the machine's memory (64 GB) and the 12 h
+     cap, each k = 1 cell alone on the machine, not repeated** -- the owner
+     expects them to run out of memory quickly (V5: NDD-Flood 44.7 GB,
+     BDD-APKeep 47.4 GB). NetPlumber's k = 3 (16 h in V5) runs as a series
+     cell and is recorded as a timeout when it reaches the cap. **BDD-APKeep on `wl_stanford`
      and `wl_i2`: recorded as timeouts, not run** (V5: no answer within 24 h;
      the cap is 12 h). **Left out:** `wl_example`, `wl_ifi` (D15), VF-plain
      (the field refinement is the thesis's, our extensions documented),
@@ -399,6 +402,22 @@ TNSM'21 measures only build-from-zero plus one verification.
      anomaly detection (item 6). `wl_tum` is measured on the model after the
      port-range fix (TODO: "settle it in the next campaign run"); V5's
      `wl_tum` row is not comparable. NDD-APKeep's from-zero numbers are new.
+  11. *Documentation* (2026-10-19): one campaign directory with V5's set
+     (`PROTOCOL.txt`, `CAMPAIGN_LOG.md`, `FINDINGS.md`, `MACHINE.txt`,
+     `ARTIFACTS.txt`), `summary/` committed and the raw records archived
+     (`docs/CONVENTIONS.md`). `cell_table.py` is extended to read the
+     converged cells, under its four rules, and generates: the verdict
+     matrix (distinct violated/checks; timeout, memory stop, machine stop
+     marked, recorded stops with their basis), the cross-engine agreement on
+     initial verdicts, cost per phase (median over all samples with the
+     spread; peak RSS per phase; the JVM's live heap), the bridge table, the
+     comparison with V5 where the model is the same (each exception stated),
+     and the `wl_berkeley` series. The incremental tables come from the same
+     cells: `t_total` quantiles per repetition (first 100 updates apart),
+     selectivity and precision (O5), the break-even share, the footprint
+     pass, prefixes of stopped cells, the contention factor. The campaign
+     gets its own generated `RESULTS.md`; V5's stays as it is and links to
+     it.
 
 ## 5. What is measured, per update
 
