@@ -51,3 +51,25 @@ reproducible, not noise; why `wl_airtel1` (56 → 68 elements as well) shows
 - `wl_cloud` and `wl_tum` translate to the same elements either way.
 - The tracked first check (footprints) costs most on `wl_up`: +215 s on BDD,
   +28 s on NDD; at most +8 s elsewhere.
+
+## Attribution on BDD-APKeep `wl_up` (ATTRIBUTION_PROTOCOL.txt, `64590fe9`)
+
+2026-10-19 05:10 → 05:42 UTC, one process per variant, serial
+(`attribution.jsonl`). Build + first check, over the from-zero structure:
+
+| variant | elements | edges | build + first check s | increment |
+|---|---|---|---|---|
+| plain (from zero) | 271 | 602 | 373.8 | — |
+| split: per-ingress-port split only | 278 | 672 | 408.9 | +35.1 s (+9 %) |
+| noelide: no pass-through elision only | 436 | 767 | 567.3 | +193.5 s (+52 %) |
+| updatable (both; frozen IPv6 a no-op at build) | 443 | 837 | 587.8 | +214.0 s (+57 %) |
+
+| | prediction | result |
+|---|---|---|
+| A1 | verdicts equal in all four | **held** (0 violated) |
+| A2 | split adds more elements than noelide | **failed**: +7 against +165 |
+| A3 | split costs more than noelide | **failed**: +35 s against +194 s |
+| A4 | the increments add up within 20 % | **held**: 228.6 against 214.0 s (+7 %) |
+
+**The elision is the cost**: keeping `wl_up`'s 165 pass-through filters
+costs 194 s of the 214; the per-port split adds 7 elements and 35 s.
