@@ -300,6 +300,23 @@ TNSM'21 measures only build-from-zero plus one verification.
   VeriFlow-FR `wl_tum` incremental run (TODO item 59) and the integration
   tier; nothing else heavy runs beside them.
 
+- **D17. One campaign: a from-zero phase and an incremental phase sharing
+  the model initialization and the first compliance check (owner,
+  2026-10-17/19).** The from-zero campaign (V5's measurements) and the
+  incremental one converge: each cell initializes the model and verifies
+  compliance once, measured and documented as the from-zero campaign does,
+  and the update stream continues from that state. The differences are
+  settled one after another:
+  1. *Shared structure* (2026-10-19): APKeep builds one element per ingress
+     port and elides no pass-through filter, for every build -- the from-zero
+     model is the one updates go to (`d4172206`; cost in
+     `results_apkeep_structure_cost_20261018/FINDINGS.md`). Demultiplexing
+     and proper IPv6 handling stay.
+  2. *The first check* (2026-10-19, option b): a plain check (tracking off,
+     VeriFlow-FR's early exit on) is the from-zero measurement; a separately
+     timed footprint pass (one tracked check over the same model) follows as
+     the incremental phase's setup. The model is never rebuilt.
+
 ## 5. What is measured, per update
 
 For an update `u` applied to a built model with a cached verdict per check:
