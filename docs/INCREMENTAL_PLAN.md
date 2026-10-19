@@ -372,6 +372,16 @@ TNSM'21 measures only build-from-zero plus one verification.
      APKeep's build + first check, serial against 4 in parallel, median
      ratio 1.04 (0.88-1.22) over 12 pairs (calibration vs the structure-cost
      run).
+  9. *Repetitions and limits* (2026-10-19): **12 h** wall limit for every
+     cell (owner, superseding O4.1's 24 h); a cell that reaches it is
+     recorded as a timeout with its completed prefix ("n of N", O4.2) and is
+     not repeated. **Ten repetitions** (O4.4); every cell's from-zero phase is
+     one sample, so the from-zero measurement needs none of its own. Per-
+     update guard 1 h (O4.3). Seeds: three on `wl_airtel1` and `wl_up`
+     (`wl_ifi` left the grid, D15). The warm-up split (first 100 updates)
+     and the break-even share stay; the latter now against the campaign's
+     own from-zero phase. Estimated ~37 days at 4 jobs on this machine (the
+     campaign machine's calibration decides, D10).
 
 ## 5. What is measured, per update
 
