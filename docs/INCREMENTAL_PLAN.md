@@ -335,6 +335,16 @@ TNSM'21 measures only build-from-zero plus one verification.
      layout (`cell_run.py` + `benchmark.py`: aggregator process, NetPlumber
      over RPC) for build and first check, measuring what transport and RPC
      add, so the campaign's from-zero numbers can be set against V5's.
+  5. *Memory* (2026-10-19): V5's sampler (`cell_run.py`, session RSS every
+     second) for every cell, plus per phase of item 3 the cell process's
+     start, peak and end RSS (its peak counter reset at each boundary,
+     `/proc/self/clear_refs`) and phase marks in the sampler's trail; after
+     each phase, outside the timers, a JVM engine's live heap after a full
+     collection. Every cell runs under V5's limit class (32 GB RSS, 2 GB
+     available-memory floor); packing uses a reservation (the expected peak
+     from the calibration), not the limit, and a floor stop is recorded as a
+     machine stop, not a did-not-finish. The wall limit is decided with
+     difference 8.
 
 ## 5. What is measured, per update
 
