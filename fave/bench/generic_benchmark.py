@@ -542,6 +542,12 @@ class GenericBenchmark(object):
         # would abort the run on a capability the engine never claimed. Said out
         # loud, because a silently-skipped verification step is how a benchmark
         # comes to report a verdict it never computed.
+        if os.environ.get('FAVE_SKIP_ANOMALIES'):
+            # INCREMENTAL_PLAN.md D17.6 (owner): the campaign runs no anomaly
+            # detection, so a bridge cell's phases match the in-process cells'
+            self.logger.info("SKIPPED anomaly check: FAVE_SKIP_ANOMALIES "
+                             "(this run's verdict covers compliance only)")
+            return
         if self.backend not in BACKENDS_WITH_ANOMALIES:
             self.logger.info(
                 "SKIPPED anomaly check: backend %s does not implement it "
@@ -608,9 +614,18 @@ class GenericBenchmark(object):
         """ Runs the benchmark.
         """
 
-        self._pre_preparation()
-        self._preparation()
-        self._post_preparation()
+        if os.environ.get('FAVE_REUSE_INPUTS'):
+            # INCREMENTAL_PLAN.md D17.3/D17.4: a campaign generates its inputs
+            # once; a bridge cell measures V5's layout on THOSE inputs. Every
+            # preparation step regenerates some of them (wl_cloud's in the pre-,
+            # wl_tum's topology in the post-preparation), so all are skipped;
+            # only the old logs go.
+            self.logger.info("REUSED inputs: no preparation step runs (FAVE_REUSE_INPUTS)")
+            self._delete_artifacts()
+        else:
+            self._pre_preparation()
+            self._preparation()
+            self._post_preparation()
         # From here on a daemon may be running, so teardown is unconditional.
         # `_compliance` is FATAL (see there), and before this a raising step
         # left the aggregator -- and net_plumber -- alive, holding their ports

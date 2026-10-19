@@ -57,9 +57,27 @@ def _args(**kwargs):
     spec = dict(workload='wl_ifi', backend='apkeep', apkeep_engine='ndd',
                 vf_fields='4+10', engine_options='', jvm_xmx=None,
                 keep_every=None, reuse_inputs=False, mutate=False,
-                mutate_cell='s1,s8', invert_lpm=False)
+                mutate_cell='s1,s8', invert_lpm=False, no_anomalies=False)
     spec.update(kwargs)
     return argparse.Namespace(**spec)
+
+
+class TestTheBridgeCell(unittest.TestCase):
+    """ INCREMENTAL_PLAN.md D17.4, D17.6: V5's layout on the campaign's
+    inputs, without the anomaly step -- both in the environment and stamped. """
+
+    def test_reused_inputs_and_no_anomalies(self):
+        _argv, env, stamps = cell_run.build_command(
+            _args(workload='wl_up', reuse_inputs=True, no_anomalies=True))
+        self.assertEqual((env.get('FAVE_REUSE_INPUTS'), env.get('FAVE_SKIP_ANOMALIES')),
+                         ('1', '1'))
+        self.assertEqual((stamps['inputs'], stamps['anomalies']), ('reused', False))
+
+    def test_a_v5_cell_is_unchanged(self):
+        _argv, env, stamps = cell_run.build_command(_args(workload='wl_up'))
+        self.assertNotIn('FAVE_REUSE_INPUTS', env)
+        self.assertNotIn('FAVE_SKIP_ANOMALIES', env)
+        self.assertEqual((stamps['inputs'], stamps['anomalies']), ('generated', True))
 
 
 class TestEveryStoppingRuleFires(unittest.TestCase):

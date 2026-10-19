@@ -268,6 +268,16 @@ def build_command(args):
     if args.jvm_xmx:
         env['FAVE_JVM_XMX'] = args.jvm_xmx
 
+    # INCREMENTAL_PLAN.md D17.4, D17.6: a bridge cell, V5's layout on the
+    # campaign's inputs and without the anomaly step
+    if args.reuse_inputs and args.workload not in deltanet_workloads():
+        env['FAVE_REUSE_INPUTS'] = '1'
+    stamps['inputs'] = 'reused' if args.reuse_inputs else 'generated'
+    no_anomalies = getattr(args, 'no_anomalies', False)   # a caller predating it
+    if no_anomalies:
+        env['FAVE_SKIP_ANOMALIES'] = '1'
+    stamps['anomalies'] = not no_anomalies
+
     if args.backend == 'ad6':
         # AD6_PLAN.md §9.34.3: without this a six-hour run yields a bound and
         # nothing else -- not even which query it reached, which is what would
@@ -703,7 +713,11 @@ def main(argv=None):
 
     parser.add_argument('--jvm-xmx', default=None)
     parser.add_argument('--keep-every', type=int, default=None)
-    parser.add_argument('--reuse-inputs', action='store_true')
+    parser.add_argument('--reuse-inputs', action='store_true',
+                        help="run on the inputs as they are (every workload; the "
+                             "Delta-net ones through their own option)")
+    parser.add_argument('--no-anomalies', action='store_true',
+                        help="skip the benchmark's anomaly step (D17.6)")
     parser.add_argument('--mutate', action='store_true')
     parser.add_argument('--mutate-cell', default='s1,s8')
     parser.add_argument('--expect-violations', type=int, default=None,
