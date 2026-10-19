@@ -316,6 +316,18 @@ TNSM'21 measures only build-from-zero plus one verification.
      VeriFlow-FR's early exit on) is the from-zero measurement; a separately
      timed footprint pass (one tracked check over the same model) follows as
      the incremental phase's setup. The model is never rebuilt.
+  3. *Timing* (2026-10-19): per cell, for every engine, `t_start_s` (engine
+     construction, JVM start), `t_load_s` (every modelling element through
+     the aggregator -- topology, routes, probes with their links, the
+     generators WITHOUT their links), `t_build_s` (the generators' links:
+     NetPlumber's traffic propagation; the lazy engines' build, forced
+     before the check), `t_check_s` (the plain first check) and
+     `t_footprint_s` (the footprint pass). Model initialization is
+     `t_load_s`, the build `t_build_s` (owner: NetPlumber's propagation
+     belongs to the build, as FaVe's benchmarks add the generator links
+     last). V5's `check_compliance_s` for a lazy engine is `t_build_s +
+     t_check_s`. Inputs are generated once per workload per campaign, their
+     hashes recorded, outside cell time (V5 regenerated them in each cell).
 
 ## 5. What is measured, per update
 
