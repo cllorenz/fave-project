@@ -61,7 +61,7 @@ DONE = ('measured', 'did_not_finish', 'refused')
 #: outcomes that are a finding: not re-run, listed
 FLAGGED = ('error', 'oracle_failed', 'machine_stop')
 _OWN = ('name', 'workload', 'engine', 'stream', 'mem_mb', 'est_h',
-        'limit-rss', 'memory-floor', 'alone')
+        'limit-rss', 'memory-floor', 'alone', 'recorded')
 #: the queue's defaults for every cell (`main`): None keeps the cell's
 #: reservation as its RSS limit, as before INCREMENTAL_PLAN.md D17.5
 LIMITS: Dict[str, Optional[int]] = {'limit-rss': None, 'memory-floor': None}
@@ -143,6 +143,19 @@ def pinned(argv: List[str], group: Optional[List[int]]) -> List[str]:
     return ['taskset', '-c', ','.join(str(c) for c in group)] + argv
 
 
+def record(cell: Dict[str, Any], out_dir: str) -> None:
+    """ A cell that is RECORDED, not run (INCREMENTAL_PLAN.md D17.10): its
+    `recorded` entry -- the outcome, the limit it stands for, its basis --
+    written as the cell's result, marked as recorded. """
+    d = os.path.join(out_dir, cell['name'], 'rep01')
+    os.makedirs(d, exist_ok=True)
+    entry = dict(cell['recorded'])
+    with open(os.path.join(d, 'cell.json'), 'w') as handle:
+        json.dump(dict(entry, recorded=True, name=cell['name'], workload=cell['workload'],
+                       engine=cell['engine'], stream=cell['stream'], completed_updates=0),
+                  handle, indent=1, sort_keys=True)
+
+
 def run(cells: List[Dict[str, Any]], out_dir: str, jobs: int, budget: int,
         python: str, log, pin: bool = False) -> List[str]:
     """ Run `cells`, at most `jobs` at a time within `budget` MB of
@@ -151,6 +164,12 @@ def run(cells: List[Dict[str, Any]], out_dir: str, jobs: int, budget: int,
     starts only when nothing runs, has the whole machine unpinned, and
     nothing starts beside it. """
     todo = plan(cells, out_dir)
+    for cell in [c for c in todo if c.get('recorded')]:
+        todo.remove(cell)
+        record(cell, out_dir)
+        log("%s recorded %s (%s, not run: %s)" % (
+            _now(), cell['name'], cell['recorded'].get('outcome'),
+            cell['recorded'].get('basis', '')))
     running: Dict[str, Any] = {}
     used = 0
     free = core_groups(jobs) if pin else []

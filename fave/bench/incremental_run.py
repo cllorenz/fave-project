@@ -88,12 +88,14 @@ from util import incremental as inc
 
 #: 'apkeep' is BDD-APKeep (the name the first records carry); 'ndd-apkeep' is
 #: NDD-APKeep, the same APKeep with NDD's atoms (APKEEP_INCREMENTAL_SCOPE.md §4)
-ENGINES = ('netplumber', 'veriflow', 'apkeep', 'ndd-apkeep')
-STREAMS = ('s1', 's2', 's3', 's4')
+ENGINES = ('netplumber', 'veriflow', 'apkeep', 'ndd-apkeep', 'ad6')
+#: `z`: the from-zero measurement alone -- the shared initialization without
+#: the footprint pass, and no stream (INCREMENTAL_PLAN.md D17.10)
+STREAMS = ('s1', 's2', 's3', 's4', 'z')
 
 #: the engine's source tree, for `engine_commit`
 _TREES = {'netplumber': ('net_plumber',), 'veriflow': ('veriflow_fr',),
-          'apkeep': ('apkeep',), 'ndd-apkeep': ('apkeep', 'ndd')}
+          'apkeep': ('apkeep',), 'ndd-apkeep': ('apkeep', 'ndd'), 'ad6': ('ad6',)}
 
 _PAGE_MB = resource.getpagesize() / (1024.0 * 1024.0)
 
@@ -143,12 +145,21 @@ def _engine_maker(args):
         options['footprint'] = args.footprint
     if args.ndd_collect_visited:
         options['ndd_collect_visited'] = True
+    if args.engine == 'ad6':
+        options['ad6'] = {'grounding': args.ad6_grounding, 'solver': args.ad6_solver,
+                          'lite_acyclic': args.ad6_lite_acyclic}
     return make_engine(args.engine, **options)
 
 
-def make_engine(name, footprint=None, ndd_collect_visited=False):
+def make_engine(name, footprint=None, ndd_collect_visited=False, ad6=None):
     log = logging.getLogger("incremental_run")
     log.setLevel(logging.WARNING)
+    if name == 'ad6':
+        # from zero only (D17.10); grounding and solver are NOT
+        # interchangeable settings of one encoding, so they are always named
+        # (cell_run.py, TODO item 0a)
+        from ad6.adapter import Ad6Adapter
+        return lambda: Ad6Adapter(log, **(ad6 or {}))
     if name == 'netplumber':
         from netplumber.lib_adapter import NetPlumberLibAdapter
         return lambda: NetPlumberLibAdapter(log)
@@ -271,14 +282,15 @@ def _provenance(head, engine, workload, files, checks_path):
         head['jvm'] = None
 
 
-def _initialize(fave, engine, prefix, checks, head, phases, files=None, expected=None):
+def _initialize(fave, engine, prefix, checks, head, phases, files=None, expected=None,
+                footprint_pass=True):
     """ The shared initialization (INCREMENTAL_PLAN.md D17.2-3, D17.5): the
     phases, their memory and their wall-clock marks into `head`; returns the
     verdict cache, holding the first check's verdicts.
     `build_and_first_check_s` stays the sum of the phases after the
     engine's construction, so earlier analyses read alike. """
     cache, phases = inc.initialize(fave, engine, prefix, checks, files=files,
-                                   phases=phases)
+                                   phases=phases, footprint_pass=footprint_pass)
     head['phases'] = dict(phases.seconds)
     head['phase_memory'] = dict(phases.memory)
     head['phase_marks'] = list(phases.marks)
@@ -593,6 +605,34 @@ def run(args):
     return 1 if failed else 0
 
 
+def run_z(args):
+    """ The from-zero measurement alone (INCREMENTAL_PLAN.md D17.10): the
+    workload built and its compliance verified once, phases and stamps as
+    every cell's, no footprint pass, no stream. For engines without an
+    update path (ad6) and the `wl_berkeley` size series. """
+    from util.in_process_driver import InProcessFaVe
+    make = _engine_maker(args)
+    files = parse_files(args.files)
+    checks_path = os.path.join(args.workload, args.checks)
+    checks = inc.load_checks(checks_path) if os.path.exists(checks_path) else []
+    os.makedirs(args.cell_dir, exist_ok=True)
+    head = _head(args, 'the from-zero measurement, no stream (INCREMENTAL_PLAN.md '
+                       'D17.10)', driven='fave', files=files)
+    engine, phases = _start(make)
+    try:
+        with InProcessFaVe(engine) as fave:
+            _initialize(fave, engine, args.workload, checks, head, phases, files=files,
+                        expected=args.expect_violations, footprint_pass=False)
+            head.update({'checks': len(checks), 'updates': 0})
+            _write_json(os.path.join(args.cell_dir, 'head.json'), head)
+    finally:
+        if hasattr(engine, 'release'):
+            engine.release()
+    _write_json(os.path.join(args.cell_dir, 'end.json'),
+                {'status': 'completed', 'completed_updates': 0, 'finished': _now()})
+    return 0
+
+
 def run_s4(args):
     """ S4 (INCREMENTAL_PLAN.md §8.1): seeded one-line configuration edits,
     each re-sending its device through the aggregator with stable indices --
@@ -726,6 +766,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('workload', help="the workload directory, e.g. bench/wl_ifi")
     parser.add_argument('--engine', choices=ENGINES, required=True)
+    parser.add_argument('--ad6-grounding', default='rank', help="ad6 only (cell_run.py)")
+    parser.add_argument('--ad6-solver', default='cadical195', help="ad6 only")
+    parser.add_argument('--ad6-lite-acyclic', action='store_true', help="ad6 only")
     parser.add_argument('--expect-violations', type=int, default=None,
                         help="the workload's declared violation count (D17.6): "
                              "the head's verdict_outcome is correct or wrong_verdict")
@@ -766,6 +809,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.ndd_collect_visited and args.engine != 'ndd-apkeep':
         parser.error("--ndd-collect-visited needs --engine ndd-apkeep")
+    if args.engine == 'ad6' and args.stream != 'z':
+        parser.error("ad6 has no update path: it runs the from-zero stream z only")
     if args.footprint is not None and args.engine not in ('apkeep', 'ndd-apkeep', 'veriflow'):
         parser.error("--footprint needs an APKeep engine or VeriFlow-FR")
     if args.batch < 1:
@@ -783,7 +828,9 @@ def main(argv=None):
     agg_log.addHandler(handler)
     agg_log.setLevel(logging.INFO)
     try:
-        if args.stream == 's4':
+        if args.stream == 'z':
+            rc = run_z(args)
+        elif args.stream == 's4':
             rc = run_s4(args)
         elif args.at_adapter:
             rc = run_at_adapter(args)

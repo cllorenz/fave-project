@@ -165,6 +165,41 @@ class _Shared(unittest.TestCase):
             self.assertIn('vlan_rewrite_rules', head['build_metrics'])
             self.assertIsNotNone(cell['gc'], "no GC log for a JVM cell")
 
+    def test_a_from_zero_cell(self):
+        """ D17.10: stream `z` -- the initialization without the footprint
+        pass, no stream, the same stamps. """
+        self.assertEqual(_z_cell(self, self.ENGINE)['phases'].keys(),
+                         {'t_start_s', 't_load_s', 't_build_s', 't_check_s'})
+
+
+def _z_cell(test, engine):
+    from bench import incremental_cell
+    prefix = 'bench/wl_example'
+    if not inputs_present(prefix):
+        require_or_skip(False, "%s inputs not generated" % prefix)(lambda: None)()
+        test.skipTest("%s inputs not generated" % prefix)
+    top = tempfile.mkdtemp(prefix='z_cell_')
+    test.addCleanup(shutil.rmtree, top, True)
+    test.assertEqual(incremental_cell.main(
+        [prefix, '--engine', engine, '--stream', 'z', '--status-every', '0.5',
+         '--out', os.path.join(top, 'cell')]), 0)
+    with open(os.path.join(top, 'cell', 'rep01', 'head.json')) as raw:
+        head = json.load(raw)
+    with open(os.path.join(top, 'cell', 'rep01', 'cell.json')) as raw:
+        test.assertEqual(json.load(raw)['outcome'], 'measured')
+    test.assertTrue(head['verdict_valid'])
+    test.assertEqual(head['updates'], 0)
+    return head
+
+
+class TestFromZeroAd6(unittest.TestCase):
+    """ ad6 has no update path: the from-zero stream alone (D17.10). """
+
+    def test_a_from_zero_cell(self):
+        head = _z_cell(self, 'ad6')
+        self.assertEqual((head['engine_options'].get('grounding'),
+                          head['engine_options'].get('solver')), ('rank', 'cadical195'))
+
 
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
 class TestSharedNetPlumber(_Shared):

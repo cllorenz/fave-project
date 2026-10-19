@@ -31,7 +31,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from bench import campaign_stamps
+from bench import campaign_inputs, campaign_stamps
 from util import provenance
 
 
@@ -97,6 +97,29 @@ class TestCampaignStamps(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 campaign_stamps.main(['write', campaign_dir])
 
+
+
+class TestCampaignInputs(unittest.TestCase):
+    """ D17.3: inputs recorded once, a changed input caught. """
+
+    def test_a_changed_input_is_caught(self):
+        top = tempfile.mkdtemp(prefix='cinputs_')
+        self.addCleanup(shutil.rmtree, top, True)
+        wl = os.path.join(top, 'wl')
+        os.makedirs(wl)
+        for name in ('topology.json', 'routes.json', 'policies.json', 'sources.json',
+                     'checks.json'):
+            with open(os.path.join(wl, name), 'w') as out:
+                out.write('{"devices": []}' if name == 'topology.json' else '[]')
+        camp = os.path.join(top, 'camp')
+        os.makedirs(camp)
+        campaign_inputs.record(camp, [wl])
+        self.assertEqual(campaign_inputs.check(camp), [])
+        with open(os.path.join(wl, 'routes.json'), 'w') as out:
+            out.write('[["x"]]')
+        changed = campaign_inputs.check(camp)
+        self.assertEqual(len(changed), 1)
+        self.assertIn('routes.json', changed[0])
 
 if __name__ == '__main__':
     unittest.main()

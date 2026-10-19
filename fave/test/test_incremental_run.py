@@ -459,5 +459,18 @@ class TestVerdictStamps(unittest.TestCase):
     def test_an_unanswered_check_is_not_valid(self):
         self.assertFalse(self._head({'a': False}, 2, None)['verdict_valid'])
 
+
+class TestTheFromZeroStream(unittest.TestCase):
+    """ D17.10: ad6 runs the from-zero stream only. """
+
+    def test_ad6_is_refused_a_stream(self):
+        with self.assertRaises(SystemExit):
+            incremental_run.main(['bench/wl_example', '--engine', 'ad6', '--stream', 's2',
+                                  '--cell-dir', tempfile.mkdtemp(prefix='z_')])
+
+    def test_z_is_a_stream_choice(self):
+        self.assertIn('z', incremental_run.STREAMS)
+        self.assertIn('ad6', incremental_run.ENGINES)
+
 if __name__ == '__main__':
     unittest.main()

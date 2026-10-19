@@ -183,5 +183,29 @@ class TestPinnedRun(unittest.TestCase):
         self.assertEqual(alone['cpus'], sorted(os.sched_getaffinity(0)))
         self.assertIsNone(alone['gc_threads'])
 
+
+class TestRecordedCells(unittest.TestCase):
+    """ D17.10: a cell with a known result is recorded with its basis, not run. """
+
+    def test_a_recorded_cell_is_written_not_run(self):
+        out = tempfile.mkdtemp(prefix='incq_rec_')
+        self.addCleanup(shutil.rmtree, out, True)
+        cell = _cell('bdd_stanford', recorded={
+            'outcome': 'did_not_finish', 'limit_tripped': 'wall',
+            'basis': 'V5: no answer within 24 h; the cap is 12 h'})
+        started = []
+        saved = q.subprocess.Popen
+        q.subprocess.Popen = lambda *a, **k: started.append(a) or saved(*a, **k)
+        try:
+            q.run([cell], out, 2, 10 ** 6, sys.executable, lambda _l: None)
+        finally:
+            q.subprocess.Popen = saved
+        self.assertEqual(started, [])
+        with open(os.path.join(out, 'bdd_stanford', 'rep01', 'cell.json')) as raw:
+            rec = json.load(raw)
+        self.assertEqual((rec['outcome'], rec['recorded'], rec['limit_tripped']),
+                         ('did_not_finish', True, 'wall'))
+        self.assertEqual(q.plan([cell], out), [], "a recorded cell is done")
+
 if __name__ == '__main__':
     unittest.main()
