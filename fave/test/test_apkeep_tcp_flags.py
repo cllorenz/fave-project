@@ -102,8 +102,7 @@ def _bdd(flags):
 
 
 class TestTheRuleStringCarriesTheField(unittest.TestCase):
-    """ Pure logic: the adapter emits slot 19, and an accept-all rule that names
-    a flags pattern is not an identity. """
+    """ Pure logic: the adapter emits slot 19. """
 
     def test_the_pattern_lands_in_slot_19(self):
         rule = _filter_rule_string('d', 'p2', None, None, None, None, None,
@@ -114,15 +113,6 @@ class TestTheRuleStringCarriesTheField(unittest.TestCase):
         rule = _filter_rule_string('d', 'p2', None, None, None, None, None,
                                    None, 1)
         self.assertEqual(rule.split()[19], 'null')
-
-    def test_a_flags_qualified_pass_through_is_not_an_identity(self):
-        """ `_elide_passthrough_filters` would otherwise contract it away and
-        widen every path through it to every flag combination -- the same trap
-        the VLAN slot has (sec. 4.2). """
-        from apkeep.adapter import _is_acceptall_filter_rule
-        rule = _filter_rule_string('d', 'p2', None, None, None, None, None,
-                                   None, 1, flags='1xxxxxxx')
-        self.assertFalse(_is_acceptall_filter_rule(rule.split()))
 
     def test_an_out_stage_rule_carrying_flags_is_no_longer_WIDENED(self):
         """ Step 3 emitted these rules without the conjunct and recorded the

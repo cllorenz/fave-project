@@ -295,16 +295,26 @@ class TestRefusals(unittest.TestCase):
             self.engine.insert_rule(rule)
 
     def test_a_new_element_is_refused_and_nothing_changes(self):
-        # Taking dmz's uplink down changes its ingress classes, hence its
-        # elements' names.
-        live = dict(self.engine._live) if self.engine._live else None
-        link = next(l for l in inc.model_links(self.fave) if l[1] == 'dmz.1')
-        with self.assertRaises(UpdateRefused) as ctx:
-            self.engine.set_link(link[0], link[1], False)
-        self.assertIn('element structure', str(ctx.exception))
-        self.assertEqual(self.engine._down, set())
-        if live is not None:
-            self.assertEqual(self.engine._live['rules'], live['rules'])
+        # Deleting pgf's last route turns a transit packet filter terminal:
+        # its pipeline's elements depend on it (APKEEP_INCREMENTAL_SCOPE.md
+        # §7). (Taking dmz's uplink down did this while ports were grouped
+        # into classes; since the split is per port, 2026-10-19, it does
+        # not.) A fresh engine: the shared one must keep its routes.
+        from util.in_process_driver import InProcessFaVe
+        engine = self.make()
+        self.addCleanup(engine.release)
+        with InProcessFaVe(engine) as fave:
+            fave.replay('bench/wl_example')
+            engine.check_compliance({})
+            for idx in (131070, 131071, 2, 3, 0):    # keep before drop
+                engine.delete_rule('pgf', 'pgf.routing', idx)
+            live = dict(engine._live) if engine._live else None
+            with self.assertRaises(UpdateRefused) as ctx:
+                engine.delete_rule('pgf', 'pgf.routing', 1)
+            self.assertIn('element structure', str(ctx.exception))
+            self.assertEqual(engine.refused_updates['structural'], 1)
+            if live is not None:
+                self.assertEqual(engine._live['rules'], live['rules'])
 
     def test_the_ndd_flood_engine_takes_no_updates(self):
         from util.in_process_driver import InProcessFaVe

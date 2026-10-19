@@ -129,8 +129,14 @@ class TestAPKeepI2(unittest.TestCase):
         cls.truly_reachable = cls.all_pairs - cls.unreachable
 
     def test_scale_model_built(self):
-        # 9 routers -> 18 in/out switches; a large dst-IP FIB.
-        self.assertEqual(len(self.engine._fwd_devices), 18)
+        # 9 routers -> 18 in/out switches; a large dst-IP FIB. Eight of them
+        # name their ingress ports and are split one element per port (since
+        # 2026-10-19 also where their rules do not discriminate yet: the
+        # structure must hold under updates), 67 elements in all.
+        sep = self.engine.INGRESS_CLASS_SEP
+        elements = self.engine._fwd_devices
+        self.assertEqual(len({name.split(sep)[0] for name in elements}), 18)
+        self.assertEqual(len(elements), 67)
         self.assertEqual(len(self.sources), 9)
         self.assertEqual(len(self.probes), 9)
         self.assertGreater(

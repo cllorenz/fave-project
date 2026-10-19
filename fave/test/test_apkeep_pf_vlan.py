@@ -46,8 +46,7 @@ import shutil
 import tempfile
 import unittest
 
-from apkeep.adapter import (APKeepAdapter, _filter_rule_string,
-                            _is_acceptall_filter_rule)
+from apkeep.adapter import APKeepAdapter, _filter_rule_string
 from apkeep.lib_apkeep import LibAPKeep, available as bdd_available
 from apkeep.lib_ndd import LibNDD, available as ndd_available
 from test.backend_gate import require_or_skip
@@ -94,12 +93,6 @@ class TestTheRuleStringCarriesTheTags(unittest.TestCase):
         rule = _filter_rule_string('d', 'p2', None, None, None, None, None,
                                    None, 1).split()
         self.assertEqual((rule[20], rule[21]), ('null', 'null'))
-
-    def test_a_tag_qualified_pass_through_is_not_an_identity(self):
-        for tags in ({'svlan': 5}, {'dvlan': 7}):
-            rule = _filter_rule_string('d', 'p2', None, None, None, None, None,
-                                       None, 1, **tags)
-            self.assertFalse(_is_acceptall_filter_rule(rule.split()), tags)
 
 
 class _Verdicts(unittest.TestCase):

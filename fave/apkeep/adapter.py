@@ -426,20 +426,12 @@ _FILTER_DROP = "__drop__"   # FilterElement's drop sink (matches FilterElement.D
 #: THE `+ filter` RULE-STRING LAYOUT, declared once (item 28, step 2).
 #:
 #: `(name, tokens, unconstrained)` in emission order, starting at token index
-#: `_FILTER_SLOT_BASE`. `_filter_rule_string` renders from this and
-#: `_is_acceptall_filter_rule` reads it, so an emitted slot is a parsed slot by
-#: construction.
+#: `_FILTER_SLOT_BASE`. `_filter_rule_string` renders from this, so adding a
+#: field is one row. (It once also fed an accept-all reader for the
+#: pass-through elision, retired 2026-10-19; `unconstrained` is each slot's
+#: wildcard form, kept with the layout.)
 #:
-#: That coupling is the point. The two used to be written out by hand
-#: independently, and twice a new field landed in the emitter while the reader
-#: kept treating its slot as absent -- which reads as a WILDCARD, so a
-#: field-qualified rule looked like a semantic identity and
-#: `_elide_passthrough_filters` would contract it out of the graph, widening
-#: every path through it. VLAN did that in step 2 of OUT_STAGE_PLAN.md and
-#: tcp_flags in step 4. Adding a field is now one row.
-#:
-#: `prio` carries no match, so it has no unconstrained form (None) and the
-#: accept-all test skips it.
+#: `prio` carries no match, so it has no unconstrained form (None).
 _FILTER_SLOT_BASE = 6
 _FILTER_SLOTS = (
     ('proto',   2, ('0', '255')),
@@ -511,38 +503,6 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
         assert len(tokens) == width, name      # the layout and the renderer agree
         body.extend(tokens)
     return "+ filter %s filter 0 %s %s" % (device, out_port, ' '.join(body))
-
-
-def _is_acceptall_filter_rule(tokens: List[str]) -> bool:
-    """ True iff a parsed "+ filter ..." rule matches the ENTIRE header space and
-    forwards (does not drop) -- i.e. an accept-all pass-through rule.
-
-    Derived from `_FILTER_SLOTS`, so every slot the emitter can fill is a slot
-    this checks. It used to spell the layout out by hand, and twice a new field
-    landed in the emitter while this kept treating its slot as absent -- which
-    reads as a WILDCARD. A field-qualified rule then looked like a semantic
-    identity, and `_elide_passthrough_filters` (the only caller) would contract
-    it out of the graph, widening every path through it to every value of that
-    field. That is the failure mode this coupling exists to make impossible.
-
-    A slot the rule string is too short to carry counts as unconstrained, which
-    keeps the shorter historic layouts readable.
-    """
-    if len(tokens) < 17 or tokens[1] != "filter":
-        return False
-    if tokens[5] == _FILTER_DROP:
-        return False
-    for name, width, unconstrained in _FILTER_SLOTS:
-        if unconstrained is None:
-            continue                        # priority carries no match
-        at = _FILTER_SLOT_AT[name]
-        for offset in range(width):
-            index = at + offset
-            if index >= len(tokens):
-                continue                    # absent => unconstrained
-            if tokens[index] != unconstrained[offset]:
-                return False
-    return True
 
 
 def _fib_name(device: str) -> str:
@@ -864,16 +824,18 @@ class APKeepAdapter(AbstractVerificationEngine):
         #: tests: after every FIB-path update, check it against the full
         #: translation (`_check_fib_update`)
         self.verify_fib_path = False
-        # A build that expects updates (`track_affected` before it) keeps the
-        # element structure independent of the rules, because APKeep creates
-        # elements only once: it splits an ingress-qualified device into one
-        # element per ingress PORT -- not per class of ports with the same
-        # rules, which a rule update can merge or split -- and every later
-        # translation reuses that split (`_frozen_split`); an IPv6 router
-        # stays one (`_frozen_ipv6`); and it does not elide pass-through
-        # filters (`_elide_passthrough_filters`), which a rule makes or
-        # unmakes. Same answers, more elements.
-        self._for_updates = False
+        # The element structure is independent of the rules, because APKeep
+        # creates its elements once (upstream `Network.initializeNetwork`) and
+        # a model built from zero is also the one updates go to (owner,
+        # 2026-10-19: one build serves the from-zero and the incremental
+        # measurement): an ingress-qualified device is one element per
+        # ingress PORT, and every later translation reuses that split
+        # (`_frozen_split`); an IPv6 router stays one (`_frozen_ipv6`).
+        # Retired 2026-10-19, as rule-dependent structure an update could
+        # invalidate: ports grouped into classes with the same rules (cost of
+        # per port: wl_up +35 s, NDD wl_airtel2 +10 s) and pass-through
+        # elision (wl_up +194 s);
+        # bench/campaigns/results_apkeep_structure_cost_20261018/FINDINGS.md.
         self._frozen_split: Optional[Dict[str, Dict[str, Set[str]]]] = None
         #: the IPv6 routers of the build, which stay dst-LPM FilterElements
         #: when an update deletes their last IPv6 route
@@ -1603,7 +1565,7 @@ class APKeepAdapter(AbstractVerificationEngine):
                 qualified[device] = restricted
         return qualified
 
-    #: Separator between a device and the ingress class it was split into.
+    #: Separator between a device and the ingress port it was split into.
     #:
     #: NOT `|`, and that cost a debugging session worth recording. The NDD
     #: engine keys its per-hop cache as `device + "|" + port` and recovers the
@@ -1620,7 +1582,7 @@ class APKeepAdapter(AbstractVerificationEngine):
     INGRESS_CLASS_SEP = '@'
 
     def _element_name(self, device: str, ports: Set[str]) -> str:
-        """ The APKeep element a device's ingress class becomes.
+        """ The APKeep element a device's ingress port (class) becomes.
 
         NO class keeps the bare device name, deliberately. A leftover reference
         to `device` anywhere then fails loudly (APKeep has no such element)
@@ -1628,47 +1590,6 @@ class APKeepAdapter(AbstractVerificationEngine):
         """
         return '%s%s%s' % (device, self.INGRESS_CLASS_SEP,
                            min(ports, key=lambda p: (len(p), p)))
-
-    def _device_tokens(
-            self, device: str, fwd_rules: List[str],
-    ) -> List[Tuple[Any, Optional[FrozenSet[str]]]]:
-        """ Everything that forwards at `device`, each with where it holds.
-
-        BOTH stores, because a device's forwarding can live in either and a
-        split that saw only one would drop the other. `+ fwd` strings become a
-        `ForwardElement`; `_router_fib` entries become a dst-LPM
-        `FilterElement` -- and neither element type carries an ingress port, so
-        both have to be split the same way.
-        """
-        tokens: List[Tuple[Any, Optional[FrozenSet[str]]]] = [
-            (('fwd', rule), self._fwd_ingress.get(rule))
-            for rule in fwd_rules if rule.split()[2] == device
-        ]
-        tokens.extend(
-            (('fib', entry[:3]), entry[3])
-            for entry in self._router_fib.get(device, [])
-        )
-        return tokens
-
-    def _ingress_classes(
-            self, device: str, ingress: Set[str],
-            tokens: List[Tuple[Any, Optional[FrozenSet[str]]]],
-    ) -> Dict[str, Set[str]]:
-        """ Ingress ports grouped by the rules that apply at them.
-
-        Two ports belong together exactly when the same rules hold there, which
-        is the coarsest split that loses nothing -- a device whose rules do not
-        discriminate yields one class and is not split at all.
-        """
-        classes: Dict[frozenset, Set[str]] = {}
-        for port in ingress:
-            applying = frozenset(
-                token for token, held in tokens
-                if held is None or port in held
-            )
-            classes.setdefault(applying, set()).add(port)
-        return {self._element_name(device, ports): ports
-                for ports in classes.values()}
 
     def _demux_ingress(
             self, edges: List[str], fwd_rules: List[str],
@@ -1680,8 +1601,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         only to look the element up and then discards it, so an element is a
         function of (element, packet) and never of (element, in_port, packet).
         The semantics ARE expressible in APKeep -- just not in one element -- so
-        the adapter emits one element per ingress class and wires the arriving
-        links to the right one.
+        the adapter emits one element per ingress PORT and wires each arriving
+        link to its own. (Ports with the same rules were grouped into one
+        element per class until 2026-10-19; one per port keeps the structure
+        valid under any rule update, so a from-zero build is also the one
+        updates go to.)
 
         **This is a translation, not a model change** (owner, 2026-09-22). The
         FaVe model keeps its devices: 16 realistic switches for wl_airtel1, not
@@ -1739,17 +1663,10 @@ class APKeepAdapter(AbstractVerificationEngine):
                     "realised as a first-match FilterElement, whose rules this "
                     "pass cannot re-key; leaving it to the refusal", device)
                 continue
-            classes = self._ingress_classes(
-                device, arriving.get(device, set()),
-                self._device_tokens(device, fwd_rules))
-            if len(classes) < 2 and not self._for_updates:
-                continue                       # nothing to gain from a split
-            if self._for_updates:
-                # Per port even where the rules do not discriminate yet: one
-                # update can make them.
-                classes = {self._element_name(device, {port}): {port}
-                           for port in arriving.get(device, set())}
-            split[device] = classes
+            # Per port even where the rules do not discriminate yet: one
+            # update can make them.
+            split[device] = {self._element_name(device, {port}): {port}
+                             for port in arriving.get(device, set())}
 
         self._split = split
         if not split:
@@ -1803,11 +1720,9 @@ class APKeepAdapter(AbstractVerificationEngine):
                         self._router_fib[name] = held
             if device in self._ipv6_fib_devices:
                 self._ipv6_fib_devices.discard(device)
-                # For updates every element of the split stays a FIB filter,
-                # also one with no route left (`_for_updates`).
-                self._ipv6_fib_devices.update(
-                    name for name in classes
-                    if name in self._router_fib or self._for_updates)
+                # Every element of the split stays a FIB filter, also one with
+                # no route left: an update can delete them (`_frozen_ipv6`).
+                self._ipv6_fib_devices.update(classes)
 
         for device, classes in split.items():
             self._fwd_devices.discard(device)
@@ -2146,11 +2061,9 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _build(self) -> None:
         if self._built:
             return
-        if self._tracking and self._engine in self.APKEEP_ENGINES:
-            self._for_updates = True
-            self._frozen_ipv6 |= self._ipv6_fib_devices
+        self._frozen_ipv6 |= self._ipv6_fib_devices
         t = self._translate()
-        if self._for_updates and self._frozen_split is None:
+        if self._frozen_split is None:
             self._frozen_split = {device: {name: set(ports)
                                            for name, ports in classes.items()}
                                   for device, classes in self._split.items()}
@@ -2346,19 +2259,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         # here mis-collapsed) `+ fwd` dst-FIB rules -- a `+ fwd` dispatches by device
         # name and would land on the FilterElement and fail to parse. Drop them.
         fwd_rules = [r for r in fwd_rules if r.split()[2] not in as_filter]
-        # Phase C1 Lever A: contract pure pass-through (accept-all) filter elements
-        # -- semantic identities (per-host default-route FIBs, unrestricted output
-        # filters) -- out of the graph. Fewer elements => a smaller per-split
-        # multiplier in APKeeper.updateSplitAP (the C1 PPM hotspot), at zero
-        # correctness cost. Operates on the combined filter-rule universe.
+        # (Phase C1 Lever A, the elision of pass-through filter elements, is
+        # retired since 2026-10-19: an update could make an elided identity a
+        # real filter, and APKeep cannot add the element back; see __init__.)
         filter_rules_all = (pf_rules + router_fib_rules + fm_rules
                             + self._out_stage_rules)
-        edges, filter_devices, filter_rules_all = self._elide_passthrough_filters(
-            edges, filter_devices, filter_rules_all)
-        # Out-stage elements SPECIFICALLY -- `_build_metrics_elided` counts every
-        # element the pass contracted, of which a packet_filter's accept-all
-        # chains are the bulk, so it cannot answer "how much of the out stage
-        # survived".
         surviving = set(filter_devices) & set(self._out_stage_elems)
         self._out_stage_surviving = sorted(surviving)
         # The combined, engine-neutral rule IR (identical to what the BDD engine's
@@ -2398,10 +2303,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         (OUT_STAGE_PLAN.md sec. 7). These counters are how that is now visible in
         a run rather than reconstructed afterwards.
 
-        `out_stage_elements_elided` is not waste: a single accept-all rule makes
-        an element a semantic identity, and contracting it is the general
-        mechanism arriving at what the collapse used to hardcode. The point is
-        that the rules are COUNTED first.
+        `out_stage_elements_elided` is 0 since the pass-through elision was
+        retired (2026-10-19); the key stays so earlier records read alike.
         """
         return {
             "rules_to_engine": len(all_rules),
@@ -2935,64 +2838,6 @@ class APKeepAdapter(AbstractVerificationEngine):
                 new_edges.append(edge)
         return new_edges, elems, rules
 
-    def _elide_passthrough_filters(self, edges: List[str], elems: List[str],
-                                   rules: List[str]):
-        """ Phase C1 Lever A: contract every PURE PASS-THROUGH FilterElement out of
-        the graph. A filter element whose ONLY emitted rule is accept-all -> one
-        port P (all match fields wildcard) forwards every packet, on any ingress, to
-        P -- it is a semantic IDENTITY. In wl_up the per-host default-route FIBs
-        (0/0 -> uplink) and unrestricted output filters are exactly this.
-
-        Eliding is provably correctness-neutral: for each ingress edge `X -> E.q`
-        and each egress edge `E.P -> Y` we splice `X -> Y`, then drop E, its edges,
-        and its rule. This removes E from APKeep's element set -- and APKeeper.
-        updateSplitAP touches EVERY element per AP split (PPM cost ~ splits x
-        elements, the C1 mechanism), so each elided identity element is one fewer
-        multiplier on every split, at zero semantic cost. GENERIC (fires on any
-        accept-all chain; indifferent to addresses -> survives workload
-        perturbation), so it does not overfit the benchmark.
-
-        Restricted to the FILTER universe: ForwardElement sources/probes/switches
-        are never touched (they are query endpoints / real forwarders, not identity
-        filters). Iterated to a fixpoint so chains of pass-throughs collapse.
-        Returns (edges, kept_elems, kept_rules). """
-        if self._for_updates:
-            return edges, elems, rules        # see `_for_updates`
-        rules_by_elem: Dict[str, List[List[str]]] = {}
-        for r in rules:
-            t = r.split()
-            if t[1] == "filter":
-                rules_by_elem.setdefault(t[2], []).append(t)
-
-        elem_set = set(elems)
-        dropped: set = set()
-        edges = list(edges)
-        changed = True
-        while changed:
-            changed = False
-            for elem in list(elem_set - dropped):
-                ers = rules_by_elem.get(elem, [])
-                # pass-through iff exactly one explicit rule and it is accept-all
-                # (the FilterElement's implicit default-drop is then never reached)
-                if len(ers) != 1 or not _is_acceptall_filter_rule(ers[0]):
-                    continue
-                out_port = ers[0][5]
-                ingress = [e.split() for e in edges if e.split()[2] == elem]
-                egress = [e.split() for e in edges
-                          if e.split()[0] == elem and e.split()[1] == out_port]
-                spliced = ["%s %s %s %s" % (i[0], i[1], o[2], o[3])
-                           for i in ingress for o in egress]
-                edges = [e for e in edges
-                         if e.split()[0] != elem and e.split()[2] != elem]
-                edges.extend(spliced)
-                dropped.add(elem)
-                changed = True
-
-        kept_elems = [e for e in elems if e not in dropped]
-        kept_rules = [r for r in rules if r.split()[2] not in dropped]
-        self._build_metrics_elided = len(dropped)
-        return edges, kept_elems, kept_rules
-
     def _build_stanford_faithful(self, edges: List[str]):
         """ P7b: faithful wl_stanford VLAN model. Collapse the out-stage into the
         topology (as P7a) AND emit the mid-stage VLAN rewrite as inline NATs.
@@ -3030,10 +2875,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         # one NetPlumber is handed, which is what made the from-zero comparison
         # not a comparison (sec. 7).
         #
-        # A single-rule accept-all port becomes a pass-through element that
-        # `_elide_passthrough_filters` contracts straight back out of the graph
-        # -- i.e. exactly the old collapse, but arrived at by the general
-        # mechanism and after the rules have been counted.
+        # A single-rule accept-all port becomes a pass-through element (the
+        # elision that contracted it out of the graph again is retired,
+        # 2026-10-19: wl_stanford keeps its 999 elements, verdicts unchanged).
         rows_by_port: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
         for o_dev, rows in self._fwd_table.items():
             if o_dev.split('.', 1)[0] != 'out':
@@ -3623,13 +3467,12 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def prepare_twin(self, other: 'APKeepAdapter') -> None:
         """ Make `other`, not yet built, translate with the element structure
-        THIS adapter fixed at its build (`_for_updates`): the split per ingress
+        THIS adapter fixed at its build: the split per ingress
         port and the IPv6 routers of the initial model. For the from-zero
         oracle (`util.incremental.from_zero`), whose model an update stream may
         have taken where the default translation refuses. """
-        if self._for_updates:
-            other._frozen_split = self._frozen_split
-            other._frozen_ipv6 = set(self._frozen_ipv6)
+        other._frozen_split = self._frozen_split
+        other._frozen_ipv6 = set(self._frozen_ipv6)
 
     def max_rule_index(self, table: str) -> int:
         """ INCREMENTAL_PLAN.md §8.1. A router ACL rule's priority is
@@ -3680,7 +3523,6 @@ class APKeepAdapter(AbstractVerificationEngine):
         quiet.setLevel(logging.ERROR)
         shadow = APKeepAdapter(quiet, faithful_vlan=self._faithful_vlan,
                                engine=self._engine, _shadow=True)
-        shadow._for_updates = self._for_updates
         shadow._frozen_split = self._frozen_split
         shadow._frozen_ipv6 = self._frozen_ipv6
         for op, arg in self._calls:

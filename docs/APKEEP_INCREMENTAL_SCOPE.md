@@ -192,8 +192,10 @@ alone?** If it would need a new element or change an element's type, it is
 refused before anything changes and counted by reason (`refused_updates`); the
 harness records the refusal and goes on with the model unchanged.
 
-**Structure fixed at build when updates are expected** (`track_affected` before
-the build, `_for_updates`): an ingress-qualified device is split into one
+**Structure fixed at build** (since 2026-10-19 for every build, owner: the
+from-zero model is the one updates go to; before, only when `track_affected`
+preceded the build, `_for_updates`; cost in
+`fave/bench/campaigns/results_apkeep_structure_cost_20261018/FINDINGS.md`): an ingress-qualified device is split into one
 element **per ingress port**, not per class of ports with the same rules
 (which one update can merge or split), and that split is reused by every later
 translation; an IPv6 router stays one; pass-through filters are not elided.

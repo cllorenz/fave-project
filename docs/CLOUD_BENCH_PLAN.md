@@ -2952,6 +2952,9 @@ by design.
 
 ## 2.8 Phase (b): ingress demultiplexing, and what the gate actually said
 
+> **Retired 2026-10-19 (owner):** demultiplexing stays -- it is what makes APKeep's answers right (14 false positives on `wl_deltanet` without it) -- but ports are no longer grouped into classes: every ingress-qualified device is split one element per ingress PORT. APKeep creates its elements once, so a structure that depends on the rules cannot follow an update; since then one from-zero build is also the one updates go to (the campaign's from-zero and incremental phases share it). Cost measured in `fave/bench/campaigns/results_apkeep_structure_cost_20261018/FINDINGS.md`: per port instead of per class costs BDD-APKeep `wl_up` 35 s (+9 %) and NDD-APKeep `wl_airtel2` 10 s (+34 %); `wl_airtel1` becomes 68 elements, the node count Delta-net's paper reports.
+
+
 ### What it is
 
 `_demux_ingress`: a device whose forwarding discriminates among its ingress

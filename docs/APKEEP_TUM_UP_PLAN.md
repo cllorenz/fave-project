@@ -595,6 +595,8 @@ which C0 measured **flat at 17 s (<1 %)**. C0 named it only because the FIB rule
 *last*, against an already-huge partition — the trie doesn't shrink that partition.
 **Corrected C1 branch: the trie is retired; attack the two real factors.**
 
+> **Retired 2026-10-19 (owner):** Lever A is retired; the adapter no longer elides pass-through filters. APKeep creates its elements once, so a structure that depends on the rules cannot follow an update; since then one from-zero build is also the one updates go to (the campaign's from-zero and incremental phases share it). Cost measured in `fave/bench/campaigns/results_apkeep_structure_cost_20261018/FINDINGS.md`: keeping `wl_up`'s 165 pass-throughs costs BDD-APKeep 194 s of build + first check (+52 %); NDD-APKeep on `wl_up` and every other pair within a few per cent.
+
 **Lever A (numElements, DONE) — elide pass-through filter elements.** A filter element
 whose only rule is accept-all → one port is a *semantic identity* (per-host default-route
 `0/0` FIBs, unrestricted output filters). `adapter._elide_passthrough_filters` contracts

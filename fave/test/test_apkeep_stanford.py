@@ -141,17 +141,19 @@ class TestAPKeepStanford(unittest.TestCase):
         self.assertEqual({d.split('.', 1)[0] for d in devices},
                          {'in', 'mid', 'out'})
 
-        # ELEMENTS exceed devices because a device whose forwarding
-        # discriminates among its ingress ports becomes one element per class.
-        # The out stage does so by construction (it IS a permutation), and six
-        # in-stage routers do as well.
+        # ELEMENTS exceed devices because a device whose rules name their
+        # ingress ports becomes one element per ingress PORT -- every in- and
+        # out-stage router (since 2026-10-19 also where its rules do not
+        # discriminate yet, the structure must hold under updates; before,
+        # one per class of ports: the out stage and six in-stage routers, 719
+        # elements).
         split = sorted(d for d in devices
                        if sum(1 for e in elements if e.split(sep)[0] == d) > 1)
-        self.assertEqual(len(split), 22, split)
+        self.assertEqual(len(split), 32, split)
         self.assertEqual(
             {d.split('.', 1)[0] for d in split}, {'in', 'out'},
             "the mid. stage is a plain dst FIB and must not need splitting")
-        self.assertEqual(len(elements), 719)
+        self.assertEqual(len(elements), 757)
 
     def test_reachability_matches_netplumber(self):
         # NetPlumber in a SEPARATE process (see module docstring); reuse the
