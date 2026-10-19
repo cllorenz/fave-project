@@ -435,5 +435,29 @@ class TestReadLines(unittest.TestCase):
             incremental_report.read_lines(path)
 
 
+
+class TestVerdictStamps(unittest.TestCase):
+    """ INCREMENTAL_PLAN.md D17.6: the count is distinct violated checks, the
+    head says whether every check was answered, and a declared count gives
+    `correct` or `wrong_verdict`. """
+
+    def _head(self, verdicts, n_checks, expected):
+        from types import SimpleNamespace
+        from util import incremental as inc
+        checks = [inc.Check('s=s%d && p=p1' % i) for i in range(n_checks)]
+        head = {}
+        incremental_run._verdict_stamps(head, SimpleNamespace(verdict=verdicts), checks, expected)
+        return head
+
+    def test_distinct_violations_and_the_outcome(self):
+        head = self._head({'a': True, 'b': True, 'c': False}, 3, 2)
+        self.assertEqual((head['violations'], head['verdict_valid'], head['verdict_outcome']),
+                         (2, True, 'correct'))
+        self.assertEqual(self._head({'a': True}, 1, 0)['verdict_outcome'], 'wrong_verdict')
+        self.assertIsNone(self._head({'a': True}, 1, None)['verdict_outcome'])
+
+    def test_an_unanswered_check_is_not_valid(self):
+        self.assertFalse(self._head({'a': False}, 2, None)['verdict_valid'])
+
 if __name__ == '__main__':
     unittest.main()

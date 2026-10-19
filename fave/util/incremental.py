@@ -119,6 +119,11 @@ def violated_pairs(engine: Any) -> Set[Tuple[str, str]]:
     return {(s, p) for s, p, _v, _c in results}
 
 
+def count_rounds(checks: Iterable[Check]) -> int:
+    """ How many `check_compliance` calls a set of checks takes (`_rounds`). """
+    return len(_rounds(checks))
+
+
 # --- the verdict cache ----------------------------------------------------------
 
 class VerdictCache:

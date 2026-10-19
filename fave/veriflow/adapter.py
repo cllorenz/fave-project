@@ -295,6 +295,15 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
         return sorted({f.name for checks in rules.values()
                        for (_src, _neg, cond) in checks for f in cond})
 
+    def build_metrics(self) -> Dict[str, Any]:
+        """ The translation's size and the build's two phases. """
+        if self.ir is None:
+            return {}
+        return {'rules': len(self.ir.rules), 'tables': len(set(self.ir.tables.values())),
+                'links': len(self.ir.links), 'fields': [n for n, _w in self.ir.fields],
+                'translate_s': self.timings.get('translate'),
+                'load_s': self.timings.get('load')}
+
     def prepare(self, rules: Any) -> None:
         """ The build `check_compliance(rules)` would do first: the layout
         has every field the checks' conditions name. """

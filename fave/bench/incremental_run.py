@@ -239,7 +239,32 @@ def _start(make):
     return engine, phases
 
 
-def _initialize(fave, engine, prefix, checks, head, phases, files=None):
+def _verdict_stamps(head, cache, checks, expected):
+    """ D17.6: the count is DISTINCT violated checks; valid when every check
+    was answered (a failed build message has raised in `replay` already);
+    `verdict_outcome` against a declared count, as V5's `correct`. """
+    violations = sum(1 for v in cache.verdict.values() if v)
+    head.update({'violations': violations, 'check_rounds': inc.count_rounds(checks),
+                 'verdict_valid': len(cache.verdict) == len(checks),
+                 'expected_violations': expected,
+                 'verdict_outcome': (None if expected is None else
+                                     'correct' if violations == expected else 'wrong_verdict')})
+
+
+def _provenance(head, engine, workload, files, checks_path):
+    """ D17.7: the artifacts and inputs by sha256, V5's engine stamps, the
+    engine's build metrics. Outside every timer. """
+    from util import provenance
+    from util.in_process_driver import _BENCH_FILES
+    names = dict(_BENCH_FILES, **(files or {}))
+    head['artifacts'] = provenance.artifacts()
+    head['inputs'] = provenance.inputs(
+        workload, names, checks_path if os.path.exists(checks_path) else None)
+    head.update(provenance.engine_stamps(head.get('configuration') or {}))
+    head['build_metrics'] = engine.build_metrics()
+
+
+def _initialize(fave, engine, prefix, checks, head, phases, files=None, expected=None):
     """ The shared initialization (INCREMENTAL_PLAN.md D17.2-3, D17.5): the
     phases, their memory and their wall-clock marks into `head`; returns the
     verdict cache, holding the first check's verdicts.
@@ -252,9 +277,12 @@ def _initialize(fave, engine, prefix, checks, head, phases, files=None):
     head['phase_marks'] = list(phases.marks)
     head['build_and_first_check_s'] = sum(
         s for name, s in phases.seconds.items() if name != 't_start_s')
+    _verdict_stamps(head, cache, checks, expected)
     head['rss_after_build_mb'] = rss_mb()
     head['configuration'] = engine.configuration_stamp()
     head['initial_verdicts'] = dict(cache.verdict)
+    _provenance(head, engine, head['workload'], head.get('files'),
+                head.get('checks_file') or '')
     return cache
 
 
@@ -304,7 +332,7 @@ def run_at_adapter(args):
         # engine that records what its answers depended on (VeriFlow-FR's
         # walk footprints) has it before the first update
         cache = _initialize(fave, engine, args.workload, checks, head, phases,
-                            files=files)
+                            files=files, expected=args.expect_violations)
         rules, links = inc.model_rules(fave), inc.model_links(fave)
         stream = build_stream(args.stream, rules, links, args.fraction, args.seed)
         if args.limit_updates:
@@ -457,7 +485,7 @@ def run(args):
             InProcessFaVe(engine) as fave:
         wl = fs.FaveWorkload(args.workload, work, files=files)
         cache = _initialize(fave, engine, wl.zero_prefix(), checks, head,
-                            phases, files=files)
+                            phases, files=files, expected=args.expect_violations)
         stream = fs.build_stream(args.stream, wl, args.fraction, args.seed)
         if args.limit_updates:
             stream = stream[:args.limit_updates]
@@ -601,7 +629,7 @@ def run_s4(args):
             InProcessFaVe(engine, stable_indices=True) as fave:
         configs = inc.S4Configs(args.workload, work)
         cache = _initialize(fave, engine, configs.zero_prefix(), checks, head,
-                            phases)
+                            phases, expected=args.expect_violations)
         head.update({'checks': len(checks), 'editable_rule_lines': len(configs.rule_lines()),
                      'updates': n})
         _write_json(path('head.json'), head)
@@ -691,6 +719,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('workload', help="the workload directory, e.g. bench/wl_ifi")
     parser.add_argument('--engine', choices=ENGINES, required=True)
+    parser.add_argument('--expect-violations', type=int, default=None,
+                        help="the workload's declared violation count (D17.6): "
+                             "the head's verdict_outcome is correct or wrong_verdict")
     parser.add_argument('--stream', choices=STREAMS, required=True)
     parser.add_argument('--fraction', type=float, default=0.2,
                         help="S2: the share of rules deleted and re-added")
@@ -734,14 +765,26 @@ def main(argv=None):
         parser.error("--batch must be at least 1")
     if args.oracle_every and not args.oracle_sample:
         parser.error("--oracle-every needs --oracle-sample")
-    if args.stream == 's4':
-        if args.batch != 1:
-            parser.error("S4 runs at batch 1: every edit is one device re-sent")
-        rc = run_s4(args)
-    elif args.at_adapter:
-        rc = run_at_adapter(args)
-    else:
-        rc = run(args)
+    if args.stream == 's4' and args.batch != 1:
+        parser.error("S4 runs at batch 1: every edit is one device re-sent")
+    # D17.7: the in-process aggregator's log, at INFO (a line per task: V5's
+    # phase times come from it), in the cell's directory
+    os.makedirs(args.cell_dir, exist_ok=True)
+    agg_log = logging.getLogger('Aggregator')
+    handler = logging.FileHandler(os.path.join(args.cell_dir, 'aggregator.log'))
+    handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    agg_log.addHandler(handler)
+    agg_log.setLevel(logging.INFO)
+    try:
+        if args.stream == 's4':
+            rc = run_s4(args)
+        elif args.at_adapter:
+            rc = run_at_adapter(args)
+        else:
+            rc = run(args)
+    finally:
+        agg_log.removeHandler(handler)
+        handler.close()
     if rc:   # 1 means the oracle failed, and nothing else does
         print("THE ORACLE FAILED: see oracle.jsonl in %s" % args.cell_dir,
               file=sys.stderr)

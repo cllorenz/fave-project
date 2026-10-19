@@ -85,6 +85,8 @@ def child_argv(args, cell_dir):
                  '--oracle-seed', str(args.oracle_seed)]
     if args.footprint:
         argv += ['--footprint', args.footprint]
+    if args.expect_violations is not None:
+        argv += ['--expect-violations', str(args.expect_violations)]
     return argv
 
 
@@ -123,8 +125,11 @@ def run_repetition(args, rep):
     if os.path.exists(cell_dir):
         raise SystemExit("%s exists: a cell is never overwritten" % cell_dir)
     os.makedirs(cell_dir)
+    # D17.7: a JVM engine's collections, as V5's cells record them
+    gc_log = os.path.join(cell_dir, 'gc.log')
+    env = {'FAVE_JVM_GC_LOG': gc_log} if args.engine in ('apkeep', 'ndd-apkeep') else {}
     measured = run_cell(
-        child_argv(args, cell_dir), {}, args.limit_wall, args.limit_rss,
+        child_argv(args, cell_dir), env, args.limit_wall, args.limit_rss,
         args.memory_floor, args.status_every, os.path.join(cell_dir, 'cell.json'),
         stall_path=os.path.join(cell_dir, 'updates.jsonl'),
         limit_stall_s=args.limit_update)
@@ -145,6 +150,7 @@ def run_repetition(args, rep):
         'measured': measured,
         'completed_updates': done,
         'outcome': outcome(measured, end),
+        'gc': cell_metrics.gc_summary(gc_log) if os.path.exists(gc_log) else None,
     }
     with open(os.path.join(cell_dir, 'cell.json'), 'w') as handle:
         json.dump(record, handle, indent=1, sort_keys=True)
@@ -163,6 +169,8 @@ def main(argv=None):
     parser.add_argument('--files', default=None)
     parser.add_argument('--checks', default='checks.json')
     parser.add_argument('--limit-updates', type=int, default=0)
+    parser.add_argument('--expect-violations', type=int, default=None,
+                        help="the workload's declared violation count (D17.6)")
     parser.add_argument('--oracle-sample', type=int, default=0)
     parser.add_argument('--oracle-every', type=int, default=0)
     parser.add_argument('--oracle-seed', type=int, default=1)

@@ -150,6 +150,20 @@ class _Shared(unittest.TestCase):
         marks = head['phase_marks']
         self.assertGreaterEqual(min(m[1] for m in marks), start - 1)
         self.assertLessEqual(max(m[2] for m in marks), max(l['t_epoch'] for l in lines) + 1)
+        # D17.6-7: verdicts, provenance, the aggregator's log, the GC log
+        self.assertTrue(head['verdict_valid'])
+        self.assertEqual(head['violations'],
+                         sum(1 for v in head['initial_verdicts'].values() if v))
+        self.assertTrue(any(path.endswith('checks.json') for path in head['inputs']))
+        self.assertTrue(head['artifacts'])
+        self.assertIn('engine_options', head)
+        with open(os.path.join(out, 'aggregator.log')) as raw:
+            self.assertIn('completed task', raw.read())
+        with open(os.path.join(out, 'cell.json')) as raw:
+            cell = json.load(raw)
+        if self.ENGINE in ('apkeep', 'ndd-apkeep'):
+            self.assertIn('vlan_rewrite_rules', head['build_metrics'])
+            self.assertIsNotNone(cell['gc'], "no GC log for a JVM cell")
 
 
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")

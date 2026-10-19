@@ -125,6 +125,11 @@ class AbstractVerificationEngine(object):
     def remove_link(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError()
 
+    def build_metrics(self) -> Dict[str, Any]:
+        """ What the engine's build made of the model, for the cell's head
+        (INCREMENTAL_PLAN.md D17.6); empty for an engine that reports none. """
+        return {}
+
     def live_heap_mb(self) -> Optional[float]:
         """ A JVM engine's heap in use after a full collection, in MB
         (INCREMENTAL_PLAN.md D17.5); None for an engine without one. Costs a

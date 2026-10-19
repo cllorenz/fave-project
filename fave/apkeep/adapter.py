@@ -2058,6 +2058,15 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     # --- build + query -------------------------------------------------------
 
+    def build_metrics(self) -> Dict[str, Any]:
+        """ The build's element and cost metrics, and the VLAN guardrail's
+        denominator V5's cells parsed from the log (`cell_run.py`). """
+        out: Dict[str, Any] = dict(self._build_metrics)
+        out.update({'vlan_rewrite_rules': self._vlan_rewrite_rules,
+                    'vlan_admission_rules': self._vlan_admission_rules,
+                    'vlan_stage_tables': len(self._vlan_stage_devices)})
+        return out
+
     def live_heap_mb(self) -> Optional[float]:
         from apkeep.lib_apkeep import live_heap_mb
         return live_heap_mb()
