@@ -300,8 +300,12 @@ def _progress(session, started, peak_rss, aggregator_log, ad6_progress):
     Engine-agnostic -- the aggregator's own completed-task counts and the log's
     size, which move for every backend -- plus whatever the engine volunteers.
     """
+    now = time.time()
     line = {
-        'elapsed_s': round(time.time() - started, 1),
+        'elapsed_s': round(now - started, 1),
+        # absolute, so a cell's own phase marks (INCREMENTAL_PLAN.md D17.5)
+        # can be placed on the trail
+        't_epoch': round(now, 1),
         'peak_rss_mb': peak_rss,
         'rss_by_process_mb': cell_metrics.session_rss_mb(session),
         'available_mb': cell_metrics.available_mb(),
@@ -477,7 +481,8 @@ def run_cell(argv, env_overrides, limit_wall_s, limit_rss_mb, memory_floor_mb,
     tripped = {'deadline': 'wall', 'memory': 'rss'}.get(status, 'none')
     with open(trail_path, 'a') as trail:
         trail.write(json.dumps({
-            'elapsed_s': round(wall, 1), 'peak_rss_mb': peak_rss,
+            'elapsed_s': round(wall, 1), 't_epoch': round(time.time(), 1),
+            'peak_rss_mb': peak_rss,
             'status': status, 'limit_tripped': tripped}) + '\n')
 
     return {

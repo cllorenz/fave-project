@@ -309,6 +309,13 @@ class TestEveryUpdateRefused(_Tmp):
     (FINDINGS.md finding 2): such a stream measured nothing. """
 
     @require_or_skip(*_NP)
+    def test_a_floor_stop_is_a_machine_stop(self):
+        """ INCREMENTAL_PLAN.md D17.5: the machine ran low, not the cell. """
+        self.assertEqual(incremental_cell.outcome(
+            {'status': 'memory', 'memory_stop': 'memory_floor'}, None), 'machine_stop')
+        self.assertEqual(incremental_cell.outcome(
+            {'status': 'memory', 'memory_stop': 'limit_rss'}, None), 'did_not_finish')
+
     def test_is_refused_not_completed_and_no_oracle_failure(self):
         import contextlib, io
         real = incremental_run.make_engine

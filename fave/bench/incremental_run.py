@@ -228,14 +228,30 @@ def _oracle_sample(cache, checks, k, rng):
     return sorted(line for line in full if full[line] != cache.verdict[line])
 
 
-def _initialize(fave, engine, prefix, checks, head, t_start, files=None):
-    """ The shared initialization (INCREMENTAL_PLAN.md D17.2-3): the phases
-    into `head`; returns the verdict cache, holding the first check's
-    verdicts. `build_and_first_check_s` stays the sum of the phases after
-    the engine's construction, so earlier analyses read alike. """
-    cache, phases = inc.initialize(fave, engine, prefix, checks, files=files)
-    head['phases'] = dict({'t_start_s': t_start}, **phases.seconds)
-    head['build_and_first_check_s'] = sum(phases.seconds.values())
+def _start(make):
+    """ The engine's construction, timed as `t_start_s` (D17.3); returns the
+    engine and the phases recorder the rest of the initialization fills. """
+    phases = inc.Phases()
+    with phases.record('t_start_s'):
+        engine = make()
+    phases.live_heap = engine.live_heap_mb
+    phases.memory['t_start_s']['live_heap_mb'] = engine.live_heap_mb()
+    return engine, phases
+
+
+def _initialize(fave, engine, prefix, checks, head, phases, files=None):
+    """ The shared initialization (INCREMENTAL_PLAN.md D17.2-3, D17.5): the
+    phases, their memory and their wall-clock marks into `head`; returns the
+    verdict cache, holding the first check's verdicts.
+    `build_and_first_check_s` stays the sum of the phases after the
+    engine's construction, so earlier analyses read alike. """
+    cache, phases = inc.initialize(fave, engine, prefix, checks, files=files,
+                                   phases=phases)
+    head['phases'] = dict(phases.seconds)
+    head['phase_memory'] = dict(phases.memory)
+    head['phase_marks'] = list(phases.marks)
+    head['build_and_first_check_s'] = sum(
+        s for name, s in phases.seconds.items() if name != 't_start_s')
     head['rss_after_build_mb'] = rss_mb()
     head['configuration'] = engine.configuration_stamp()
     head['initial_verdicts'] = dict(cache.verdict)
@@ -281,15 +297,13 @@ def run_at_adapter(args):
                           ' + '.join(str(engine_commit(tree))
                                      for tree in _TREES[args.engine])),
     }
-    t_s = time.perf_counter()
-    engine = make()
-    t_start = time.perf_counter() - t_s
+    engine, phases = _start(make)
     from util.in_process_driver import InProcessFaVe
     with InProcessFaVe(engine) as fave:
         # the footprint pass turns tracking on after the first check, so an
         # engine that records what its answers depended on (VeriFlow-FR's
         # walk footprints) has it before the first update
-        cache = _initialize(fave, engine, args.workload, checks, head, t_start,
+        cache = _initialize(fave, engine, args.workload, checks, head, phases,
                             files=files)
         rules, links = inc.model_rules(fave), inc.model_links(fave)
         stream = build_stream(args.stream, rules, links, args.fraction, args.seed)
@@ -437,15 +451,13 @@ def run(args):
     path = lambda name: os.path.join(args.cell_dir, name)
     head = _head(args, 'incremental stream through FaVe, raw records '
                        '(INCREMENTAL_PLAN.md §5, §7, D14)', driven='fave', files=files)
-    t_s = time.perf_counter()
-    engine = make()
-    t_start = time.perf_counter() - t_s
+    engine, phases = _start(make)
     failed, done, n_refused = None, 0, 0
     with tempfile.TemporaryDirectory(prefix='stream_') as work, \
             InProcessFaVe(engine) as fave:
         wl = fs.FaveWorkload(args.workload, work, files=files)
         cache = _initialize(fave, engine, wl.zero_prefix(), checks, head,
-                            t_start, files=files)
+                            phases, files=files)
         stream = fs.build_stream(args.stream, wl, args.fraction, args.seed)
         if args.limit_updates:
             stream = stream[:args.limit_updates]
@@ -583,15 +595,13 @@ def run_s4(args):
                           ' + '.join(str(engine_commit(tree))
                                      for tree in _TREES[args.engine])),
     }
-    t_s = time.perf_counter()
-    engine = make()
-    t_start = time.perf_counter() - t_s
+    engine, phases = _start(make)
     failed, done = None, 0
     with tempfile.TemporaryDirectory(prefix='s4_') as work, \
             InProcessFaVe(engine, stable_indices=True) as fave:
         configs = inc.S4Configs(args.workload, work)
         cache = _initialize(fave, engine, configs.zero_prefix(), checks, head,
-                            t_start)
+                            phases)
         head.update({'checks': len(checks), 'editable_rule_lines': len(configs.rule_lines()),
                      'updates': n})
         _write_json(path('head.json'), head)

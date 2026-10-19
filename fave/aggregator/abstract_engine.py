@@ -125,6 +125,12 @@ class AbstractVerificationEngine(object):
     def remove_link(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError()
 
+    def live_heap_mb(self) -> Optional[float]:
+        """ A JVM engine's heap in use after a full collection, in MB
+        (INCREMENTAL_PLAN.md D17.5); None for an engine without one. Costs a
+        collection: asked outside every timer. """
+        return None
+
     def prepare(self, rules: Any) -> None:
         """ Build now what the first `check_compliance(rules)` would build
         (INCREMENTAL_PLAN.md D17.3: build and first check timed apart). The

@@ -218,3 +218,28 @@ class TestSharedInitialization(unittest.TestCase):
     def test_all_rules_holds_every_check(self):
         rules = inc.all_rules(self._checks())
         self.assertEqual(sorted(rules), ['p1', 'p2'])
+
+
+class TestPhaseMemory(unittest.TestCase):
+    """ INCREMENTAL_PLAN.md D17.5: a phase's RSS at its start and end, its
+    peak (the counter reset at each start), its wall-clock marks, and a JVM
+    engine's live heap asked after its timer. """
+
+    def test_a_phase_records_its_own_peak(self):
+        calls = []
+        phases = inc.Phases(live_heap=lambda: calls.append('heap') or 42.0)
+        with phases.record('big'):
+            block = bytearray(64 * 2 ** 20)
+            block[::4096] = b'x' * len(block[::4096])
+            del block
+        with phases.record('small'):
+            pass
+        big, small = phases.memory['big'], phases.memory['small']
+        if 'peak_mb' not in big:
+            self.skipTest("/proc/self/clear_refs is not writable here")
+        self.assertGreater(big['peak_mb'] - big['rss_start_mb'], 50)
+        self.assertLess(small['peak_mb'] - small['rss_start_mb'], 20,
+                        "the peak of a later phase must not be the earlier one's")
+        self.assertEqual((big['live_heap_mb'], calls), (42.0, ['heap', 'heap']))
+        self.assertEqual([m[0] for m in phases.marks], ['big', 'small'])
+        self.assertLessEqual(phases.marks[0][1], phases.marks[0][2])

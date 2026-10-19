@@ -190,22 +190,63 @@ def all_rules(checks: Iterable[Check]) -> Dict[str, List[Any]]:
     return rules
 
 
-class Phases:
-    """ The timed phases of a cell's initialization, in order: name ->
-    seconds (`record`). """
+def _status_mb(key: str) -> Optional[float]:
+    try:
+        with open('/proc/self/status') as raw:
+            for line in raw:
+                if line.startswith(key + ':'):
+                    return int(line.split()[1]) / 1024
+    except OSError:
+        pass
+    return None
 
-    def __init__(self) -> None:
+
+def _reset_peak() -> bool:
+    """ Reset this process's peak RSS (VmHWM) to its current RSS. """
+    try:
+        with open('/proc/self/clear_refs', 'w') as out:
+            out.write('5')
+        return True
+    except OSError:
+        return False
+
+
+class Phases:
+    """ The timed phases of a cell's initialization, in order (INCREMENTAL_PLAN
+    .md D17.3, D17.5): per phase its seconds (`seconds`), this process's RSS
+    at its start and end and its peak in between (`memory`; the peak counter
+    is reset at each start), and its wall-clock bounds (`marks`), which
+    place it on the cell sampler's trail. `live_heap`, if given, is asked
+    after each phase, outside its timer: a JVM engine's heap in use after a
+    full collection. """
+
+    def __init__(self, live_heap: Optional[Callable[[], Optional[float]]] = None) -> None:
         self.seconds: Dict[str, float] = {}
+        self.memory: Dict[str, Dict[str, Any]] = {}
+        self.marks: List[Tuple[str, float, float]] = []
+        self.live_heap = live_heap
 
     def record(self, name: str) -> Any:
         phases = self
 
         class _Timer:
             def __enter__(self) -> None:
+                self.reset = _reset_peak()
+                self.rss0 = _status_mb('VmRSS')
+                self.w0 = time.time()
                 self.t0 = time.perf_counter()
 
             def __exit__(self, *_exc: Any) -> None:
                 phases.seconds[name] = time.perf_counter() - self.t0
+                w1 = time.time()
+                mem: Dict[str, Any] = {
+                    'rss_start_mb': self.rss0, 'rss_end_mb': _status_mb('VmRSS'),
+                    # without the reset the peak is the process's so far
+                    'peak_mb' if self.reset else 'peak_so_far_mb': _status_mb('VmHWM')}
+                if phases.live_heap is not None:
+                    mem['live_heap_mb'] = phases.live_heap()
+                phases.memory[name] = mem
+                phases.marks.append((name, round(self.w0, 3), round(w1, 3)))
         return _Timer()
 
 

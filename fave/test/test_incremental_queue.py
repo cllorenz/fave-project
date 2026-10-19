@@ -64,7 +64,8 @@ class TestQueue(unittest.TestCase):
     def test_done_outcomes_are_ones_a_cell_writes(self):
         from bench import cell_metrics
         for outcome in q.DONE + q.FLAGGED:
-            self.assertIn(outcome, cell_metrics.OUTCOMES + ('oracle_failed', 'refused'))
+            self.assertIn(outcome, cell_metrics.OUTCOMES
+                          + ('oracle_failed', 'refused', 'machine_stop'))
 
     def test_an_unfinished_cell_is_moved_aside_not_deleted(self):
         self._result('i', 'interrupted')
@@ -88,6 +89,26 @@ class TestQueue(unittest.TestCase):
         self.assertEqual(argv[argv.index('--limit-updates') + 1], '50')
         self.assertNotIn('--est_h', argv)
         self.assertNotIn('--mem_mb', argv)
+
+
+    def test_the_rss_limit_is_not_the_reservation(self):
+        """ INCREMENTAL_PLAN.md D17.5: `mem_mb` packs the queue; the limit is
+        the queue's (V5's class), unless the cell sets its own. """
+        saved = dict(q.LIMITS)
+        self.addCleanup(q.LIMITS.update, saved)
+        limit = lambda argv: argv[argv.index('--limit-rss') + 1]
+        q.LIMITS.update({'limit-rss': 32768, 'memory-floor': 2000})
+        argv = q.command(_cell('x'), self.out, 'py')
+        self.assertEqual((limit(argv), argv[argv.index('--memory-floor') + 1]),
+                         ('32768', '2000'))
+        argv = q.command(_cell('k1', **{'limit-rss': 64000}), self.out, 'py')
+        self.assertEqual(limit(argv), '64000')
+        self.assertEqual(argv.count('--limit-rss'), 1)
+
+    def test_a_machine_stop_is_listed_not_rerun(self):
+        self.assertIn('machine_stop', q.FLAGGED)
+        self._result('m', 'machine_stop')
+        self.assertEqual(q.plan([_cell('m')], self.out), [])
 
 
 if __name__ == '__main__':

@@ -107,6 +107,10 @@ def outcome(measured, end):
     prefix), the environment's kill is `interrupted` (re-run). """
     if end and end.get('status') == 'oracle_failed':
         return 'oracle_failed'
+    if measured.get('memory_stop') == 'memory_floor':
+        # the MACHINE ran low (cells sharing it grew together), not this
+        # cell's limit: not a did-not-finish (INCREMENTAL_PLAN.md D17.5)
+        return 'machine_stop'
     if end and end.get('status') == 'refused':
         # S4: an edit the engine could not take; the stream stops there and
         # reports its prefix, like a limit -- a result, not a crash

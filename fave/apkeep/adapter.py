@@ -2058,6 +2058,10 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     # --- build + query -------------------------------------------------------
 
+    def live_heap_mb(self) -> Optional[float]:
+        from apkeep.lib_apkeep import live_heap_mb
+        return live_heap_mb()
+
     def prepare(self, rules: Any) -> None:
         """ APKeep's build, which `check_compliance` does lazily. """
         self._build()

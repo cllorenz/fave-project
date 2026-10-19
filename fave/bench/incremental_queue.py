@@ -59,8 +59,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 #: outcomes that are a result: skipped on a restart
 DONE = ('measured', 'did_not_finish', 'refused')
 #: outcomes that are a finding: not re-run, listed
-FLAGGED = ('error', 'oracle_failed')
-_OWN = ('name', 'workload', 'engine', 'stream', 'mem_mb', 'est_h')
+FLAGGED = ('error', 'oracle_failed', 'machine_stop')
+_OWN = ('name', 'workload', 'engine', 'stream', 'mem_mb', 'est_h',
+        'limit-rss', 'memory-floor')
+#: the queue's defaults for every cell (`main`): None keeps the cell's
+#: reservation as its RSS limit, as before INCREMENTAL_PLAN.md D17.5
+LIMITS: Dict[str, Optional[int]] = {'limit-rss': None, 'memory-floor': None}
 
 
 def state(cell_dir: str) -> Optional[str]:
@@ -76,10 +80,18 @@ def state(cell_dir: str) -> Optional[str]:
 
 
 def command(cell: Dict[str, Any], out_dir: str, python: str) -> List[str]:
+    """ The cell's command line. `mem_mb` is what the cell RESERVES in the
+    queue's budget; its RSS limit is the cell's `limit-rss`, else the
+    queue's (`--limit-rss`, V5's 32 GB class for the campaign, D17.5), else
+    the reservation. """
+    rss = cell.get('limit-rss', LIMITS['limit-rss'] or cell['mem_mb'])
+    floor = cell.get('memory-floor', LIMITS['memory-floor'])
     argv = [python, os.path.join(HERE, 'incremental_cell.py'), cell['workload'],
             '--engine', cell['engine'], '--stream', cell['stream'],
-            '--limit-rss', str(cell['mem_mb']),
+            '--limit-rss', str(rss),
             '--out', os.path.join(out_dir, cell['name'])]
+    if floor is not None:
+        argv += ['--memory-floor', str(floor)]
     for key in sorted(cell):
         if key in _OWN:
             continue
@@ -166,9 +178,16 @@ def main(argv=None) -> int:
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--mem-budget', type=int, required=True,
                         help="MB the running cells may hold together")
+    parser.add_argument('--limit-rss', type=int, default=None,
+                        help="every cell's RSS limit in MB unless the cell sets "
+                             "its own (default: the cell's mem_mb reservation)")
+    parser.add_argument('--memory-floor', type=int, default=None,
+                        help="every cell's available-memory floor in MB unless "
+                             "the cell sets its own (default: incremental_cell's)")
     parser.add_argument('--python', default=sys.executable)
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args(argv)
+    LIMITS.update({'limit-rss': args.limit_rss, 'memory-floor': args.memory_floor})
     with open(args.queue) as raw:
         cells = json.load(raw)
     names = [c['name'] for c in cells]
@@ -185,7 +204,8 @@ def main(argv=None) -> int:
     flagged = run(cells, args.out_dir, args.jobs, args.mem_budget, args.python,
                   lambda line: print(line, flush=True))
     if flagged:
-        print("FLAGGED (error / oracle_failed), not re-run: %s" % ', '.join(flagged))
+        print("FLAGGED (error / oracle_failed / machine_stop), not re-run: %s"
+              % ', '.join(flagged))
     return 0
 
 

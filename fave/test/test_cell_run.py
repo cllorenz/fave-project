@@ -188,6 +188,8 @@ class TestTheProgressTrail(unittest.TestCase):
             self.assertEqual(line['status'], 'running')
             self.assertIn('elapsed_s', line)
             self.assertIn('available_mb', line)
+            # absolute, to place a cell's phase marks on the trail (D17.5)
+            self.assertGreater(line['t_epoch'], 1.6e9)
         self.assertEqual(lines[-1]['status'], 'deadline')
         self.assertEqual(lines[-1]['limit_tripped'], 'wall')
 

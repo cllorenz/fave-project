@@ -71,6 +71,19 @@ def available() -> bool:
     return jpype is not None and os.path.isfile(_APKEEP_JAR)
 
 
+def live_heap_mb() -> Optional[float]:
+    """ The resident JVM's heap in use after a full collection, in MB; None
+    when no JVM runs (INCREMENTAL_PLAN.md D17.5). Two `System.gc()` calls:
+    one may leave objects with finalizers behind for the next. """
+    if jpype is None or not jpype.isJVMStarted():
+        return None
+    system = jpype.JClass("java.lang.System")
+    system.gc()
+    system.gc()
+    runtime = jpype.JClass("java.lang.Runtime").getRuntime()
+    return (int(runtime.totalMemory()) - int(runtime.freeMemory())) / 2 ** 20
+
+
 def _ensure_jvm() -> None:
     """ Start the resident JVM once (idempotent). """
     if jpype is None:

@@ -115,20 +115,41 @@ class _Shared(unittest.TestCase):
                                     "the first check would have built the engine")
 
     def test_a_cell_records_the_five_phases(self):
-        from bench import incremental_run
+        from bench import incremental_cell
         prefix = self.WORKLOADS[0]
         self._inputs(prefix)
-        out = tempfile.mkdtemp(prefix='shared_init_')
-        self.addCleanup(shutil.rmtree, out, True)
-        self.assertEqual(incremental_run.main(
+        top = tempfile.mkdtemp(prefix='shared_init_')
+        self.addCleanup(shutil.rmtree, top, True)
+        # through the cell runner, as the queue runs it: V5's sampler and trail
+        self.assertEqual(incremental_cell.main(
             [prefix, '--engine', self.ENGINE, '--stream', 's2', '--fraction', '0.2',
-             '--limit-updates', '3', '--cell-dir', out]), 0)
+             '--limit-updates', '3', '--status-every', '0.5',
+             '--out', os.path.join(top, 'cell')]), 0)
+        out = os.path.join(top, 'cell', 'rep01')
         with open(os.path.join(out, 'head.json')) as raw:
             head = json.load(raw)
         self.assertEqual(sorted(head['phases']),
                          ['t_build_s', 't_check_s', 't_footprint_s', 't_load_s', 't_start_s'])
         self.assertAlmostEqual(head['build_and_first_check_s'],
                                sum(v for k, v in head['phases'].items() if k != 't_start_s'))
+        # D17.5: memory per phase; a JVM engine's live heap after its build
+        self.assertEqual(sorted(head['phase_memory']), sorted(head['phases']))
+        for name, mem in head['phase_memory'].items():
+            self.assertIn('rss_end_mb', mem, name)
+        heap = head['phase_memory']['t_build_s'].get('live_heap_mb')
+        if self.ENGINE in ('apkeep', 'ndd-apkeep'):
+            self.assertGreater(heap, 0)
+        else:
+            self.assertIsNone(heap)
+        # the marks fall inside the cell sampler's trail
+        with open(os.path.join(out, 'cell.status.jsonl')) as raw:
+            lines = [json.loads(line) for line in raw if line.strip()]
+        lines = [line for line in lines if 't_epoch' in line]
+        self.assertTrue(lines, "the trail carries no t_epoch")
+        start = min(line['t_epoch'] - line['elapsed_s'] for line in lines)
+        marks = head['phase_marks']
+        self.assertGreaterEqual(min(m[1] for m in marks), start - 1)
+        self.assertLessEqual(max(m[2] for m in marks), max(l['t_epoch'] for l in lines) + 1)
 
 
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
