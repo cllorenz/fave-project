@@ -364,6 +364,14 @@ TNSM'21 measures only build-from-zero plus one verification.
      campaign `MACHINE.txt` and `ARTIFACTS.txt` as in V5, written at
      declaration and checked again when the queue ends (a hash that changed
      is a finding).
+  8. *Parallel cells* (2026-10-19, option a): 4 cells in parallel, each
+     pinned to its own 4 of the 16 cores (`taskset`), a JVM cell's GC
+     threads set to its 4 cores; a contention sample -- one cell per engine
+     x 2 workloads repeated serially, alone and unpinned -- gives a
+     contention factor per engine, documented beside the results. Basis:
+     APKeep's build + first check, serial against 4 in parallel, median
+     ratio 1.04 (0.88-1.22) over 12 pairs (calibration vs the structure-cost
+     run).
 
 ## 5. What is measured, per update
 
