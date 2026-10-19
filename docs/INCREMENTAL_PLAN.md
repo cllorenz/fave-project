@@ -345,6 +345,25 @@ TNSM'21 measures only build-from-zero plus one verification.
      from the calibration), not the limit, and a floor stop is recorded as a
      machine stop, not a did-not-finish. The wall limit is decided with
      difference 8.
+  6. *Verdicts* (2026-10-19): the count is DISTINCT violated checks, from the
+     per-check verdicts (closes V5's open question, RESULTS.md's `wl_cloud`
+     58 against ‡57; the bridge cells keep V5's line count beside it);
+     `verdict_valid` = every check answered through the barrier, every build
+     message applied, the rounds recorded; `correct`/`wrong_verdict` where a
+     workload declares its violations; the adapters' build metrics (APKeep's
+     cost metrics with the VLAN denominators) in the head. **No anomaly
+     detection** (owner): the anomaly check is not run anywhere in the
+     campaign (the bridge cells skip `benchmark.py`'s step); NetPlumber's
+     blackhole check is compiled out already (`CHECK_BLACKHOLES`, unset in
+     `net_plumber/build/sources.mk`); its loop stop is propagation semantics
+     (termination) and stays, its counter (`loop_reports`) is recorded.
+  7. *Provenance* (2026-10-19): per cell the hashes of the jars,
+     `libnetplumber` and `libveriflow_fr` as loaded, the input-file hashes,
+     `jvm_xmx`, `impl`/`upstream`/engine options at the top level, a GC log
+     for every JVM cell, the in-process aggregator's log at INFO; per
+     campaign `MACHINE.txt` and `ARTIFACTS.txt` as in V5, written at
+     declaration and checked again when the queue ends (a hash that changed
+     is a finding).
 
 ## 5. What is measured, per update
 
