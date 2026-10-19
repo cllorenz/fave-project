@@ -1,0 +1,97 @@
+[
+ {
+  "name": "K_wl_airtel1_ad6",
+  "workload": "bench/wl_airtel1",
+  "engine": "ad6",
+  "stream": "z",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 0.01,
+  "ad6-grounding": "rank",
+  "ad6-solver": "cadical195",
+  "expect-violations": 0
+ },
+ {
+  "name": "K_wl_airtel1_netplumber",
+  "workload": "bench/wl_airtel1",
+  "engine": "netplumber",
+  "stream": "z",
+  "mem_mb": 0,
+  "limit-wall": 43200,
+  "est_h": 0
+ },
+ {
+  "name": "K_wl_airtel1_veriflow",
+  "workload": "bench/wl_airtel1",
+  "engine": "veriflow",
+  "stream": "z",
+  "mem_mb": 0,
+  "limit-wall": 43200,
+  "est_h": 0
+ },
+ {
+  "name": "K_wl_airtel1_apkeep",
+  "workload": "bench/wl_airtel1",
+  "engine": "apkeep",
+  "stream": "z",
+  "mem_mb": 0,
+  "limit-wall": 43200,
+  "est_h": 0
+ },
+ {
+  "name": "K_wl_airtel1_ndd-apkeep",
+  "workload": "bench/wl_airtel1",
+  "engine": "ndd-apkeep",
+  "stream": "z",
+  "mem_mb": 0,
+  "limit-wall": 43200,
+  "est_h": 0
+ },
+ {
+  "name": "K_wl_up_netplumber",
+  "workload": "bench/wl_up",
+  "engine": "netplumber",
+  "stream": "z",
+  "mem_mb": 0,
+  "limit-wall": 43200,
+  "est_h": 0
+ },
+ {
+  "name": "K_wl_up_veriflow",
+  "workload": "bench/wl_up",
+  "engine": "veriflow",
+  "stream": "z",
+  "mem_mb": 0,
+  "limit-wall": 43200,
+  "est_h": 0
+ },
+ {
+  "name": "K_wl_up_apkeep",
+  "workload": "bench/wl_up",
+  "engine": "apkeep",
+  "stream": "z",
+  "mem_mb": 0,
+  "limit-wall": 43200,
+  "est_h": 0
+ },
+ {
+  "name": "K_wl_up_ndd-apkeep",
+  "workload": "bench/wl_up",
+  "engine": "ndd-apkeep",
+  "stream": "z",
+  "mem_mb": 0,
+  "limit-wall": 43200,
+  "est_h": 0
+ },
+ {
+  "name": "K_wl_up_ad6",
+  "workload": "bench/wl_up",
+  "engine": "ad6",
+  "stream": "z",
+  "mem_mb": 18432,
+  "limit-wall": 43200,
+  "est_h": 0.12,
+  "ad6-grounding": "rank",
+  "ad6-solver": "cadical195"
+ }
+]
