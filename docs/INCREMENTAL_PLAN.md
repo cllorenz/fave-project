@@ -328,6 +328,13 @@ TNSM'21 measures only build-from-zero plus one verification.
      last). V5's `check_compliance_s` for a lazy engine is `t_build_s +
      t_check_s`. Inputs are generated once per workload per campaign, their
      hashes recorded, outside cell time (V5 regenerated them in each cell).
+  4. *Process layout* (2026-10-19, option a): both phases in-process
+     (`InProcessFaVe`, NetPlumber as `libnetplumber`; the client of a re-send
+     in its worker, TODO item 60), one driver for every engine and timers
+     read directly. Bridge cells, once per workload x engine, run V5's live
+     layout (`cell_run.py` + `benchmark.py`: aggregator process, NetPlumber
+     over RPC) for build and first check, measuring what transport and RPC
+     add, so the campaign's from-zero numbers can be set against V5's.
 
 ## 5. What is measured, per update
 
