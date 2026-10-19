@@ -254,6 +254,7 @@ FAVE_NDD_TESTS=(
     test/test_incremental_device_removal.py # INCREMENTAL_PLAN.md §8.2: device removal under the oracle -- NetPlumber and ad6 remove and re-add, VeriFlow-FR and BDD-/NDD-APKeep empty; ~4 min
     test/test_incremental_route_commands.py # INCREMENTAL_PLAN.md D14: routes deleted and re-added by switch commands through FaVe, under the oracle, all four engines; ~5 min
     test/test_incremental_fave_streams.py # INCREMENTAL_PLAN.md D14: S1-S3 through FaVe (re-sends, switch and topology commands) under the oracle, all four engines; ~6 min
+    test/test_shared_initialization.py # INCREMENTAL_PLAN.md D17.2-3: the shared initialization -- verdicts as before, lazy engines built before the timed check, the five phases in a cell; all four engines
     test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs

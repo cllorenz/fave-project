@@ -142,3 +142,79 @@ class TestTheDefaultsAreSound(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class _FakeFaVe:
+    """ Records the driver calls `initialize` makes, in order. """
+
+    def __init__(self, log):
+        self.log = log
+
+    def replay(self, prefix, files=None, generator_links=True):
+        self.log.append(('replay', prefix, generator_links))
+
+    def connect_generators(self):
+        self.log.append(('connect',))
+
+    def prepare(self, rules):
+        self.log.append(('prepare', sorted(rules)))
+
+    def check_compliance(self, rules):
+        self.log.append(('check', sorted(rules)))
+
+
+class _FakeEngine:
+    def __init__(self, log, flip_when_tracking=False):
+        self.log, self.tracking, self.flip = log, False, flip_when_tracking
+
+    def clear_results(self):
+        pass
+
+    def get_compliance_results(self):
+        # violated: the first check's pair; with `flip`, nothing once tracking
+        if self.flip and self.tracking:
+            return []
+        return [('s1', 'p1', False, '')]
+
+    def track_affected(self, on):
+        self.log.append(('track', on))
+        self.tracking = on
+
+    def take_affected(self):
+        return None
+
+
+class TestSharedInitialization(unittest.TestCase):
+    """ INCREMENTAL_PLAN.md D17.2-3: one initialization serves the from-zero
+    measurement and the update stream. """
+
+    def _checks(self):
+        return [inc.Check('s=s1 && p=p1'), inc.Check('s=s2 && p=p2')]
+
+    def test_phases_run_in_order_and_the_first_check_is_untracked(self):
+        log = []
+        cache, phases = inc.initialize(_FakeFaVe(log), _FakeEngine(log), 'wl', self._checks())
+        self.assertEqual([e[0] for e in log],
+                         ['replay', 'connect', 'prepare', 'check', 'track', 'check'])
+        self.assertEqual(log[0], ('replay', 'wl', False), "generators' links held back")
+        self.assertEqual(log[4], ('track', True), "tracking only after the first check")
+        self.assertEqual(list(phases.seconds),
+                         ['t_load_s', 't_build_s', 't_check_s', 't_footprint_s'])
+        self.assertEqual(cache.verdict, {'s=s1 && p=p1': True, 's=s2 && p=p2': False})
+
+    def test_without_the_footprint_pass_tracking_stays_off(self):
+        log = []
+        _cache, phases = inc.initialize(_FakeFaVe(log), _FakeEngine(log), 'wl',
+                                        self._checks(), footprint_pass=False)
+        self.assertNotIn(('track', True), log)
+        self.assertNotIn('t_footprint_s', phases.seconds)
+
+    def test_a_footprint_pass_that_changes_a_verdict_raises(self):
+        log = []
+        with self.assertRaises(RuntimeError):
+            inc.initialize(_FakeFaVe(log), _FakeEngine(log, flip_when_tracking=True),
+                           'wl', self._checks())
+
+    def test_all_rules_holds_every_check(self):
+        rules = inc.all_rules(self._checks())
+        self.assertEqual(sorted(rules), ['p1', 'p2'])

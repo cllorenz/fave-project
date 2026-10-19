@@ -91,6 +91,8 @@ class InProcessFaVe:
         barrier.publish_owner(self._barrier_dir)
 
         self._patched: List[Any] = []
+        #: the generators' links `replay(generator_links=False)` held back
+        self._held_generator_links: List[Any] = []
         #: the client side of a re-send, in a process of its own (TODO 60)
         self._client: Any = None
         self._guard: Optional[str] = None
@@ -140,7 +142,8 @@ class InProcessFaVe:
 
     # -- driving --------------------------------------------------------------
 
-    def replay(self, prefix: str, files: Optional[Dict[str, str]] = None) -> None:
+    def replay(self, prefix: str, files: Optional[Dict[str, str]] = None,
+               generator_links: bool = True) -> None:
         """ Build and dispatch a benchmark's topology, routes, probes and
         sources (its real device models) from <prefix>/{topology,routes,
         policies,sources}.json, then block until the engine has applied them.
@@ -169,7 +172,12 @@ class InProcessFaVe:
             add_policies(pol["devices"], pol["links"], use_unix=False)
         with open(files["sources"]) as raw:
             src = json.load(raw)
-            add_sources(src["devices"], src["links"], use_unix=False)
+            # `generator_links=False` holds back the links that connect the
+            # generators to the model (INCREMENTAL_PLAN.md D17.3): sent by
+            # `connect_generators`, they are where NetPlumber propagates
+            self._held_generator_links = [] if generator_links else src["links"]
+            add_sources(src["devices"], src["links"] if generator_links else [],
+                        use_unix=False)
 
         self._agg.queue.join()
         # The build's messages carry no barrier, so a device the aggregator
@@ -211,6 +219,33 @@ class InProcessFaVe:
         self._agg.queue.join()
         # `_handler` releases in a `finally` BEFORE its `task_done()`, so the
         # join above already guarantees this resolves on the first poll.
+        barrier.wait(guard, directory=self._barrier_dir)
+
+
+    def connect_generators(self) -> None:
+        """ Send the generators' links `replay(generator_links=False)` held
+        back -- for NetPlumber the traffic propagation, for the lazy engines
+        two more links (INCREMENTAL_PLAN.md D17.3) -- and block until the
+        aggregator has applied them; a failure raises, as in `replay`. """
+        from util.bench_utils import _add_links
+        links, self._held_generator_links = self._held_generator_links, []
+        failed = len(self._agg.unguarded_failures)
+        if links:
+            _add_links(links, use_unix=False)
+        self._agg.queue.join()
+        errors = self._agg.unguarded_failures[failed:]
+        if errors:
+            raise RuntimeError("connect_generators: %d of %d messages failed: %s"
+                               % (len(errors), len(links), '; '.join(errors[:5])))
+
+    def prepare(self, rules: Dict[str, List[Any]]) -> None:
+        """ Have the engine build now what the first check of `rules` would
+        build (`AbstractVerificationEngine.prepare`), through the aggregator
+        and barrier-guarded like `check_compliance`. """
+        guard = barrier.arm(self._barrier_dir)
+        self._agg.queue.put(json.dumps(
+            {"type": "prepare", "rules": rules, "barrier": guard}))
+        self._agg.queue.join()
         barrier.wait(guard, directory=self._barrier_dir)
 
     def _client_process(self, target: str, *args: Any, **kwargs: Any) -> None:

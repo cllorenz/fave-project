@@ -125,6 +125,14 @@ class AbstractVerificationEngine(object):
     def remove_link(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError()
 
+    def prepare(self, rules: Any) -> None:
+        """ Build now what the first `check_compliance(rules)` would build
+        (INCREMENTAL_PLAN.md D17.3: build and first check timed apart). The
+        default builds nothing: an engine that builds as the model arrives
+        (NetPlumber propagates as the generators' links come in) or one whose
+        check builds and solves in one step (ad6's bridge) has nothing to do
+        here. """
+
     # --- incremental updates (INCREMENTAL_PLAN.md §6.2) ----------------------
     #
     # Applied directly to a BUILT engine, bypassing the aggregator. A rule is

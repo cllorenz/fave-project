@@ -2058,6 +2058,10 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     # --- build + query -------------------------------------------------------
 
+    def prepare(self, rules: Any) -> None:
+        """ APKeep's build, which `check_compliance` does lazily. """
+        self._build()
+
     def _build(self) -> None:
         if self._built:
             return

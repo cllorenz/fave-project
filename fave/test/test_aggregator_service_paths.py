@@ -147,6 +147,20 @@ class TestDispatchRequests(_Base):
         self.assertEqual((cond1[0].name, cond1[0].value), ('packet.upper.dport', '80'))
         self.assertEqual(cond2, [])
 
+    def test_prepare_reaches_the_engine_as_a_check_would(self):
+        """ INCREMENTAL_PLAN.md D17.3: `prepare` carries the same rules as
+        a check and asks the engine to build, not to answer. """
+        field = RuleField('packet.upper.dport', '80').to_json()
+        task = self.aggr._dispatch({
+            'type': 'prepare',
+            'rules': {'probe.b': [['source.a', False, [field]]]}
+        })
+        self.assertEqual(task, 'prepare')
+        self.engine.check_compliance.assert_not_called()
+        (rules,), _ = self.engine.prepare.call_args
+        (src, neg, cond), = rules['probe.b']
+        self.assertEqual((src, neg, cond[0].name), ('source.a', False, 'packet.upper.dport'))
+
     def test_check_anomalies_defaults_every_flag_off(self):
         self.assertEqual(
             self.aggr._dispatch({'type': 'check_anomalies'}), 'check_anomalies')

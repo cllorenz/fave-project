@@ -406,15 +406,20 @@ class AggregatorService(AbstractAggregator):
             self.reporter.mark_compliance()
             self.reporter.mark_anomalies()
 
-        elif j['type'] == 'check_compliance':
-            task_type = 'check_compliance'
+        elif j['type'] in ('check_compliance', 'prepare'):
+            task_type = j['type']
             rules: Dict[Any, List[Any]] = {}
             for dst, src_rules in j['rules'].items():
                 rules.setdefault(dst, [])
                 for src, negated, cond in src_rules:
                     rules[dst].append((src, negated, [RuleField.from_json(f) for f in cond]))
 
-            self.verification_engine.check_compliance(rules)
+            if task_type == 'prepare':
+                # INCREMENTAL_PLAN.md D17.3: what the first check of `rules`
+                # would build, built now, so build and check are timed apart
+                self.verification_engine.prepare(rules)
+            else:
+                self.verification_engine.check_compliance(rules)
 
         elif j['type'] == 'dump':
             dump = j

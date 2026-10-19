@@ -290,11 +290,19 @@ class VeriFlowAdapter(Translator, AbstractVerificationEngine):
 
     # -- checking --------------------------------------------------------------
 
+    @staticmethod
+    def _cond_fields(rules: Any) -> List[str]:
+        return sorted({f.name for checks in rules.values()
+                       for (_src, _neg, cond) in checks for f in cond})
+
+    def prepare(self, rules: Any) -> None:
+        """ The build `check_compliance(rules)` would do first: the layout
+        has every field the checks' conditions name. """
+        self.build(self._cond_fields(rules))
+
     def check_compliance(self, rules: Any) -> None:
         """ Answer the checks (probe -> [(source, negated, condition)]). """
-        cond_fields = {f.name for checks in rules.values()
-                       for (_src, _neg, cond) in checks for f in cond}
-        self.build(sorted(cond_fields))
+        self.build(self._cond_fields(rules))
         ir = self.ir
         assert ir is not None
 

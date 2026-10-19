@@ -45,6 +45,7 @@ import copy
 import json
 import os
 import random
+import time
 
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
@@ -174,6 +175,82 @@ class VerdictCache:
         self.verdict.update(fresh)
         return todo
 
+
+
+# --- the shared initialization (INCREMENTAL_PLAN.md D17) ------------------------
+
+def all_rules(checks: Iterable[Check]) -> Dict[str, List[Any]]:
+    """ Every check as one `check_compliance` rules dict -- for `prepare`,
+    which only needs to know what the checks ask (VeriFlow-FR: the fields
+    their conditions name), not which check a verdict belongs to. """
+    rules: Dict[str, List[Any]] = {}
+    for check in checks:
+        rules.setdefault(check.probe, []).append(
+            [check.source, check.negated, check.cond])
+    return rules
+
+
+class Phases:
+    """ The timed phases of a cell's initialization, in order: name ->
+    seconds (`record`). """
+
+    def __init__(self) -> None:
+        self.seconds: Dict[str, float] = {}
+
+    def record(self, name: str) -> Any:
+        phases = self
+
+        class _Timer:
+            def __enter__(self) -> None:
+                self.t0 = time.perf_counter()
+
+            def __exit__(self, *_exc: Any) -> None:
+                phases.seconds[name] = time.perf_counter() - self.t0
+        return _Timer()
+
+
+def initialize(fave: Any, engine: Any, prefix: str, checks: List[Check],
+               files: Optional[Dict[str, str]] = None,
+               footprint_pass: bool = True,
+               phases: Optional[Phases] = None) -> Tuple[VerdictCache, Phases]:
+    """ Initialize the model and verify compliance once, as the from-zero
+    measurement and the update stream share them (INCREMENTAL_PLAN.md D17):
+
+    * `t_load_s` -- every modelling element through the aggregator, the
+      generators without their links;
+    * `t_build_s` -- the generators' links (NetPlumber propagates there) and
+      the engine's build of what the first check needs (`prepare`; the lazy
+      engines build here);
+    * `t_check_s` -- the first compliance check, untracked: the from-zero
+      measurement (D17.2);
+    * `t_footprint_s` -- with `footprint_pass`, tracking on and the checks
+      once more over the same model: the incremental phase's setup. Its
+      verdicts must equal the first check's; a difference raises.
+
+    `t_start_s` (the engine's construction) is the caller's: it precedes the
+    driver. Returns the verdict cache, holding the first check's verdicts. """
+    phases = phases or Phases()
+    cache = VerdictCache(fave, engine, checks)
+    with phases.record('t_load_s'):
+        fave.replay(prefix, files=files, generator_links=False)
+    with phases.record('t_build_s'):
+        fave.connect_generators()
+        fave.prepare(all_rules(checks))
+    with phases.record('t_check_s'):
+        if checks:
+            cache.full()
+    if footprint_pass:
+        first = dict(cache.verdict)
+        with phases.record('t_footprint_s'):
+            engine.track_affected(True)
+            if checks:
+                cache.full()
+        if cache.verdict != first:
+            differ = sorted(line for line in first if cache.verdict.get(line) != first[line])
+            raise RuntimeError("the footprint pass changed %d verdicts of the first "
+                               "check, e.g. %s" % (len(differ), differ[:3]))
+        engine.take_affected()
+    return cache, phases
 
 # --- the from-zero oracle -------------------------------------------------------
 
