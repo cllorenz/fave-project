@@ -71,6 +71,17 @@ def available() -> bool:
     return jpype is not None and os.path.isfile(_APKEEP_JAR)
 
 
+def jvm_stamps() -> Optional[Dict[str, Any]]:
+    """ The resident JVM's processors as it sees them (a pinned cell's
+    cores) and its arguments; None when no JVM runs (D17.8). """
+    if jpype is None or not jpype.isJVMStarted():
+        return None
+    runtime = jpype.JClass("java.lang.Runtime").getRuntime()
+    mx = jpype.JClass("java.lang.management.ManagementFactory").getRuntimeMXBean()
+    return {'available_processors': int(runtime.availableProcessors()),
+            'arguments': [str(a) for a in mx.getInputArguments()]}
+
+
 def live_heap_mb() -> Optional[float]:
     """ The resident JVM's heap in use after a full collection, in MB; None
     when no JVM runs (INCREMENTAL_PLAN.md D17.5). Two `System.gc()` calls:
@@ -103,6 +114,12 @@ def _ensure_jvm() -> None:
         gc_log = os.environ.get("FAVE_JVM_GC_LOG")
         if gc_log:
             args.append("-Xlog:gc:file=%s" % gc_log)
+        # FAVE_JVM_GC_THREADS (a count): the collector's parallel threads, set
+        # to a pinned cell's cores (INCREMENTAL_PLAN.md D17.8), so cells
+        # sharing the machine do not compete through their collectors
+        gc_threads = os.environ.get("FAVE_JVM_GC_THREADS")
+        if gc_threads:
+            args.append("-XX:ParallelGCThreads=%d" % int(gc_threads))
         jpype.startJVM(*args, classpath=cp or [_APKEEP_JAR])
 
 

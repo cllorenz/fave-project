@@ -262,6 +262,13 @@ def _provenance(head, engine, workload, files, checks_path):
         workload, names, checks_path if os.path.exists(checks_path) else None)
     head.update(provenance.engine_stamps(head.get('configuration') or {}))
     head['build_metrics'] = engine.build_metrics()
+    # D17.8: the cores this cell may use, and a JVM's view of them
+    head['cpus'] = sorted(os.sched_getaffinity(0))
+    try:
+        from apkeep.lib_apkeep import jvm_stamps
+        head['jvm'] = jvm_stamps()
+    except ImportError:
+        head['jvm'] = None
 
 
 def _initialize(fave, engine, prefix, checks, head, phases, files=None, expected=None):

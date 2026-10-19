@@ -61,7 +61,7 @@ DONE = ('measured', 'did_not_finish', 'refused')
 #: outcomes that are a finding: not re-run, listed
 FLAGGED = ('error', 'oracle_failed', 'machine_stop')
 _OWN = ('name', 'workload', 'engine', 'stream', 'mem_mb', 'est_h',
-        'limit-rss', 'memory-floor')
+        'limit-rss', 'memory-floor', 'alone')
 #: the queue's defaults for every cell (`main`): None keeps the cell's
 #: reservation as its RSS limit, as before INCREMENTAL_PLAN.md D17.5
 LIMITS: Dict[str, Optional[int]] = {'limit-rss': None, 'memory-floor': None}
@@ -126,39 +126,75 @@ def plan(cells: List[Dict[str, Any]], out_dir: str) -> List[Dict[str, Any]]:
     return sorted(todo, key=lambda c: -float(c.get('est_h', 0)))
 
 
+def core_groups(jobs: int, cpus: Optional[List[int]] = None) -> List[List[int]]:
+    """ The machine's cores in `jobs` disjoint groups of equal size, one per
+    parallel cell (INCREMENTAL_PLAN.md D17.8); a remainder stays unused. """
+    cpus = sorted(cpus if cpus is not None else os.sched_getaffinity(0))
+    size = len(cpus) // jobs
+    if size < 1:
+        raise ValueError("%d cores cannot be split into %d groups" % (len(cpus), jobs))
+    return [cpus[i * size:(i + 1) * size] for i in range(jobs)]
+
+
+def pinned(argv: List[str], group: Optional[List[int]]) -> List[str]:
+    """ `argv` run on the cores of `group` (all of them when None). """
+    if not group:
+        return argv
+    return ['taskset', '-c', ','.join(str(c) for c in group)] + argv
+
+
 def run(cells: List[Dict[str, Any]], out_dir: str, jobs: int, budget: int,
-        python: str, log) -> List[str]:
+        python: str, log, pin: bool = False) -> List[str]:
+    """ Run `cells`, at most `jobs` at a time within `budget` MB of
+    reservations; with `pin`, each on its own group of cores, a JVM's
+    collector set to its size (FAVE_JVM_GC_THREADS). A cell marked `alone`
+    starts only when nothing runs, has the whole machine unpinned, and
+    nothing starts beside it. """
     todo = plan(cells, out_dir)
     running: Dict[str, Any] = {}
     used = 0
+    free = core_groups(jobs) if pin else []
     while todo or running:
         # start what fits: the longest that fits the budget, while slots remain
         started = True
-        while started and todo and len(running) < jobs:
+        alone_running = any(c.get('alone') for _p, c, _h, _t, _g in running.values())
+        while started and todo and len(running) < jobs and not alone_running:
             started = False
             for cell in todo:
+                if cell.get('alone') and running:
+                    continue
                 if used + int(cell['mem_mb']) <= budget or not running:
                     # (a cell larger than the budget runs alone)
                     todo.remove(cell)
                     retire(out_dir, cell['name'])
                     os.makedirs(out_dir, exist_ok=True)
                     handle = open(os.path.join(out_dir, cell['name'] + '.log'), 'w')
-                    proc = subprocess.Popen(command(cell, out_dir, python), cwd=os.path.dirname(HERE),
+                    group = free.pop(0) if pin and not cell.get('alone') else None
+                    env = dict(os.environ)
+                    if group:
+                        env['FAVE_JVM_GC_THREADS'] = str(len(group))
+                    proc = subprocess.Popen(pinned(command(cell, out_dir, python), group),
+                                            cwd=os.path.dirname(HERE), env=env,
                                             stdout=handle, stderr=subprocess.STDOUT)
-                    running[cell['name']] = (proc, cell, handle, time.time())
+                    running[cell['name']] = (proc, cell, handle, time.time(), group)
                     used += int(cell['mem_mb'])
-                    log("%s start %s (%d MB, est %.2f h; running %d, %d MB)" % (
+                    log("%s start %s (%d MB, est %.2f h; running %d, %d MB%s)" % (
                         _now(), cell['name'], cell['mem_mb'], float(cell.get('est_h', 0)),
-                        len(running), used))
+                        len(running), used,
+                        '; cores %s' % ','.join(map(str, group)) if group else
+                        ('; alone' if cell.get('alone') else '')))
                     started = True
+                    alone_running = bool(cell.get('alone'))
                     break
         time.sleep(2)
         for name in list(running):
-            proc, cell, handle, t0 = running[name]
+            proc, cell, handle, t0, group = running[name]
             if proc.poll() is None:
                 continue
             handle.close()
             used -= int(cell['mem_mb'])
+            if group:
+                free.append(group)
             del running[name]
             log("%s end   %s rc=%d outcome=%s after %.2f h" % (
                 _now(), name, proc.returncode, state(os.path.join(out_dir, name)),
@@ -184,6 +220,8 @@ def main(argv=None) -> int:
     parser.add_argument('--memory-floor', type=int, default=None,
                         help="every cell's available-memory floor in MB unless "
                              "the cell sets its own (default: incremental_cell's)")
+    parser.add_argument('--pin', action='store_true',
+                        help="each cell on its own group of cores (D17.8)")
     parser.add_argument('--python', default=sys.executable)
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args(argv)
@@ -202,7 +240,7 @@ def main(argv=None) -> int:
             print(' '.join(command(cell, args.out_dir, args.python)))
         return 0
     flagged = run(cells, args.out_dir, args.jobs, args.mem_budget, args.python,
-                  lambda line: print(line, flush=True))
+                  lambda line: print(line, flush=True), pin=args.pin)
     if flagged:
         print("FLAGGED (error / oracle_failed / machine_stop), not re-run: %s"
               % ', '.join(flagged))

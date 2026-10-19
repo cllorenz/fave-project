@@ -25,6 +25,7 @@ cell becomes. Pure; the cells themselves are not run here. """
 import json
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -110,6 +111,77 @@ class TestQueue(unittest.TestCase):
         self._result('m', 'machine_stop')
         self.assertEqual(q.plan([_cell('m')], self.out), [])
 
+
+
+_FAKE_CELL = r"""
+import json, os, sys, time
+out = sys.argv[1]
+d = os.path.join(out, 'rep01')
+os.makedirs(d, exist_ok=True)
+t0 = time.time()
+time.sleep(0.6)
+with open(os.path.join(d, 'cell.json'), 'w') as handle:
+    json.dump({'outcome': 'measured', 'cpus': sorted(os.sched_getaffinity(0)),
+               'gc_threads': os.environ.get('FAVE_JVM_GC_THREADS'),
+               't0': t0, 't1': time.time()}, handle)
+"""
+
+
+class TestPinnedRun(unittest.TestCase):
+    """ INCREMENTAL_PLAN.md D17.8: parallel cells on disjoint cores, a JVM's
+    collector sized to them; an `alone` cell runs with nothing beside it. """
+
+    def setUp(self):
+        self.out = tempfile.mkdtemp(prefix='incq_pin_')
+        self.addCleanup(shutil.rmtree, self.out, True)
+        saved = q.command
+        self.addCleanup(setattr, q, 'command', saved)
+        q.command = lambda cell, out_dir, python: [
+            sys.executable, '-c', _FAKE_CELL, os.path.join(out_dir, cell['name'])]
+
+    def _cells(self):
+        got = {}
+        for name in os.listdir(self.out):
+            path = os.path.join(self.out, name, 'rep01', 'cell.json')
+            if os.path.exists(path):
+                with open(path) as raw:
+                    got[name] = json.load(raw)
+        return got
+
+    def test_core_groups_are_disjoint_and_equal(self):
+        groups = q.core_groups(4, list(range(16)))
+        self.assertEqual([len(g) for g in groups], [4, 4, 4, 4])
+        self.assertEqual(sorted(sum(groups, [])), list(range(16)))
+        self.assertEqual(q.pinned(['x'], [2, 3]), ['taskset', '-c', '2,3', 'x'])
+        self.assertEqual(q.pinned(['x'], None), ['x'])
+
+    def test_parallel_cells_run_on_disjoint_cores(self):
+        if len(os.sched_getaffinity(0)) < 2:
+            self.skipTest("one core")
+        cells = [_cell('c%d' % i) for i in range(4)]
+        q.run(cells, self.out, 2, 10 ** 6, sys.executable, lambda _l: None, pin=True)
+        got = self._cells()
+        self.assertEqual(len(got), 4)
+        for rec in got.values():
+            self.assertEqual(int(rec['gc_threads']), len(rec['cpus']))
+        # cells that overlapped in time had disjoint cores
+        recs = list(got.values())
+        for i, a in enumerate(recs):
+            for b in recs[i + 1:]:
+                if a['t0'] < b['t1'] and b['t0'] < a['t1']:
+                    self.assertFalse(set(a['cpus']) & set(b['cpus']))
+
+    def test_an_alone_cell_runs_alone_and_unpinned(self):
+        cells = [_cell('a', alone=True, est_h=9), _cell('b'), _cell('c')]
+        q.run(cells, self.out, 2, 10 ** 6, sys.executable, lambda _l: None, pin=True)
+        got = self._cells()
+        alone = got['a']
+        for name in ('b', 'c'):
+            other = got[name]
+            self.assertFalse(alone['t0'] < other['t1'] and other['t0'] < alone['t1'],
+                             "%s ran beside the alone cell" % name)
+        self.assertEqual(alone['cpus'], sorted(os.sched_getaffinity(0)))
+        self.assertIsNone(alone['gc_threads'])
 
 if __name__ == '__main__':
     unittest.main()
