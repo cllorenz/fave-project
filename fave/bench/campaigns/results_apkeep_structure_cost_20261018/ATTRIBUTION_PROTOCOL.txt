@@ -1,0 +1,23 @@
+PROTOCOL -- attribution of BDD-APKeep's wl_up structure cost (owner,
+2026-10-19: "attribute the wl_up cost to each optimization")
+Declared 2026-10-19 before any of its processes ran; not edited afterwards.
+Code: the commit of this file. FINDINGS.md of this directory: plain 378.2 s,
+updatable 597.1 s build + first check (+58 %), 271 -> 443 elements.
+
+The update-ready structure differs from the from-zero one by three of our
+adapter's behaviours. One cannot cost anything at a build: the IPv6 routers
+`_build` freezes are exactly those holding IPv6 routes at that moment
+(adapter.py:2151, 2213), so it is not measured. The other two each run
+alone over the from-zero structure (attrib.py, monkeypatches only):
+  split    the per-ingress-port split (with its rule that a split IPv6
+           router's elements stay FIB filters), pass-through elision kept
+  noelide  no pass-through elision, the from-zero ingress classes kept
+and plain and updatable again, in the order plain, split, noelide,
+updatable, one process each, serial, through FaVe, nothing else running.
+Recorded as in probe.py (attribution.jsonl). One repetition.
+
+PREDICTIONS
+  A1  Verdicts equal in all four.
+  A2  split's elements exceed plain's by more than noelide's do.
+  A3  split's build + first check exceeds plain's by more than noelide's.
+  A4  The two increments add up to updatable's within 20 % of its increment.
