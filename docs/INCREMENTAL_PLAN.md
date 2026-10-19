@@ -382,6 +382,23 @@ TNSM'21 measures only build-from-zero plus one verification.
      and the break-even share stay; the latter now against the campaign's
      own from-zero phase. Estimated ~37 days at 4 jobs on this machine (the
      campaign machine's calibration decides, D10).
+  10. *The grid beyond the stream cells* (2026-10-19). **From-zero-only
+     cells** (the same harness and phase timers, no footprint pass, no
+     stream; ten repetitions, a stopped cell once): **ad6** on the grid's
+     seven workloads (`wl_tum` with its checks is new); the **`wl_berkeley`
+     size series** k = 30, 10, 3 on NetPlumber, VeriFlow-FR, BDD-APKeep,
+     NDD-APKeep and ad6 (VeriFlow-FR and ad6 missed V5's series only by its
+     timing, 2026-09-29), **k = 1 recorded as memory stops, not run** (V5:
+     NDD-Flood 44.7 GB, BDD-APKeep 47.4 GB against the 32 GB class; for the
+     other engines an assumption, so stated). **BDD-APKeep on `wl_stanford`
+     and `wl_i2`: recorded as timeouts, not run** (V5: no answer within 24 h;
+     the cap is 12 h). **Left out:** `wl_example`, `wl_ifi` (D15), VF-plain
+     (the field refinement is the thesis's, our extensions documented),
+     NDD-Flood (superseded by NDD-APKeep, closer to the paper and the
+     authors' code), the guardrail arms (inverted LPM, `--no-vlan`), and
+     anomaly detection (item 6). `wl_tum` is measured on the model after the
+     port-range fix (TODO: "settle it in the next campaign run"); V5's
+     `wl_tum` row is not comparable. NDD-APKeep's from-zero numbers are new.
 
 ## 5. What is measured, per update
 
