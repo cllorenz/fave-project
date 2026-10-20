@@ -1,0 +1,13 @@
+inputs unchanged since INPUTS.txt
+{"repetition": 1, "outcome": "measured", "completed_updates": 0, "wall_s": 367.626}
+wl_berkeley_k30 B rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 0, "wall_s": 163.781}
+wl_berkeley_k30 noB rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 0, "wall_s": 160.979}
+wl_berkeley_k30 noB+A rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 0, "wall_s": 121.996}
+wl_tum B rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 0, "wall_s": 1468.639}
+wl_tum noB rc=0
+{"repetition": 1, "outcome": "measured", "completed_updates": 0, "wall_s": 493.962}
+wl_tum noB+A rc=0

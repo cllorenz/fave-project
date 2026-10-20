@@ -1,0 +1,47 @@
+FINDINGS -- NDD-APKeep's atom bookkeeping B, remeasured on ingress classes
+(PROTOCOL.txt, declared in f660258f before any cell ran). Six cells, one
+repetition each, alone and serially, 2026-10-20, all at f660258f, inputs
+unchanged since INPUTS.txt (checked by run.sh). No limit tripped, no swap.
+
+RESULTS  (seconds; peak RSS = the sampler's, per cell; live heap after build)
+
+  workload          arm     t_load  t_build  t_check  peak RSS  live heap  violated
+  wl_berkeley k=30  B         29.5    333.1      0.0  10,004 MB   2,840 MB  0 of 520
+  wl_berkeley k=30  noB       30.1    128.7      0.0   8,681 MB   2,830 MB  0 of 520
+  wl_berkeley k=30  noB+A     28.1    127.2      0.0   7,937 MB   2,830 MB  0 of 520
+  wl_tum            B          1.3    111.1      7.5   8,234 MB   2,531 MB  0 of 8,497
+  wl_tum            noB        1.3  1,457.4      8.0   5,403 MB   2,522 MB  0 of 8,497
+  wl_tum            noB+A      1.3    482.9      8.0   5,452 MB   2,522 MB  0 of 8,497
+
+  Jars as stamped: B 149b0cc8... (HEAD), noB/noB+A 150a935a... (noB.patch);
+  ndd_collect_visited true only in the two noB+A cells. The initial verdicts
+  are identical within each workload (sha256 of the verdict maps equal).
+
+PREDICTIONS
+  R1  holds: six answers; equal verdicts per workload; k = 30 0 of 520.
+  R2  holds: wl_tum B/noB build = 111.1 / 1,457.4 = 0.08 (<= 0.33).
+  R3  holds: k = 30 B/noB build + check = 333.1 / 128.7 = 2.59 (1.2-3).
+  R4  holds: k = 30 B peak 10,004 MB (< 12 GB).
+  R5  holds: k = 30 noB+A/noB = 127.2 / 128.7 = 0.99 (within 20 %).
+
+READING
+  1. The ingress classes removed most of B's k = 30 cost: 777 s / 18.4 GB
+     per port (2026-10-19) against 333 s / 10.0 GB now. B still costs the
+     route-heavy workload 2.6x the build (+204 s) and +1.3 GB peak.
+  2. On wl_tum B is 13x faster than noB and 4.3x faster than noB+A
+     (111 s against 1,457 s and 483 s), for +2.8 GB peak.
+  3. A does nothing for wl_berkeley (single-field routes), as R5 said, and
+     cuts noB's wl_tum build by two thirds. It is no substitute for B there.
+  4. Per from-zero cost (load + build + check): k = 30 B 363 s against noB's
+     159 s (2.3x slower); wl_tum B 120 s against noB+A's 492 s (4.1x faster)
+     and noB's 1,467 s (12.2x faster). As factors B saves wl_tum more than it
+     costs wl_berkeley. As seconds the k = 30 cost grows with k (k = 1 is
+     ~30x the routes), which is what the single-node fast path would address.
+  5. noB's k = 30 peak (8.7 GB) is above 2026-10-19's pre-B 6.8 GB: other
+     jars (C, D) and another structure, so not comparable; noted only.
+
+FOR THE OWNER
+  Under PROTOCOL.txt's rule, read as factors: B stays for D16. Open choice:
+  the fast path (single-node molecules kept as their atom set, holders
+  updated by moved atoms alone) to recover wl_berkeley's 2.6x, measured the
+  same way before D16 if wanted.

@@ -1,0 +1,69 @@
+{
+ "argv": [
+  "/home/ubuntu/fave-project/fave/bench/incremental_run.py",
+  "bench/wl_tum",
+  "--engine",
+  "ndd-apkeep",
+  "--stream",
+  "z",
+  "--fraction",
+  "0.2",
+  "--seed",
+  "1",
+  "--batch",
+  "1",
+  "--checks",
+  "checks.json",
+  "--cell-dir",
+  "bench/campaigns/results_ndd_b_remeasure_20261020/cells/wl_tum_B/rep01"
+ ],
+ "completed_updates": 0,
+ "gc": {
+  "full_pauses": 14,
+  "max_heap_after_gc_mb": 3017,
+  "max_heap_committed_mb": 8304,
+  "pause_s": 1.338,
+  "pauses": 83
+ },
+ "limit_class": "dev",
+ "limit_rss_mb": 32768,
+ "limit_tripped": "none",
+ "limit_update_s": 3600.0,
+ "limit_wall_s": 43200.0,
+ "machine": {
+  "cores": 16,
+  "kernel": "7.0.0-31-generic",
+  "node": "6c8165317109",
+  "ram_mb": 64294,
+  "swap_mb": 0
+ },
+ "measured": {
+  "deadline_stop": null,
+  "exit": 0,
+  "least_available_mb": 53505,
+  "limit_tripped": "none",
+  "memory_stop": null,
+  "orphans_killed": [],
+  "peak_rss_by_process_mb": {
+   "python3": 8234
+  },
+  "peak_rss_mb": 8234,
+  "peak_swap_by_process_mb": {
+   "python3": 0
+  },
+  "peak_swap_used_mb": 0,
+  "status": "completed",
+  "status_trail": "cell.status.jsonl",
+  "swap_pages": {
+   "pswpin": 0,
+   "pswpout": 0
+  },
+  "swap_used_at_start_mb": 0,
+  "wall_s": 121.996
+ },
+ "memory_floor_mb": 2048,
+ "outcome": "measured",
+ "repetition": 1,
+ "repetitions": 1,
+ "what": "incremental cell (INCREMENTAL_PLAN.md O3, O4)"
+}
