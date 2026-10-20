@@ -113,6 +113,47 @@ class TestAddRoutesStreamed(unittest.TestCase):
         self.assertIn('sw.s1', str(caught.exception))
 
 
+class TestReplayStreams(unittest.TestCase):
+    """ The in-process replay streams exactly the inputs whose generator groups
+    routes by table (SOURCE.json), and sends what `add_routes` would. """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix='replay_stream_test_')
+        self.routes = os.path.join(self.tmp, 'routes.json')
+        with open(self.routes, 'w') as handle:
+            json.dump(_ROUTES, handle)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _stamp(self, generator):
+        with open(os.path.join(self.tmp, 'SOURCE.json'), 'w') as handle:
+            json.dump({'generator': generator}, handle)
+
+    def test_the_deltanet_generator_streams(self):
+        from util.in_process_driver import streams_routes
+        self._stamp('bench.deltanet.workload')
+        self.assertTrue(streams_routes(self.routes))
+
+    def test_no_stamp_or_another_generator_loads_whole(self):
+        from util.in_process_driver import streams_routes
+        self.assertFalse(streams_routes(self.routes))
+        self._stamp('bench.wl_up.generate')
+        self.assertFalse(streams_routes(self.routes))
+        with open(os.path.join(self.tmp, 'SOURCE.json'), 'w') as handle:
+            handle.write('[1, 2]')
+        self.assertFalse(streams_routes(self.routes))
+
+    def test_a_streamed_file_sends_what_add_routes_sends(self):
+        with mock.patch.object(bench_utils, '_add_rules') as fake:
+            add_routes_streamed(iter_json_array(self.routes))
+        streamed = [call.args[0] for call in fake.call_args_list]
+        with mock.patch.object(bench_utils, '_add_rules') as fake:
+            with open(self.routes) as raw:
+                add_routes(json.load(raw))
+        self.assertEqual(streamed, [call.args[0] for call in fake.call_args_list])
+
+
 class TestInterning(unittest.TestCase):
     """ Rules share one copy of each recurring string, and keep their lists. """
 

@@ -36,6 +36,7 @@ It is the substrate for the FaVe+APKeep vs FaVe+NetPlumber comparison
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
 import threading
@@ -51,6 +52,24 @@ _BENCH_FILES = (
     ("policies", "policies.json"),
     ("sources", "sources.json"),
 )
+
+
+#: the generator whose routes.json is grouped by table (`build_model` sorts by
+#: device), which is what streaming needs
+_GROUPED_ROUTES_GENERATORS = ('bench.deltanet.workload',)
+
+
+def streams_routes(routes_path: str) -> bool:
+    """ Whether `replay` streams a routes file: when the SOURCE.json beside it
+    names a generator that groups routes by table. Every other input is loaded
+    whole, as before -- wl_up and wl_ifi are not grouped, and streaming refuses
+    such input only once a table reappears, after earlier tables were sent. """
+    stamp = os.path.join(os.path.dirname(routes_path), 'SOURCE.json')
+    try:
+        with open(stamp) as raw:
+            return json.load(raw).get('generator') in _GROUPED_ROUTES_GENERATORS
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 class InProcessFaVe:
@@ -152,7 +171,8 @@ class InProcessFaVe:
         policies/sources) for benchmarks that name them differently -- e.g.
         wl_i2/wl_stanford use device_topology.json and probes.json. """
         from util.bench_utils import (
-            create_topology, add_routes, add_policies, add_sources
+            create_topology, add_routes, add_routes_streamed, add_policies,
+            add_sources, iter_json_array
         )
 
         names = dict(_BENCH_FILES)
@@ -165,8 +185,14 @@ class InProcessFaVe:
             topo = json.load(raw)
             create_topology(topo["devices"], topo["links"],
                             use_unix=False, interweave=True)
-        with open(files["routes"]) as raw:
-            add_routes(json.load(raw), use_unix=False)
+        if streams_routes(files["routes"]):
+            # One table at a time, as the live benchmark sends wl_berkeley
+            # (`STREAM_ROUTES`, 77ae3aad): loaded whole, routes.json is
+            # 1.2 GB of JSON at k = 1, decoded in the aggregator's own process
+            add_routes_streamed(iter_json_array(files["routes"]), use_unix=False)
+        else:
+            with open(files["routes"]) as raw:
+                add_routes(json.load(raw), use_unix=False)
         with open(files["policies"]) as raw:
             pol = json.load(raw)
             add_policies(pol["devices"], pol["links"], use_unix=False)
