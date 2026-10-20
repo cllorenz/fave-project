@@ -1,0 +1,56 @@
+FINDINGS -- NDD-APKeep on wl_berkeley k = 1, retried with the whole machine
+(PROTOCOL.txt, declared 14424f94). Written 2026-10-20 after the cell ended.
+The cell ran at fe191cc3, which differs from 14424f94 only in test.sh (the
+doctor), which no cell uses. Inputs unchanged (checked by run.sh).
+
+OUTCOME
+  The cell did not answer. It ended by its own RSS limit after 3,992 s
+  (memory stop, limit_rss; outcome did_not_finish): 59,680 MB against a limit
+  of 59,391 MB (61,439 MB available at its start less 2,048). The least
+  available memory was 2,090 MB, and the kernel did not act.
+
+WHERE THE MEMORY WENT  (JVM uptime from gc.log, RSS from cell.status.jsonl)
+  0-~3,350 s  the load, the routes streamed: RSS rises to ~26 GB by 1,500 s
+              and stays there (26.3 GB at 3,046 s), the JVM's heap at 4 MB.
+              (The trial: 2,802 s, also ~26 GB, whole routes.json loaded.)
+  ~3,130 s    the first allocations in the JVM (humongous, 104 MB).
+  ~3,350 s    the build: RSS 30 GB at 3,351 s, 50 GB at 3,655 s, 59.7 GB at
+              the stop. The JVM's live heap after full GC rose from 3.8 GB
+              (3,444 s) to 9.2 GB (3,980 s), while its committed heap grew to
+              41.2 GB (Xmx 56 GB). NDD processed 7.4 M rule updates
+              (APKeep's Evaluator, one line per 100,000, cell.stdout).
+  Hence the translation completed this time, and the stop came in NDD's
+  build. At the stop the JVM's committed heap was about 4.5x its live data.
+
+SCORES
+  K1  The cell ends by its own RSS limit.  HOLDS (limit_rss, no OOM kill,
+      no OutOfMemoryError).
+  K2  The JVM's live heap exceeds 1 GB before the stop.  HOLDS (9.2 GB after
+      full GC, 13.8 GB at a concurrent cycle's cleanup).
+  K3  It stops within 3 h.  HOLDS (66.5 min).
+
+READING
+  1. Ingress classes removed the trial's cause: the translation's jump from
+     26 to 61 GB is gone, and NDD received rules.
+  2. Route streaming did not lower the load's plateau (~26 GB in both runs),
+     so the plateau is the FaVe model and the adapter's buffers, not the
+     parsed routes.json. The load took ~550 s longer streamed.
+  3. The binding memory was the JVM's committed heap, not its live data: with
+     a 56 GB cap G1 grew the heap rather than collecting. Live data at the
+     stop (9.2 GB) plus the Python side (~26 GB) was ~35 GB.
+  4. How far the build was is an estimate: the classes send ~1.96 rules to
+     the engine per FaVe rule at k = 300 (112,517 for 57,513), i.e. ~26 M at
+     k = 1, so 7.4 M is ~28 %. If the live heap grew in proportion, the build
+     would need ~33 GB live, i.e. ~59 GB with the Python side, at the
+     machine's edge either way.
+
+FOR THE OWNER
+  a. Record k = 1 for NDD-APKeep as a memory stop (this cell), as the D16
+     rule (alone, available memory less 2 GB) gives it.
+  b. One more cell with a heap cap fitted to the machine (e.g.
+     FAVE_JVM_XMX=30g: ~26 GB Python + 30 GB heap within the limit), which
+     would show whether the live data fits; a JVM OutOfMemoryError would
+     then be the likely end, not a memory stop.
+  c. Lower the Python plateau first (the levers in CLOUD_BENCH_PLAN.md
+     §2.15: per-table translation, __slots__ on the rule model), which
+     helps every engine at k = 1.
