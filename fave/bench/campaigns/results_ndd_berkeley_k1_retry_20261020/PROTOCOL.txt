@@ -1,0 +1,34 @@
+PROTOCOL -- NDD-APKeep on wl_berkeley k = 1, retried on ingress classes with
+the whole machine (owner, 2026-10-20: "retry wl_berkeley, k=1 with
+NDD-APKeep using the whole machine (resp. the available memory minus a
+margin) and a 12h timeout").
+Declared before the cell runs; not edited afterwards.
+  Code: the commit of this file. Since the trial (5d57cd97): ingress classes
+  for every build (bebc8cba), the in-process replay streams routes.json
+  (44e62fe4), B kept (owner, ad1d9c66), an alone cell's limit from the
+  memory available at its start (9aab4dd6).
+
+WHAT
+  One from-zero cell (bench/incremental_cell.py --stream z), NDD-APKeep, on
+  wl_berkeley k = 1 (13,402,846 rules, 520 checks), the trial's inputs
+  (results_ndd_berkeley_k1_trial_20261020/inputs, checked against its
+  INPUTS.txt before the run). Alone on the machine; the RSS limit is the
+  memory available at its start less 2,048 MB (--limit-rss-margin 2048), no
+  floor; 12 h wall; the JVM's heap cap 56 GB (FAVE_JVM_XMX=56g), so that the
+  RSS limit and not the heap cap is the binding memory rule. Indicative, one
+  run.
+
+BASIS
+  The trial (per-port elements, whole routes.json loaded): OOM-killed after
+  2,965 s at 61.4 GB, in FaVe's translation (~306 M rule strings), the JVM's
+  heap at 3 MB: NDD received nothing. Load plateau ~26 GB. Classes send
+  11.7x fewer rules to the engine (k = 300). NDD-APKeep k = 30 on classes
+  with B: 333 s build, 10.0 GB peak, live heap 2.8 GB (459,202 rules).
+
+PREDICTIONS
+  K1  The cell does not answer: it ends by its own RSS limit (memory stop,
+      limit_rss), neither by the OOM killer nor by a JVM OutOfMemoryError.
+  K2  The translation completes and NDD is handed rules: the JVM's live
+      heap exceeds 1 GB (gc.log) before the stop.
+  K3  It stops within 3 h of its start.
+  If it answers instead: 0 of 520 violated, as at k = 30.
