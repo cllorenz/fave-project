@@ -29,6 +29,11 @@
 #                           this FIRST in a fresh container -- a missing system
 #                           package usually surfaces as something that looks
 #                           unrelated (see the notes in run_doctor).
+#   ./test.sh doctor --fix  The same check, then the repairs it names, run in
+#                           order: apt (update first), pip, the native builds;
+#                           then the check again for the verdict (doctor_fix).
+#                           Advisory packages are installed too, since the
+#                           Dockerfile declares them.
 #
 # Tier membership is decided by DEPENDENCY FOOTPRINT, not runtime:
 #   fast        = pure Python
@@ -768,6 +773,7 @@ check_import() {
         printf '  [ok]      %-22s\n' "$label"
     else
         printf '  [MISSING] %-22s %s\n' "$label" "$note"
+        missing_py+=("$label")
         return 1
     fi
 }
@@ -886,6 +892,7 @@ check_artifact() {
     local found
     found="$(compgen -G "$glob" 2>/dev/null | head -1)"
     if [ -z "$found" ]; then
+        fix_builds+=("$label|$repair")
         if [ "$absent" = "fatal" ]; then
             printf '  [MISSING] %-30s %s\n' "$label" "-> $repair"
             return 1
@@ -894,11 +901,13 @@ check_artifact() {
             "not built -- its tests SKIP; built by ./test.sh integration, or: $repair"
         return 0
     fi
-    check_freshness "$label" "$found" "$srcs" "$pats" "-> $repair${note:+   $note}"
+    check_freshness "$label" "$found" "$srcs" "$pats" "-> $repair${note:+   $note}" || {
+        fix_builds+=("$label|$repair"); return 1; }
 }
 
 run_doctor() {
     local rc=0 missing_apt=() advisory_apt=() advisory_pip=() pkg status np_ok
+    local missing_py=() fix_builds=()
 
     echo "== env doctor: interpreter =="
     printf '  %s\n' "$("$PYTHON" -c 'import sys; print(sys.executable)' 2>/dev/null || echo "$PYTHON NOT RUNNABLE")"
@@ -973,14 +982,14 @@ run_doctor() {
         check_freshness "net_plumber binary" "$(command -v net_plumber)" \
             "$ROOT/net_plumber/src" '*.cc *.cpp *.c *.h *.hh' \
             "-> make -C net_plumber/build clean && make -C net_plumber/build all   [no tier builds it]" \
-            "$np_ok" || rc=1
+            "$np_ok" || { rc=1; fix_builds+=("net_plumber binary|$NP_REPAIR"); }
     else
         # No "built but unreachable" branch: resolve_net_plumber has already
         # prepended the build directory, so reaching here means the binary is
         # genuinely absent (or not executable), not merely uninstalled.
         printf '  [MISSING] %-30s %s\n' "net_plumber binary" \
             "-> make -C net_plumber/build all && make -C net_plumber/build install   [smoke/integration/e2e/bench]"
-        rc=1
+        rc=1; fix_builds+=("net_plumber binary|$NP_REPAIR")
     fi
     # fatal when absent: no tier builds this one, so its absence blocks
     # integration and e2e. Its sources are the binding AND the engine it wraps --
@@ -1056,6 +1065,94 @@ run_doctor() {
         echo "  see the [MISSING]/[STALE] lines above; each names the tier it blocks."
         echo "  Nothing above is a code defect -- these are container- and build-state gaps."
     fi
+    if [ "${DOCTOR_FIX:-0}" = "1" ]; then
+        local fix_rc=0
+        doctor_fix || fix_rc=1
+        DOCTOR_FIX=0
+        echo ""
+        echo "== env doctor: the check again, after --fix =="
+        run_doctor || fix_rc=1
+        return $fix_rc
+    fi
+    return $rc
+}
+
+# The net_plumber binary's repair as the Dockerfile builds it: -fPIC, so that
+# build_libnetplumber.sh can reuse the objects, and installed onto PATH.
+NP_REPAIR="make -C net_plumber/build clean && make -C net_plumber/build DEBUG_FLAGS=-fPIC all && \$SUDO make -C net_plumber/build install"
+
+# The pip command that repairs one of run_doctor's python checks, by label;
+# empty when pip cannot (libnetplumber is an artifact or an apt gap).
+pip_repair() {
+    case "$1" in
+        pytest|coverage|mypy|pylint|lxml|python-sat) echo "-r $ROOT/requirements.txt" ;;
+        pycosat)  echo "pycosat==0.6.6" ;;
+        pybison)  echo "--no-binary :all: pybison==0.6.4" ;;
+        JPype1)   echo "JPype1==1.7.1" ;;
+        *)        echo "" ;;
+    esac
+}
+
+# `./test.sh doctor --fix`: run the repairs run_doctor collected, in the order
+# they depend on each other -- apt first (pybison compiles against bison and
+# python3-dev, the native builds need the compilers and the JDK), then pip,
+# then the artifacts (the NDD jar before the APKeep jar, which links it).
+# Called from run_doctor, whose locals it reads. Every step runs even when an
+# earlier one failed; the check that follows says what is still missing.
+doctor_fix() {
+    local rc=0 SUDO="" spec label entry cmd
+    local -a apt_pkgs=() pip_specs=() order=()
+    if [ "$(id -u)" -ne 0 ]; then
+        if ! command -v sudo >/dev/null 2>&1; then
+            echo "  [fix]     not root and no sudo: apt packages cannot be installed"
+        else
+            # -E keeps http_proxy/https_proxy, which apt needs behind a proxy
+            SUDO="sudo -E"
+        fi
+    fi
+    echo ""
+    echo "== env doctor: --fix =="
+    apt_pkgs=("${missing_apt[@]}" "${advisory_apt[@]}")
+    if [ "${#apt_pkgs[@]}" -gt 0 ]; then
+        # apt-get update FIRST: a fresh container's package lists are empty
+        cmd="$SUDO env DEBIAN_FRONTEND=noninteractive apt-get update && $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y ${apt_pkgs[*]}"
+        echo "  [fix]     $cmd"
+        bash -c "$cmd" || { echo "  [FAILED]  apt"; rc=1; }
+    fi
+    for label in "${missing_py[@]}"; do
+        spec="$(pip_repair "$label")"
+        [ -n "$spec" ] || continue
+        case " ${pip_specs[*]} " in *" $spec "*) ;; *) pip_specs+=("$spec") ;; esac
+    done
+    pip_specs+=("${advisory_pip[@]}")
+    for spec in "${pip_specs[@]}"; do
+        echo "  [fix]     $PYTHON -m pip install $spec"
+        # word-split on purpose: a spec may carry its own options
+        # shellcheck disable=SC2086
+        "$PYTHON" -m pip install $spec || { echo "  [FAILED]  pip install $spec"; rc=1; }
+    done
+    order=("net_plumber binary" "libnetplumber .so built" "libveriflow_fr .so built"
+           "NDD engine jar" "APKeep engine jar")
+    for label in "${order[@]}"; do
+        for entry in "${fix_builds[@]}"; do
+            [ "${entry%%|*}" = "$label" ] || continue
+            cmd="${entry#*|}"
+            cmd="${cmd//\$SUDO/$SUDO}"
+            case "$label" in *jar)
+                # Maven ignores http_proxy: behind a proxy it needs <proxy>
+                # entries in ~/.m2/settings.xml, and fails without a useful
+                # message when they are missing.
+                if [ -n "${https_proxy:-${http_proxy:-}}" ] && \
+                   ! grep -q "<proxy>" "$HOME/.m2/settings.xml" 2>/dev/null; then
+                    echo "  [warn]    a proxy is set but ~/.m2/settings.xml has no <proxy> entry;"
+                    echo "            Maven ignores http_proxy, so the jar build may fail to download"
+                fi ;;
+            esac
+            echo "  [fix]     $cmd"
+            ( cd "$ROOT" && bash -c "$cmd" ) || { echo "  [FAILED]  $label"; rc=1; }
+        done
+    done
+    [ "$rc" -eq 0 ] || echo "  some repairs failed; see [FAILED] above"
     return $rc
 }
 
@@ -1091,8 +1188,9 @@ run_doctor() {
 
 tier="${1:-}"
 option="${2:-}"
-if [ -n "$option" ] && [ "$tier $option" != "fast --clean" ]; then
-    echo "usage: $0 {fast [--clean]|smoke|integration|e2e|bench|all|doctor}" >&2
+if [ -n "$option" ] && [ "$tier $option" != "fast --clean" ] && \
+   [ "$tier $option" != "doctor --fix" ]; then
+    echo "usage: $0 {fast [--clean]|smoke|integration|e2e|bench|all|doctor [--fix]}" >&2
     exit 2
 fi
 rc=0
@@ -1126,9 +1224,12 @@ case "$tier" in
         # Running fast again at the end closes the window, at ~23 s.
         run_fast "fast (re-run, against regenerated artifacts)" || rc=1
         ;;
-    doctor)      run_doctor || rc=1 ;;
+    doctor)
+        [ "$option" = "--fix" ] && { DOCTOR_FIX=1; tier="doctor --fix"; }
+        run_doctor || rc=1
+        ;;
     *)
-        echo "usage: $0 {fast [--clean]|smoke|integration|e2e|bench|all|doctor}" >&2
+        echo "usage: $0 {fast [--clean]|smoke|integration|e2e|bench|all|doctor [--fix]}" >&2
         exit 2
         ;;
 esac
