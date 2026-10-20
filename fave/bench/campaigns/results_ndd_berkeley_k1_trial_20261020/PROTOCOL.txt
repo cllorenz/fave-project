@@ -1,0 +1,26 @@
+PROTOCOL -- NDD-APKeep on wl_berkeley k = 1, once, before D16 (owner,
+2026-10-20: "try wl_berkeley with k=1 with NDD-APKeep once and see whether
+it times out or runs out of memory. If so, look for a cheaper B.")
+Declared 2026-10-20 before the cell ran; not edited afterwards.
+  Code: the commit of this file; the integration tier passed on d904a891
+  (later commits: D16's draft only).
+
+WHAT
+  One from-zero cell (bench/incremental_cell.py --stream z), NDD-APKeep, on
+  wl_berkeley at k = 1 (13,402,846 rules), its inputs generated into inputs/
+  by bench/campaign_inputs.py and hashed in INPUTS.txt. Alone on the
+  machine; its RSS limit the machine's memory less 2 GB, no floor (D16's k = 1
+  rule); 12 h wall; the JVM's default heap. Indicative, one run.
+
+WHAT IT DECIDES
+  A memory stop or the 12 h cap: the owner's rule -- look for a cheaper B
+  (apkeep/FAVE_CHANGES.md §15). An answer: B stays as it is for D16.
+
+BASIS
+  NDD-APKeep at k = 30 (2026-10-19): build + check 777 s, 18.4 GB peak, live
+  heap 11.0 GB; before B (63728ebd^): 140 s, 6.8 GB. V5: NDD-Flood k = 1
+  1,130 s, 44.7 GB; BDD-APKeep k = 1 3,405 s, 47.4 GB.
+
+PREDICTIONS
+  K1  The cell does not answer: it ends by its memory limit.
+  K2  It stops within 3 h of its start.
