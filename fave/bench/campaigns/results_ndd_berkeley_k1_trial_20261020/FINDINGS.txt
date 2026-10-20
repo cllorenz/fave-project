@@ -43,3 +43,25 @@ CONSEQUENCES
   3. In-process, the driver's inputs and the adapter's buffers share one
      process (~26 GB at k = 1); V5's live layout split them over two. Expected
      under D17.4, stated for the k = 1 cells' reading.
+
+ADDENDUM 2026-10-20 (owner: "double check if these improvements are present and
+used in the k=1 run")
+  Present and used: interned strings in rule_model/switch (5434bf69); the
+  adapter's build buffers released after the build, slotted rows, interned
+  ports (901ec49b).
+  Present, NOT used: route streaming (77ae3aad). It is the live benchmark's
+  (GenericBenchmark.STREAM_ROUTES, on for RouterTraceBenchmark); the
+  in-process replay (util/in_process_driver.py, `replay`) json.loads the whole
+  routes.json (1.2 GB at k = 1) in the aggregator's own process.
+  Never done (CLOUD_BENCH_PLAN.md §2.15 levers): per-table translation, a
+  load-once aggregator, __slots__ on the rule model.
+  New since V5, and the larger cause: one element per ingress port (d4172206,
+  D17.1) replicates every FIB rule into every ingress element. Dev probe,
+  wl_berkeley k = 300 (57,513 routes), NDD-APKeep, stream z, once each:
+                         elements  rules to engine  t_build_s  RSS after build
+    per port (HEAD)         573       1,315,466        80.6        11,321 MB
+    classes (d4172206^)      92         112,517        17.1         7,066 MB
+  (the second: HEAD with d4172206's adapter hunk reversed, loaded by module
+  substitution; verdicts equal, 0 violated). At k = 1 the per-port
+  translation is ~306 M rule strings, where the 26 -> 61 GB jump happened.
+  results_apkeep_structure_cost_20261018 did not include wl_berkeley.
