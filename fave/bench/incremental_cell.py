@@ -91,6 +91,8 @@ def child_argv(args, cell_dir):
         argv += ['--ad6-grounding', args.ad6_grounding, '--ad6-solver', args.ad6_solver]
         if args.ad6_lite_acyclic:
             argv.append('--ad6-lite-acyclic')
+    if args.ndd_collect_visited:
+        argv.append('--ndd-collect-visited')
     return argv
 
 
@@ -178,6 +180,8 @@ def main(argv=None):
     parser.add_argument('--ad6-grounding', default='rank')
     parser.add_argument('--ad6-solver', default='cadical195')
     parser.add_argument('--ad6-lite-acyclic', action='store_true')
+    parser.add_argument('--ndd-collect-visited', action='store_true',
+                        help="passed to incremental_run.py (NDD-APKeep only)")
     parser.add_argument('--oracle-sample', type=int, default=0)
     parser.add_argument('--oracle-every', type=int, default=0)
     parser.add_argument('--oracle-seed', type=int, default=1)

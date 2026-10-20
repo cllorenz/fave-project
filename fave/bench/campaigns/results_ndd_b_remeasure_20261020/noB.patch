@@ -1,0 +1,62 @@
+diff --git a/apkeep/src/main/java/apkeep/ndd/NddPorts.java b/apkeep/src/main/java/apkeep/ndd/NddPorts.java
+index 02bbf07e..fac08428 100644
+--- a/apkeep/src/main/java/apkeep/ndd/NddPorts.java
++++ b/apkeep/src/main/java/apkeep/ndd/NddPorts.java
+@@ -358,7 +358,19 @@ public final class NddPorts {
+ 	private void setMolecule(Holder h, AtomizedNDD mol) {
+ 		AtomizedNDD old = h.mol;
+ 		AtomizedNDD.ref(mol);
+-		swapBookkeeping(h, old, mol);
++		// VARIANT (B off): the pre-B diff of the full atom sets (63728ebd^)
++		HashSet<Integer>[] remove = new HashSet[AtomizedNDD.getFieldNum() + 1];
++		HashSet<Integer>[] add = new HashSet[AtomizedNDD.getFieldNum() + 1];
++		AtomizedNDD.changeAtoms(old, mol, remove, add);
++		for (int f = 0; f < remove.length; f++) {
++			for (int atom : remove[f]) {
++				Set<Holder> s = holders[f].get(atom);
++				if (s != null) s.remove(h);
++			}
++			for (int atom : add[f]) {
++				holders[f].computeIfAbsent(atom, k -> Collections.newSetFromMap(new IdentityHashMap<>())).add(h);
++			}
++		}
+ 		h.mol = mol;
+ 		AtomizedNDD.deref(old);
+ 	}
+@@ -451,6 +463,7 @@ public final class NddPorts {
+ 		for (NddPorts p : live) p.splitHolders(cut);
+ 	}
+ 
++	// VARIANT (B off): splitHolders as before 63728ebd
+ 	private void splitHolders(ArrayList<HashMap<Integer, HashSet<Integer>>> cut) {
+ 		Set<Holder> touched = Collections.newSetFromMap(new IdentityHashMap<>());
+ 		for (int f = 0; f < cut.size(); f++) {
+@@ -465,18 +478,20 @@ public final class NddPorts {
+ 					AtomizedNDD.splitMultipleFieldsAtomsWithMultipleFieldsPredicate(cut, h.mol);
+ 			if (ret.getKey()) {
+ 				AtomizedNDD.ref(ret.getValue());
+-				AtomizedNDD old = h.mol;
+-				// The bookkeeping moves to the split molecule, and the
+-				// SplitMap with it -- the cut atom leaves, its parts arrive
+-				swapBookkeeping(h, old, ret.getValue());
++				AtomizedNDD.deref(h.mol);
+ 				h.mol = ret.getValue();
+-				AtomizedNDD.deref(old);
+ 			}
+ 		}
++		// SplitMap.split: an atom's holders pass to each of its parts
+ 		for (int f = 0; f < cut.size(); f++) {
+-			for (int atom : cut.get(f).keySet()) {
+-				Set<Holder> s = holders[f].get(atom);
+-				if (s != null && s.isEmpty()) holders[f].remove(atom);
++			for (Map.Entry<Integer, HashSet<Integer>> entry : cut.get(f).entrySet()) {
++				Set<Holder> s = holders[f].remove(entry.getKey());
++				if (s == null) continue;
++				for (int part : entry.getValue()) {
++					Set<Holder> copy = Collections.newSetFromMap(new IdentityHashMap<>());
++					copy.addAll(s);
++					holders[f].put(part, copy);
++				}
+ 			}
+ 		}
+ 	}

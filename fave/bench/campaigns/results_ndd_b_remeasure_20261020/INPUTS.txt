@@ -1,0 +1,13 @@
+# Inputs, generated once for this campaign (INCREMENTAL_PLAN.md D17.3)
+# workloads: bench/campaigns/results_ndd_b_remeasure_20261020/inputs/wl_berkeley_k30 bench/wl_tum
+  488c93ebe3baeadac9765942efb1b6016d4ed7ed8a8a812917539ba981d53242  bench/campaigns/results_ndd_b_remeasure_20261020/inputs/wl_berkeley_k30/checks.json
+  1ae06620d2bb600166cd1bdd893e50eddd8be22f5f34070b2cf1c937f943e0dd  bench/campaigns/results_ndd_b_remeasure_20261020/inputs/wl_berkeley_k30/policies.json
+  f8c795129b74062fbcc110fd813336abf27f07367c94265ba28af266163f624b  bench/campaigns/results_ndd_b_remeasure_20261020/inputs/wl_berkeley_k30/routes.json
+  589928174bf3caafbe5db4da6f00aa6408594746c58defdafd0eedb81fcc0570  bench/campaigns/results_ndd_b_remeasure_20261020/inputs/wl_berkeley_k30/sources.json
+  53237121de376f3f5d65b12d62cf46958b05aa3cb46d7e7260868a62ce461970  bench/campaigns/results_ndd_b_remeasure_20261020/inputs/wl_berkeley_k30/topology.json
+  ced1366e1e7c52a554dc3f2258cae7a6674273102cb3b106c23ae69ec48473bf  bench/wl_tum/checks.json
+  e201ef0df2311476e61f8069178b5b75f07c8b7cc25ff1ac377e28be137247ce  bench/wl_tum/policies.json
+  e3d03a608ec9df2e0bda45a57967ad00825257fba34123bfce7a844313c85921  bench/wl_tum/routes.json
+  bafe597fd080bd220d88fe7dc090c4b65538761e50304efa455cb08af4f2e265  bench/wl_tum/rulesets/tum-ruleset
+  e6429ffdd237a708b242a6918f198b4c379aabdac739910796ddbd9a3bb8d994  bench/wl_tum/sources.json
+  c99ddbae78758f7edf3e534853077d27b7fce1cfa7cfd50ce6c0ce992837a04d  bench/wl_tum/topology.json

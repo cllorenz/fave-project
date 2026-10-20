@@ -1,0 +1,56 @@
+PROTOCOL -- NDD-APKeep's incremental atom bookkeeping (B), measured again on
+ingress classes (owner, 2026-10-20: "Do 1 and 2, then remeasure B on k=30 and
+wl_tum"; then "proceed in that order": classes, S4 check, integration tier, B).
+Declared before any cell runs; not edited afterwards.
+  Code: the commit of this file. APKeep's ingress classes for every build
+  and the in-process route streaming are in bebc8cba, on which the
+  integration tier's 37 APKeep/NDD modules passed (467 passed, 13 skipped);
+  this commit adds only incremental_cell.py's --ndd-collect-visited
+  passthrough.
+
+WHY
+  B (apkeep/FAVE_CHANGES.md §15) took wl_tum's build from 1,422 to 112 s
+  (results_ndd_tum_perf_20261015) and was kept at the 2-3x it cost the
+  route-heavy workloads. On wl_berkeley k = 30 it measured 5.6x the time and
+  2.7x the memory (777 s / 18.4 GB against 140 s / 6.8 GB, 2026-10-19) -- with
+  one element per ingress port, which replicated every route into ~25
+  elements and so multiplied the holders B keeps counts for, and against
+  jars without C and D as well. Both confounds are gone now.
+
+ARMS  (one JVM build each; the same Python, inputs and options otherwise)
+  B      HEAD's jars (apkeep/target, ndd/target), B as the default.
+  noB    HEAD with only NddPorts.setMolecule and splitHolders as before
+         63728ebd (the full atom-set diff), C and D kept: a worktree build
+         (its own target/, the main tree's NDD jar copied in), loaded by
+         FAVE_APKEEP_JAR; its jar hash is stamped by the cell. The patch
+         is noB.patch (on 44e62fe4, whose Java is HEAD's); its jar's sha256
+         150a935a61ba0eca884e0facef219014737ce909827d06a43879d5f21ee52cb7
+         (HEAD's: 149b0cc8cd5fd84eae9397634457c0e54e24ce4f5e39ff88d68ca1ea2f1f0e21).
+  noB+A  noB with the authors' collectAtoms visiting each node once
+         (--ndd-collect-visited, through incremental_cell.py), the option
+         that took wl_tum to 474 s without B.
+
+CELLS  bench/incremental_cell.py --engine ndd-apkeep --stream z, alone and
+  serially, V5's limit class (32 GB, 2 GB floor), 12 h wall; each arm on:
+    wl_berkeley k = 30 (inputs generated into inputs/ by campaign_inputs.py,
+      hashed in INPUTS.txt), 520 checks;
+    wl_tum (bench/wl_tum, the policy model), 8,497 checks.
+  Six cells, one repetition (indicative, limit_class dev). Measured:
+  t_load_s, t_build_s, t_check_s, peak RSS per phase, live heap, verdicts.
+
+PREDICTIONS
+  R1  All six cells answer, and each workload's three arms give the same
+      verdicts (wl_berkeley k = 30: 0 of 520 violated).
+  R2  wl_tum: B's t_build_s is at most a third of noB's.
+  R3  wl_berkeley k = 30: B's t_build_s + t_check_s is between 1.2x and 3x
+      noB's (5.6x per port; 2-3x on wl_airtel1 in the calibration).
+  R4  wl_berkeley k = 30: B's peak RSS is below 12 GB (18.4 GB per port).
+  R5  noB+A is within 20 % of noB on wl_berkeley k = 30 (A acts where
+      molecules share nodes, i.e. on wl_tum's multi-field filters, not on
+      single-field routes).
+
+WHAT IT DECIDES (for the owner)
+  If B costs wl_berkeley more than it saves wl_tum relative to each
+  workload's from-zero cost, the candidates are: noB+A, or a B that keeps
+  single-node molecules as their atom set and updates holders by the moved
+  atoms alone (the fast path noted 2026-10-20). Otherwise B stays for D16.
