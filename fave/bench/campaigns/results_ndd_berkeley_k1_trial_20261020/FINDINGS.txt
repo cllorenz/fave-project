@@ -1,0 +1,45 @@
+FINDINGS -- NDD-APKeep on wl_berkeley k = 1, once (PROTOCOL.txt, declared 5d57cd97)
+Written 2026-10-20 after the cell ended.
+
+OUTCOME
+  The cell did not answer. The kernel's OOM killer ended it (exit -9) after
+  2,965 s at 61,352 MB RSS; the machine's least available memory was 658 MB.
+  The harness's RSS limit (62,246 MB) did not trip, so the cell is recorded as
+  `error`, not as a memory stop.
+
+WHERE THE MEMORY WENT
+  0-2,802 s  the load: 23 route commands (2,729 s in the aggregator), RSS
+             plateau at ~26 GB from ~1,200 s (the replay's inputs and the
+             adapter's buffers, one process in-process).
+  2,802 s    the generators' links connected; the forced build (`prepare`)
+             starts.
+  2,802-2,965 s  RSS 26 -> 61 GB in ~160 s; no `prepare` task completed.
+  The JVM's heap stayed at 3 MB after every GC throughout (gc.log, 95 full
+  pauses, the last at 2,766 s, no young collection afterwards): NDD had been
+  handed nothing. The growth is FaVe's Python translation (`_translate`,
+  apkeep/adapter.py) of the 13.4 M rules, before `init_in_memory`/`run`.
+  Hence the incremental atom bookkeeping (B) was never reached: this trial
+  says nothing about B's cost at k = 1.
+
+SCORES
+  K1  The cell does not answer: it ends by its memory limit.
+      NOT AS DECLARED. It did not answer and ran out of memory, but by the
+      OOM killer, not by its limit. Cause: the alone-cell limit is the
+      machine's RAM less 2 GB (64,294 - 2,048), while only 59,831 MB were
+      available at the start; with 30 s samples and ~7 GB per sample of
+      growth, the kernel came first.
+  K2  It stops within 3 h of its start.  HOLDS (49 min).
+
+CONSEQUENCES
+  1. The owner's trigger ("times out or runs out of memory -> look for a
+     cheaper B") fired in its letter, not in its premise: a cheaper B cannot
+     help k = 1, whose translation alone exceeds the machine. B's measured
+     cost stays the k = 30 one (777 s / 18.4 GB against 140 s / 6.8 GB).
+     For the owner.
+  2. Harness: an alone cell's limit must be the memory AVAILABLE at its
+     start less the margin, not the machine's RAM less it, or every k = 1
+     cell in D16 risks `error` where a memory stop is the result. To be fixed
+     in bench/incremental_queue.py / incremental_cell.py before D16.
+  3. In-process, the driver's inputs and the adapter's buffers share one
+     process (~26 GB at k = 1); V5's live layout split them over two. Expected
+     under D17.4, stated for the k = 1 cells' reading.
