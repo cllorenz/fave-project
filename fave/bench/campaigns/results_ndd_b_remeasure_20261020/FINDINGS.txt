@@ -45,3 +45,6 @@ FOR THE OWNER
   the fast path (single-node molecules kept as their atom set, holders
   updated by moved atoms alone) to recover wl_berkeley's 2.6x, measured the
   same way before D16 if wanted.
+
+OWNER DECISION (2026-10-20): "Keep B." B stays as it is for D16; the fast
+path is not pursued now.

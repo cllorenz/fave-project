@@ -77,7 +77,13 @@ OPEN -- for the owner
       decision to keep B rested on. Measure as it is (k = 3 and k = 1 then
       likely timeouts or memory stops for NDD-APKeep), or look for a cheaper
       B first?
+      ANSWERED 2026-10-20 (owner): "Keep B." On ingress classes B measured
+      333 s / 10.0 GB on k = 30 (noB 129 s / 8.7 GB) and 111 s on wl_tum
+      (noB 1,457 s, noB+A 483 s); results_ndd_b_remeasure_20261020. k = 1
+      ran out of memory in FaVe's translation before the engine received a
+      rule, on per-port elements (results_ndd_berkeley_k1_trial_20261020).
   Q2  ad6's settings: V5's (rank + cadical195, flow on wl_i2), or others?
+      ANSWERED 2026-10-20 (owner): keep ad6's V5 setting.
   Q3  The duration, ~11-18 days with phases 2-3: run as drafted, or cut
       (e.g. the B/D/E cells, or the wl_berkeley sizes) for this indicative run?
 
