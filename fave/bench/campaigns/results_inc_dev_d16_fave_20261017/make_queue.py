@@ -12,8 +12,6 @@ import csv, json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', '..'))
-from bench import cell_metrics  # noqa: E402
-MACHINE_MB = cell_metrics.machine()['ram_mb']
 CAL = os.path.join(HERE, '..', 'results_inc_dev_fave_calibration_20261016')
 OUT = os.path.join(HERE, 'queue.json')
 # included since the trial (results_inc_dev_bdd_cloud_trial_20261017, owner's
@@ -160,11 +158,13 @@ for k in (30, 10, 3):
 for e in BERKELEY:
     add_z('Z_wl_berkeley_k1_%s' % e,
           'bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k1',
-          # alone, the machine's memory less the 2 GB V5's floor keeps free
-          # is the cell's own limit: its stop is a MEMORY stop, not a machine
-          # stop (no floor: nothing else runs)
+          # alone, the memory AVAILABLE at its start less the 2 GB V5's floor
+          # keeps free is the cell's own limit: its stop is a MEMORY stop, not
+          # a machine stop (no floor: nothing else runs). The machine's RAM
+          # less 2 GB let the OOM killer come first in the k = 1 trial
+          # (results_ndd_berkeley_k1_trial_20261020/FINDINGS.txt).
           e, CAP_S / 3600, 0, alone=True,
-          **{'limit-rss': MACHINE_MB - 2048, 'memory-floor': 0},
+          **{'limit-rss-margin': 2048, 'memory-floor': 0},
           **({'ad6-grounding': 'rank', 'ad6-solver': 'cadical195'} if e == 'ad6' else {}))
 
 # declared violation counts (V5 declared these, D17.6)

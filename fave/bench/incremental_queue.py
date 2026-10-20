@@ -83,13 +83,16 @@ def command(cell: Dict[str, Any], out_dir: str, python: str) -> List[str]:
     """ The cell's command line. `mem_mb` is what the cell RESERVES in the
     queue's budget; its RSS limit is the cell's `limit-rss`, else the
     queue's (`--limit-rss`, V5's 32 GB class for the campaign, D17.5), else
-    the reservation. """
-    rss = cell.get('limit-rss', LIMITS['limit-rss'] or cell['mem_mb'])
+    the reservation. A cell with `limit-rss-margin` (one run alone) takes the
+    memory available at its start less the margin instead, and gets no
+    `--limit-rss`. """
     floor = cell.get('memory-floor', LIMITS['memory-floor'])
     argv = [python, os.path.join(HERE, 'incremental_cell.py'), cell['workload'],
             '--engine', cell['engine'], '--stream', cell['stream'],
-            '--limit-rss', str(rss),
             '--out', os.path.join(out_dir, cell['name'])]
+    if 'limit-rss-margin' not in cell:
+        rss = cell.get('limit-rss', LIMITS['limit-rss'] or cell['mem_mb'])
+        argv[7:7] = ['--limit-rss', str(rss)]
     if floor is not None:
         argv += ['--memory-floor', str(floor)]
     for key in sorted(cell):

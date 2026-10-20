@@ -41,7 +41,9 @@ WHAT IS BEING RUN  (make_queue.py writes the three queues; run.sh)
       (rank grounding and cadical195, wl_i2 flow grounding: V5's settings);
       the wl_berkeley series k = 30, 10, 3 on NetPlumber, VeriFlow-FR,
       BDD-APKeep, NDD-APKeep and ad6; k = 1 on each, ALONE on the machine
-      with its memory less 2 GB as the limit and no floor (owner: a single
+      with the memory available at its start less 2 GB as the limit and no
+      floor (incremental_cell.py --limit-rss-margin: the machine's memory
+      less 2 GB let the OOM killer come first in the k = 1 trial) (owner: a single
       run, 64 GB, 12 h; expected to run out of memory quickly);
       BDD-APKeep on wl_stanford and wl_i2 RECORDED as timeouts, not run (V5:
       no answer within 24 h).

@@ -398,7 +398,10 @@ TNSM'21 measures only build-from-zero plus one verification.
      NDD-APKeep and ad6 (VeriFlow-FR and ad6 missed V5's series only by its
      timing, 2026-09-29); **k = 1 once per engine, an exception to the 32 GB
      class (owner, 2026-10-19): the machine's memory (64 GB) and the 12 h
-     cap, each k = 1 cell alone on the machine, not repeated** -- the owner
+     cap, each k = 1 cell alone on the machine, not repeated** (its limit the
+     memory available at its start less 2 GB, `--limit-rss-margin`, since
+     2026-10-20: the RAM less 2 GB let the kernel's OOM killer come first in
+     `results_ndd_berkeley_k1_trial_20261020`) -- the owner
      expects them to run out of memory quickly (V5: NDD-Flood 44.7 GB,
      BDD-APKeep 47.4 GB). NetPlumber's k = 3 (16 h in V5) runs as a series
      cell and is recorded as a timeout when it reaches the cap. **BDD-APKeep on `wl_stanford`

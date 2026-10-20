@@ -106,6 +106,21 @@ class TestQueue(unittest.TestCase):
         self.assertEqual(limit(argv), '64000')
         self.assertEqual(argv.count('--limit-rss'), 1)
 
+    def test_an_alone_cell_takes_a_margin_not_a_limit(self):
+        """ A cell with `limit-rss-margin` gets the margin and no
+        `--limit-rss`, not even the queue's: incremental_cell.py derives its
+        limit from the memory available at its start (the k = 1 trial). """
+        saved = dict(q.LIMITS)
+        self.addCleanup(q.LIMITS.update, saved)
+        q.LIMITS.update({'limit-rss': 32768, 'memory-floor': 2000})
+        argv = q.command(_cell('k1', alone=True, **{'limit-rss-margin': 2048,
+                                                     'memory-floor': 0}),
+                         self.out, 'py')
+        self.assertNotIn('--limit-rss', argv)
+        self.assertEqual(argv[argv.index('--limit-rss-margin') + 1], '2048')
+        self.assertEqual(argv[argv.index('--memory-floor') + 1], '0')
+        self.assertNotIn('--alone', argv)
+
     def test_a_machine_stop_is_listed_not_rerun(self):
         self.assertIn('machine_stop', q.FLAGGED)
         self._result('m', 'machine_stop')

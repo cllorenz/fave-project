@@ -28,6 +28,9 @@ the three stopping rules O4 names, each stamped:
 * `--limit-wall`    the stream's wall clock (the cell's limit);
 * `--limit-rss`     summed RSS; with `--memory-floor`, the harness stops the run
                     before the kernel's OOM killer would pick a victim;
+                    `--limit-rss-margin` instead sets it, per repetition, to
+                    the memory available at the start less the margin, for a
+                    cell that runs alone (below);
 * `--limit-update`  the per-update hang guard: the child flushes a record per
                     batch, and the run is stopped when none has come for this
                     long (O4.3).
@@ -126,6 +129,28 @@ def outcome(measured, end):
     return cell_metrics.outcome(measured['status'], measured['status'] == 'completed')
 
 
+def rss_limit(args, available_mb=None):
+    """ The repetition's RSS limit in MB and what it was derived from.
+
+    A cell that runs alone may hold the whole machine, but not the machine's
+    RAM: the k = 1 trial's limit was the RAM less 2 GB (62,246 MB) while
+    59,831 MB were available at its start, so the kernel's OOM killer ended
+    it before its limit could, and a memory stop was recorded as an `error`
+    (results_ndd_berkeley_k1_trial_20261020/FINDINGS.txt). With
+    `--limit-rss-margin` the limit is what is available when the repetition
+    starts, less the margin, so the cell's own limit comes first. """
+    if args.limit_rss_margin is None:
+        return args.limit_rss, {'declared_mb': args.limit_rss}
+    if available_mb is None:
+        available_mb = cell_metrics.available_mb()
+    limit = available_mb - args.limit_rss_margin
+    if limit <= 0:
+        raise SystemExit("%d MB available, less a margin of %d MB, leaves no "
+                         "memory for the cell" % (available_mb, args.limit_rss_margin))
+    return limit, {'available_at_start_mb': available_mb,
+                   'margin_mb': args.limit_rss_margin}
+
+
 def run_repetition(args, rep):
     cell_dir = os.path.join(args.out, 'rep%02d' % rep)
     if os.path.exists(cell_dir):
@@ -134,8 +159,9 @@ def run_repetition(args, rep):
     # D17.7: a JVM engine's collections, as V5's cells record them
     gc_log = os.path.join(cell_dir, 'gc.log')
     env = {'FAVE_JVM_GC_LOG': gc_log} if args.engine in ('apkeep', 'ndd-apkeep') else {}
+    limit_rss, basis = rss_limit(args)
     measured = run_cell(
-        child_argv(args, cell_dir), env, args.limit_wall, args.limit_rss,
+        child_argv(args, cell_dir), env, args.limit_wall, limit_rss,
         args.memory_floor, args.status_every, os.path.join(cell_dir, 'cell.json'),
         stall_path=os.path.join(cell_dir, 'updates.jsonl'),
         limit_stall_s=args.limit_update)
@@ -148,7 +174,8 @@ def run_repetition(args, rep):
     record = {
         'what': 'incremental cell (INCREMENTAL_PLAN.md O3, O4)',
         **cell_metrics.limit_stamps(args.limit_class, args.limit_wall,
-                                    args.limit_rss, measured['limit_tripped']),
+                                    limit_rss, measured['limit_tripped']),
+        'limit_rss_basis': basis,
         'limit_update_s': args.limit_update,
         'memory_floor_mb': args.memory_floor,
         'repetition': rep, 'repetitions': args.repetitions,
@@ -192,6 +219,10 @@ def main(argv=None):
     parser.add_argument('--limit-wall', type=float, default=86400.0)
     parser.add_argument('--limit-rss', type=int, default=None,
                         help="MB; default: the machine's memory")
+    parser.add_argument('--limit-rss-margin', type=int, default=None,
+                        help="MB: the RSS limit is the memory available at each "
+                             "repetition's start less this (a cell run alone); "
+                             "replaces --limit-rss")
     parser.add_argument('--memory-floor', type=int, default=1024,
                         help="MB of MemAvailable below which the run is stopped")
     parser.add_argument('--limit-update', type=float, default=3600.0,
@@ -200,9 +231,14 @@ def main(argv=None):
     parser.add_argument('--repetitions', type=int, default=1)
     parser.add_argument('--out', required=True, help="the cell's directory")
     args = parser.parse_args(argv)
-    if args.limit_rss is None:
+    if args.limit_rss_margin is not None:
+        if args.limit_rss is not None:
+            parser.error("--limit-rss and --limit-rss-margin exclude each other")
+        if args.limit_class == 'v5':
+            parser.error("limit class v5 declares its RSS limit (32 GB), not a margin")
+    elif args.limit_rss is None:
         args.limit_rss = cell_metrics.machine()['ram_mb']
-    if args.limit_class == 'v5' and (args.limit_wall > 86400 or args.limit_rss > 32768):
+    if args.limit_class == 'v5' and (args.limit_wall > 86400 or (args.limit_rss or 0) > 32768):
         parser.error("limit class v5 is at most 24 h and 32 GB (MEASUREMENT_RUN_PLAN.md §2)")
     os.makedirs(args.out, exist_ok=True)
     worst = 0

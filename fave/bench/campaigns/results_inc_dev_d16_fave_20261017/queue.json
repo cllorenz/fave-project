@@ -664,7 +664,7 @@
   "limit-wall": 43200,
   "est_h": 12.0,
   "alone": true,
-  "limit-rss": 62246,
+  "limit-rss-margin": 2048,
   "memory-floor": 0
  },
  {
@@ -676,7 +676,7 @@
   "limit-wall": 43200,
   "est_h": 12.0,
   "alone": true,
-  "limit-rss": 62246,
+  "limit-rss-margin": 2048,
   "memory-floor": 0
  },
  {
@@ -688,7 +688,7 @@
   "limit-wall": 43200,
   "est_h": 12.0,
   "alone": true,
-  "limit-rss": 62246,
+  "limit-rss-margin": 2048,
   "memory-floor": 0
  },
  {
@@ -700,7 +700,7 @@
   "limit-wall": 43200,
   "est_h": 12.0,
   "alone": true,
-  "limit-rss": 62246,
+  "limit-rss-margin": 2048,
   "memory-floor": 0
  },
  {
@@ -712,7 +712,7 @@
   "limit-wall": 43200,
   "est_h": 12.0,
   "alone": true,
-  "limit-rss": 62246,
+  "limit-rss-margin": 2048,
   "memory-floor": 0,
   "ad6-grounding": "rank",
   "ad6-solver": "cadical195"
