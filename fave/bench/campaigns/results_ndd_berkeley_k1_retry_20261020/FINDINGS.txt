@@ -9,16 +9,20 @@ OUTCOME
   of 59,391 MB (61,439 MB available at its start less 2,048). The least
   available memory was 2,090 MB, and the kernel did not act.
 
-WHERE THE MEMORY WENT  (JVM uptime from gc.log, RSS from cell.status.jsonl)
-  0-~3,350 s  the load, the routes streamed: RSS rises to ~26 GB by 1,500 s
-              and stays there (26.3 GB at 3,046 s), the JVM's heap at 4 MB.
-              (The trial: 2,802 s, also ~26 GB, whole routes.json loaded.)
-  ~3,130 s    the first allocations in the JVM (humongous, 104 MB).
-  ~3,350 s    the build: RSS 30 GB at 3,351 s, 50 GB at 3,655 s, 59.7 GB at
-              the stop. The JVM's live heap after full GC rose from 3.8 GB
+WHERE THE MEMORY WENT  (seconds since the cell's start; the JVM started
+with it, so gc.log's uptime is the same clock; RSS from cell.status.jsonl)
+  0-2,713 s   the load, the routes streamed: RSS rises to ~26 GB by 1,500 s
+              and stays there, the JVM's heap at 4 MB. The generators' links
+              were connected at 2,713 s (aggregator.log, 19:17:58 against the
+              start at 18:32:45). (The trial: 2,802 s, also ~26 GB, whole
+              routes.json loaded.)
+  2,713-~3,130 s  FaVe's translation: RSS 26.1 -> ~27 GB, the JVM idle.
+  ~3,130 s    NDD's build starts: the first allocations in the JVM
+              (humongous, 104 MB). RSS 30 GB at 3,351 s, 50 GB at 3,655 s,
+              59.7 GB at the stop. The JVM's live heap after full GC rose from 3.8 GB
               (3,444 s) to 9.2 GB (3,980 s), while its committed heap grew to
-              41.2 GB (Xmx 56 GB). NDD processed 7.4 M rule updates
-              (APKeep's Evaluator, one line per 100,000, cell.stdout).
+              41.2 GB (Xmx 56 GB). NDD processed 7.4 M rule updates in
+              ~860 s (APKeep's Evaluator, one line per 100,000, cell.stdout).
   Hence the translation completed this time, and the stop came in NDD's
   build. At the stop the JVM's committed heap was about 4.5x its live data.
 
@@ -34,7 +38,8 @@ READING
      26 to 61 GB is gone, and NDD received rules.
   2. Route streaming did not lower the load's plateau (~26 GB in both runs),
      so the plateau is the FaVe model and the adapter's buffers, not the
-     parsed routes.json. The load took ~550 s longer streamed.
+     parsed routes.json. The load took ~90 s less streamed (2,713 s against
+     2,802 s). The translation took ~420 s and ~1 GB on classes.
   3. The binding memory was the JVM's committed heap, not its live data: with
      a 56 GB cap G1 grew the heap rather than collecting. Live data at the
      stop (9.2 GB) plus the Python side (~26 GB) was ~35 GB.
