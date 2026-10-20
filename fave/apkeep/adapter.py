@@ -824,17 +824,22 @@ class APKeepAdapter(AbstractVerificationEngine):
         #: tests: after every FIB-path update, check it against the full
         #: translation (`_check_fib_update`)
         self.verify_fib_path = False
-        # The element structure is independent of the rules, because APKeep
-        # creates its elements once (upstream `Network.initializeNetwork`) and
-        # a model built from zero is also the one updates go to (owner,
-        # 2026-10-19: one build serves the from-zero and the incremental
-        # measurement): an ingress-qualified device is one element per
-        # ingress PORT, and every later translation reuses that split
-        # (`_frozen_split`); an IPv6 router stays one (`_frozen_ipv6`).
-        # Retired 2026-10-19, as rule-dependent structure an update could
-        # invalidate: ports grouped into classes with the same rules (cost of
-        # per port: wl_up +35 s, NDD wl_airtel2 +10 s) and pass-through
-        # elision (wl_up +194 s);
+        # The element structure is fixed at the build, because APKeep creates
+        # its elements once (upstream `Network.initializeNetwork`) and a model
+        # built from zero is also the one updates go to (owner, 2026-10-19:
+        # one build serves the from-zero and the incremental measurement): an
+        # ingress-qualified device is one element per CLASS of ingress ports
+        # with the same rules in the initial model, and every later
+        # translation reuses that split (`_frozen_split`); an IPv6 router
+        # stays one (`_frozen_ipv6`). A rule of the initial model holds at a
+        # union of whole classes by construction, so deleting and re-adding
+        # such rules (S1, S2) and links (S3) never needs another element; a
+        # NEW rule that holds at part of a class is refused
+        # (`_holds_at_class`). One element per port (2026-10-19) replicated
+        # every route into every port's element -- wl_berkeley k = 300: 573
+        # elements and 1.3 M rules against 92 and 113 k, build 81 s against
+        # 17 s (owner, 2026-10-20: classes again, for every build).
+        # Pass-through elision stays retired (wl_up +194 s);
         # bench/campaigns/results_apkeep_structure_cost_20261018/FINDINGS.md.
         self._frozen_split: Optional[Dict[str, Dict[str, Set[str]]]] = None
         #: the IPv6 routers of the build, which stay dst-LPM FilterElements
@@ -1591,6 +1596,86 @@ class APKeepAdapter(AbstractVerificationEngine):
         return '%s%s%s' % (device, self.INGRESS_CLASS_SEP,
                            min(ports, key=lambda p: (len(p), p)))
 
+    def _device_tokens(
+            self, device: str, fwd_rules: List[str],
+    ) -> List[Tuple[Any, Optional[FrozenSet[str]]]]:
+        """ Everything that forwards at `device`, each with where it holds.
+
+        BOTH stores, because a device's forwarding can live in either and a
+        split that saw only one would drop the other. `+ fwd` strings become a
+        `ForwardElement`; `_router_fib` entries become a dst-LPM
+        `FilterElement` -- and neither element type carries an ingress port, so
+        both have to be split the same way.
+
+        Each FaVe rule is its own token, with its OWN ingress ports (its
+        `_fwd_table` row), and the strings it translates to are counted
+        beside it. A string two rules share holds at the union of their
+        ports (`_emit_fwd`), so classes made from the strings alone could
+        put two ports together that one of the rules separates: deleting the
+        other rule then leaves a string at part of a class, which the frozen
+        structure must refuse (`_holds_at_class`) -- measured on wl_airtel1's
+        S2. Made from the rules, every rule of the initial model holds at
+        whole classes, and so does every string any subset of them makes.
+        """
+        tokens: List[Tuple[Any, Optional[FrozenSet[str]]]] = [
+            (('fwd', rule), self._fwd_ingress.get(rule))
+            for rule in fwd_rules if rule.split()[2] == device
+        ]
+        tokens.extend(
+            (('row', i), frozenset(row['in_ports']) or None)
+            for i, row in enumerate((self._fwd_table or {}).get(device, []))
+        )
+        tokens.extend(
+            (('fib', entry[:3]), entry[3])
+            for entry in self._router_fib.get(device, [])
+        )
+        return tokens
+
+    def _ingress_classes(
+            self, device: str, ingress: Set[str],
+            tokens: List[Tuple[Any, Optional[FrozenSet[str]]]],
+    ) -> Dict[str, Set[str]]:
+        """ Ingress ports grouped by the rules that apply at them.
+
+        Two ports belong together exactly when the same rules hold there, which
+        is the coarsest split that loses nothing -- a device whose rules do not
+        discriminate yields one class and is not split at all.
+        """
+        classes: Dict[frozenset, Set[str]] = {}
+        for port in ingress:
+            applying = frozenset(
+                token for token, held in tokens
+                if held is None or port in held
+            )
+            classes.setdefault(applying, set()).add(port)
+        return {self._element_name(device, ports): ports
+                for ports in classes.values()}
+
+    @staticmethod
+    def _holds_at_class(device: str, name: str, ports: Set[str],
+                        held: Optional[Set[str]]) -> bool:
+        """ Whether a rule held at `held` (None: everywhere) goes into the
+        class element `name` of `device`, whose ingress ports are `ports`.
+
+        A rule of the initial model holds at all of a class or at none of it,
+        since the classes were made from those rules. A rule that holds at
+        PART of a class -- one added by an update -- cannot be expressed: the
+        element would apply it at every port of the class, an
+        over-approximation, and APKeep cannot add the element that would
+        separate them. Refused, so an update brings it to the caller as
+        `untranslatable` instead of a wider answer.
+        """
+        if held is None:
+            return True
+        common = held & ports
+        if common and common != ports:
+            raise UntranslatedSemantics(
+                "a rule of %s holds at ingress port(s) %s of the element %s but "
+                "not at %s: the element structure, fixed at the build, cannot "
+                "separate them" % (device, ', '.join(sorted(common)), name,
+                                   ', '.join(sorted(ports - common))))
+        return bool(common)
+
     def _demux_ingress(
             self, edges: List[str], fwd_rules: List[str],
     ) -> Tuple[List[str], List[str]]:
@@ -1601,11 +1686,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         only to look the element up and then discards it, so an element is a
         function of (element, packet) and never of (element, in_port, packet).
         The semantics ARE expressible in APKeep -- just not in one element -- so
-        the adapter emits one element per ingress PORT and wires each arriving
-        link to its own. (Ports with the same rules were grouped into one
-        element per class until 2026-10-19; one per port keeps the structure
-        valid under any rule update, so a from-zero build is also the one
-        updates go to.)
+        the adapter emits one element per ingress class -- the ports at which
+        the same rules hold -- and wires the arriving links to the right one.
+        The classes are those of the build (`_frozen_split`); a later rule
+        that holds at part of one is refused (`_holds_at_class`). (One
+        element per port, 2026-10-19 to 2026-10-20, replicated every route
+        into every port's element; see `__init__`.)
 
         **This is a translation, not a model change** (owner, 2026-09-22). The
         FaVe model keeps its devices: 16 realistic switches for wl_airtel1, not
@@ -1663,10 +1749,12 @@ class APKeepAdapter(AbstractVerificationEngine):
                     "realised as a first-match FilterElement, whose rules this "
                     "pass cannot re-key; leaving it to the refusal", device)
                 continue
-            # Per port even where the rules do not discriminate yet: one
-            # update can make them.
-            split[device] = {self._element_name(device, {port}): {port}
-                             for port in arriving.get(device, set())}
+            classes = self._ingress_classes(
+                device, arriving.get(device, set()),
+                self._device_tokens(device, fwd_rules))
+            if len(classes) < 2:
+                continue                       # nothing to gain from a split
+            split[device] = classes
 
         self._split = split
         if not split:
@@ -1682,7 +1770,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             held = self._fwd_ingress.get(rule)
             tokens = rule.split()
             for name, ports in split[device].items():
-                if held is None or (held & ports):
+                if self._holds_at_class(device, name, ports, held):
                     new_rules.append(' '.join(
                         tokens[:2] + [name] + tokens[3:]))
 
@@ -1715,7 +1803,8 @@ class APKeepAdapter(AbstractVerificationEngine):
             entries = self._router_fib.pop(device, [])
             if entries:
                 for name, ports in classes.items():
-                    held = [e for e in entries if e[3] is None or (e[3] & ports)]
+                    held = [e for e in entries
+                            if self._holds_at_class(device, name, ports, e[3])]
                     if held:
                         self._router_fib[name] = held
             if device in self._ipv6_fib_devices:
@@ -3484,8 +3573,8 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def prepare_twin(self, other: 'APKeepAdapter') -> None:
         """ Make `other`, not yet built, translate with the element structure
-        THIS adapter fixed at its build: the split per ingress
-        port and the IPv6 routers of the initial model. For the from-zero
+        THIS adapter fixed at its build: the split into ingress
+        classes and the IPv6 routers of the initial model. For the from-zero
         oracle (`util.incremental.from_zero`), whose model an update stream may
         have taken where the default translation refuses. """
         other._frozen_split = self._frozen_split
@@ -3627,7 +3716,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         own -- per element of a frozen split, as `_demux_ingress` re-keys them
         -- or None if it is not such a rule: destination match only, no
         rewrite but the egress, and ingress qualification only on a device
-        split per port. """
+        split into ingress classes. """
         split = (self._frozen_split or {}).get(node)
         if rule.in_ports and split is None:
             return None
@@ -3639,7 +3728,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         for string in strings:
             tokens = string.split()
             for name, ports in split.items():
-                if held is None or (held & ports):
+                try:
+                    holds = self._holds_at_class(node, name, ports, held)
+                except UntranslatedSemantics:
+                    return None        # the full path refuses it, with the reason
+                if holds:
                     out.append(' '.join(tokens[:2] + [name] + tokens[3:]))
         return out
 
@@ -3661,8 +3754,9 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _fib_device(self, node: str, tid: str) -> bool:
         """ Whether `node`'s strings follow from its own rules alone: a plain
         FIB -- declared longest-prefix-match, one ForwardElement or a frozen
-        per-port split of it (`_frozen_split`), not an HSA stage, not a packet
-        filter or an IPv6 router (whose routing table feeds other elements). """
+        split of it into ingress classes (`_frozen_split`), not an HSA stage,
+        not a packet filter or an IPv6 router (whose routing table feeds other
+        elements). """
         if self._live is None or tid not in (node + '.1', node + '.routing'):
             return False
         if node not in self._declared_lpm or _is_staged(node):

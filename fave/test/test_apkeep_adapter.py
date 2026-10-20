@@ -35,8 +35,8 @@ import unittest
 from types import SimpleNamespace
 
 from rule.rule_model import Rule, Match, RuleField, Forward, Rewrite
-from apkeep.adapter import (APKeepAdapter, available, _lpm_destinations,
-                            _restrict_dst)
+from apkeep.adapter import (APKeepAdapter, UntranslatedSemantics, available,
+                            _lpm_destinations, _restrict_dst)
 from test.backend_gate import require_or_skip
 
 _DST = 'packet.ipv4.destination'
@@ -123,6 +123,32 @@ class TestAPKeepAdapter(unittest.TestCase):
         self.adapter.check_compliance({"probe.C": [("source.A", False, None)]})
         self.assertEqual(self.adapter.get_compliance_results(),
                          [("source.A", "probe.C", True, "")])
+
+
+class TestHoldsAtClass(unittest.TestCase):
+    """ A rule goes into an ingress-class element when it holds at all of the
+    class, not when it holds at none; at part of it, it is refused. Pure
+    Python: the static method needs no engine. """
+
+    PORTS = {'1', '2', '3'}
+
+    def holds(self, held):
+        return APKeepAdapter._holds_at_class('sw', 'sw@1', set(self.PORTS), held)
+
+    def test_everywhere_and_the_whole_class_go_in(self):
+        self.assertTrue(self.holds(None))
+        self.assertTrue(self.holds({'1', '2', '3'}))
+        self.assertTrue(self.holds({'1', '2', '3', '4'}))
+
+    def test_another_class_stays_out(self):
+        self.assertFalse(self.holds({'4', '5'}))
+        self.assertFalse(self.holds(set()))
+
+    def test_part_of_the_class_is_refused(self):
+        with self.assertRaises(UntranslatedSemantics) as ctx:
+            self.holds({'1', '4'})
+        self.assertIn('1', str(ctx.exception))
+        self.assertIn('2, 3', str(ctx.exception))
 
 
 if __name__ == '__main__':

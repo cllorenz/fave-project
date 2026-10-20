@@ -44,7 +44,11 @@ import tempfile as _tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-_APKEEP_JAR = os.path.join(_REPO_ROOT, "apkeep", "target", "apkeep-1.0.0.jar")
+# FAVE_APKEEP_JAR loads another build of the jar, for variant probes (e.g.,
+# an engine change measured against HEAD); the provenance stamp hashes the
+# jar actually loaded.
+_APKEEP_JAR = (os.environ.get("FAVE_APKEEP_JAR")
+               or os.path.join(_REPO_ROOT, "apkeep", "target", "apkeep-1.0.0.jar"))
 # The NDD engine (apkeep/lib_ndd.py) shares this process-global JVM; put its jar
 # on the classpath too when present so a single process can drive either engine
 # (the exactness gate runs BDD + NDD tests together). Both jars vendor jdd.bdd.*;

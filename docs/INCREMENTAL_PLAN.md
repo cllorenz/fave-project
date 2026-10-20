@@ -307,11 +307,19 @@ TNSM'21 measures only build-from-zero plus one verification.
   compliance once, measured and documented as the from-zero campaign does,
   and the update stream continues from that state. The differences are
   settled one after another:
-  1. *Shared structure* (2026-10-19): APKeep builds one element per ingress
-     port and elides no pass-through filter, for every build -- the from-zero
-     model is the one updates go to (`d4172206`; cost in
-     `results_apkeep_structure_cost_20261018/FINDINGS.md`). Demultiplexing
-     and proper IPv6 handling stay.
+  1. *Shared structure* (2026-10-19, revised 2026-10-20): APKeep elides no
+     pass-through filter and fixes its element structure at the build, for
+     every build -- the from-zero model is the one updates go to
+     (`d4172206`; cost in `results_apkeep_structure_cost_20261018/FINDINGS.md`).
+     Demultiplexing and proper IPv6 handling stay. The structure was one
+     element per ingress port from 2026-10-19; since 2026-10-20 (owner) it is
+     one element per ingress class again (the ports at which the same FaVe
+     rules hold, computed from each rule's own in-ports), since per-port
+     elements replicated every route (`wl_berkeley` k = 300: 573 elements,
+     1,315,466 rules to the engine, 11.3 GB; classes: 92, 112,517, 7.1 GB;
+     `results_ndd_berkeley_k1_trial_20261020/FINDINGS.txt`). An update whose
+     rule holds at part of a class is refused as `untranslatable`; the S4
+     stream raised none in 915 edits on `wl_cloud`, `wl_up` and `wl_tum`.
   2. *The first check* (2026-10-19, option b): a plain check (tracking off,
      VeriFlow-FR's early exit on) is the from-zero measurement; a separately
      timed footprint pass (one tracked check over the same model) follows as

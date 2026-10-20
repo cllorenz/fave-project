@@ -297,9 +297,10 @@ class TestRefusals(unittest.TestCase):
     def test_a_new_element_is_refused_and_nothing_changes(self):
         # Deleting pgf's last route turns a transit packet filter terminal:
         # its pipeline's elements depend on it (APKEEP_INCREMENTAL_SCOPE.md
-        # §7). (Taking dmz's uplink down did this while ports were grouped
-        # into classes; since the split is per port, 2026-10-19, it does
-        # not.) A fresh engine: the shared one must keep its routes.
+        # §7). (Taking dmz's uplink down did this while the classes were
+        # computed again for every translation; they are frozen at the build
+        # since 2026-10-19.) A fresh engine: the shared one must keep its
+        # routes.
         from util.in_process_driver import InProcessFaVe
         engine = self.make()
         self.addCleanup(engine.release)
@@ -315,6 +316,35 @@ class TestRefusals(unittest.TestCase):
             self.assertEqual(engine.refused_updates['structural'], 1)
             if live is not None:
                 self.assertEqual(engine._live['rules'], live['rules'])
+
+    def test_a_rule_at_part_of_an_ingress_class_is_refused(self):
+        # wl_airtel1's sw.s12 has one element for its ingress ports 1202,
+        # 1203 and 1204, which every rule of the build treats alike. A new
+        # rule held at 1202 alone cannot be expressed in that element
+        # structure: refused before anything changes, never applied at all
+        # three ports.
+        import copy
+        from util.in_process_driver import InProcessFaVe
+        prefix = _workload(self, 'bench/wl_airtel1')
+        engine = self.make()
+        self.addCleanup(engine.release)
+        with InProcessFaVe(engine) as fave:
+            fave.replay(prefix)
+            engine.track_affected(True)
+            engine.check_compliance({})
+            ports = engine._frozen_split['sw.s12']['sw.s12@1202']
+            self.assertEqual(ports, {'1202', '1203', '1204'})
+            _key, rule = next((k, r) for k, r in inc.model_rules(fave)
+                              if r.node == 'sw.s12')
+            new = copy.deepcopy(rule)
+            new.idx = 999999
+            new.in_ports = ['sw.s12.1202']
+            before = list(engine._live['rules'])
+            with self.assertRaises(UpdateRefused) as ctx:
+                engine.insert_rule(new)
+            self.assertIn('cannot separate them', str(ctx.exception))
+            self.assertEqual(engine.refused_updates['untranslatable'], 1)
+            self.assertEqual(engine._live['rules'], before)
 
     def test_the_ndd_flood_engine_takes_no_updates(self):
         from util.in_process_driver import InProcessFaVe
