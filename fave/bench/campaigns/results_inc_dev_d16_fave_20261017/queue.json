@@ -551,35 +551,6 @@
   "ad6-solver": "cadical195"
  },
  {
-  "name": "Z_wl_berkeley_k3_veriflow",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k3",
-  "engine": "veriflow",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 12.0
- },
- {
-  "name": "Z_wl_berkeley_k3_ndd-apkeep",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k3",
-  "engine": "ndd-apkeep",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 12.0
- },
- {
-  "name": "Z_wl_berkeley_k3_ad6",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k3",
-  "engine": "ad6",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 12.0,
-  "ad6-grounding": "rank",
-  "ad6-solver": "cadical195"
- },
- {
   "name": "Z_wl_berkeley_k1_netplumber",
   "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k1",
   "engine": "netplumber",
@@ -1616,15 +1587,6 @@
   "files": "topology=device_topology.json,policies=probes.json",
   "ad6-grounding": "rank",
   "ad6-solver": "cadical195"
- },
- {
-  "name": "Z_wl_berkeley_k3_apkeep",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k3",
-  "engine": "apkeep",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 0.22
  },
  {
   "name": "B_wl_up_ndd-apkeep_s2_b100",

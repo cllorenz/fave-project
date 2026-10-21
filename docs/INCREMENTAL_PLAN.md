@@ -393,12 +393,11 @@ TNSM'21 measures only build-from-zero plus one verification.
   10. *The grid beyond the stream cells* (2026-10-19). **From-zero-only
      cells** (the same harness and phase timers, no footprint pass, no
      stream; ten repetitions, a stopped cell once): **ad6** on the grid's
-     seven workloads (`wl_tum` with its checks is new); the **`wl_berkeley`
-     size series** k = 3 on VeriFlow-FR, BDD-APKeep, NDD-APKeep and ad6
-     (VeriFlow-FR and ad6 missed V5's series only by its timing,
-     2026-09-29; k = 30 and 10 cut, and NetPlumber at k = 1 only, owner
-     2026-10-21: V5's 16.05 h is its indicative k = 3, and k = 1 is the
-     workload unthinned, with no effect of the rule selection); **k = 1 once per engine, an exception to the 32 GB
+     seven workloads (`wl_tum` with its checks is new); **`wl_berkeley`
+     at k = 1 only** (the size series k = 30, 10, 3 cut, owner 2026-10-21:
+     k = 1 is the workload unthinned, with no effect of the rule selection
+     to discuss; V5's series is the indicative record of the smaller
+     sizes); **k = 1 once per engine, an exception to the 32 GB
      class (owner, 2026-10-19): the machine's memory (64 GB) and the 12 h
      cap, each k = 1 cell alone on the machine, not repeated** (its limit the
      memory available at its start less 2 GB, `--limit-rss-margin`, since

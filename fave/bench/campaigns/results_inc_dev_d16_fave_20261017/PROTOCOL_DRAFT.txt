@@ -14,7 +14,7 @@ PRECONDITIONS
   1. The integration tier (FAVE_JOBS=4 FAVE_JVM_XMX=8g) has passed on the code
      named at declaration; it generates the grid workloads' inputs.
   2. prepare.sh has run: MACHINE.txt and ARTIFACTS.txt written (D17.7),
-     wl_berkeley generated per size into inputs/ (k = 3, 1), INPUTS.txt
+     wl_berkeley generated into inputs/ (k = 1), INPUTS.txt
      the sha256 of every input (D17.3).
   3. net_plumber is installed on PATH (the sandbox comes up without it), for
      the bridge's NetPlumber cells; ARTIFACTS.txt hashes it.
@@ -37,13 +37,13 @@ WHAT IS BEING RUN  (make_queue.py writes the three queues; run.sh)
       t_check_s (an untracked first check: the from-zero measurement), then
       t_footprint_s (the tracked pass, the incremental setup), memory per
       phase, a JVM's live heap, verdicts, provenance (D17.5-7).
-    From-zero-only cells (stream z, D17.10), 18: ad6 on the seven workloads
+    From-zero-only cells (stream z, D17.10), 14: ad6 on the seven workloads
       (rank grounding and cadical195, wl_i2 flow grounding: V5's settings);
-      the wl_berkeley series k = 3 on VeriFlow-FR, BDD-APKeep, NDD-APKeep
-      and ad6 (k = 30 and 10 cut, and NetPlumber at k = 1 only, owner
-      2026-10-21: V5's 16.05 h is NetPlumber's indicative k = 3, and k = 1 is
-      the workload unthinned, with no effect of the rule selection to
-      discuss); k = 1 on all five, ALONE on the machine
+      wl_berkeley at k = 1 only, on NetPlumber, VeriFlow-FR, BDD-APKeep,
+      NDD-APKeep and ad6 (the thinned sizes k = 30, 10 and 3 cut, owner
+      2026-10-21: k = 1 is the workload unthinned, with no effect of the rule
+      selection to discuss; V5's series and the 2026-10-19/21 probes are the
+      indicative numbers for the smaller sizes), each ALONE on the machine
       with the memory available at its start less 2 GB as the limit and no
       floor (incremental_cell.py --limit-rss-margin: the machine's memory
       less 2 GB let the OOM killer come first in the k = 1 trial), BDD-APKeep's
@@ -65,9 +65,9 @@ WHAT IS BEING RUN  (make_queue.py writes the three queues; run.sh)
   directories beside), cell_table.py's converged tables (D17.11).
 
 SIZE  (estimates for the queue's order, not results)
-  Phase 1: ~10.4 days if the 9 from-zero cells with no earlier data (the
-  wl_berkeley series beyond V5's cells, ad6 on wl_tum) take an hour each,
-  ~14.3 days if each reached the cap; the stream cells alone ~10.1 days.
+  Phase 1: ~10.3 days if the 6 from-zero cells with no earlier data (the
+  five wl_berkeley k = 1 cells, ad6 on wl_tum) take an hour each, ~12.7
+  days if each reached the cap; the stream cells alone ~10.1 days.
   (Before the cuts: 10.7 and 17.3 days; the queue's packing simulated, 4
   slots, 56,000 MB, longest first, alone cells exclusive.)
   Phases 2 and 3: about a day together (V5's from-zero costs; VeriFlow-FR on
@@ -96,9 +96,9 @@ OPEN -- for the owner
       ANSWERED 2026-10-20 (owner): keep ad6's V5 setting.
   Q3  The duration, ~11-18 days with phases 2-3: run as drafted, or cut
       (e.g. the B/D/E cells, or the wl_berkeley sizes) for this indicative run?
-      ANSWERED 2026-10-21 (owner): cut wl_berkeley k = 30 and k = 10 (10
-      cells) and NetPlumber's k = 3 (it runs k = 1 only); ~11.5-15.5 days
-      with phases 2-3.
+      ANSWERED 2026-10-21 (owner): cut wl_berkeley's thinned sizes k = 30,
+      10 and 3 (15 cells); wl_berkeley runs at k = 1 only, on all five
+      engines; ~11.3-13.7 days with phases 2-3.
 
 PREDICTIONS  (to be completed with the Q1-Q3 answers)
   P1  No cell ends in `error`.

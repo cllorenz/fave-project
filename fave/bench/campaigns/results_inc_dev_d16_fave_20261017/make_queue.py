@@ -147,15 +147,14 @@ BERKELEY = ('netplumber', 'veriflow', 'apkeep', 'ndd-apkeep', 'ad6')
 BERK_H = {('netplumber', 30): 0.06, ('netplumber', 10): 0.86, ('apkeep', 3): 0.22,
           ('ndd-apkeep', 30): 0.23}
 BERK_MB = {'netplumber': {30: 4096, 10: 10240, 3: 30720}}
-# k = 30 and k = 10 are cut (owner, 2026-10-21): the series is k = 3 and
-# k = 1; V5 and the 2026-10-19/21 probes hold the smaller sizes. NetPlumber
-# runs k = 1 only (owner, 2026-10-21): V5's k = 3 (16.05 h) is its indicative
-# number there, and k = 1 is the workload unthinned, with no effect of the
-# rule selection to discuss.
-for k in (3,):
+# The thinned sizes are cut (owner, 2026-10-21): wl_berkeley runs at k = 1
+# only, on every engine. k = 1 is the workload unthinned, with no effect of
+# the rule selection to discuss; V5's series (k = 30, 10, 3) and the
+# 2026-10-19/21 probes are the indicative numbers for the smaller sizes.
+# The loop stays for a size added back.
+SERIES_K: tuple = ()
+for k in SERIES_K:
     for e in BERKELEY:
-        if e == 'netplumber':
-            continue
         mb = BERK_MB.get(e, {}).get(k) or (18432 if k == 30 else 30720)
         add_z('Z_wl_berkeley_k%d_%s' % (k, e),
               'bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k%d' % k,
