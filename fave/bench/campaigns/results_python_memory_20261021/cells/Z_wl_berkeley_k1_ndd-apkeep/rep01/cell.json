@@ -1,0 +1,73 @@
+{
+ "argv": [
+  "/home/ubuntu/fave-project/fave/bench/incremental_run.py",
+  "bench/campaigns/results_ndd_berkeley_k1_trial_20261020/inputs/wl_berkeley_k1",
+  "--engine",
+  "ndd-apkeep",
+  "--stream",
+  "z",
+  "--fraction",
+  "0.2",
+  "--seed",
+  "1",
+  "--batch",
+  "1",
+  "--checks",
+  "checks.json",
+  "--cell-dir",
+  "bench/campaigns/results_python_memory_20261021/cells/Z_wl_berkeley_k1_ndd-apkeep/rep01"
+ ],
+ "completed_updates": 0,
+ "gc": {
+  "full_pauses": 655,
+  "max_heap_after_gc_mb": 31056,
+  "max_heap_committed_mb": 32768,
+  "pause_s": 513.017,
+  "pauses": 1684
+ },
+ "limit_class": "dev",
+ "limit_rss_basis": {
+  "available_at_start_mb": 61672,
+  "margin_mb": 2048
+ },
+ "limit_rss_mb": 59624,
+ "limit_tripped": "none",
+ "limit_update_s": 3600.0,
+ "limit_wall_s": 43200.0,
+ "machine": {
+  "cores": 16,
+  "kernel": "7.0.0-31-generic",
+  "node": "6c8165317109",
+  "ram_mb": 64294,
+  "swap_mb": 0
+ },
+ "measured": {
+  "deadline_stop": null,
+  "exit": 0,
+  "least_available_mb": 7190,
+  "limit_tripped": "none",
+  "memory_stop": null,
+  "orphans_killed": [],
+  "peak_rss_by_process_mb": {
+   "python3": 54406
+  },
+  "peak_rss_mb": 54406,
+  "peak_swap_by_process_mb": {
+   "python3": 0
+  },
+  "peak_swap_used_mb": 0,
+  "status": "completed",
+  "status_trail": "cell.status.jsonl",
+  "swap_pages": {
+   "pswpin": 0,
+   "pswpout": 0
+  },
+  "swap_used_at_start_mb": 0,
+  "wall_s": 7786.253
+ },
+ "memory_floor_mb": 0,
+ "outcome": "measured",
+ "repetition": 1,
+ "repetitions": 1,
+ "what": "incremental cell (INCREMENTAL_PLAN.md O3, O4)"
+}

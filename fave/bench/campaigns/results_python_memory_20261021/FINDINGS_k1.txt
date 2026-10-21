@@ -1,0 +1,45 @@
+FINDINGS -- NDD-APKeep on wl_berkeley k = 1 with the two Python levers
+(PROTOCOL_k1.txt, declared in 83121a6c). Written 2026-10-21 after the cell
+ended. The cell ran at 83121a6c; its jars are the integration tier's rebuild
+of 2026-10-21 10:32 (apkeep 6026c759..., ndd 2cf8810b...), from sources
+unchanged since 2026-10-16 (no commit to apkeep/src or ndd/src since). Inputs
+unchanged (checked by run_k1.sh). Alone; limit 59,624 MB (61,672 available
+at the start less 2,048); heap cap 32 GB.
+
+OUTCOME: THE CELL ANSWERED
+  0 of 520 violated, verdict_valid, outcome measured, no limit tripped.
+  t_load_s 2,635.1   t_build_s 5,027.8   t_check_s 0.0   wall 7,786 s (2.16 h)
+  rules to the engine 26,220,748 (estimated 26.2 M from k = 30's ratio)
+  RSS: end of load 19,097 MB; peak 54,406 MB (in the build); after the build
+  52,105 MB; least available 7,190 MB.
+  NDD's live heap after the build 17,716 MB (after full GC); the 32 GB heap
+  fully committed from ~4,200 s on.
+
+SCORES
+  P1  RSS at the end of the load at most 21 GB.  HOLDS (19.1 GB; retry ~26).
+  P2  The cell answers, 0 of 520.  HOLDS.
+  P3  Live heap after the build 14-32 GB.  HOLDS (17.7 GB; the sublinear
+      projection said ~18 GB, the linear bound 32 GB).
+  P4  Build + check at most 3 h.  HOLDS (1.40 h).
+
+READING
+  1. wl_berkeley k = 1 answers on NDD-APKeep through FaVe for the first time.
+     What made it fit: ingress classes (the translation, 2026-10-20), the
+     Python levers (the load's plateau 26 -> 19 GB) and a heap cap fitted to
+     what Python leaves (32 GB; at 56 GB the retry's G1 had committed 41 GB
+     for 9.2 GB of live data).
+  2. NDD-APKeep's live heap is sublinear in rules to the engine: 2.84 GB at
+     0.90 M, 17.7 GB at 26.2 M, exponent 0.54 over the whole range, as
+     NDD-Flood's (0.555-0.575).
+  3. The JVM spent 513 s in 1,684 pauses, 655 of them full collections
+     requested by System.gc(), with the heap at its cap for most of the
+     build. Part of the 5,028 s build is collection, not NDD's work; the
+     share is not separated here.
+  4. Margin: 7.2 GB available at the peak. A larger heap cap would not have
+     fit; a smaller one would have collected more often.
+
+FOR D16
+  The k = 1 cells' heap: D16's queue gives the JVM engines the default heap
+  (a quarter of RAM, ~15.5 GB), which is below NDD-APKeep's 17.7 GB of live
+  data at k = 1. Its k = 1 cell needs a heap cap of its own (32 GB here), and
+  BDD-APKeep's likewise, to be decided before D16 is declared.
