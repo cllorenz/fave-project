@@ -23,6 +23,7 @@
 at a repetition's start less a margin (a cell run alone). Pure; no cell runs. """
 
 import argparse
+import json
 import os
 import sys
 import tempfile
@@ -83,6 +84,36 @@ class TestArguments(unittest.TestCase):
 
     def test_limit_class_v5_takes_no_margin(self):
         self._main('--limit-class', 'v5', '--limit-rss-margin', '2048')
+
+
+class TestHeapCap(unittest.TestCase):
+    """ `--jvm-xmx` reaches the child as FAVE_JVM_XMX and the record as
+    `jvm_xmx` (D16's k = 1 cells, owner 2026-10-21). """
+
+    def _run(self, *extra):
+        out = os.path.join(tempfile.mkdtemp(), 'c')
+        seen = {}
+
+        def fake_run_cell(argv, env, *_args, **_kw):
+            seen['env'] = env
+            return {'status': 'completed', 'limit_tripped': 'none', 'wall_s': 0.0}
+        with mock.patch.object(cell, 'run_cell', side_effect=fake_run_cell), \
+                mock.patch.object(cell, 'read_lines', return_value=[]), \
+                mock.patch('builtins.print'):
+            cell.main(['bench/wl_ifi', '--engine', 'ndd-apkeep', '--stream', 'z',
+                       '--out', out] + list(extra))
+        with open(os.path.join(out, 'rep01', 'cell.json')) as raw:
+            return seen['env'], json.load(raw)
+
+    def test_the_cap_reaches_the_child_and_the_record(self):
+        env, record = self._run('--jvm-xmx', '32g')
+        self.assertEqual(env['FAVE_JVM_XMX'], '32g')
+        self.assertEqual(record['jvm_xmx'], '32g')
+
+    def test_no_cap_leaves_the_environment_alone(self):
+        env, record = self._run()
+        self.assertNotIn('FAVE_JVM_XMX', env)
+        self.assertIsNone(record['jvm_xmx'])
 
 
 if __name__ == '__main__':

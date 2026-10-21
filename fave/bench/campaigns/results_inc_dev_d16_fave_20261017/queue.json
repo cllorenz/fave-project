@@ -689,7 +689,8 @@
   "est_h": 12.0,
   "alone": true,
   "limit-rss-margin": 2048,
-  "memory-floor": 0
+  "memory-floor": 0,
+  "jvm-xmx": "32g"
  },
  {
   "name": "Z_wl_berkeley_k1_ndd-apkeep",
@@ -701,7 +702,8 @@
   "est_h": 12.0,
   "alone": true,
   "limit-rss-margin": 2048,
-  "memory-floor": 0
+  "memory-floor": 0,
+  "jvm-xmx": "32g"
  },
  {
   "name": "Z_wl_berkeley_k1_ad6",

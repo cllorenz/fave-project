@@ -165,6 +165,10 @@ for e in BERKELEY:
           # (results_ndd_berkeley_k1_trial_20261020/FINDINGS.txt).
           e, CAP_S / 3600, 0, alone=True,
           **{'limit-rss-margin': 2048, 'memory-floor': 0},
+          # the JVM engines' heap cap (owner, 2026-10-21): 32 GB, as NDD-APKeep
+          # answered k = 1 with (17.7 GB live; the default quarter of RAM is
+          # below it; results_python_memory_20261021/FINDINGS_k1.txt)
+          **({'jvm-xmx': '32g'} if e in ('apkeep', 'ndd-apkeep') else {}),
           **({'ad6-grounding': 'rank', 'ad6-solver': 'cadical195'} if e == 'ad6' else {}))
 
 # declared violation counts (V5 declared these, D17.6)

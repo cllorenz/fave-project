@@ -159,6 +159,11 @@ def run_repetition(args, rep):
     # D17.7: a JVM engine's collections, as V5's cells record them
     gc_log = os.path.join(cell_dir, 'gc.log')
     env = {'FAVE_JVM_GC_LOG': gc_log} if args.engine in ('apkeep', 'ndd-apkeep') else {}
+    if args.jvm_xmx:
+        # the heap cap, for the JVM engines; without it the JVM's default (a
+        # quarter of RAM) holds, below NDD-APKeep's live data at wl_berkeley
+        # k = 1 (results_python_memory_20261021/FINDINGS_k1.txt)
+        env['FAVE_JVM_XMX'] = args.jvm_xmx
     limit_rss, basis = rss_limit(args)
     measured = run_cell(
         child_argv(args, cell_dir), env, args.limit_wall, limit_rss,
@@ -178,6 +183,7 @@ def run_repetition(args, rep):
         'limit_rss_basis': basis,
         'limit_update_s': args.limit_update,
         'memory_floor_mb': args.memory_floor,
+        'jvm_xmx': args.jvm_xmx,
         'repetition': rep, 'repetitions': args.repetitions,
         'argv': child_argv(args, cell_dir)[1:],
         'measured': measured,
@@ -223,6 +229,9 @@ def main(argv=None):
                         help="MB: the RSS limit is the memory available at each "
                              "repetition's start less this (a cell run alone); "
                              "replaces --limit-rss")
+    parser.add_argument('--jvm-xmx', default=None,
+                        help="the JVM engines' heap cap (FAVE_JVM_XMX, e.g. 32g); "
+                             "default: the environment's, else the JVM's")
     parser.add_argument('--memory-floor', type=int, default=1024,
                         help="MB of MemAvailable below which the run is stopped")
     parser.add_argument('--limit-update', type=float, default=3600.0,

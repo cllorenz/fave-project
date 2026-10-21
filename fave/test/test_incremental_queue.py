@@ -121,6 +121,11 @@ class TestQueue(unittest.TestCase):
         self.assertEqual(argv[argv.index('--memory-floor') + 1], '0')
         self.assertNotIn('--alone', argv)
 
+    def test_a_heap_cap_is_passed_through(self):
+        argv = q.command(_cell('k1', engine='ndd-apkeep', **{'jvm-xmx': '32g'}),
+                         self.out, 'py')
+        self.assertEqual(argv[argv.index('--jvm-xmx') + 1], '32g')
+
     def test_a_machine_stop_is_listed_not_rerun(self):
         self.assertIn('machine_stop', q.FLAGGED)
         self._result('m', 'machine_stop')

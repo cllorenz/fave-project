@@ -401,7 +401,9 @@ TNSM'21 measures only build-from-zero plus one verification.
      cap, each k = 1 cell alone on the machine, not repeated** (its limit the
      memory available at its start less 2 GB, `--limit-rss-margin`, since
      2026-10-20: the RAM less 2 GB let the kernel's OOM killer come first in
-     `results_ndd_berkeley_k1_trial_20261020`) -- the owner
+     `results_ndd_berkeley_k1_trial_20261020`; the JVM engines' heap capped at
+     32 GB, owner 2026-10-21, as NDD-APKeep answered k = 1 with it,
+     `results_python_memory_20261021`) -- the owner
      expects them to run out of memory quickly (V5: NDD-Flood 44.7 GB,
      BDD-APKeep 47.4 GB). NetPlumber's k = 3 (16 h in V5) runs as a series
      cell and is recorded as a timeout when it reaches the cap. **BDD-APKeep on `wl_stanford`

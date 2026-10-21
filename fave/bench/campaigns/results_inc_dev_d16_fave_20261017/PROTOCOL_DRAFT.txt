@@ -43,7 +43,10 @@ WHAT IS BEING RUN  (make_queue.py writes the three queues; run.sh)
       BDD-APKeep, NDD-APKeep and ad6; k = 1 on each, ALONE on the machine
       with the memory available at its start less 2 GB as the limit and no
       floor (incremental_cell.py --limit-rss-margin: the machine's memory
-      less 2 GB let the OOM killer come first in the k = 1 trial) (owner: a single
+      less 2 GB let the OOM killer come first in the k = 1 trial), BDD-APKeep's
+      and NDD-APKeep's heap capped at 32 GB (owner, 2026-10-21: NDD-APKeep
+      answered k = 1 so, with 17.7 GB of live data, above the default quarter
+      of RAM; results_python_memory_20261021) (owner: a single
       run, 64 GB, 12 h; expected to run out of memory quickly);
       BDD-APKeep on wl_stanford and wl_i2 RECORDED as timeouts, not run (V5:
       no answer within 24 h).
