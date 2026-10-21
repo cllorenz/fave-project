@@ -1,0 +1,61 @@
+FINDINGS -- FaVe's Python memory on wl_berkeley, and two levers (owner,
+2026-10-21: "go with 1 and 3. Then remeasure k=30 and if the projection is
+sufficient, remeasure k=1"). Development measurements, one run each.
+
+THE NDD-FLOOD OPTIMIZATIONS (owner: "are they still active?")
+  All present and used by the k = 1 retry (results_ndd_berkeley_k1_retry_
+  20261020): interned strings in rule_model and switch (5434bf69, its 23
+  devices are switches); slotted adapter rows, interned ports, the build
+  buffers released after the build (901ec49b, the release lowers what
+  follows the build, not the build's peak); route streaming in-process
+  (44e62fe4, its inputs carry the Delta-net generator's stamp).
+
+WHERE THE MEMORY WENT  (probe/probe.py: tracemalloc, one frame, at the end
+  of the load, after the translation, after NDD's build; wl_berkeley k = 30,
+  459,202 rules, NDD-APKeep, stream z; tracemalloc's own memory inflates the
+  probe's RSS, so RSS is taken from real cells)
+                                      before (ca320311)   after
+  traced at end of load               1,865 B/rule        1,337 B/rule
+  traced after translation            2,036 B/rule        1,508 B/rule
+  peak traced                         944 MB              713 MB
+    apkeep/adapter.py                 280 MB              101 MB
+    rule/rule_model.py                302 MB              250 MB
+    util/stable_index.py, json values,
+    LPM index, prefixes (unchanged)   ~210 MB             ~210 MB
+  Verdicts equal (0 of 520).
+
+THE LEVERS
+  1. Forwarding-table rows made from the FaVe rules when read (_LazyRows,
+     apkeep/adapter.py), instead of a row, a match dict and two port lists
+     per rule kept from capture to build: -390 B/rule. Per-element strings
+     at capture were not done: the ingress classes depend on which ports
+     receive links, which arrive after the routes, and they would save
+     ~100 B/rule.
+  3. __slots__ on Rule, RuleField, RuleAction (Forward, Rewrite, Miss) and
+     Match: -120 B/rule (micro: 679 -> 559 B for a one-field forward rule;
+     Python 3.12's compact instance dicts already took most of a dict's
+     cost, so less than the 150-250 B estimated).
+  (2, a hashed stable-index key, ~250 B/rule: not taken, owner.)
+
+k = 30 THROUGH A REAL CELL  (cells/, against results_ndd_b_remeasure_20261020's B cell)
+                          before      after
+  RSS at end of load      980 MB      765 MB   (-22 %)
+  peak RSS                10,004 MB   8,355 MB
+  t_load_s                29.5        31.0
+  t_build_s               333.1       342.3    (+3 %: the rows made as read)
+  NDD live heap           2,840 MB    2,838 MB
+  violated                0 of 520    0 of 520, identical verdict maps
+
+PROJECTION FOR k = 1  (13,402,846 rules, ~26.2 M rules to the engine at
+  k = 30's 1.96 per rule)
+  Python side: 1,508-1,627 B/rule traced -> ~20-23 GB (the retry: ~26 GB at
+    1,865 B/rule, i.e. RSS ~1.04x traced at that size).
+  NDD's live heap: 2.84 GB at 0.90 M rules (k = 30) and 9.2 GB at 7.4 M (the
+    retry's partial build) give an exponent of 0.557 (NDD-Flood: 0.555-0.575),
+    hence ~18 GB at 26.2 M; linear from the partial point, an upper bound:
+    ~32 GB.
+  Against the alone-cell limit (~59.4 GB): ~23 GB Python + a 32 GB heap cap
+    + ~1.5 GB off-heap fits; the central estimate leaves the heap ~1.8x its
+    live data, the upper bound does not fit. Judged sufficient to try, with
+    the heap cap fitted (the retry's 56 GB cap let G1 commit 41 GB for 9.2 GB
+    of live data).

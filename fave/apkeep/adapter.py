@@ -44,7 +44,8 @@ import logging
 import sys
 
 from types import MappingProxyType
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Set
+from typing import (Any, Callable, Dict, FrozenSet, Iterator, List, Optional,
+                    Sequence, Set, Tuple)
 
 from aggregator.abstract_engine import AbstractVerificationEngine, UpdateRefused
 from aggregator.aggregator_abstract import TraceLogger
@@ -613,9 +614,9 @@ _NO_REWRITE: Any = MappingProxyType({})
 
 
 class _FwdRow:
-    """ One buffered forwarding-table rule, as `_capture_fwd_table_rule` keeps
-    it: what a dict with the same five keys held, at a fraction of the memory
-    (no per-row dict; `rw` shared when empty). Read as `row['match']` like the
+    """ One forwarding-table rule, as `_fwd_row` makes it when a reader asks
+    (`_LazyRows`): what a dict with the same five keys held, at a fraction of
+    the memory (no per-row dict; `rw` shared when empty). Read as `row['match']` like the
     dicts it replaced, which tests still construct directly. """
 
     __slots__ = ('idx', 'ports', 'in_ports', 'match', 'rw')
@@ -633,6 +634,45 @@ class _FwdRow:
             return getattr(self, key)
         except AttributeError:
             raise KeyError(key) from None
+
+
+class _LazyRows(Sequence):
+    """ A device's forwarding-table rows, made from its FaVe rules when read.
+
+    The rows used to be built at capture and kept until the build: ~410 B
+    per rule on wl_berkeley (rows, their match dicts and port lists), the
+    largest share of the adapter's memory at the load's peak, and Python does
+    not hand freed memory back to the OS, so the engine's build never had it
+    (CLOUD_BENCH_PLAN.md §2.15; measured at k = 30, 2026-10-21). Kept here is
+    a reference per rule to the `Rule` the adapter's model snapshots hold
+    anyway, and a row is made as a reader asks for it, so the table is
+    converted per table as it streams in and never copied. A rule in a model
+    is not changed in place (the stable indexer and `update_rule` work on new
+    objects), and making a row is pure (`_fwd_row`), so a row made late is
+    the row a capture would have kept.
+
+    Read like the lists of rows it replaced, which tests still assign
+    directly: iterate, index, `len`, `sorted`, `enumerate`. """
+
+    __slots__ = ('_rules', '_make')
+
+    def __init__(self, make: Callable[[Any], '_FwdRow']) -> None:
+        self._rules: List[Any] = []
+        self._make = make
+
+    def append_rule(self, rule: Any) -> None:
+        self._rules.append(rule)
+
+    def __len__(self) -> int:
+        return len(self._rules)
+
+    def __getitem__(self, i: Any) -> Any:
+        if isinstance(i, slice):
+            return [self._make(rule) for rule in self._rules[i]]
+        return self._make(self._rules[i])
+
+    def __iter__(self) -> Iterator['_FwdRow']:
+        return (self._make(rule) for rule in self._rules)
 
 
 def _dedup(items: List[str]) -> List[str]:
@@ -960,8 +1000,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         # 'match', 'rw'}. The dst-LPM translation above throws away whatever it
         # cannot express, so the decision of WHICH element a table becomes has to
         # be made from something that still has the whole rule -- see
-        # _is_dst_lpm_table and _build_first_match_tables.
-        self._fwd_table: Dict[str, List[Dict[str, Any]]] = {}
+        # _is_dst_lpm_table and _build_first_match_tables. Made as read, from
+        # the rules themselves (`_LazyRows`); tests assign plain lists of rows.
+        self._fwd_table: Dict[str, Sequence[Any]] = {}
         # Devices whose FORWARDING table the model DECLARES longest-prefix-match
         # (TABLE_SEMANTICS_PLAN.md S2). Not used to decide the element -- the
         # shape still does that -- but to cross-check the decision, so a
@@ -1267,7 +1308,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                 # device does not change element type when its last rule is
                 # deleted -- which an update could not follow -- or before its
                 # first one arrives. Empty, both element types forward nothing.
-                self._fwd_table.setdefault(model.node, [])
+                if model.node not in self._fwd_table:
+                    self._fwd_table[model.node] = _LazyRows(self._fwd_row)
                 for rule in rules:
                     # A packet_filter device's `routing` table is NOT a plain dst-IP
                     # FIB: its egress is selected by an `out_port` MATCH field (over
@@ -1319,8 +1361,14 @@ class APKeepAdapter(AbstractVerificationEngine):
         prefix, which is the right thing for a FIB and a silent widening for a
         table that also matches a source, a protocol or a port. Keeping the rule
         as written is what lets `_build` decide, per device, which of the two a
-        table actually is.
+        table actually is. Kept as the rule itself; its row is made when read
+        (`_LazyRows`, `_fwd_row`).
         """
+        self._fwd_table[device].append_rule(rule)
+
+    def _fwd_row(self, rule: Any) -> _FwdRow:
+        """ The row of one forwarding-table rule: its index, egress and
+        ingress ports, match and rewrite, as `_FwdRow`. Pure. """
         match = {field.name: field.value for field in (rule.match or [])}
         rw = {field.name: field.value
               for action in (rule.actions or []) if isinstance(action, Rewrite)
@@ -1335,7 +1383,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             in_ports=[_split_port(p)[1] for p in (rule.in_ports or [])],
             match=match,
             rw=rw if rw else _NO_REWRITE)
-        self._fwd_table.setdefault(device, []).append(row)
+        return row
 
     def _capture_pf_rule(self, device: str, chain: str, rule: Any) -> None:
         """ Buffer one packet_filter chain rule (input/output/forward). ACCEPT is a

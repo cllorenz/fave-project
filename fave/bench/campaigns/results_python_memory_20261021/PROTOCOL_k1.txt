@@ -1,0 +1,26 @@
+PROTOCOL -- NDD-APKeep on wl_berkeley k = 1 with the two Python levers
+(owner, 2026-10-21: "go with 1 and 3. Then remeasure k=30 and if the
+projection is sufficient, remeasure k=1"). The k = 30 remeasure and the
+projection are FINDINGS.txt; this file is declared after them and before the
+k = 1 cell runs, and is not edited afterwards.
+  Code: the commit of this file (lazy forwarding-table rows, __slots__ on
+  the rule model); the full integration tier passed on it.
+
+WHAT
+  One from-zero cell, as results_ndd_berkeley_k1_retry_20261020 ran it: NDD-
+  APKeep, wl_berkeley k = 1 (the trial's inputs, checked against its
+  INPUTS.txt), stream z, alone, the RSS limit the memory available at its
+  start less 2,048 MB, no floor, 12 h wall. One change beside the code: the
+  JVM's heap cap 32 GB (FAVE_JVM_XMX=32g) instead of 56 GB, fitted to what
+  the Python side leaves (FINDINGS.txt, PROJECTION). Indicative, one run.
+
+PREDICTIONS
+  P1  The load's plateau is lower: RSS at the end of the load at most 21 GB
+      (the retry: ~26 GB).
+  P2  The cell answers: build and check complete within the limits, 0 of
+      520 violated.
+  P3  NDD's live heap after the build is between 14 and 32 GB.
+  P4  If it answers, build + check take at most 3 h.
+  If it does not answer, the stop is either the RSS limit or a JVM
+  OutOfMemoryError (live data above the 32 GB cap); which one, and the live
+  heap reached, decide what follows.

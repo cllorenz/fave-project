@@ -4287,6 +4287,13 @@ that can take k=1.*
   that mode.
 * `__slots__` on `Rule`/`Match`/`RuleField`/`Forward` (option 3, not done).
 
+*(2026-10-21, owner: levers 1 and 3 done. The adapter's forwarding-table rows
+are made from the FaVe rules when read (`_LazyRows`) instead of kept from
+capture to build, -390 B/rule, and the rule model has `__slots__`, -120 B/rule;
+wl_berkeley k = 30's RSS at the end of the load fell from 980 to 765 MB, the
+build took 3 % longer. A hashed stable-index key, ~250 B/rule, was not taken.
+`fave/bench/campaigns/results_python_memory_20261021/FINDINGS.txt`.)*
+
 **Still open, independent of the machine:** field 4 read as LPM rather than
 as the paper's random priority (owner's call); 22 carries no rule for 23's
 prefixes; the 537 s vs 288–352 s spread in k=3 rule-load time (swap ruled out

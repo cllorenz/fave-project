@@ -62,6 +62,11 @@ class RuleField(object):
     """ This class provides a model for switch rules.
     """
 
+    # __slots__ on the classes a rule is made of: a large FIB holds millions
+    # of each, and a per-object __dict__ costs more than the fields it holds
+    # (CLOUD_BENCH_PLAN.md §2.15, 2026-10-21).
+    __slots__ = ('name', 'value', 'negated')
+
     def __init__(
             self, name: str, value: FieldValue, negated: bool = False
     ) -> None:
@@ -145,6 +150,8 @@ class RuleAction(object):
     """ Abstract class for switch rule action models.
     """
 
+    __slots__ = ('name',)
+
     def __init__(self, name: str) -> None:
         self.name = name
 
@@ -164,6 +171,8 @@ class RuleAction(object):
 class Forward(RuleAction):
     """ This class provides a forward action.
     """
+
+    __slots__ = ('ports',)
 
     def __init__(self, ports: Optional[List[str]] = None) -> None:
         super(Forward, self).__init__("forward")
@@ -207,6 +216,8 @@ class Forward(RuleAction):
 class Rewrite(RuleAction):
     """ This class provides a rewrite action.
     """
+
+    __slots__ = ('rewrite',)
 
     def __init__(self, rewrite: Optional[List[RuleField]] = None) -> None:
         super(Rewrite, self).__init__("rewrite")
@@ -258,6 +269,8 @@ class Miss(RuleAction):
     """ This class provides a miss action.
     """
 
+    __slots__ = ()
+
     def __init__(self) -> None:
         super(Miss, self).__init__("miss")
 
@@ -289,6 +302,8 @@ class Miss(RuleAction):
 class Match(List[RuleField]):
     """ This class provides models for switch rule matches.
     """
+
+    __slots__ = ()
 
     def __init__(self, fields: Optional[Iterable[RuleField]] = None) -> None:
         super(Match, self).__init__(fields if fields is not None else [])
@@ -409,6 +424,9 @@ class Match(List[RuleField]):
 class Rule(object):
     """ This class provides a model for switch rules.
     """
+
+    __slots__ = ('node', 'mtype', 'tid', 'idx', 'in_ports', 'match', 'actions',
+                 'raw_line_no', 'raw_line')
 
     def __init__(
             self,
