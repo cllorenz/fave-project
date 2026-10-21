@@ -551,82 +551,6 @@
   "ad6-solver": "cadical195"
  },
  {
-  "name": "Z_wl_berkeley_k30_veriflow",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k30",
-  "engine": "veriflow",
-  "stream": "z",
-  "mem_mb": 18432,
-  "limit-wall": 43200,
-  "est_h": 12.0
- },
- {
-  "name": "Z_wl_berkeley_k30_apkeep",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k30",
-  "engine": "apkeep",
-  "stream": "z",
-  "mem_mb": 18432,
-  "limit-wall": 43200,
-  "est_h": 12.0
- },
- {
-  "name": "Z_wl_berkeley_k30_ad6",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k30",
-  "engine": "ad6",
-  "stream": "z",
-  "mem_mb": 18432,
-  "limit-wall": 43200,
-  "est_h": 12.0,
-  "ad6-grounding": "rank",
-  "ad6-solver": "cadical195"
- },
- {
-  "name": "Z_wl_berkeley_k10_veriflow",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k10",
-  "engine": "veriflow",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 12.0
- },
- {
-  "name": "Z_wl_berkeley_k10_apkeep",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k10",
-  "engine": "apkeep",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 12.0
- },
- {
-  "name": "Z_wl_berkeley_k10_ndd-apkeep",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k10",
-  "engine": "ndd-apkeep",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 12.0
- },
- {
-  "name": "Z_wl_berkeley_k10_ad6",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k10",
-  "engine": "ad6",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 12.0,
-  "ad6-grounding": "rank",
-  "ad6-solver": "cadical195"
- },
- {
-  "name": "Z_wl_berkeley_k3_netplumber",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k3",
-  "engine": "netplumber",
-  "stream": "z",
-  "mem_mb": 30720,
-  "limit-wall": 43200,
-  "est_h": 12.0
- },
- {
   "name": "Z_wl_berkeley_k3_veriflow",
   "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k3",
   "engine": "veriflow",
@@ -1383,15 +1307,6 @@
   "batch": 100
  },
  {
-  "name": "Z_wl_berkeley_k10_netplumber",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k10",
-  "engine": "netplumber",
-  "stream": "z",
-  "mem_mb": 10240,
-  "limit-wall": 43200,
-  "est_h": 0.86
- },
- {
   "name": "A_wl_tum_ndd-apkeep_s1",
   "workload": "bench/wl_tum",
   "engine": "ndd-apkeep",
@@ -1664,15 +1579,6 @@
   "est_h": 0.24,
   "checks": "../checks.json",
   "files": "topology=device_topology.json,policies=probes.json"
- },
- {
-  "name": "Z_wl_berkeley_k30_ndd-apkeep",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k30",
-  "engine": "ndd-apkeep",
-  "stream": "z",
-  "mem_mb": 18432,
-  "limit-wall": 43200,
-  "est_h": 0.23
  },
  {
   "name": "D_wl_stanford_ndd-apkeep_s2_coarse",
@@ -2175,15 +2081,6 @@
   "est_h": 0.06,
   "footprint": "coarse",
   "expect-violations": 0
- },
- {
-  "name": "Z_wl_berkeley_k30_netplumber",
-  "workload": "bench/campaigns/results_inc_dev_d16_fave_20261017/inputs/wl_berkeley_k30",
-  "engine": "netplumber",
-  "stream": "z",
-  "mem_mb": 4096,
-  "limit-wall": 43200,
-  "est_h": 0.06
  },
  {
   "name": "A_wl_airtel1_veriflow_s1",
